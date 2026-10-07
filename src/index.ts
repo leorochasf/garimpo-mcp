@@ -10,6 +10,7 @@ import { z } from "zod";
 import { Cliente, VERSAO } from "./cliente.js";
 import { acordaoNaMemoria, buscaDireta } from "./busca.js";
 import { buscaAmpla } from "./ampla.js";
+import { obterInteiroTeor, pastaPadrao } from "./inteiroTeor.js";
 import { SIGLAS, TRIBUNAIS } from "./tribunais.js";
 
 const site = new Cliente({ nome: "O JurisprudênciaIA" });
@@ -101,6 +102,30 @@ servidor.registerTool(
     const a = acordaoNaMemoria(id);
     if (!a) return erro(new Error(`O acórdão ${id} não está na memória desta sessão. Refaça a busca que o trouxe.`));
     return json(a);
+  },
+);
+
+servidor.registerTool(
+  "obter_inteiro_teor",
+  {
+    title: "Obter inteiro teor oficial",
+    description:
+      "Baixa o PDF oficial do acórdão do portal do próprio tribunal e devolve o caminho do arquivo salvo. " +
+      "Baixa do STJ, TJMG e TSE. Para STF, TJGO e demais devolve o link e explica como obter no navegador " +
+      "(o Garimpo não contorna captcha nem proteção anti-robô). Informe o id que veio na busca ou tribunal + link.",
+    inputSchema: {
+      id: z.string().optional().describe("Id do acórdão, como veio na busca (tribunal:id)"),
+      tribunal: tribunal.optional().describe("Tribunal, se informar o link em vez do id"),
+      link: z.string().url().optional().describe("Link do inteiro teor que veio na busca"),
+      pasta: z.string().optional().describe(`Pasta onde salvar o PDF (padrão: ${pastaPadrao()})`),
+    },
+  },
+  async (args) => {
+    try {
+      return json(await obterInteiroTeor(args));
+    } catch (e) {
+      return erro(e);
+    }
   },
 );
 

@@ -15,6 +15,7 @@ de quem usa.
 | `busca_direta` | Uma busca num tribunal: acórdãos (até 100) e, em lista separada, precedentes qualificados (temas, súmulas). Filtros opcionais: período, relator, órgão, classe |
 | `busca_ampla` | Várias formulações da mesma tese em um ou mais tribunais: lista única, sem repetidos, ordenada por quantas formulações acharam cada acórdão. Saída compacta (número, tribunal, data, órgão, começo da ementa, link) |
 | `obter_ementa` | Ementa inteira de um acórdão já devolvido nesta sessão, pelo id, sem nova busca no site |
+| `obter_inteiro_teor` | Baixa o PDF oficial do portal do tribunal (STJ, TJMG, TSE) e devolve o caminho do arquivo. STF, TJGO e demais: devolve o link e explica como obter no navegador |
 | `listar_tribunais` | Para cada tribunal: busca, precedentes qualificados, teto de resultados por busca e se o inteiro teor é baixado ou só linkado |
 
 ## Uso responsável (travas embutidas)
@@ -61,6 +62,9 @@ No arquivo `claude_desktop_config.json` (Configurações → Desenvolvedor → E
 }
 ```
 
+Os PDFs são salvos na pasta indicada no pedido; sem pasta, em `Garimpo/inteiro-teor` dentro da pasta do usuário
+(ou na pasta da variável de ambiente `GARIMPO_PASTA`).
+
 Reinicie o Claude e peça, por exemplo: *"Use o Garimpo para buscar no STJ acórdãos sobre responsabilidade
 civil do Estado por omissão."*
 
@@ -70,6 +74,9 @@ civil do Estado por omissão."*
 - **STJ:** a maioria dos números de processo vem sem a classe (ex.: `1.234.567/SP`).
 - **TJGO:** dados completos, mas com cerca de 2 meses de defasagem.
 - Mesma busca repetida traz o mesmo conjunto em **ordem variável** (o site reordena por IA).
+- **Inteiro teor:** STF (proteção anti-robô), TJGO (reCAPTCHA) e os demais tribunais não são baixados
+  automaticamente: o Garimpo devolve o link e explica como obter no navegador.
+- **TSE:** downloads seguidos esperam 10 s entre si (o portal recusa chamadas em sequência).
 - Não há TRFs, TCU nem tribunais de contas.
 
 ## Desenvolvimento

@@ -90,12 +90,17 @@ simultâneas sem recusa. Um 503 isolado em ~400 chamadas. O teto real **não** f
 | **STF** | `portal.stf.jus.br/jurisprudencia/obterInteiroTeor.asp?idDocumento=` → 202 (desafio AWS WAF, exige JavaScript) | só com navegador headless (redireciona para `redir.stf.jus.br/paginadorpub/...`, PDF) | link + explicação |
 | **TJGO** | `projudi.tjgo.jus.br/ConsultaJurisprudencia?PaginaAtual=239&Id_Arquivo=` → "Sem Permissão (nº 239)" | nenhum automático: a pesquisa exige reCAPTCHA e o download só vale na sessão dela | link + explicação (pesquisar pelo CNJ no portal) |
 | **TJMG** | `www5.tjmg.jus.br/jurisprudencia/relatorioEspelhoAcordao.do?inteiroTeor=true&...` | PDF direto | baixa |
-| **TSE** | `sjur-servicos.tse.jus.br/sjur-servicos/rest/download/pdf/{id}` | PDF direto; o TSE devolve "Excesso de requisições" em chamadas seguidas — espaçar | baixa, com pausa |
+| **TSE** | `sjur-servicos.tse.jus.br/sjur-servicos/rest/download/pdf/{id}` | PDF direto, mas **embrulhado num envelope multipart** (`--fronteira`, cabeçalhos `form-data`, PDF, `--fronteira--`) mesmo com `content-type: application/pdf` — é preciso desembrulhar. Em chamadas seguidas devolve "Excesso de requisições" (HTTP 200): recusou com 3 s e 8 s de intervalo, aceitou com 10 s (2026-10-07) | baixa, com pausa de 10 s |
 | TJSP, TST, TJDFT | página de login/JavaScript | não investigado | link |
 
-**STJ em 3 passos** (mesma sessão de cookies; `num_registro` e data saem do `link_pdf`):
+**STJ em 3 passos** (mesma sessão de cookies; `num_registro` e `dt_publicacao` saem do `link_pdf`), conferido em 2026-10-07:
 1. `GET https://processo.stj.jus.br/processo/revista/inteiroteor/?num_registro={reg}&dt_publicacao={DD/MM/AAAA}`
-   — a página lista documentos em `AbreDocumento('/processo/julgamento/eletronico/documento/mediado/?documento_tipo=integra&documento_sequencial={seq}&registro_numero={reg}&peticao_numero=&publicacao_data={AAAAMMDD}')`.
-2. `GET` desse caminho `mediado` (com `Referer` da página do passo 1).
-3. `GET https://processo.stj.jus.br/processo/julgamento/eletronico/documento/?documento_tipo=integra&documento_sequencial={seq}&registro_numero={reg}&publicacao_data={AAAAMMDD}` (com `Referer` do passo 2) → `application/pdf`.
-Sem o cookie da sessão o passo 3 devolve um HTML de 28 bytes.
+   — a página (ISO-8859-1) lista documentos em `AbreDocumento('...')`; o **1º** é o inteiro teor, os seguintes são
+   peças (ementa/acórdão, relatório e voto, certidão). Há **dois formatos** de caminho:
+   - julgamento eletrônico (recentes): `/processo/julgamento/eletronico/documento/mediado/?documento_tipo=integra&documento_sequencial={seq}&registro_numero={reg}&peticao_numero=&publicacao_data={AAAAMMDD}`;
+   - revista (antigos, ex. 2012): `/processo/revista/documento/mediado/?componente=ITA&sequencial={seq}&num_registro={reg}&data={AAAAMMDD}`.
+2. `GET` desse caminho `mediado` (com `Referer` da página do passo 1) → HTML com um `<iframe src=...>` que aponta o PDF:
+   - eletrônico: `https://processo.stj.jus.br/processo/julgamento/eletronico/documento/?documento_tipo=integra&...`;
+   - revista: `https://www.stj.jus.br/websecstj/cgi/revista/REJ.exe/ITA?seq={seq}&tipo=0&nreg={reg}&...&formato=PDF&salvar=false`.
+3. `GET` do `src` do iframe (com `Referer` do passo 2) → `application/pdf`.
+Sem o cookie da sessão o passo 3 devolve um HTML de 28 bytes. O Garimpo segue o iframe (vale para os dois formatos).
