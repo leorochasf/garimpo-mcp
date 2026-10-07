@@ -126,6 +126,29 @@ describe("inteiro teor — link + explicação", () => {
     expect(chamadas).toHaveLength(0);
   });
 
+  it("STF sem link_pdf: preserva link_consulta / url_acordao e os usa no link + explicação", async () => {
+    const consulta = "https://portal.stf.jus.br/processos/detalhe.asp?incidente=1";
+    const acordao = "https://portal.stf.jus.br/jurisprudencia/sjur-exemplo";
+    const busca = clienteFalso([
+      respostaJson({
+        juris: [
+          { id: "103", sigla_classe: "RE", numero_processo: "100003", texto_ementa: "EMENTA FICTÍCIA.", link_pdf: null, link_consulta: consulta },
+          { id: "104", sigla_classe: "RE", numero_processo: "100004", texto_ementa: "EMENTA FICTÍCIA.", link_pdf: null, url_acordao: acordao },
+        ],
+      }),
+    ]);
+    const r = await buscaDireta(busca.cliente, { tribunal: "stf", texto: "exemplo" });
+    expect(r.acordaos.map((a) => a.linkConsulta)).toEqual([consulta, acordao]);
+
+    const { cliente, chamadas } = clienteFalso([]);
+    for (const [id, link] of [["stf:103", consulta], ["stf:104", acordao]]) {
+      const t = await obterInteiroTeor({ id, pasta }, () => cliente);
+      expect(t).toMatchObject({ baixado: false, link });
+      if (!t.baixado) expect(t.explicacao).not.toMatch(/não trouxe link/);
+    }
+    expect(chamadas).toHaveLength(0);
+  });
+
   it("TJGO devolve link, explicação e o número CNJ para pesquisar no portal", async () => {
     const busca = clienteFalso([respostaJson(fixture("tjgo.json"))]);
     await buscaDireta(busca.cliente, { tribunal: "tjgo", texto: "exemplo" });

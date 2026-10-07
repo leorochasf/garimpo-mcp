@@ -69,10 +69,12 @@ export async function obterInteiroTeor(
   if (!info) throw new Error("Informe o id do acórdão (como veio na busca) ou o tribunal e o link.");
 
   if (info.inteiroTeor === "link") {
+    // Sem link do PDF (comum no STF), o link oficial de consulta serve para o usuário abrir no navegador.
+    const linkOficial = link ?? acordao?.linkConsulta;
     let explicacao = info.motivoLink ?? "";
     if (tribunal === "tjgo" && acordao?.numeroCnj) explicacao += ` Número CNJ para pesquisar: ${acordao.numeroCnj}.`;
-    if (!link) explicacao += " O JurisprudênciaIA não trouxe link para este acórdão.";
-    return { baixado: false, link, explicacao };
+    if (!linkOficial) explicacao += " O JurisprudênciaIA não trouxe link para este acórdão.";
+    return { baixado: false, link: linkOficial, explicacao };
   }
   if (!link) {
     return {

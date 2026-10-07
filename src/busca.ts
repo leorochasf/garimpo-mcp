@@ -20,7 +20,10 @@ export interface Acordao {
   dataJulgamento?: string;
   dataPublicacao?: string;
   ementa: string;
+  /** Link do PDF do inteiro teor (link_pdf). */
   link?: string;
+  /** Página oficial de consulta do processo/acórdão (STF: link_consulta ou url_acordao), quando há. */
+  linkConsulta?: string;
   relevancia?: number;
 }
 
@@ -175,6 +178,7 @@ function paraAcordao(tribunal: string, x: Bruto): Acordao {
     dataPublicacao: data(x.data_publicacao_extraida),
     ementa: texto(x.texto_ementa) ?? "",
     link: texto(x.link_pdf),
+    linkConsulta: texto(x.link_consulta) ?? texto(x.url_acordao),
     relevancia: numeroOuNada(x.rerank_score) ?? numeroOuNada(x.score),
   });
 }
