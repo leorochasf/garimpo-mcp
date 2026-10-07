@@ -127,4 +127,24 @@ describe("cliente — travas de uso responsável", () => {
     await cliente.requisitar("https://tse.test/b");
     expect(esperas).toEqual([3000]);
   });
+
+  it("intervalo mínimo por host vale também para chamadas concorrentes (cada uma reserva seu horário)", async () => {
+    let relogio = 1000;
+    const esperas: number[] = [];
+    const cliente = new Cliente({
+      nome: "O TSE",
+      intervaloMinimoPorHost: { "tse.test": 4000 },
+      agora: () => relogio,
+      esperar: async (ms) => {
+        esperas.push(ms);
+        await new Promise((r) => setTimeout(r, 1));
+      },
+      fetch: (async () => respostaJson({})) as typeof fetch,
+    });
+    await cliente.requisitar("https://tse.test/a");
+    relogio = 2000;
+    // Duas chamadas juntas: a 1ª sai em 5000 (espera 3000); a 2ª só em 9000 (espera 7000), nunca junto.
+    await Promise.all([cliente.requisitar("https://tse.test/b"), cliente.requisitar("https://tse.test/c")]);
+    expect(esperas.sort((x, y) => x - y)).toEqual([3000, 7000]);
+  });
 });

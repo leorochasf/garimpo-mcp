@@ -105,12 +105,12 @@ export class Cliente {
     const host = new URL(url).host;
     const intervalo = this.opcoes.intervaloMinimoPorHost?.[host];
     if (intervalo) {
+      // Reserva o horário de saída antes de esperar: quem vier depois enxerga a reserva e espera a vez dele.
       const ultima = this.ultimaPorHost.get(host);
-      if (ultima !== undefined) {
-        const falta = ultima + intervalo - this.agora();
-        if (falta > 0) await this.esperar(falta);
-      }
-      this.ultimaPorHost.set(host, this.agora());
+      const agora = this.agora();
+      const saida = ultima === undefined ? agora : Math.max(agora, ultima + intervalo);
+      this.ultimaPorHost.set(host, saida);
+      if (saida > agora) await this.esperar(saida - agora);
     }
     const headers = new Headers(init.headers);
     headers.set("User-Agent", USER_AGENT);
