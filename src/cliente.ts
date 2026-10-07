@@ -1,0 +1,155 @@
+/**
+ * Cliente HTTP com as travas de uso responsável (CLAUDE.md, regra 3):
+ * - no máximo N chamadas simultâneas (padrão 2);
+ * - em 429/503, espera e tenta UMA vez; nova recusa = para e avisa;
+ * - 403 ou desafio anti-robô = recusa imediata, sem nova tentativa e sem contorno;
+ * - User-Agent honesto identificando o Garimpo;
+ * - intervalo mínimo opcional entre chamadas ao mesmo host (ex.: TSE).
+ */
+
+export const VERSAO = "0.1.0";
+export const USER_AGENT = `Garimpo/${VERSAO} (cliente MCP local e nao oficial de pesquisa de jurisprudencia)`;
+
+/** O site ou o tribunal negou a chamada. Nunca é contornada. */
+export class RecusaError extends Error {
+  constructor(
+    message: string,
+    readonly status?: number,
+  ) {
+    super(message);
+    this.name = "RecusaError";
+  }
+}
+
+/** A resposta veio num formato que o Garimpo não reconhece. */
+export class FormatoInesperadoError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "FormatoInesperadoError";
+  }
+}
+
+export interface OpcoesCliente {
+  /** Nome de quem responde, usado nas mensagens ("o JurisprudênciaIA", "o STJ"). */
+  nome: string;
+  maxSimultaneas?: number;
+  /** Espera antes da nova tentativa quando não há Retry-After (ms). */
+  esperaPadraoMs?: number;
+  /** Teto da espera, mesmo que o servidor peça mais (ms). */
+  esperaMaximaMs?: number;
+  /** Intervalo mínimo entre chamadas ao mesmo host (ms), por host. */
+  intervaloMinimoPorHost?: Record<string, number>;
+  fetch?: typeof fetch;
+  esperar?: (ms: number) => Promise<void>;
+  agora?: () => number;
+}
+
+const dormir = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+export class Cliente {
+  private ativas = 0;
+  private fila: (() => void)[] = [];
+  private ultimaPorHost = new Map<string, number>();
+  private readonly max: number;
+  private readonly fetchFn: typeof fetch;
+  private readonly esperar: (ms: number) => Promise<void>;
+  private readonly agora: () => number;
+
+  constructor(private readonly opcoes: OpcoesCliente) {
+    this.max = opcoes.maxSimultaneas ?? 2;
+    this.fetchFn = opcoes.fetch ?? fetch;
+    this.esperar = opcoes.esperar ?? dormir;
+    this.agora = opcoes.agora ?? Date.now;
+  }
+
+  /** Faz a chamada respeitando as travas. Devolve a resposta já aceita (2xx). */
+  async requisitar(url: string, init: RequestInit = {}): Promise<Response> {
+    await this.entrar();
+    try {
+      let resposta = await this.chamar(url, init);
+      if (resposta.status === 429 || resposta.status === 503 || (await excessoDeRequisicoes(resposta))) {
+        await this.esperar(this.tempoDeEspera(resposta));
+        resposta = await this.chamar(url, init);
+        if (resposta.status === 429 || resposta.status === 503 || (await excessoDeRequisicoes(resposta))) {
+          throw new RecusaError(
+            `${this.opcoes.nome} recusou a chamada duas vezes seguidas (HTTP ${resposta.status}). ` +
+              "O Garimpo parou para não sobrecarregar o serviço. Espere alguns minutos e tente de novo.",
+            resposta.status,
+          );
+        }
+      }
+      if (resposta.status === 403 || desafioAntiRobo(resposta)) {
+        throw new RecusaError(
+          `${this.opcoes.nome} bloqueou a chamada (HTTP ${resposta.status}, proteção anti-robô ou acesso negado). ` +
+            "O Garimpo não contorna bloqueios. Se precisar do conteúdo, abra o link no navegador.",
+          resposta.status,
+        );
+      }
+      if (!resposta.ok) {
+        throw new Error(`${this.opcoes.nome} respondeu com erro HTTP ${resposta.status} para ${url}.`);
+      }
+      return resposta;
+    } finally {
+      this.sair();
+    }
+  }
+
+  private async chamar(url: string, init: RequestInit): Promise<Response> {
+    const host = new URL(url).host;
+    const intervalo = this.opcoes.intervaloMinimoPorHost?.[host];
+    if (intervalo) {
+      const ultima = this.ultimaPorHost.get(host);
+      if (ultima !== undefined) {
+        const falta = ultima + intervalo - this.agora();
+        if (falta > 0) await this.esperar(falta);
+      }
+      this.ultimaPorHost.set(host, this.agora());
+    }
+    const headers = new Headers(init.headers);
+    headers.set("User-Agent", USER_AGENT);
+    try {
+      return await this.fetchFn(url, { ...init, headers });
+    } catch (e) {
+      throw new Error(`Não foi possível falar com ${this.opcoes.nome} (${(e as Error).message}). Verifique a conexão.`);
+    }
+  }
+
+  private tempoDeEspera(resposta: Response): number {
+    const padrao = this.opcoes.esperaPadraoMs ?? 5_000;
+    const maxima = this.opcoes.esperaMaximaMs ?? 30_000;
+    const pedido = Number(resposta.headers.get("retry-after"));
+    const ms = Number.isFinite(pedido) && pedido > 0 ? pedido * 1000 : padrao;
+    return Math.min(ms, maxima);
+  }
+
+  private async entrar(): Promise<void> {
+    if (this.ativas < this.max) {
+      this.ativas++;
+      return;
+    }
+    await new Promise<void>((r) => this.fila.push(r));
+  }
+
+  private sair(): void {
+    const proximo = this.fila.shift();
+    if (proximo) proximo();
+    else this.ativas--;
+  }
+}
+
+/** Desafio anti-robô conhecido (Cloudflare "managed", AWS WAF 202). */
+function desafioAntiRobo(resposta: Response): boolean {
+  if (resposta.headers.get("cf-mitigated") === "challenge") return true;
+  if (resposta.status === 202 && resposta.headers.has("x-amzn-waf-action")) return true;
+  return false;
+}
+
+/** O TSE responde "Excesso de requisições" no corpo, às vezes com status 200. */
+async function excessoDeRequisicoes(resposta: Response): Promise<boolean> {
+  const tipo = resposta.headers.get("content-type") ?? "";
+  if (!tipo.includes("text") && !tipo.includes("json")) return false;
+  const tamanho = Number(resposta.headers.get("content-length"));
+  if (tamanho > 2_000) return false;
+  const texto = await resposta.clone().text();
+  return texto.length < 2_000 && /excesso de requisi/i.test(texto);
+}

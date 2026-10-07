@@ -1,0 +1,19 @@
+{
+ "results": [
+  {"id": "201", "texto_ementa": "PROCESSUAL CIVIL. EXEMPLO FICTÍCIO DE EMENTA DO STJ PARA TESTE.", "link_pdf": "https://scon.stj.jus.br/SCON/GetInteiroTeorDoAcordao?num_registro=202000000001&dt_publicacao=10/12/2020", "data_julgamento": "2020-12-04T00:00:00.000Z", "classe_processual": null, "numero_processo": "1.000.001/SP", "numero_processo_cnj": null, "relator": "Ministro Exemplo", "orgao_julgador": "Segunda Turma", "data_publicacao_extraida": "2020-12-10T00:00:00.000Z", "score": 18.2},
+  {"id": "202", "texto_ementa": "ADMINISTRATIVO. SEGUNDO EXEMPLO FICTÍCIO.", "link_pdf": "https://scon.stj.jus.br/SCON/GetInteiroTeorDoAcordao?num_registro=202000000002&dt_publicacao=11/12/2020", "data_julgamento": "2020-12-05T00:00:00.000Z", "classe_processual": "Recurso Especial", "numero_processo": "1.000.002/GO", "relator": "Ministra Exemplo", "orgao_julgador": "Primeira Turma", "score": 12.0}
+ ],
+ "repetitivos": [
+  {"id": "1", "numero": 1001, "orgao_julgador": "PRIMEIRA SEÇÃO", "tese_firmada": "Tese fictícia de tema repetitivo.", "link": "https://processo.stj.jus.br/repetitivos/exemplo"}
+ ],
+ "sumulas": [
+  {"id": "2", "numero": 2, "tipo": "Súmula", "enunciado": "Enunciado fictício de súmula do STJ.", "orgao_julgador": "PRIMEIRA SEÇÃO", "link_pdf": "https://scon.stj.jus.br/SCON/exemplo", "__kind": "sumula"}
+ ],
+ "puil": [],
+ "iacs": [],
+ "reranked_results": [
+  {"id": "2", "numero": 2, "enunciado": "Enunciado fictício de súmula do STJ.", "__kind": "sumula", "rerank_score": 0.47, "original_bucket": "sumulas"},
+  {"id": "202", "texto_ementa": "ADMINISTRATIVO. SEGUNDO EXEMPLO FICTÍCIO.", "numero_processo": "1.000.002/GO", "classe_processual": "Recurso Especial", "__kind": "juris", "rerank_score": 0.30, "original_bucket": "results"},
+  {"id": "201", "texto_ementa": "PROCESSUAL CIVIL. EXEMPLO FICTÍCIO DE EMENTA DO STJ PARA TESTE.", "numero_processo": "1.000.001/SP", "classe_processual": null, "__kind": "juris", "rerank_score": 0.10, "original_bucket": "results"}
+ ]
+}

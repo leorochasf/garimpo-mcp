@@ -1,0 +1,13 @@
+{
+ "juris": [
+  {"id": "101", "sigla_classe": "RE", "numero_processo": "100001", "texto_ementa": "Ementa: RECURSO EXTRAORDINÁRIO. EXEMPLO FICTÍCIO DE EMENTA DO STF PARA TESTE.", "data_julgamento": "2020-03-11T00:00:00.000Z", "classe_processual": "RECURSO EXTRAORDINÁRIO", "numero_processo_cnj": null, "relator": "RELATOR EXEMPLO", "orgao_julgador": "Tribunal Pleno", "data_publicacao_extraida": "2021-01-22T00:00:00.000Z", "link_pdf": "https://portal.stf.jus.br/jurisprudencia/obterInteiroTeor.asp?idDocumento=1", "score": 21.1, "__kind": "juris"},
+  {"id": "102", "sigla_classe": "ARE", "numero_processo": "100002", "texto_ementa": "", "data_julgamento": "2019-05-02T00:00:00.000Z", "classe_processual": "AGRAVO EM RECURSO EXTRAORDINÁRIO", "relator": "RELATOR EXEMPLO", "orgao_julgador": "Primeira Turma", "link_pdf": null, "score": 15.2, "__kind": "juris"}
+ ],
+ "rg": [
+  {"id": "9", "numero_tema": 999, "sigla_classe": "RE", "numero_processo": "100001", "descricao_tese": "Tese fictícia de repercussão geral para teste.", "url_tema": "https://portal.stf.jus.br/jurisprudenciaRepercussao/exemplo"}
+ ],
+ "sumulas": [],
+ "sumulas_vinc": [
+  {"id": 1, "numero": 1, "enunciado": "Enunciado fictício de súmula vinculante para teste."}
+ ]
+}

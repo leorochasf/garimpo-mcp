@@ -1,0 +1,34 @@
+{
+  "name": "garimpo-mcp",
+  "version": "0.1.0",
+  "description": "Servidor MCP local (stdio) de pesquisa de jurisprudência brasileira via busca direta do JurisprudênciaIA, com download de inteiro teor oficial dos tribunais. Cliente não oficial.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "garimpo-mcp": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest run",
+    "test:vivo": "vitest run tests/vivo.test.ts"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.2.0"
+  }
+}

@@ -43,6 +43,18 @@ Resposta — onde estão os acórdãos (atenção, varia):
 Precedentes qualificados em listas próprias: `repetitivos`, `sumulas`, `sumulas_vinc`, `rg` / `rg_results`,
 `puil`, `iacs`, e no TST `irrs`/`ojs`.
 
+**`reranked_results` mistura tudo** (conferido em 2026-10-07): traz acórdãos **e** precedentes qualificados
+numa lista só, cada item com `__kind` (`juris`, `sumula`, `repetitivo`, `puil`, `iac`, `rg`, `sv`) e
+`original_bucket` (a lista de origem: `results`, `juris`, `sumulas`, `rg`…). Ler essa lista como "acórdãos"
+faz súmula virar acórdão. O Garimpo usa dela só a ordem e o `rerank_score` dos itens cujo `original_bucket` é
+`results`/`juris`. Vem junto um objeto `rerank` (`applied`, `candidateCount`, `fallbackUsed`…).
+Sem os extras do tribunal (`*_limit`, `qualified_strict`), o STJ devolve ~50 súmulas e ~50 repetitivos por busca,
+pouco pertinentes; com eles, poucos e próximos da busca.
+
+STF, campos próprios do acórdão: `sigla_classe` ("RE"), `numero_processo` só com o número (ex.: "123456"),
+`link_consulta`, e, quando ligado a tema, `numero_tema`, `rg_descricao_tese`, `url_tema`, `url_acordao`.
+Item de `rg`: `numero_tema`, `descricao_tese`, `sigla_classe`, `numero_processo`, `url_tema`.
+
 Campos de um acórdão: `id`, `texto_ementa` (ementa inteira, 3–5 mil caracteres típicos), `numero_processo`,
 `numero_processo_cnj`, `classe_processual`, `relator`, `orgao_julgador`, `data_julgamento`,
 `data_publicacao_extraida`, `link_pdf`, `score`, `rerank_score`, `__kind`.
