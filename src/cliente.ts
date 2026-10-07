@@ -63,14 +63,20 @@ export class Cliente {
     this.agora = opcoes.agora ?? Date.now;
   }
 
-  /** Faz a chamada respeitando as travas. Devolve a resposta já aceita (2xx). */
+  /**
+   * Faz a chamada respeitando as travas. Devolve a resposta já aceita (2xx).
+   * A vaga de concorrência só é liberada quando o corpo da resposta é lido até o fim ou cancelado.
+   */
   async requisitar(url: string, init: RequestInit = {}): Promise<Response> {
     await this.entrar();
+    let resposta: Response | undefined;
     try {
-      let resposta = await this.chamar(url, init);
+      resposta = await this.chamar(url, init);
       this.barrarBloqueio(resposta);
       if (resposta.status === 429 || resposta.status === 503 || (await excessoDeRequisicoes(resposta))) {
-        await this.esperar(this.tempoDeEspera(resposta));
+        const espera = this.tempoDeEspera(resposta);
+        await descartar(resposta);
+        await this.esperar(espera);
         resposta = await this.chamar(url, init);
         this.barrarBloqueio(resposta);
         if (resposta.status === 429 || resposta.status === 503 || (await excessoDeRequisicoes(resposta))) {
@@ -84,10 +90,48 @@ export class Cliente {
       if (!resposta.ok) {
         throw new Error(`${this.opcoes.nome} respondeu com erro HTTP ${resposta.status} para ${url}.`);
       }
-      return resposta;
-    } finally {
+      return this.segurarVagaAteOCorpo(resposta);
+    } catch (e) {
+      if (resposta) await descartar(resposta);
       this.sair();
+      throw e;
     }
+  }
+
+  /** Embrulha o corpo: a vaga volta à fila quando ele termina, falha ou é cancelado. */
+  private segurarVagaAteOCorpo(resposta: Response): Response {
+    const original = resposta.body;
+    let liberada = false;
+    const liberar = () => {
+      if (!liberada) {
+        liberada = true;
+        this.sair();
+      }
+    };
+    if (!original) {
+      liberar();
+      return resposta;
+    }
+    const leitor = original.getReader();
+    const corpo = new ReadableStream<Uint8Array>({
+      async pull(controle) {
+        try {
+          const { done, value } = await leitor.read();
+          if (done) {
+            liberar();
+            controle.close();
+          } else controle.enqueue(value);
+        } catch (e) {
+          liberar();
+          controle.error(e);
+        }
+      },
+      async cancel(motivo) {
+        liberar();
+        await leitor.cancel(motivo);
+      },
+    });
+    return new Response(corpo, { status: resposta.status, statusText: resposta.statusText, headers: resposta.headers });
   }
 
   /** 403 ou desafio anti-robô: recusa imediata, antes de qualquer espera ou nova tentativa. */
@@ -156,6 +200,11 @@ export class Cliente {
     if (proximo) proximo();
     else this.ativas--;
   }
+}
+
+/** Cancela o corpo de uma resposta que não vai ser usada (libera a conexão). */
+async function descartar(resposta: Response): Promise<void> {
+  if (resposta.body && !resposta.bodyUsed) await resposta.body.cancel().catch(() => {});
 }
 
 /** Desafio anti-robô conhecido (Cloudflare "managed", AWS WAF 202). */

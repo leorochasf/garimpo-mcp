@@ -105,8 +105,30 @@ describe("cliente — travas de uso responsável", () => {
         return respostaJson({});
       }) as typeof fetch,
     });
-    await Promise.all(Array.from({ length: 10 }, () => cliente.requisitar("https://exemplo.test/x")));
+    await Promise.all(Array.from({ length: 10 }, () => cliente.requisitar("https://exemplo.test/x").then((r) => r.text())));
     expect(pico).toBe(2);
+  });
+
+  it("a vaga só é liberada quando o corpo da resposta é lido ou cancelado", async () => {
+    const { cliente, chamadas } = clienteFalso([respostaJson({ a: 1 }), respostaJson({ b: 2 }), respostaJson({ c: 3 })], {
+      maxSimultaneas: 1,
+    });
+    const tique = () => new Promise((r) => setTimeout(r, 5));
+
+    const a = await cliente.requisitar("https://exemplo.test/a");
+    const b = cliente.requisitar("https://exemplo.test/b");
+    await tique();
+    expect(chamadas).toHaveLength(1); // corpo de "a" ainda não lido: "b" espera
+
+    expect(await a.json()).toEqual({ a: 1 });
+    const rb = await b;
+    expect(chamadas).toHaveLength(2);
+
+    const c = cliente.requisitar("https://exemplo.test/c");
+    await tique();
+    expect(chamadas).toHaveLength(2);
+    await rb.body!.cancel();
+    expect(await (await c).json()).toEqual({ c: 3 });
   });
 
   it("respeita intervalo mínimo entre chamadas ao mesmo host", async () => {
@@ -144,7 +166,10 @@ describe("cliente — travas de uso responsável", () => {
     await cliente.requisitar("https://tse.test/a");
     relogio = 2000;
     // Duas chamadas juntas: a 1ª sai em 5000 (espera 3000); a 2ª só em 9000 (espera 7000), nunca junto.
-    await Promise.all([cliente.requisitar("https://tse.test/b"), cliente.requisitar("https://tse.test/c")]);
+    await Promise.all([
+      cliente.requisitar("https://tse.test/b").then((r) => r.text()),
+      cliente.requisitar("https://tse.test/c").then((r) => r.text()),
+    ]);
     expect(esperas.sort((x, y) => x - y)).toEqual([3000, 7000]);
   });
 });
