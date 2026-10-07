@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buscaAmpla } from "../src/ampla.js";
-import { acordaoNaMemoria } from "../src/busca.js";
-import { Cliente } from "../src/cliente.js";
+import { acordaoNaMemoria, buscaDireta } from "../src/busca.js";
+import { Cliente, RecusaError, Vagas } from "../src/cliente.js";
 import { respostaJson } from "./apoio.js";
 
 /** Acórdão fictício no formato do site. */
@@ -88,6 +88,28 @@ describe("busca ampla", () => {
     expect(r.avisos[0]).toMatch(/recusou a chamada duas vezes/);
     // 3 que deram certo + no máximo 2 buscas em andamento, cada uma com 1 nova tentativa.
     expect(estado.chamadas).toBeLessThanOrEqual(7);
+  });
+
+  it("recusa vinda de outra operação: as buscas da ampla que estavam na fila não saem", async () => {
+    let chamadas = 0;
+    const cliente = new Cliente({
+      nome: "O site",
+      vagas: new Vagas(1),
+      esperar: async () => {},
+      fetch: (async () => {
+        chamadas++;
+        return new Response("", { status: 429 });
+      }) as typeof fetch,
+    });
+    const direta = buscaDireta(cliente, { tribunal: "stj", texto: "outra operação" }).catch((x) => x);
+    const ampla = buscaAmpla(cliente, { formulacoes: ["a", "b", "c"], tribunais: ["stj"] });
+
+    expect(await direta).toBeInstanceOf(RecusaError);
+    const r = await ampla;
+    expect(r.completa).toBe(false);
+    expect(r.buscasFeitas).toBe(0);
+    expect(r.avisos[0]).toMatch(/^BUSCA INCOMPLETA: 0 de 3 buscas/);
+    expect(chamadas).toBe(2); // só a busca direta e a nova tentativa dela
   });
 
   it("saída compacta cabe numa resposta; ementa inteira sai por id, sem nova busca", async () => {

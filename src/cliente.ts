@@ -22,6 +22,9 @@ export class RecusaError extends Error {
   }
 }
 
+/** Recusa herdada: a chamada estava na fila quando o serviço recusou outra, e não saiu. */
+class RecusaPropagada extends RecusaError {}
+
 /** A resposta veio num formato que o Garimpo não reconhece. */
 export class FormatoInesperadoError extends Error {
   constructor(message: string) {
@@ -74,6 +77,9 @@ export interface OpcoesCliente {
 const dormir = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 export class Cliente {
+  /** Numeração dos pedidos, para saber quais já estavam na fila quando veio uma recusa. */
+  private pedidos = 0;
+  private recusa?: { ate: number; erro: RecusaError };
   private ultimaPorHost = new Map<string, number>();
   private readonly vagas: Vagas;
   private readonly fetchFn: typeof fetch;
@@ -92,15 +98,18 @@ export class Cliente {
    * A vaga de concorrência só é liberada quando o corpo da resposta é lido até o fim ou cancelado.
    */
   async requisitar(url: string, init: RequestInit = {}): Promise<Response> {
+    const pedido = ++this.pedidos;
     await this.vagas.entrar();
     let resposta: Response | undefined;
     try {
+      this.barrarSeJaRecusado(pedido);
       resposta = await this.chamar(url, init);
       this.barrarBloqueio(resposta);
       if (resposta.status === 429 || resposta.status === 503 || (await excessoDeRequisicoes(resposta))) {
         const espera = this.tempoDeEspera(resposta);
         await descartar(resposta);
         await this.esperar(espera);
+        this.barrarSeJaRecusado(pedido);
         resposta = await this.chamar(url, init);
         this.barrarBloqueio(resposta);
         if (resposta.status === 429 || resposta.status === 503 || (await excessoDeRequisicoes(resposta))) {
@@ -116,9 +125,20 @@ export class Cliente {
       }
       return this.segurarVagaAteOCorpo(resposta);
     } catch (e) {
+      if (e instanceof RecusaError && !(e instanceof RecusaPropagada)) this.recusa = { ate: this.pedidos, erro: e };
       if (resposta) await descartar(resposta);
       this.vagas.sair();
       throw e;
+    }
+  }
+
+  /** Pedido feito antes de uma recusa deste serviço (e ainda na fila) não sai: herda a recusa. */
+  private barrarSeJaRecusado(pedido: number): void {
+    if (this.recusa && pedido <= this.recusa.ate) {
+      throw new RecusaPropagada(
+        `Esta chamada estava na fila e não foi feita: ${this.recusa.erro.message}`,
+        this.recusa.erro.status,
+      );
     }
   }
 

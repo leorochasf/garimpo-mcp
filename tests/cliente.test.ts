@@ -128,6 +128,21 @@ describe("cliente — travas de uso responsável", () => {
     expect(pico).toBe(2);
   });
 
+  it("depois de uma recusa, chamadas que já estavam na fila do mesmo serviço não saem", async () => {
+    const recusa = () => new Response("", { status: 429 });
+    const { cliente, chamadas } = clienteFalso([recusa, recusa, respostaJson({ depois: true })], { vagas: new Vagas(1) });
+    const a = cliente.requisitar("https://exemplo.test/a").catch((x) => x);
+    const b = cliente.requisitar("https://exemplo.test/b").catch((x) => x); // na fila atrás de "a"
+    expect(await a).toBeInstanceOf(RecusaError);
+    const eb = await b;
+    expect(eb).toBeInstanceOf(RecusaError);
+    expect(eb.message).toMatch(/não foi feita/);
+    expect(chamadas.map((c) => c.url)).toEqual(["https://exemplo.test/a", "https://exemplo.test/a"]);
+
+    // Chamada nova, pedida depois da recusa, é decisão de quem pediu: sai normalmente.
+    expect(await (await cliente.requisitar("https://exemplo.test/c")).json()).toEqual({ depois: true });
+  });
+
   it("a vaga só é liberada quando o corpo da resposta é lido ou cancelado", async () => {
     const { cliente, chamadas } = clienteFalso([respostaJson({ a: 1 }), respostaJson({ b: 2 }), respostaJson({ c: 3 })], {
       vagas: new Vagas(1),
