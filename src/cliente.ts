@@ -103,15 +103,13 @@ export class Cliente {
     await this.vagas.entrar();
     let resposta: Response | undefined;
     try {
-      this.barrarSeJaRecusado(pedido);
-      resposta = await this.chamar(url, init);
+      resposta = await this.chamar(url, init, pedido);
       this.barrarBloqueio(resposta);
       if (resposta.status === 429 || resposta.status === 503 || (await excessoDeRequisicoes(resposta))) {
         const espera = this.tempoDeEspera(resposta);
         await descartar(resposta);
         await this.esperar(espera);
-        this.barrarSeJaRecusado(pedido);
-        resposta = await this.chamar(url, init);
+        resposta = await this.chamar(url, init, pedido);
         this.barrarBloqueio(resposta);
         if (resposta.status === 429 || resposta.status === 503 || (await excessoDeRequisicoes(resposta))) {
           throw new RecusaError(
@@ -199,7 +197,9 @@ export class Cliente {
     }
   }
 
-  private async chamar(url: string, init: RequestInit): Promise<Response> {
+  /** Faz um fetch. A recusa é conferida logo antes dele, depois de qualquer espera. */
+  private async chamar(url: string, init: RequestInit, pedido: number): Promise<Response> {
+    this.barrarSeJaRecusado(pedido);
     const host = new URL(url).host;
     const intervalo = this.opcoes.intervaloMinimoPorHost?.[host];
     if (intervalo) {
@@ -210,6 +210,7 @@ export class Cliente {
       this.ultimaPorHost.set(host, saida);
       if (saida > agora) await this.esperar(saida - agora);
     }
+    this.barrarSeJaRecusado(pedido);
     const headers = new Headers(init.headers);
     headers.set("User-Agent", USER_AGENT);
     try {

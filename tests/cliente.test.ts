@@ -143,6 +143,37 @@ describe("cliente — travas de uso responsável", () => {
     expect(await (await cliente.requisitar("https://exemplo.test/c")).json()).toEqual({ depois: true });
   });
 
+  it("recusa que chega enquanto outra chamada espera a pausa do host: essa chamada não sai (2 vagas)", async () => {
+    let responderA!: (r: Response) => void;
+    let fimDaPausa!: () => void;
+    const chamadas: string[] = [];
+    const cliente = new Cliente({
+      nome: "O TSE",
+      vagas: new Vagas(2),
+      intervaloMinimoPorHost: { "tse.test": 4000 },
+      agora: () => 0,
+      esperar: () => new Promise<void>((r) => (fimDaPausa = r)),
+      fetch: (async (url: string) => {
+        chamadas.push(url);
+        return chamadas.length === 1 ? new Promise<Response>((r) => (responderA = r)) : respostaJson({});
+      }) as typeof fetch,
+    });
+    const tique = () => new Promise((r) => setTimeout(r, 5));
+
+    const a = cliente.requisitar("https://tse.test/a").catch((x) => x); // sai na hora
+    const b = cliente.requisitar("https://tse.test/b").catch((x) => x); // tem vaga, mas espera a pausa
+    await tique();
+    expect(chamadas).toEqual(["https://tse.test/a"]);
+
+    responderA(new Response("", { status: 403 }));
+    expect(await a).toBeInstanceOf(RecusaError);
+    fimDaPausa();
+    const eb = await b;
+    expect(eb).toBeInstanceOf(RecusaError);
+    expect(eb.message).toMatch(/não foi feita/);
+    expect(chamadas).toEqual(["https://tse.test/a"]);
+  });
+
   it("a vaga só é liberada quando o corpo da resposta é lido ou cancelado", async () => {
     const { cliente, chamadas } = clienteFalso([respostaJson({ a: 1 }), respostaJson({ b: 2 }), respostaJson({ c: 3 })], {
       vagas: new Vagas(1),
