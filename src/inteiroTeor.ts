@@ -114,12 +114,31 @@ async function salvarSemSobrescrever(pasta: string, nome: string, pdf: Uint8Arra
   }
 }
 
-/** TJMG e TSE: o link do site já aponta para o PDF oficial. */
+/**
+ * TJMG e TSE: o link do site já aponta para o PDF oficial. Só https no host oficial; redirects seguidos
+ * um a um, cada destino validado antes de sair, com teto de saltos.
+ */
 async function baixarDireto(cliente: Cliente, link: string, host: string, sigla: string): Promise<Uint8Array> {
-  const url = new URL(link);
-  if (url.host !== host) throw new Error(`Link do ${sigla} fora do portal oficial esperado (${host}): ${link}`);
-  const r = await cliente.requisitar(url.href);
-  return exigirPdf(desembrulhar(new Uint8Array(await r.arrayBuffer())), sigla, link);
+  const oficial = (endereco: string, contexto: string) => {
+    const url = new URL(endereco);
+    if (url.protocol !== "https:" || url.host !== host) {
+      throw new Error(`${contexto} fora do portal oficial esperado (só https em ${host}): ${endereco}`);
+    }
+    return url;
+  };
+  let url = oficial(link, `Link do ${sigla}`);
+  for (let saltos = 0; ; saltos++) {
+    const r = await cliente.requisitar(url.href, { redirect: "manual" });
+    if (r.status < 300 || r.status >= 400) {
+      return exigirPdf(desembrulhar(new Uint8Array(await r.arrayBuffer())), sigla, link);
+    }
+    await r.body?.cancel();
+    const destino = r.headers.get("location");
+    if (!destino || saltos >= MAX_REDIRECTS) {
+      throw new Error(`O ${sigla} redirecionou sem destino ou vezes demais (${url.href}); nada foi salvo.`);
+    }
+    url = oficial(new URL(destino, url).href, `O ${sigla} redirecionou`);
+  }
 }
 
 /** O TSE entrega o PDF dentro de um envelope multipart ("--fronteira", cabeçalhos, PDF, "--fronteira--"). */

@@ -221,6 +221,49 @@ describe("inteiro teor — TJMG e TSE", () => {
     expect(chamadas).toHaveLength(0);
   });
 
+  it("TJMG/TSE só por https: link http é recusado antes de qualquer chamada", async () => {
+    for (const [tribunal, link] of [
+      ["tjmg", "http://www5.tjmg.jus.br/jurisprudencia/relatorioEspelhoAcordao.do?inteiroTeor=true&numero=1"],
+      ["tse", "http://sjur-servicos.tse.jus.br/sjur-servicos/rest/download/pdf/1"],
+    ]) {
+      const { cliente, chamadas } = clienteFalso([pdf()]);
+      await expect(obterInteiroTeor({ tribunal, link, pasta }, () => cliente)).rejects.toThrow(/fora do portal oficial/);
+      expect(chamadas).toHaveLength(0);
+    }
+    expect(await readdir(pasta)).toEqual([]);
+  });
+
+  it("TJMG/TSE seguem redirect passo a passo: dentro do portal por https segue; http ou outro host para sem chamar", async () => {
+    const redirect = (destino: string) => () => new Response(null, { status: 302, headers: { location: destino } });
+    const link = "https://sjur-servicos.tse.jus.br/sjur-servicos/rest/download/pdf/1";
+
+    const dentro = clienteFalso([redirect("/sjur-servicos/rest/download/pdf/1/final"), pdf()]);
+    const r = await obterInteiroTeor({ tribunal: "tse", link, pasta }, () => dentro.cliente);
+    expect(r.baixado).toBe(true);
+    expect(dentro.chamadas.map((c) => c.url)).toEqual([link, `${link}/final`]);
+    expect(dentro.chamadas.every((c) => c.init.redirect === "manual")).toBe(true);
+
+    for (const destino of [
+      "http://sjur-servicos.tse.jus.br/sjur-servicos/rest/download/pdf/1", // rebaixa para http
+      "https://outro.test/pdf/1", // sai do portal
+    ]) {
+      const fora = clienteFalso([redirect(destino), pdf()]);
+      await expect(obterInteiroTeor({ tribunal: "tse", link, pasta }, () => fora.cliente)).rejects.toThrow(
+        /fora do portal oficial/,
+      );
+      expect(fora.chamadas).toHaveLength(1);
+    }
+  });
+
+  it("TJMG/TSE: redirect sem fim para no teto de saltos, sem salvar nada", async () => {
+    const link = "https://www5.tjmg.jus.br/jurisprudencia/relatorioEspelhoAcordao.do?inteiroTeor=true&numero=1";
+    const voltaAoMesmo = () => new Response(null, { status: 302, headers: { location: link } });
+    const { cliente, chamadas } = clienteFalso(Array.from({ length: 20 }, () => voltaAoMesmo));
+    await expect(obterInteiroTeor({ tribunal: "tjmg", link, pasta }, () => cliente)).rejects.toThrow(/vezes demais/);
+    expect(chamadas).toHaveLength(6);
+    expect(await readdir(pasta)).toEqual([]);
+  });
+
   it("duas chamadas seguidas ao TSE respeitam a pausa", async () => {
     let relogio = 0;
     const esperas: number[] = [];
