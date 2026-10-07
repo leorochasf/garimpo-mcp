@@ -125,10 +125,10 @@ function desembrulhar(b: Uint8Array): Uint8Array {
  * 3. o PDF do iframe. Sem o cookie da sessão o passo 3 devolve um HTML curto.
  */
 async function baixarStj(cliente: Cliente, link: string): Promise<Uint8Array> {
-  const origem = new URL(link);
+  const origem = urlDoStj(link, "Link do STJ");
   const registro = origem.searchParams.get("num_registro");
   const data = origem.searchParams.get("dt_publicacao");
-  if (!origem.host.endsWith("stj.jus.br") || !registro || !data) {
+  if (!registro || !data) {
     throw new Error(`Link do STJ sem número de registro e data de publicação: ${link}`);
   }
   const sessao = new Sessao(cliente);
@@ -143,34 +143,58 @@ async function baixarStj(cliente: Cliente, link: string): Promise<Uint8Array> {
     );
   }
 
-  const passo2 = new URL(documento.replace(/&amp;/g, "&"), passo1).href;
+  const passo2 = urlDoStj(new URL(documento.replace(/&amp;/g, "&"), passo1).href, "O STJ apontou o documento").href;
   const r2 = await sessao.get(passo2, passo1);
   const corpo2 = new Uint8Array(await r2.arrayBuffer());
   if (ehPdf(corpo2)) return corpo2;
   const iframe = latin1(corpo2).match(/<iframe[^>]*\ssrc=['"]([^'"]+)['"]/i)?.[1];
-  const passo3 = iframe ? new URL(iframe.replace(/&amp;/g, "&"), passo2).href : passo2.replace("/mediado/", "/");
-  if (!new URL(passo3).host.endsWith("stj.jus.br")) throw new Error(`O STJ apontou o PDF para fora do portal: ${passo3}`);
+  const passo3 = urlDoStj(
+    iframe ? new URL(iframe.replace(/&amp;/g, "&"), passo2).href : passo2.replace("/mediado/", "/"),
+    "O STJ apontou o PDF",
+  ).href;
 
   const r3 = await sessao.get(passo3, passo2);
   return exigirPdf(new Uint8Array(await r3.arrayBuffer()), "STJ", passo1);
 }
 
-/** Cookies de uma sessão de download (só vivem durante ela). */
+/** Só o portal do STJ: HTTPS e host stj.jus.br ou subdomínio dele (nunca "falso-stj.jus.br"). */
+function urlDoStj(endereco: string, contexto: string): URL {
+  const url = new URL(endereco);
+  const host = url.hostname.toLowerCase();
+  if (url.protocol !== "https:" || (host !== "stj.jus.br" && !host.endsWith(".stj.jus.br"))) {
+    throw new Error(`${contexto} fora do portal oficial do STJ (só https em stj.jus.br): ${endereco}`);
+  }
+  return url;
+}
+
+const MAX_REDIRECTS = 5;
+
+/** Cookies de uma sessão de download no STJ (só vivem durante ela e só vão para o STJ). */
 class Sessao {
   private cookies = new Map<string, string>();
   constructor(private readonly cliente: Cliente) {}
 
-  async get(url: string, referer?: string): Promise<Response> {
-    const headers: Record<string, string> = {};
-    if (this.cookies.size) headers.Cookie = [...this.cookies].map(([k, v]) => `${k}=${v}`).join("; ");
-    if (referer) headers.Referer = referer;
-    const r = await this.cliente.requisitar(url, { headers });
-    for (const c of setCookies(r.headers)) {
-      const par = c.split(";")[0];
-      const i = par.indexOf("=");
-      if (i > 0) this.cookies.set(par.slice(0, i).trim(), par.slice(i + 1).trim());
+  /** GET no STJ seguindo redirects um a um: o destino de cada salto é validado antes de levar os cookies. */
+  async get(endereco: string, referer?: string): Promise<Response> {
+    let url = urlDoStj(endereco, "Endereço");
+    for (let saltos = 0; ; saltos++) {
+      const headers: Record<string, string> = {};
+      if (this.cookies.size) headers.Cookie = [...this.cookies].map(([k, v]) => `${k}=${v}`).join("; ");
+      if (referer) headers.Referer = referer;
+      const r = await this.cliente.requisitar(url.href, { headers, redirect: "manual" });
+      for (const c of setCookies(r.headers)) {
+        const par = c.split(";")[0];
+        const i = par.indexOf("=");
+        if (i > 0) this.cookies.set(par.slice(0, i).trim(), par.slice(i + 1).trim());
+      }
+      if (r.status < 300 || r.status >= 400) return r;
+      await r.body?.cancel();
+      const destino = r.headers.get("location");
+      if (!destino || saltos >= MAX_REDIRECTS) {
+        throw new Error(`O STJ redirecionou sem destino ou vezes demais (${url.href}); nada foi salvo.`);
+      }
+      url = urlDoStj(new URL(destino, url).href, "O STJ redirecionou");
     }
-    return r;
   }
 
   async texto(url: string, referer?: string): Promise<string> {

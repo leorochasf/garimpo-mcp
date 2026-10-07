@@ -94,7 +94,8 @@ export class Cliente {
   }
 
   /**
-   * Faz a chamada respeitando as travas. Devolve a resposta já aceita (2xx).
+   * Faz a chamada respeitando as travas. Devolve a resposta já aceita (2xx; ou 3xx, se o chamador pediu
+   * redirect "manual" para validar cada salto).
    * A vaga de concorrência só é liberada quando o corpo da resposta é lido até o fim ou cancelado.
    */
   async requisitar(url: string, init: RequestInit = {}): Promise<Response> {
@@ -120,7 +121,8 @@ export class Cliente {
           );
         }
       }
-      if (!resposta.ok) {
+      const redirectManual = init.redirect === "manual" && resposta.status >= 300 && resposta.status < 400;
+      if (!resposta.ok && !redirectManual) {
         throw new Error(`${this.opcoes.nome} respondeu com erro HTTP ${resposta.status} para ${url}.`);
       }
       return this.segurarVagaAteOCorpo(resposta);
