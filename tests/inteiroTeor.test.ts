@@ -159,6 +159,30 @@ describe("inteiro teor — TJMG e TSE", () => {
     if (r.baixado) expect((await readFile(r.arquivo)).toString()).toBe("%PDF-1.7\nconteudo ficticio\n%%EOF");
   });
 
+  it("dois acórdãos com o mesmo número viram dois arquivos (id no nome); conteúdo diferente nunca é sobrescrito", async () => {
+    const base = "https://www5.tjmg.jus.br/jurisprudencia/relatorioEspelhoAcordao.do?inteiroTeor=true&numero=";
+    const mesmoNumero = (id: string) => ({ id, numero_processo: "1.0000.00.000001-0/001", texto_ementa: "EMENTA FICTÍCIA.", link_pdf: `${base}${id}` });
+    const busca = clienteFalso([respostaJson({ results: [mesmoNumero("901"), mesmoNumero("902")] })]);
+    await buscaDireta(busca.cliente, { tribunal: "tjmg", texto: "exemplo" });
+
+    const conteudo = (t: string) => () => new Response(new TextEncoder().encode(`%PDF-1.7\n${t}\n%%EOF`));
+    const { cliente } = clienteFalso([conteudo("A"), conteudo("B"), conteudo("B2"), conteudo("B2")]);
+    const a = await obterInteiroTeor({ id: "tjmg:901", pasta }, () => cliente);
+    const b = await obterInteiroTeor({ id: "tjmg:902", pasta }, () => cliente);
+    // O mesmo acórdão de novo com conteúdo diferente: arquivo novo; com conteúdo igual: reaproveita.
+    const b2 = await obterInteiroTeor({ id: "tjmg:902", pasta }, () => cliente);
+    const b3 = await obterInteiroTeor({ id: "tjmg:902", pasta }, () => cliente);
+    if (!a.baixado || !b.baixado || !b2.baixado || !b3.baixado) throw new Error("deveria ter baixado");
+
+    expect(new Set([a.arquivo, b.arquivo, b2.arquivo]).size).toBe(3);
+    expect(b.arquivo).toMatch(/902/);
+    expect(b3.arquivo).toBe(b2.arquivo);
+    expect((await readdir(pasta)).sort()).toHaveLength(3);
+    expect((await readFile(a.arquivo, "latin1"))).toMatch(/\nA\n/);
+    expect((await readFile(b.arquivo, "latin1"))).toMatch(/\nB\n/);
+    expect((await readFile(b2.arquivo, "latin1"))).toMatch(/\nB2\n/);
+  });
+
   it("página de erro (HTML no lugar do PDF) nunca vira PDF falso", async () => {
     const { cliente } = clienteFalso([html("<html><body>Erro ao gerar documento</body></html>")]);
     const link = "https://www5.tjmg.jus.br/jurisprudencia/relatorioEspelhoAcordao.do?inteiroTeor=true&numero=1";

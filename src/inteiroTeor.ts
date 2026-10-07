@@ -5,7 +5,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 import { Cliente } from "./cliente.js";
@@ -90,12 +90,26 @@ export async function obterInteiroTeor(
 
   const pasta = resolve(pedido.pasta ?? pastaPadrao());
   await mkdir(pasta, { recursive: true });
-  const identificador =
-    acordao?.numero ?? pedido.id?.split(":")[1] ?? createHash("sha1").update(link).digest("hex").slice(0, 10);
-  const nome = `${tribunal}-${identificador}`.replace(/[^\w.-]+/g, "_");
-  const arquivo = join(pasta, `${nome}.pdf`);
-  await writeFile(arquivo, pdf);
+  // O número do processo não é único (dois acórdãos podem ter o mesmo): o id do documento entra no nome.
+  const idDocumento =
+    (acordao?.id ?? pedido.id)?.split(":")[1] ?? createHash("sha1").update(link).digest("hex").slice(0, 10);
+  const nome = [tribunal, acordao?.numero, idDocumento].filter(Boolean).join("-").replace(/[^\w.-]+/g, "_");
+  const arquivo = await salvarSemSobrescrever(pasta, nome, pdf);
   return { baixado: true, arquivo, bytes: pdf.length, fonte: link };
+}
+
+/** Grava sem nunca sobrescrever: mesmo conteúdo reaproveita o arquivo; conteúdo diferente ganha "-2", "-3"… */
+async function salvarSemSobrescrever(pasta: string, nome: string, pdf: Uint8Array): Promise<string> {
+  for (let n = 1; ; n++) {
+    const arquivo = join(pasta, n === 1 ? `${nome}.pdf` : `${nome}-${n}.pdf`);
+    try {
+      await writeFile(arquivo, pdf, { flag: "wx" });
+      return arquivo;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+      if (Buffer.from(pdf).equals(await readFile(arquivo))) return arquivo;
+    }
+  }
 }
 
 /** TJMG e TSE: o link do site já aponta para o PDF oficial. */
