@@ -1,7 +1,8 @@
 /**
  * Cliente HTTP com as travas de uso responsável (CLAUDE.md, regra 3):
  * - no máximo N chamadas simultâneas (padrão 2);
- * - em 429/503, espera e tenta UMA vez; nova recusa = para e avisa;
+ * - em 429/503, espera o que o servidor pediu (Retry-After) e tenta UMA vez; pedido acima do teto ou
+ *   nova recusa = para e avisa;
  * - 403 ou desafio anti-robô = recusa imediata, sem nova tentativa e sem contorno;
  * - User-Agent honesto identificando o Garimpo;
  * - intervalo mínimo opcional entre chamadas ao mesmo host (ex.: TSE).
@@ -120,12 +121,26 @@ export class Cliente {
     }
   }
 
+  /**
+   * Espera antes da nova tentativa. Retry-After vale em segundos ou em data HTTP; sem ele, o padrão.
+   * Se o servidor pedir mais que o teto, para com recusa: nunca tenta antes do que foi pedido.
+   */
   private tempoDeEspera(resposta: Response): number {
     const padrao = this.opcoes.esperaPadraoMs ?? 5_000;
     const maxima = this.opcoes.esperaMaximaMs ?? 30_000;
-    const pedido = Number(resposta.headers.get("retry-after"));
-    const ms = Number.isFinite(pedido) && pedido > 0 ? pedido * 1000 : padrao;
-    return Math.min(ms, maxima);
+    const valor = resposta.headers.get("retry-after")?.trim();
+    let ms = padrao;
+    if (valor && /^\d+$/.test(valor)) ms = Number(valor) * 1000;
+    else if (valor && Number.isFinite(Date.parse(valor))) ms = Math.max(0, Date.parse(valor) - this.agora());
+    if (ms > maxima) {
+      throw new RecusaError(
+        `${this.opcoes.nome} pediu para esperar ${Math.ceil(ms / 1000)} s antes de nova chamada (HTTP ${resposta.status}), ` +
+          `mais que o teto de ${Math.round(maxima / 1000)} s do Garimpo. O Garimpo parou em vez de tentar mais cedo. ` +
+          "Espere esse tempo e tente de novo.",
+        resposta.status,
+      );
+    }
+    return ms;
   }
 
   private async entrar(): Promise<void> {

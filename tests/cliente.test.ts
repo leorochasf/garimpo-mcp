@@ -21,6 +21,32 @@ describe("cliente — travas de uso responsável", () => {
     expect(esperas).toEqual([5000]);
   });
 
+  it("Retry-After em data HTTP: espera até a data pedida", async () => {
+    const agora = Date.parse("2026-01-01T12:00:00Z");
+    const { cliente, chamadas, esperas } = clienteFalso(
+      [
+        new Response("", { status: 503, headers: { "retry-after": "Thu, 01 Jan 2026 12:00:20 GMT" } }),
+        respostaJson({}),
+      ],
+      { agora: () => agora },
+    );
+    await cliente.requisitar("https://exemplo.test/x");
+    expect(chamadas).toHaveLength(2);
+    expect(esperas).toEqual([20_000]);
+  });
+
+  it("Retry-After acima do teto: para e avisa, nunca tenta antes do pedido", async () => {
+    const { cliente, chamadas, esperas } = clienteFalso([
+      new Response("", { status: 429, headers: { "retry-after": "120" } }),
+      respostaJson({}),
+    ]);
+    const e = await cliente.requisitar("https://exemplo.test/x").catch((x) => x);
+    expect(e).toBeInstanceOf(RecusaError);
+    expect(e.message).toMatch(/120 s/);
+    expect(chamadas).toHaveLength(1);
+    expect(esperas).toEqual([]);
+  });
+
   it("recusa dupla para e devolve mensagem clara, sem terceira tentativa", async () => {
     const { cliente, chamadas } = clienteFalso([new Response("", { status: 429 }), new Response("", { status: 503 })]);
     const e = await cliente.requisitar("https://exemplo.test/x").catch((x) => x);
