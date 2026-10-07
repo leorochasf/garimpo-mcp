@@ -13,6 +13,8 @@ de quem usa.
 | Ferramenta | O que faz |
 |---|---|
 | `busca_direta` | Uma busca num tribunal: acórdãos (até 100) e, em lista separada, precedentes qualificados (temas, súmulas). Filtros opcionais: período, relator, órgão, classe |
+| `busca_ampla` | Várias formulações da mesma tese em um ou mais tribunais: lista única, sem repetidos, ordenada por quantas formulações acharam cada acórdão. Saída compacta (número, tribunal, data, órgão, começo da ementa, link) |
+| `obter_ementa` | Ementa inteira de um acórdão já devolvido nesta sessão, pelo id, sem nova busca no site |
 | `listar_tribunais` | Para cada tribunal: busca, precedentes qualificados, teto de resultados por busca e se o inteiro teor é baixado ou só linkado |
 
 ## Uso responsável (travas embutidas)

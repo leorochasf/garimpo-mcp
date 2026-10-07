@@ -8,7 +8,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { Cliente, VERSAO } from "./cliente.js";
-import { buscaDireta } from "./busca.js";
+import { acordaoNaMemoria, buscaDireta } from "./busca.js";
+import { buscaAmpla } from "./ampla.js";
 import { SIGLAS, TRIBUNAIS } from "./tribunais.js";
 
 const site = new Cliente({ nome: "O JurisprudênciaIA" });
@@ -58,6 +59,48 @@ servidor.registerTool(
     } catch (e) {
       return erro(e);
     }
+  },
+);
+
+servidor.registerTool(
+  "busca_ampla",
+  {
+    title: "Busca ampla",
+    description:
+      "Roda várias formulações da mesma tese em um ou mais tribunais e devolve uma lista única, sem repetidos, " +
+      "ordenada por quantas formulações acharam cada acórdão (desempate pela relevância). Saída compacta: " +
+      "número, tribunal, data, órgão, começo da ementa e link. Para ler a ementa inteira, use obter_ementa com o id. " +
+      "Formulações boas variam sinônimos técnicos, dispositivo legal e nome do instituto.",
+    inputSchema: {
+      formulacoes: z.array(z.string().min(2)).min(1).max(20).describe("Formulações da mesma tese (até 20)"),
+      tribunais: z.array(tribunal).min(1).max(5).describe("Tribunais (até 5)"),
+      limitePorBusca: z.number().int().min(1).max(100).optional().describe("Acórdãos por busca (padrão 100)"),
+      maximo: z.number().int().min(1).max(200).optional().describe("Máximo de acórdãos na resposta (padrão 50)"),
+      ...filtros,
+    },
+  },
+  async (args) => {
+    try {
+      return json(await buscaAmpla(site, args));
+    } catch (e) {
+      return erro(e);
+    }
+  },
+);
+
+servidor.registerTool(
+  "obter_ementa",
+  {
+    title: "Obter ementa",
+    description:
+      "Devolve a ementa inteira e os dados de um acórdão já devolvido por busca_direta ou busca_ampla nesta " +
+      "sessão, pelo id (ex.: \"stj:12345\"). Não faz nova busca no site.",
+    inputSchema: { id: z.string().describe("Id do acórdão, como veio na busca (tribunal:id)") },
+  },
+  async ({ id }) => {
+    const a = acordaoNaMemoria(id);
+    if (!a) return erro(new Error(`O acórdão ${id} não está na memória desta sessão. Refaça a busca que o trouxe.`));
+    return json(a);
   },
 );
 
