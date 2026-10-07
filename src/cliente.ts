@@ -80,7 +80,10 @@ export class Cliente {
   /** Numeração dos pedidos, para saber quais já estavam na fila quando veio uma recusa. */
   private pedidos = 0;
   private recusa?: { ate: number; erro: RecusaError };
+  /** Horário da última saída efetiva (fetch) por host. */
   private ultimaPorHost = new Map<string, number>();
+  /** Fila de autorização de envio por host: uma saída por vez. */
+  private vezPorHost = new Map<string, Promise<void>>();
   private readonly vagas: Vagas;
   private readonly fetchFn: typeof fetch;
   private readonly esperar: (ms: number) => Promise<void>;
@@ -203,12 +206,22 @@ export class Cliente {
     const host = new URL(url).host;
     const intervalo = this.opcoes.intervaloMinimoPorHost?.[host];
     if (intervalo) {
-      // Reserva o horário de saída antes de esperar: quem vier depois enxerga a reserva e espera a vez dele.
-      const ultima = this.ultimaPorHost.get(host);
-      const agora = this.agora();
-      const saida = ultima === undefined ? agora : Math.max(agora, ultima + intervalo);
-      this.ultimaPorHost.set(host, saida);
-      if (saida > agora) await this.esperar(saida - agora);
+      // Uma autorização de envio por vez neste host; a pausa conta da saída efetiva da chamada anterior,
+      // não de um horário reservado (timers vencidos que acordam juntos não saem juntos).
+      const anterior = this.vezPorHost.get(host) ?? Promise.resolve();
+      let passarAVez!: () => void;
+      const vez = new Promise<void>((r) => (passarAVez = r));
+      this.vezPorHost.set(host, anterior.then(() => vez));
+      try {
+        await anterior;
+        const ultima = this.ultimaPorHost.get(host);
+        const falta = ultima === undefined ? 0 : ultima + intervalo - this.agora();
+        if (falta > 0) await this.esperar(falta);
+        this.barrarSeJaRecusado(pedido);
+        this.ultimaPorHost.set(host, this.agora());
+      } finally {
+        passarAVez();
+      }
     }
     this.barrarSeJaRecusado(pedido);
     const headers = new Headers(init.headers);

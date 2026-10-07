@@ -242,27 +242,41 @@ describe("cliente — travas de uso responsável", () => {
     expect(esperas).toEqual([3000]);
   });
 
-  it("intervalo mínimo por host vale também para chamadas concorrentes (cada uma reserva seu horário)", async () => {
+  it("intervalo mínimo por host conta da saída efetiva: timers que acordam juntos não saem juntos", async () => {
     let relogio = 1000;
-    const esperas: number[] = [];
+    const timers: { ate: number; acordar: () => void }[] = [];
+    const saidas: number[] = [];
     const cliente = new Cliente({
       nome: "O TSE",
       vagas: new Vagas(2),
       intervaloMinimoPorHost: { "tse.test": 4000 },
       agora: () => relogio,
-      esperar: async (ms) => {
-        esperas.push(ms);
-        await new Promise((r) => setTimeout(r, 1));
-      },
-      fetch: (async () => respostaJson({})) as typeof fetch,
+      esperar: (ms) => new Promise<void>((r) => timers.push({ ate: relogio + ms, acordar: r })),
+      fetch: (async () => {
+        saidas.push(relogio);
+        return respostaJson({});
+      }) as typeof fetch,
     });
-    await cliente.requisitar("https://tse.test/a");
+    const tique = () => new Promise((r) => setTimeout(r, 5));
+
+    await (await cliente.requisitar("https://tse.test/a")).text();
     relogio = 2000;
-    // Duas chamadas juntas: a 1ª sai em 5000 (espera 3000); a 2ª só em 9000 (espera 7000), nunca junto.
-    await Promise.all([
-      cliente.requisitar("https://tse.test/b").then((r) => r.text()),
-      cliente.requisitar("https://tse.test/c").then((r) => r.text()),
-    ]);
-    expect(esperas.sort((x, y) => x - y)).toEqual([3000, 7000]);
+    const juntas = Promise.all(
+      ["b", "c"].map((x) => cliente.requisitar(`https://tse.test/${x}`).then((r) => r.text())),
+    );
+    await tique();
+    // O processo fica suspenso e volta em 20000: todos os timers já vencidos acordam juntos.
+    relogio = 20000;
+    timers.splice(0).forEach((t) => t.acordar());
+    await tique();
+    // Daí em diante, cada timer acorda na hora marcada.
+    while (timers.length) {
+      const t = timers.shift()!;
+      relogio = Math.max(relogio, t.ate);
+      t.acordar();
+      await tique();
+    }
+    await juntas;
+    expect(saidas).toEqual([1000, 20000, 24000]);
   });
 });
