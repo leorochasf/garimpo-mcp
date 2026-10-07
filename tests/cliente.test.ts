@@ -157,6 +157,100 @@ describe("cliente — travas de uso responsável", () => {
       expect((e as Error).message).toMatch(/não respondeu em/);
       expect(await (await cliente.requisitar("https://exemplo.test/b")).json()).toEqual({ depois: true });
     });
+
+    /** Corpo que nunca chega e cujo cancelamento nunca termina. */
+    const corpoSurdo = (tipo: string) =>
+      new Response(new ReadableStream<Uint8Array>({ pull() {}, cancel: () => new Promise<void>(() => {}) }), {
+        headers: { "content-type": tipo },
+      });
+
+    it("prazo estourado com cancelamento que nunca termina: o fetch é abortado antes de a vaga voltar (nunca 3 abertos)", async () => {
+      // Transporte aberto = fetch feito e ainda não abortado (abortar o fetch fecha a conexão no Node).
+      const sinais: AbortSignal[] = [];
+      let pico = 0;
+      const cliente = new Cliente({
+        nome: "O site",
+        vagas: new Vagas(2),
+        prazoMs: 30,
+        fetch: (async (_url: string, init: RequestInit) => {
+          sinais.push(init.signal!);
+          pico = Math.max(pico, sinais.filter((s) => !s.aborted).length);
+          return sinais.length <= 2 ? corpoSurdo("application/pdf") : respostaJson({ depois: true });
+        }) as typeof fetch,
+      });
+
+      const a = await cliente.requisitar("https://exemplo.test/a");
+      const b = await cliente.requisitar("https://exemplo.test/b");
+      const leituras = [a, b].map((r) => r.arrayBuffer().catch((x) => x));
+      const c = await preso(cliente.requisitar("https://exemplo.test/c"));
+      expect(c).toBeInstanceOf(Response);
+      expect(await (c as Response).json()).toEqual({ depois: true });
+      expect(pico).toBe(2);
+      for (const e of await Promise.all(leituras)) expect((e as Error).message).toMatch(/não respondeu em/);
+    });
+
+    it("cancelamento pelo chamador que nunca termina: o prazo continua valendo e devolve a vaga", async () => {
+      const { cliente } = clienteFalso([() => corpoSurdo("application/pdf"), respostaJson({ depois: true })], {
+        vagas: new Vagas(1),
+        prazoMs: 30,
+      });
+
+      const a = await cliente.requisitar("https://exemplo.test/a");
+      void a.body!.cancel();
+      const b = await preso(cliente.requisitar("https://exemplo.test/b"));
+      expect(b).toBeInstanceOf(Response);
+      expect(await (b as Response).json()).toEqual({ depois: true });
+    });
+
+    it("resposta curta que ninguém lê: o prazo devolve a vaga", async () => {
+      const { cliente } = clienteFalso([respostaJson({ esquecida: true }), respostaJson({ depois: true })], {
+        vagas: new Vagas(1),
+        prazoMs: 30,
+      });
+
+      await cliente.requisitar("https://exemplo.test/a"); // corpo nunca lido
+      const b = await preso(cliente.requisitar("https://exemplo.test/b"));
+      expect(b).toBeInstanceOf(Response);
+      expect(await (b as Response).json()).toEqual({ depois: true });
+    });
+
+    it.each([
+      ["403", 403, {}],
+      ["503 com cf-mitigated", 503, { "cf-mitigated": "challenge" }],
+      ["202 com x-amzn-waf-action", 202, { "x-amzn-waf-action": "challenge" }],
+    ])("bloqueio (%s) com corpo travado: recusa decidida pelo status, sem ler o corpo, e propagada à fila", async (_n, status, extra) => {
+      const bloqueio = () =>
+        new Response(new ReadableStream<Uint8Array>({ pull() {} }), {
+          status,
+          headers: { "content-type": "text/html", ...extra },
+        });
+      const { cliente, chamadas } = clienteFalso([bloqueio, respostaJson({})], { vagas: new Vagas(1) });
+
+      const a = cliente.requisitar("https://exemplo.test/a").catch((x) => x);
+      const b = cliente.requisitar("https://exemplo.test/b").catch((x) => x); // na fila atrás de "a"
+      const ea = await preso(a);
+      expect(ea).toBeInstanceOf(RecusaError);
+      expect((ea as Error).message).toMatch(/não contorna/);
+      const eb = await preso(b);
+      expect(eb).toBeInstanceOf(RecusaError);
+      expect((eb as Error).message).toMatch(/não foi feita/);
+      expect(chamadas).toHaveLength(1);
+    });
+
+    it("429 com corpo travado e cancelamento que nunca termina: decide pelo status e a nova tentativa sai", async () => {
+      const recusa = () =>
+        new Response(new ReadableStream<Uint8Array>({ pull() {}, cancel: () => new Promise<void>(() => {}) }), {
+          status: 429,
+          headers: { "content-type": "text/plain", "retry-after": "1" },
+        });
+      const { cliente, chamadas, esperas } = clienteFalso([recusa, respostaJson({ ok: true })]);
+
+      const r = await preso(cliente.requisitar("https://exemplo.test/x"));
+      expect(r).toBeInstanceOf(Response);
+      expect(await (r as Response).json()).toEqual({ ok: true });
+      expect(chamadas).toHaveLength(2);
+      expect(esperas).toEqual([1000]);
+    });
   });
 
   it("envia User-Agent honesto identificando o Garimpo", async () => {

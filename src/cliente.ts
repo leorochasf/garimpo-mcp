@@ -78,12 +78,122 @@ export interface OpcoesCliente {
 
 const dormir = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-/** Uma ida ao servidor: a resposta (corpo sob prazo), o sinal desse prazo e se veio "Excesso de requisições". */
-interface Tentativa {
-  resposta: Response;
-  prazo: AbortSignal;
-  excesso: boolean;
+/** Corpo curto o bastante para ser o aviso de recusa do TSE (bytes). */
+const LIMITE_AVISO = 2_000;
+
+/**
+ * Uma ida ao servidor: fetch e leitura do corpo sob um só AbortController e um só prazo.
+ * Encerra exatamente uma vez — corpo lido até o fim, erro, cancelamento pelo chamador ou prazo — e então
+ * desarma o prazo, aborta o fetch (o que fecha a conexão) e devolve a vaga ao dono, se houver.
+ */
+class Ida {
+  readonly controle = new AbortController();
+  resposta!: Response;
+  /** "Excesso de requisições" no começo do corpo. */
+  excesso = false;
+  private readonly relogio: ReturnType<typeof setTimeout>;
+  private leitor?: ReadableStreamDefaultReader<Uint8Array>;
+  /** Começo do corpo já lido (aviso do TSE), guardado para quem ler depois. */
+  private lidos: Uint8Array[] = [];
+  private fim = false;
+  private encerrada = false;
+  private dono = () => {};
+
+  constructor(prazoMs: number, estouro: Error) {
+    this.relogio = setTimeout(() => this.controle.abort(estouro), prazoMs);
+    this.relogio.unref?.();
+    this.controle.signal.addEventListener("abort", () => this.encerrar(), { once: true });
+  }
+
+  encerrar(): void {
+    if (this.encerrada) return;
+    this.encerrada = true;
+    clearTimeout(this.relogio);
+    this.controle.abort();
+    (this.leitor ?? this.resposta?.body)?.cancel().catch(() => {});
+    this.dono();
+  }
+
+  /**
+   * O TSE responde "Excesso de requisições" no corpo, às vezes com status 200. Só o começo do corpo de texto
+   * é lido (até LIMITE_AVISO bytes, mais o pedaço em curso) e fica guardado para quem ler a resposta.
+   */
+  async lerAviso(): Promise<void> {
+    const r = this.resposta;
+    const tipo = r.headers.get("content-type") ?? "";
+    if (!tipo.includes("text") && !tipo.includes("json")) return;
+    if (Number(r.headers.get("content-length")) > LIMITE_AVISO || !r.body) return;
+    const leitor = (this.leitor = r.body.getReader());
+    let total = 0;
+    while (!this.fim && total <= LIMITE_AVISO) {
+      const { done, value } = await ler(leitor, this.controle.signal);
+      if (done) this.fim = true;
+      else {
+        this.lidos.push(value);
+        total += value.length;
+      }
+    }
+    this.excesso = this.fim && /excesso de requisi/i.test(new TextDecoder().decode(Buffer.concat(this.lidos)));
+  }
+
+  /** Entrega a resposta ao chamador; a vaga (dono) só volta quando a ida se encerrar. */
+  entregar(dono: () => void): Response {
+    this.dono = dono;
+    const r = this.resposta;
+    if (!r.body) {
+      this.encerrar();
+      return r;
+    }
+    const leitor = (this.leitor ??= r.body.getReader());
+    // Cancelado o corpo, uma leitura em curso termina sem dados: quem encerra é o cancelamento.
+    let cancelado = false;
+    const corpo = new ReadableStream<Uint8Array>({
+      pull: async (c) => {
+        try {
+          const guardado = this.lidos.shift();
+          if (guardado) return c.enqueue(guardado);
+          if (!this.fim) {
+            const { done, value } = await ler(leitor, this.controle.signal);
+            if (cancelado) return;
+            if (!done) return c.enqueue(value);
+          }
+          c.close();
+          this.encerrar();
+        } catch (e) {
+          if (cancelado) return;
+          this.encerrar();
+          throw e;
+        }
+      },
+      // A vaga volta quando o cancelamento termina; se ele nunca terminar, o prazo a devolve.
+      cancel: async (motivo) => {
+        cancelado = true;
+        await leitor.cancel(motivo);
+        this.encerrar();
+      },
+    });
+    return new Response(corpo, { status: r.status, statusText: r.statusText, headers: r.headers });
+  }
 }
+
+/** Lê um pedaço do corpo; o abort (prazo) interrompe a leitura mesmo que o corpo nunca reaja. */
+function ler(
+  leitor: ReadableStreamDefaultReader<Uint8Array>,
+  sinal: AbortSignal,
+): Promise<ReadableStreamReadResult<Uint8Array>> {
+  if (sinal.aborted) return Promise.reject(sinal.reason);
+  return new Promise((resolver, rejeitar) => {
+    const aoAbortar = () => rejeitar(sinal.reason);
+    sinal.addEventListener("abort", aoAbortar, { once: true });
+    leitor
+      .read()
+      .then(resolver, rejeitar)
+      .finally(() => sinal.removeEventListener("abort", aoAbortar));
+  });
+}
+
+/** 429/503 ou aviso de excesso: o serviço pede para esperar. */
+const pedeEspera = (ida: Ida) => ida.resposta.status === 429 || ida.resposta.status === 503 || ida.excesso;
 
 export class Cliente {
   /** Numeração dos pedidos, para saber quais já estavam na fila quando veio uma recusa. */
@@ -108,39 +218,36 @@ export class Cliente {
   /**
    * Faz a chamada respeitando as travas. Devolve a resposta já aceita (2xx; ou 3xx, se o chamador pediu
    * redirect "manual" para validar cada salto).
-   * A vaga de concorrência só é liberada quando o corpo da resposta é lido até o fim ou cancelado.
+   * A vaga de concorrência só é liberada quando o corpo é lido até o fim, falha, é cancelado ou estoura o prazo.
    */
   async requisitar(url: string, init: RequestInit = {}): Promise<Response> {
     const pedido = ++this.pedidos;
     await this.vagas.entrar();
-    let resposta: Response | undefined;
+    let ida: Ida | undefined;
     try {
-      let t = await this.chamar(url, init, pedido);
-      resposta = t.resposta;
-      this.barrarBloqueio(resposta);
-      if (resposta.status === 429 || resposta.status === 503 || t.excesso) {
-        const espera = this.tempoDeEspera(resposta);
-        await descartar(resposta);
+      ida = await this.ir(url, init, pedido);
+      if (pedeEspera(ida)) {
+        const espera = this.tempoDeEspera(ida.resposta);
+        ida.encerrar();
         await this.esperar(espera);
-        t = await this.chamar(url, init, pedido);
-        resposta = t.resposta;
-        this.barrarBloqueio(resposta);
-        if (resposta.status === 429 || resposta.status === 503 || t.excesso) {
+        ida = await this.ir(url, init, pedido);
+        if (pedeEspera(ida)) {
           throw new RecusaError(
-            `${this.opcoes.nome} recusou a chamada duas vezes seguidas (HTTP ${resposta.status}). ` +
+            `${this.opcoes.nome} recusou a chamada duas vezes seguidas (HTTP ${ida.resposta.status}). ` +
               "O Garimpo parou para não sobrecarregar o serviço. Espere alguns minutos e tente de novo.",
-            resposta.status,
+            ida.resposta.status,
           );
         }
       }
-      const redirectManual = init.redirect === "manual" && resposta.status >= 300 && resposta.status < 400;
-      if (!resposta.ok && !redirectManual) {
-        throw new Error(`${this.opcoes.nome} respondeu com erro HTTP ${resposta.status} para ${url}.`);
+      const { status, ok } = ida.resposta;
+      const redirectManual = init.redirect === "manual" && status >= 300 && status < 400;
+      if (!ok && !redirectManual) {
+        throw new Error(`${this.opcoes.nome} respondeu com erro HTTP ${status} para ${url}.`);
       }
-      return this.segurarVagaAteOCorpo(resposta, t.prazo);
+      return ida.entregar(() => this.vagas.sair());
     } catch (e) {
       if (e instanceof RecusaError && !(e instanceof RecusaPropagada)) this.recusa = { ate: this.pedidos, erro: e };
-      if (resposta) await descartar(resposta);
+      ida?.encerrar();
       this.vagas.sair();
       throw e;
     }
@@ -156,61 +263,6 @@ export class Cliente {
     }
   }
 
-  /** Embrulha o corpo: a vaga volta à fila quando ele termina, falha, é cancelado ou estoura o prazo. */
-  private segurarVagaAteOCorpo(resposta: Response, prazo: AbortSignal): Response {
-    const original = resposta.body;
-    let liberada = false;
-    const liberar = () => {
-      if (!liberada) {
-        liberada = true;
-        this.vagas.sair();
-      }
-    };
-    if (!original) {
-      liberar();
-      return resposta;
-    }
-    const leitor = original.getReader();
-    // Cancelado, quem devolve a vaga é o cancel, e só depois de o cancelamento terminar.
-    let cancelado = false;
-    const corpo = new ReadableStream<Uint8Array>({
-      start(controle) {
-        // Estourado o prazo, a vaga volta mesmo que ninguém esteja lendo o corpo.
-        prazo.addEventListener(
-          "abort",
-          () => {
-            liberar();
-            controle.error(prazo.reason);
-          },
-          { once: true },
-        );
-      },
-      async pull(controle) {
-        try {
-          const { done, value } = await leitor.read();
-          if (cancelado) return;
-          if (done) {
-            liberar();
-            controle.close();
-          } else controle.enqueue(value);
-        } catch (e) {
-          if (cancelado) return;
-          liberar();
-          controle.error(e);
-        }
-      },
-      async cancel(motivo) {
-        cancelado = true;
-        try {
-          await leitor.cancel(motivo);
-        } finally {
-          liberar();
-        }
-      },
-    });
-    return new Response(corpo, { status: resposta.status, statusText: resposta.statusText, headers: resposta.headers });
-  }
-
   /** 403 ou desafio anti-robô: recusa imediata, antes de qualquer espera ou nova tentativa. */
   private barrarBloqueio(resposta: Response): void {
     if (resposta.status === 403 || desafioAntiRobo(resposta)) {
@@ -224,9 +276,10 @@ export class Cliente {
 
   /**
    * Faz um fetch. A recusa é conferida logo antes dele, depois de qualquer espera.
-   * O prazo vale do envio até o fim da leitura do corpo; estourado, a chamada é abortada.
+   * Bloqueio e 429/503 são decididos pelo status e cabeçalhos, antes de qualquer leitura do corpo;
+   * só as demais respostas têm o começo do corpo lido em busca do aviso de excesso.
    */
-  private async chamar(url: string, init: RequestInit, pedido: number): Promise<Tentativa> {
+  private async ir(url: string, init: RequestInit, pedido: number): Promise<Ida> {
     this.barrarSeJaRecusado(pedido);
     const host = new URL(url).host;
     const intervalo = this.opcoes.intervaloMinimoPorHost?.[host];
@@ -255,24 +308,18 @@ export class Cliente {
     const estouro = new Error(
       `${this.opcoes.nome} não respondeu em ${Math.ceil(prazoMs / 1000)} s; o Garimpo desistiu da chamada. Tente mais tarde.`,
     );
-    const controle = new AbortController();
-    const relogio = setTimeout(() => controle.abort(estouro), prazoMs);
-    relogio.unref?.();
-    const desarmar = () => clearTimeout(relogio);
-    let resposta: Response;
+    const ida = new Ida(prazoMs, estouro);
     try {
-      resposta = await this.fetchFn(url, { ...init, headers, signal: controle.signal });
+      ida.resposta = await this.fetchFn(url, { ...init, headers, signal: ida.controle.signal }).catch((e: Error) => {
+        throw ida.controle.signal.reason === estouro
+          ? estouro
+          : new Error(`Não foi possível falar com ${this.opcoes.nome} (${e.message}). Verifique a conexão.`);
+      });
+      this.barrarBloqueio(ida.resposta);
+      if (!pedeEspera(ida)) await ida.lerAviso();
+      return ida;
     } catch (e) {
-      desarmar();
-      if (controle.signal.aborted) throw estouro;
-      throw new Error(`Não foi possível falar com ${this.opcoes.nome} (${(e as Error).message}). Verifique a conexão.`);
-    }
-    resposta = comPrazo(resposta, controle.signal, desarmar);
-    try {
-      const { excesso, resposta: inteira } = await excessoDeRequisicoes(resposta);
-      return { resposta: inteira, prazo: controle.signal, excesso };
-    } catch (e) {
-      await descartar(resposta);
+      ida.encerrar();
       throw e;
     }
   }
@@ -298,12 +345,6 @@ export class Cliente {
     }
     return ms;
   }
-
-}
-
-/** Cancela o corpo de uma resposta que não vai ser usada (libera a conexão). */
-async function descartar(resposta: Response): Promise<void> {
-  if (resposta.body && !resposta.bodyUsed) await resposta.body.cancel().catch(() => {});
 }
 
 /** Desafio anti-robô conhecido (Cloudflare "managed", AWS WAF 202). */
@@ -311,92 +352,4 @@ function desafioAntiRobo(resposta: Response): boolean {
   if (resposta.headers.get("cf-mitigated") === "challenge") return true;
   if (resposta.status === 202 && resposta.headers.has("x-amzn-waf-action")) return true;
   return false;
-}
-
-/** Mesma resposta com outro corpo (status e cabeçalhos preservados). */
-function comCorpo(resposta: Response, corpo: ReadableStream<Uint8Array>): Response {
-  return new Response(corpo, { status: resposta.status, statusText: resposta.statusText, headers: resposta.headers });
-}
-
-/** Corpo sob prazo: estourado, a leitura falha e a conexão é cancelada; terminado ou cancelado, o prazo é desarmado. */
-function comPrazo(resposta: Response, prazo: AbortSignal, desarmar: () => void): Response {
-  if (!resposta.body) {
-    desarmar();
-    return resposta;
-  }
-  const leitor = resposta.body.getReader();
-  return comCorpo(
-    resposta,
-    new ReadableStream<Uint8Array>({
-      start(controle) {
-        prazo.addEventListener(
-          "abort",
-          () => {
-            controle.error(prazo.reason);
-            leitor.cancel(prazo.reason).catch(() => {});
-          },
-          { once: true },
-        );
-      },
-      async pull(controle) {
-        const { done, value } = await leitor.read().catch((e) => {
-          desarmar();
-          throw e;
-        });
-        if (done) {
-          desarmar();
-          controle.close();
-        } else controle.enqueue(value);
-      },
-      async cancel(motivo) {
-        desarmar();
-        await leitor.cancel(motivo);
-      },
-    }),
-  );
-}
-
-/** Corpo curto o bastante para ser o aviso de recusa do TSE (bytes). */
-const LIMITE_AVISO = 2_000;
-
-/**
- * O TSE responde "Excesso de requisições" no corpo, às vezes com status 200. Só o começo do corpo é lido
- * (até LIMITE_AVISO bytes, mais o pedaço em curso); a resposta devolvida entrega esses bytes e o resto a quem ler.
- */
-async function excessoDeRequisicoes(resposta: Response): Promise<{ excesso: boolean; resposta: Response }> {
-  const tipo = resposta.headers.get("content-type") ?? "";
-  if (!tipo.includes("text") && !tipo.includes("json")) return { excesso: false, resposta };
-  if (Number(resposta.headers.get("content-length")) > LIMITE_AVISO || !resposta.body) {
-    return { excesso: false, resposta };
-  }
-  const leitor = resposta.body.getReader();
-  const lidos: Uint8Array[] = [];
-  let total = 0;
-  let fim = false;
-  while (!fim && total <= LIMITE_AVISO) {
-    const { done, value } = await leitor.read();
-    if (done) fim = true;
-    else {
-      lidos.push(value);
-      total += value.length;
-    }
-  }
-  const inteira = comCorpo(
-    resposta,
-    new ReadableStream<Uint8Array>({
-      start(controle) {
-        for (const pedaco of lidos) controle.enqueue(pedaco);
-        if (fim) controle.close();
-      },
-      async pull(controle) {
-        const { done, value } = await leitor.read();
-        if (done) controle.close();
-        else controle.enqueue(value);
-      },
-      cancel: (motivo) => leitor.cancel(motivo),
-    }),
-  );
-  const excesso =
-    fim && total <= LIMITE_AVISO && /excesso de requisi/i.test(new TextDecoder().decode(Buffer.concat(lidos)));
-  return { excesso, resposta: inteira };
 }
