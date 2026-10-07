@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { Cliente, type OpcoesCliente } from "../src/cliente.js";
+import { Cliente, type OpcoesCliente, Vagas } from "../src/cliente.js";
 
 export function fixture(nome: string): unknown {
   return JSON.parse(readFileSync(new URL(`./fixtures/${nome}`, import.meta.url), "utf8"));
@@ -11,12 +11,13 @@ export function respostaJson(dado: unknown, status = 200): Response {
 
 type Gravada = Response | ((url: string, init: RequestInit) => Response | Promise<Response>);
 
-/** Cliente com fetch falso que devolve as respostas gravadas na ordem e registra as chamadas. */
+/** Cliente com fetch falso que devolve as respostas gravadas na ordem e registra as chamadas (vagas próprias). */
 export function clienteFalso(respostas: Gravada[], extra: Partial<OpcoesCliente> = {}) {
   const chamadas: { url: string; init: RequestInit }[] = [];
   const esperas: number[] = [];
   const cliente = new Cliente({
     nome: "O site",
+    vagas: new Vagas(2),
     fetch: (async (url: string, init: RequestInit) => {
       chamadas.push({ url, init });
       const r = respostas.shift();

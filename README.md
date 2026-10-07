@@ -22,7 +22,7 @@ de quem usa.
 
 Toda chamada ao site passa por um cliente único que:
 
-- faz **no máximo 2 chamadas simultâneas**;
+- faz **no máximo 2 chamadas simultâneas no total** (JurisprudênciaIA e tribunais somados);
 - em recusa temporária (HTTP 429 ou 503), **espera e tenta uma única vez**; se recusar de novo, **para** e avisa;
 - trata 403 e desafios anti-robô (Cloudflare, AWS WAF, reCAPTCHA) como recusa: **nunca contorna**, devolve o
   link para abrir no navegador;

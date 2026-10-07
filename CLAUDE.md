@@ -21,7 +21,7 @@ ao JurisprudênciaIA nem à JAI. Licença MIT. Feito para qualquer pessoa usar.
 2. **Nada específico de usuário ou instituição.** Nenhum dado de processo real, nome de pessoa, órgão
    público, caminho de máquina ou fluxo de trabalho de alguém. Exemplos de busca são genéricos.
 3. **Uso responsável é requisito, não opção.** Toda chamada ao site passa pelo cliente único, com: no
-   máximo 2 chamadas simultâneas; em 429/503, espera e **uma** nova tentativa; recusa de novo = para e
+   máximo 2 chamadas simultâneas no total do processo (site e tribunais somados); em 429/503, espera e **uma** nova tentativa; recusa de novo = para e
    avisa o usuário; User-Agent honesto identificando o Garimpo. **Nunca** contornar limite, captcha ou
    bloqueio anti-robô (Cloudflare, AWS WAF, reCAPTCHA): o que não sai por HTTP comum devolve link + explicação.
 4. **Não publicar.** O repositório fica local/privado até o dono confirmar a autorização da JAI (ticket 04).

@@ -1,6 +1,6 @@
 /**
  * Cliente HTTP com as travas de uso responsável (CLAUDE.md, regra 3):
- * - no máximo N chamadas simultâneas (padrão 2);
+ * - no máximo 2 chamadas simultâneas NO TOTAL do processo (JurisprudênciaIA e tribunais somados);
  * - em 429/503, espera o que o servidor pediu (Retry-After) e tenta UMA vez; pedido acima do teto ou
  *   nova recusa = para e avisa;
  * - 403 ou desafio anti-robô = recusa imediata, sem nova tentativa e sem contorno;
@@ -30,10 +30,36 @@ export class FormatoInesperadoError extends Error {
   }
 }
 
+/** Vagas de chamada simultânea, com fila de espera. */
+export class Vagas {
+  private ativas = 0;
+  private fila: (() => void)[] = [];
+
+  constructor(private readonly max: number) {}
+
+  async entrar(): Promise<void> {
+    if (this.ativas < this.max) {
+      this.ativas++;
+      return;
+    }
+    await new Promise<void>((r) => this.fila.push(r));
+  }
+
+  sair(): void {
+    const proximo = this.fila.shift();
+    if (proximo) proximo();
+    else this.ativas--;
+  }
+}
+
+/** Limite único do processo: todos os clientes (site e tribunais) dividem estas 2 vagas. */
+export const vagasDoProcesso = new Vagas(2);
+
 export interface OpcoesCliente {
   /** Nome de quem responde, usado nas mensagens ("o JurisprudênciaIA", "o STJ"). */
   nome: string;
-  maxSimultaneas?: number;
+  /** Vagas de concorrência; padrão: as do processo (2 no total). Só testes trocam. */
+  vagas?: Vagas;
   /** Espera antes da nova tentativa quando não há Retry-After (ms). */
   esperaPadraoMs?: number;
   /** Teto da espera, mesmo que o servidor peça mais (ms). */
@@ -48,16 +74,14 @@ export interface OpcoesCliente {
 const dormir = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 export class Cliente {
-  private ativas = 0;
-  private fila: (() => void)[] = [];
   private ultimaPorHost = new Map<string, number>();
-  private readonly max: number;
+  private readonly vagas: Vagas;
   private readonly fetchFn: typeof fetch;
   private readonly esperar: (ms: number) => Promise<void>;
   private readonly agora: () => number;
 
   constructor(private readonly opcoes: OpcoesCliente) {
-    this.max = opcoes.maxSimultaneas ?? 2;
+    this.vagas = opcoes.vagas ?? vagasDoProcesso;
     this.fetchFn = opcoes.fetch ?? fetch;
     this.esperar = opcoes.esperar ?? dormir;
     this.agora = opcoes.agora ?? Date.now;
@@ -68,7 +92,7 @@ export class Cliente {
    * A vaga de concorrência só é liberada quando o corpo da resposta é lido até o fim ou cancelado.
    */
   async requisitar(url: string, init: RequestInit = {}): Promise<Response> {
-    await this.entrar();
+    await this.vagas.entrar();
     let resposta: Response | undefined;
     try {
       resposta = await this.chamar(url, init);
@@ -93,7 +117,7 @@ export class Cliente {
       return this.segurarVagaAteOCorpo(resposta);
     } catch (e) {
       if (resposta) await descartar(resposta);
-      this.sair();
+      this.vagas.sair();
       throw e;
     }
   }
@@ -105,7 +129,7 @@ export class Cliente {
     const liberar = () => {
       if (!liberada) {
         liberada = true;
-        this.sair();
+        this.vagas.sair();
       }
     };
     if (!original) {
@@ -187,19 +211,6 @@ export class Cliente {
     return ms;
   }
 
-  private async entrar(): Promise<void> {
-    if (this.ativas < this.max) {
-      this.ativas++;
-      return;
-    }
-    await new Promise<void>((r) => this.fila.push(r));
-  }
-
-  private sair(): void {
-    const proximo = this.fila.shift();
-    if (proximo) proximo();
-    else this.ativas--;
-  }
 }
 
 /** Cancela o corpo de uma resposta que não vai ser usada (libera a conexão). */

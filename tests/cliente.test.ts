@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Cliente, RecusaError, USER_AGENT } from "../src/cliente.js";
+import { Cliente, RecusaError, USER_AGENT, Vagas } from "../src/cliente.js";
 import { clienteFalso, respostaJson } from "./apoio.js";
 
 describe("cliente — travas de uso responsável", () => {
@@ -109,9 +109,28 @@ describe("cliente — travas de uso responsável", () => {
     expect(pico).toBe(2);
   });
 
+  it("o limite de 2 simultâneas é do processo inteiro: site e tribunais somados", async () => {
+    let ativas = 0;
+    let pico = 0;
+    const fetchContado = (async () => {
+      ativas++;
+      pico = Math.max(pico, ativas);
+      await new Promise((r) => setTimeout(r, 5));
+      ativas--;
+      return respostaJson({});
+    }) as typeof fetch;
+    const site = new Cliente({ nome: "O JurisprudênciaIA", fetch: fetchContado });
+    const stj = new Cliente({ nome: "O STJ", fetch: fetchContado });
+    const tse = new Cliente({ nome: "O TSE", fetch: fetchContado });
+    await Promise.all(
+      [site, stj, tse].flatMap((c) => Array.from({ length: 4 }, () => c.requisitar("https://exemplo.test/x").then((r) => r.text()))),
+    );
+    expect(pico).toBe(2);
+  });
+
   it("a vaga só é liberada quando o corpo da resposta é lido ou cancelado", async () => {
     const { cliente, chamadas } = clienteFalso([respostaJson({ a: 1 }), respostaJson({ b: 2 }), respostaJson({ c: 3 })], {
-      maxSimultaneas: 1,
+      vagas: new Vagas(1),
     });
     const tique = () => new Promise((r) => setTimeout(r, 5));
 
@@ -136,6 +155,7 @@ describe("cliente — travas de uso responsável", () => {
     const esperas: number[] = [];
     const cliente = new Cliente({
       nome: "O TSE",
+      vagas: new Vagas(2),
       intervaloMinimoPorHost: { "tse.test": 4000 },
       agora: () => relogio,
       esperar: async (ms) => {
@@ -155,6 +175,7 @@ describe("cliente — travas de uso responsável", () => {
     const esperas: number[] = [];
     const cliente = new Cliente({
       nome: "O TSE",
+      vagas: new Vagas(2),
       intervaloMinimoPorHost: { "tse.test": 4000 },
       agora: () => relogio,
       esperar: async (ms) => {
