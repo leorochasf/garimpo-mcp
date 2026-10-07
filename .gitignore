@@ -4,3 +4,4 @@ dist/
 *.log
 inteiro-teor/
 .overclock-app/
+.codex/
