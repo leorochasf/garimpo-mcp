@@ -159,22 +159,30 @@ export class Cliente {
       return resposta;
     }
     const leitor = original.getReader();
+    // Cancelado, quem devolve a vaga é o cancel, e só depois de o cancelamento terminar.
+    let cancelado = false;
     const corpo = new ReadableStream<Uint8Array>({
       async pull(controle) {
         try {
           const { done, value } = await leitor.read();
+          if (cancelado) return;
           if (done) {
             liberar();
             controle.close();
           } else controle.enqueue(value);
         } catch (e) {
+          if (cancelado) return;
           liberar();
           controle.error(e);
         }
       },
       async cancel(motivo) {
-        liberar();
-        await leitor.cancel(motivo);
+        cancelado = true;
+        try {
+          await leitor.cancel(motivo);
+        } finally {
+          liberar();
+        }
       },
     });
     return new Response(corpo, { status: resposta.status, statusText: resposta.statusText, headers: resposta.headers });

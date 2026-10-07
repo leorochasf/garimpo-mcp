@@ -165,6 +165,32 @@ describe("cliente — travas de uso responsável", () => {
     expect(await (await c).json()).toEqual({ c: 3 });
   });
 
+  it("cancelar o corpo só devolve a vaga quando o cancelamento termina", async () => {
+    let terminarCancel!: () => void;
+    const corpoComCancelLento = () =>
+      new Response(
+        new ReadableStream<Uint8Array>({
+          pull() {},
+          cancel: () => new Promise<void>((r) => (terminarCancel = r)),
+        }),
+      );
+    const { cliente, chamadas } = clienteFalso([corpoComCancelLento, respostaJson({ b: 2 }), respostaJson({ c: 3 })]);
+    const tique = () => new Promise((r) => setTimeout(r, 5));
+
+    const a = await cliente.requisitar("https://exemplo.test/a");
+    const b = await cliente.requisitar("https://exemplo.test/b");
+    const c = cliente.requisitar("https://exemplo.test/c"); // 3ª: espera uma vaga
+    const cancelando = a.body!.cancel();
+    await tique();
+    expect(chamadas).toHaveLength(2); // cancelamento de "a" ainda pendente: a vaga não voltou
+
+    terminarCancel();
+    await cancelando;
+    expect(await (await c).json()).toEqual({ c: 3 });
+    expect(chamadas).toHaveLength(3);
+    await b.text();
+  });
+
   it("respeita intervalo mínimo entre chamadas ao mesmo host", async () => {
     let relogio = 1000;
     const esperas: number[] = [];
