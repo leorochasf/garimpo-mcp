@@ -114,7 +114,7 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<
         data: a.dataJulgamento,
         orgao: a.orgao,
         trecho: a.ementa.length > tamanho ? `${a.ementa.slice(0, tamanho)}…` : a.ementa,
-        link: a.link,
+        link: a.link ?? a.linkConsulta,
         formulacoes: formulacoes.size,
       };
       return item;

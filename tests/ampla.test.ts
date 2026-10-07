@@ -112,6 +112,21 @@ describe("busca ampla", () => {
     expect(chamadas).toBe(2); // só a busca direta e a nova tentativa dela
   });
 
+  it("STF sem link_pdf: a saída compacta traz o link oficial de consulta (link_consulta / url_acordao)", async () => {
+    const consulta = "https://portal.stf.jus.br/processos/detalhe.asp?incidente=1";
+    const acordao = "https://portal.stf.jus.br/jurisprudencia/sjur-exemplo";
+    const { cliente } = siteFalso(() =>
+      respostaJson({
+        juris: [
+          { id: "201", sigla_classe: "RE", numero_processo: "200001", texto_ementa: "EMENTA FICTÍCIA.", link_pdf: null, link_consulta: consulta },
+          { id: "202", sigla_classe: "RE", numero_processo: "200002", texto_ementa: "EMENTA FICTÍCIA.", link_pdf: null, url_acordao: acordao },
+        ],
+      }),
+    );
+    const r = await buscaAmpla(cliente, { formulacoes: ["exemplo"], tribunais: ["stf"] });
+    expect(Object.fromEntries(r.acordaos.map((a) => [a.id, a.link]))).toEqual({ "stf:201": consulta, "stf:202": acordao });
+  });
+
   it("saída compacta cabe numa resposta; ementa inteira sai por id, sem nova busca", async () => {
     const ementaLonga = "X".repeat(4000);
     const { cliente, estado } = siteFalso((_t, texto) =>
