@@ -85,6 +85,80 @@ describe("cliente — travas de uso responsável", () => {
     expect(chamadas).toHaveLength(2);
   });
 
+  describe("corpo sem fim e prazo máximo", () => {
+    const codificar = (t: string) => new TextEncoder().encode(t);
+    /** Resolve com "preso" se a promessa não terminar a tempo (sinal nítido em vez de estourar o teste). */
+    const preso = <T>(p: Promise<T>, ms = 300) =>
+      Promise.race([p, new Promise<"preso">((r) => setTimeout(() => r("preso"), ms))]);
+
+    it("sem Content-Length, corpo sem fim: só o começo é inspecionado e os bytes chegam inteiros a quem lê", async () => {
+      const pedaco = (i: number) => String(i).padEnd(1000, ".");
+      let n = 0;
+      const semFim = () =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            // Um pedaço por volta do relógio, como na rede: o corpo nunca termina, mas o teste não trava.
+            pull: async (c) => {
+              await new Promise((r) => setTimeout(r, 0));
+              c.enqueue(codificar(pedaco(n++)));
+            },
+          }),
+          { headers: { "content-type": "text/plain" } },
+        );
+      const { cliente } = clienteFalso([semFim, respostaJson({ depois: true })], { vagas: new Vagas(1) });
+
+      const r = await preso(cliente.requisitar("https://exemplo.test/a"));
+      expect(r).toBeInstanceOf(Response);
+      const leitor = (r as Response).body!.getReader();
+      const lidos: Uint8Array[] = [];
+      let total = 0;
+      while (total < 4000) {
+        const { value } = await leitor.read();
+        lidos.push(value!);
+        total += value!.length;
+      }
+      expect(Buffer.concat(lidos).toString().slice(0, 4000)).toBe([0, 1, 2, 3].map(pedaco).join(""));
+      await leitor.cancel();
+      expect(await (await cliente.requisitar("https://exemplo.test/b")).json()).toEqual({ depois: true });
+    });
+
+    it("corpo que nunca chega, sem Content-Length: o prazo derruba a chamada e devolve a vaga", async () => {
+      const parado = () =>
+        new Response(new ReadableStream<Uint8Array>({ pull() {} }), { headers: { "content-type": "text/plain" } });
+      const { cliente } = clienteFalso([parado, respostaJson({ depois: true })], { vagas: new Vagas(1), prazoMs: 30 });
+
+      const e = await preso(cliente.requisitar("https://exemplo.test/a").catch((x) => x));
+      expect(e).toBeInstanceOf(Error);
+      expect((e as Error).message).toMatch(/não respondeu em/);
+      expect(await (await cliente.requisitar("https://exemplo.test/b")).json()).toEqual({ depois: true });
+    });
+
+    it("fetch que nunca responde: o prazo aborta a chamada e devolve a vaga", async () => {
+      const mudo = (_url: string, init: RequestInit) =>
+        new Promise<Response>((_, rejeitar) => init.signal?.addEventListener("abort", () => rejeitar(init.signal!.reason)));
+      const { cliente } = clienteFalso([mudo, respostaJson({ depois: true })], { vagas: new Vagas(1), prazoMs: 30 });
+
+      const e = await preso(cliente.requisitar("https://exemplo.test/a").catch((x) => x));
+      expect(e).toBeInstanceOf(Error);
+      expect((e as Error).message).toMatch(/não respondeu em/);
+      expect(await (await cliente.requisitar("https://exemplo.test/b")).json()).toEqual({ depois: true });
+    });
+
+    it("corpo que trava no meio da leitura: o prazo derruba a leitura e devolve a vaga", async () => {
+      const travado = () =>
+        new Response(new ReadableStream<Uint8Array>({ start: (c) => c.enqueue(codificar("%PDF-1.7")), pull() {} }), {
+          headers: { "content-type": "application/pdf" },
+        });
+      const { cliente } = clienteFalso([travado, respostaJson({ depois: true })], { vagas: new Vagas(1), prazoMs: 30 });
+
+      const r = await cliente.requisitar("https://exemplo.test/a");
+      const e = await preso(r.arrayBuffer().catch((x) => x));
+      expect(e).toBeInstanceOf(Error);
+      expect((e as Error).message).toMatch(/não respondeu em/);
+      expect(await (await cliente.requisitar("https://exemplo.test/b")).json()).toEqual({ depois: true });
+    });
+  });
+
   it("envia User-Agent honesto identificando o Garimpo", async () => {
     const { cliente, chamadas } = clienteFalso([respostaJson({})]);
     await cliente.requisitar("https://exemplo.test/x");
