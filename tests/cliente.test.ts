@@ -40,6 +40,18 @@ describe("cliente — travas de uso responsável", () => {
     expect(chamadas).toHaveLength(1);
   });
 
+  it("503 com desafio anti-robô (cf-mitigated) é recusa imediata, sem esperar nem tentar de novo", async () => {
+    const { cliente, chamadas, esperas } = clienteFalso([
+      new Response("<html>challenge</html>", { status: 503, headers: { "cf-mitigated": "challenge" } }),
+      respostaJson({ ok: true }),
+    ]);
+    const e = await cliente.requisitar("https://exemplo.test/x").catch((x) => x);
+    expect(e).toBeInstanceOf(RecusaError);
+    expect(e.message).toMatch(/não contorna/);
+    expect(chamadas).toHaveLength(1);
+    expect(esperas).toEqual([]);
+  });
+
   it("\"Excesso de requisições\" no corpo conta como recusa", async () => {
     const texto = () => new Response("Excesso de requisições", { status: 200, headers: { "content-type": "text/plain" } });
     const { cliente, chamadas } = clienteFalso([texto, texto]);

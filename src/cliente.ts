@@ -67,9 +67,11 @@ export class Cliente {
     await this.entrar();
     try {
       let resposta = await this.chamar(url, init);
+      this.barrarBloqueio(resposta);
       if (resposta.status === 429 || resposta.status === 503 || (await excessoDeRequisicoes(resposta))) {
         await this.esperar(this.tempoDeEspera(resposta));
         resposta = await this.chamar(url, init);
+        this.barrarBloqueio(resposta);
         if (resposta.status === 429 || resposta.status === 503 || (await excessoDeRequisicoes(resposta))) {
           throw new RecusaError(
             `${this.opcoes.nome} recusou a chamada duas vezes seguidas (HTTP ${resposta.status}). ` +
@@ -78,19 +80,23 @@ export class Cliente {
           );
         }
       }
-      if (resposta.status === 403 || desafioAntiRobo(resposta)) {
-        throw new RecusaError(
-          `${this.opcoes.nome} bloqueou a chamada (HTTP ${resposta.status}, proteção anti-robô ou acesso negado). ` +
-            "O Garimpo não contorna bloqueios. Se precisar do conteúdo, abra o link no navegador.",
-          resposta.status,
-        );
-      }
       if (!resposta.ok) {
         throw new Error(`${this.opcoes.nome} respondeu com erro HTTP ${resposta.status} para ${url}.`);
       }
       return resposta;
     } finally {
       this.sair();
+    }
+  }
+
+  /** 403 ou desafio anti-robô: recusa imediata, antes de qualquer espera ou nova tentativa. */
+  private barrarBloqueio(resposta: Response): void {
+    if (resposta.status === 403 || desafioAntiRobo(resposta)) {
+      throw new RecusaError(
+        `${this.opcoes.nome} bloqueou a chamada (HTTP ${resposta.status}, proteção anti-robô ou acesso negado). ` +
+          "O Garimpo não contorna bloqueios. Se precisar do conteúdo, abra o link no navegador.",
+        resposta.status,
+      );
     }
   }
 
