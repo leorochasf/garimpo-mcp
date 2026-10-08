@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { conferirNaEmenta, conferirNoInteiroTeor, lerCitacao } from "../src/conferencia.js";
+import type { ConferenciaFeita, ResultadoDaFonte } from "../src/conferencia.js";
 import type { InteiroTeorParaConferir } from "../src/leitura.js";
 
 /** Ementa fictícia, sem processo real (regra 2). */
@@ -8,8 +9,15 @@ const EMENTA =
   "por omissão exige a demonstração do nexo causal entre a falta do serviço e o dano sofrido. 2. Recurso " +
   "conhecido e não provido.";
 
-function conferir(ementa: string, citacao: string, reticenciasComoCorte = false) {
+function conferirBruto(ementa: string, citacao: string, reticenciasComoCorte = false): ResultadoDaFonte {
   return conferirNaEmenta(ementa, lerCitacao(citacao, { reticenciasComoCorte }));
+}
+
+/** Conferência que chegou a ser feita; estreita a união para os testes lerem os campos dela. */
+function conferir(ementa: string, citacao: string, reticenciasComoCorte = false): ConferenciaFeita {
+  const r = conferirBruto(ementa, citacao, reticenciasComoCorte);
+  if (r.veredito === "não verificável") throw new Error(`conferência não verificável: ${r.motivo}`);
+  return r;
 }
 
 describe("conferência de citação na ementa — encontrado literalmente", () => {
@@ -39,7 +47,7 @@ describe("conferência de citação na ementa — encontrado literalmente", () =
     expect(r.veredito).toBe("encontrado literalmente");
     expect(r.equivalencias).toEqual([equivalencia]);
     // A frase vem copiada da fonte, com a diagramação dela.
-    expect(r.ocorrencias[0].frase).toContain(fonte.trim());
+    expect((r.ocorrencias[0] as { frase: string }).frase).toContain(fonte.trim());
   });
 
   it("a equivalência vale também quando a diagramação diferente está na citação", () => {
@@ -156,8 +164,9 @@ describe("conferência de citação — ocorrências e fonte sem texto", () => {
   });
 
   it("ementa vazia: não verificável, nunca não encontrado", () => {
-    const r = conferir("   ", "exige a demonstração do nexo causal");
+    const r = conferirBruto("   ", "exige a demonstração do nexo causal");
     expect(r.veredito).toBe("não verificável");
+    if (r.veredito !== "não verificável") return;
     expect(r.motivo).toMatch(/sem ementa/);
   });
 });
@@ -244,7 +253,7 @@ describe("conferência de citação — ajustes da revisão de spec", () => {
   });
 
   it("não verificável vem só com o motivo, sem contagem", () => {
-    expect(conferir("", "exige a demonstração do nexo causal")).toEqual({
+    expect(conferirBruto("", "exige a demonstração do nexo causal")).toEqual({
       veredito: "não verificável",
       motivo: "O acórdão veio sem ementa do JurisprudênciaIA: não há texto para conferir.",
     });
