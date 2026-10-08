@@ -32,24 +32,52 @@ Os termos de uso do site preveem limites por IP e bloqueio em caso de uso abusiv
 
 ## Instalação
 
-Requer Node.js 18 ou mais novo.
+Requer Node.js 20 ou mais novo.
+
+### Pelo npm (recomendado)
+
+Não precisa baixar nada: o `npx` busca o pacote [`garimpo-mcp`](https://www.npmjs.com/package/garimpo-mcp)
+na primeira execução. Se preferir instalar de vez: `npm install -g garimpo-mcp` (o comando passa a ser
+`garimpo-mcp`).
+
+**Claude Code**
 
 ```bash
-git clone <endereço-do-repositório> garimpo-mcp
+claude mcp add garimpo -- npx -y garimpo-mcp
+```
+
+**Claude Desktop** — no arquivo `claude_desktop_config.json` (Configurações → Desenvolvedor → Editar configuração):
+
+```json
+{
+  "mcpServers": {
+    "garimpo": {
+      "command": "npx",
+      "args": ["-y", "garimpo-mcp"]
+    }
+  }
+}
+```
+
+No Windows, se o Claude Desktop não achar o `npx`, use `"command": "cmd"` e
+`"args": ["/c", "npx", "-y", "garimpo-mcp"]`.
+
+### Pelo código-fonte
+
+```bash
+git clone https://github.com/leorochasf/garimpo-mcp.git
 cd garimpo-mcp
 npm install
 npm run build
 ```
 
-### Claude Code
+**Claude Code**
 
 ```bash
 claude mcp add garimpo -- node /caminho/para/garimpo-mcp/dist/index.js
 ```
 
-### Claude Desktop
-
-No arquivo `claude_desktop_config.json` (Configurações → Desenvolvedor → Editar configuração):
+**Claude Desktop**
 
 ```json
 {
@@ -61,6 +89,8 @@ No arquivo `claude_desktop_config.json` (Configurações → Desenvolvedor → E
   }
 }
 ```
+
+### Pasta dos PDFs
 
 Os PDFs são salvos na pasta indicada no pedido; sem pasta, em `Garimpo/inteiro-teor` dentro da pasta do usuário
 (ou na pasta da variável de ambiente `GARIMPO_PASTA`).

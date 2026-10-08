@@ -3,6 +3,23 @@
   "version": "0.1.0",
   "description": "Servidor MCP local (stdio) de pesquisa de jurisprudência brasileira via busca direta do JurisprudênciaIA, com download de inteiro teor oficial dos tribunais. Cliente não oficial.",
   "license": "MIT",
+  "author": "Garimpo",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/leorochasf/garimpo-mcp.git"
+  },
+  "homepage": "https://github.com/leorochasf/garimpo-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/leorochasf/garimpo-mcp/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "jurisprudencia",
+    "direito",
+    "brasil",
+    "claude"
+  ],
   "type": "module",
   "bin": {
     "garimpo-mcp": "dist/index.js"
@@ -17,10 +34,12 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "vitest run",
-    "test:vivo": "vitest run tests/vivo.test.ts"
+    "test:vivo": "vitest run tests/vivo.test.ts",
+    "prepack": "npm run build",
+    "prepublishOnly": "npm test"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
