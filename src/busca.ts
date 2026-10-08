@@ -4,6 +4,7 @@
  */
 
 import { Cliente, FormatoInesperadoError } from "./cliente.js";
+import { type Enquadramento927, enquadrarAcordao, enquadrarQualificado, type ParadigmaDoSite } from "./enquadramento.js";
 import { juntarEquivalentes } from "./equivalencia.js";
 import { infoTribunal } from "./tribunais.js";
 
@@ -28,6 +29,8 @@ export interface Acordao {
   /** Página oficial de consulta do processo/acórdão (STF: link_consulta ou url_acordao), quando há. */
   linkConsulta?: string;
   relevancia?: number;
+  /** Inciso do art. 927 do CPC em que o acórdão se encaixa, com a prova nos dados; ou "não classificado", com o motivo. */
+  enquadramento927: Enquadramento927;
 }
 
 export interface Qualificado {
@@ -37,6 +40,8 @@ export interface Qualificado {
   orgao?: string;
   processoParadigma?: string;
   link?: string;
+  /** Inciso do art. 927 do CPC com a prova nos dados, ou "não classificado", com o motivo: o rótulo da lista não basta. */
+  enquadramento927: Enquadramento927;
 }
 
 export interface ResultadoBusca {
@@ -45,8 +50,14 @@ export interface ResultadoBusca {
   cabecalhoDeCobertura?: string;
   acordaos: Acordao[];
   qualificados: Qualificado[];
+  /** Vai junto da lista de precedentes qualificados: o rótulo da lista é do site, não do art. 927. */
+  ressalvaQualificados: string;
   avisos: string[];
 }
+
+/** Começo da ressalva que vai junto de toda lista de precedentes qualificados; o fim diz onde está o enquadramento. */
+export const RESSALVA_ROTULO =
+  '"Precedente qualificado" é o rótulo da lista do site: não comprova enquadramento, vigência nem aplicabilidade. ';
 
 export interface FiltrosBusca {
   de?: string;
@@ -136,7 +147,14 @@ export async function buscaDireta(cliente: Cliente, p: ParametrosBusca): Promise
         "Para mais, use outras formulações (busca_ampla).",
     );
   }
-  return { tribunal, cabecalhoDeCobertura, acordaos: resultado.acordaos, qualificados: resultado.qualificados, avisos: resultado.avisos };
+  return {
+    tribunal,
+    cabecalhoDeCobertura,
+    acordaos: resultado.acordaos,
+    qualificados: resultado.qualificados,
+    ressalvaQualificados: resultado.ressalvaQualificados,
+    avisos: resultado.avisos,
+  };
 }
 
 /**
@@ -192,21 +210,34 @@ export function normalizar(tribunal: string, json: unknown): ResultadoBusca {
   const qualificados: Qualificado[] = [];
   for (const [lista, tipo] of Object.entries(LISTAS_QUALIFICADOS)) {
     if (!Array.isArray(r[lista])) continue;
-    for (const q of r[lista] as Bruto[]) qualificados.push(paraQualificado(tipo, q));
+    for (const q of r[lista] as Bruto[]) qualificados.push(paraQualificado(tribunal, tipo, q));
   }
 
   const avisos: string[] = [];
   const semEmenta = brutos.filter((x) => !texto(x.texto_ementa)).length;
   if (semEmenta) avisos.push(`${semEmenta} acórdão(s) vieram sem ementa no JurisprudênciaIA.`);
 
-  return { tribunal, acordaos: brutos.map((x) => paraAcordao(tribunal, x)), qualificados, avisos };
+  // Os paradigmas dos temas da mesma resposta só geram nota no acórdão do mesmo processo: ele não herda o inciso.
+  const paradigmas: ParadigmaDoSite[] = qualificados.map(({ tipo, numero, processoParadigma }) => ({
+    tribunal,
+    tipo,
+    numero,
+    processoParadigma,
+  }));
+  return {
+    tribunal,
+    acordaos: brutos.map((x) => paraAcordao(tribunal, x, paradigmas)),
+    qualificados,
+    ressalvaQualificados: `${RESSALVA_ROTULO}O enquadramento legal vem em enquadramento927, com a evidência ou o motivo.`,
+    avisos,
+  };
 }
 
-function paraAcordao(tribunal: string, x: Bruto): Acordao {
+function paraAcordao(tribunal: string, x: Bruto, paradigmas: readonly ParadigmaDoSite[]): Acordao {
   const sigla = texto(x.sigla_classe);
   const numeroDeVerdade = texto(x.numero_processo) ?? texto(x.numero_processo_cnj);
   const numero = numeroDeVerdade ?? String(x.id);
-  return limpar({
+  const acordao = limpar({
     id: `${tribunal}:${x.id}`,
     tribunal,
     numero: sigla && !numero.startsWith(sigla) ? `${sigla} ${numero}` : numero,
@@ -222,18 +253,26 @@ function paraAcordao(tribunal: string, x: Bruto): Acordao {
     linkConsulta: texto(x.link_consulta) ?? texto(x.url_acordao),
     relevancia: numeroOuNada(x.rerank_score) ?? numeroOuNada(x.score),
   });
+  const enquadramento927 = enquadrarAcordao(
+    { ...acordao, siglaClasse: sigla, numeroTema: texto(x.numero_tema) },
+    { paradigmas },
+  );
+  return { ...acordao, enquadramento927 };
 }
 
-function paraQualificado(tipo: string, q: Bruto): Qualificado {
+function paraQualificado(tribunal: string, tipo: string, q: Bruto): Qualificado {
   const sigla = texto(q.sigla_classe);
   const proc = texto(q.numero_processo_paradigma) ?? (texto(q.numero_processo) && `${sigla ?? ""} ${q.numero_processo}`.trim());
+  const numero = texto(q.numero) ?? texto(q.numero_tema);
   return limpar({
     tipo,
-    numero: texto(q.numero) ?? texto(q.numero_tema),
+    numero,
     texto: texto(q.tese_firmada) ?? texto(q.enunciado) ?? texto(q.descricao_tese) ?? "",
     orgao: texto(q.orgao_julgador),
     processoParadigma: proc || undefined,
     link: texto(q.link) ?? texto(q.url_tema) ?? texto(q.link_pdf) ?? texto(q.link_acordao),
+    // Tese só a firmada: descrição da questão submetida não é tese.
+    enquadramento927: enquadrarQualificado({ tribunal, tipo, numero, tese: texto(q.tese_firmada) }),
   });
 }
 

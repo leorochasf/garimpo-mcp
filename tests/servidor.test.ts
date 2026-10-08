@@ -7,7 +7,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { describe, expect, it, vi } from "vitest";
 import { Cliente, VERSAO } from "../src/cliente.js";
 import { criarServidor, type OpcoesServidor } from "../src/servidor.js";
-import { clienteFalso, respostaJson } from "./apoio.js";
+import { clienteFalso, fixture, respostaJson } from "./apoio.js";
 import { pdfSintetico, type TextoPosicionado } from "./pdfSintetico.js";
 
 /**
@@ -1105,5 +1105,181 @@ describe("ordem de leitura do texto do PDF (pela porta)", () => {
     expect(linhas[0]).toMatch(/^Texto do voto ?1 ?e segue na mesma linha\.$/);
     expect(linhas[1]).toMatch(/^Documento assinado ?digitalmente$/);
     expect(linhas[2]).toBe("Linha seguinte do voto.");
+  });
+});
+
+describe("enquadramento no art. 927 nas respostas (pela porta)", () => {
+  /** Site falso: responde a toda busca com esta resposta inteira no formato do site. */
+  function siteQueResponde(resposta: unknown) {
+    return new Cliente({
+      nome: "O site",
+      esperar: async () => {},
+      fetch: (async () => respostaJson(resposta)) as typeof fetch,
+    });
+  }
+
+  async function chamar(mcp: Client, name: string, args: Record<string, unknown>) {
+    const r = (await mcp.callTool({ name, arguments: args })) as { content: { text: string }[]; isError?: boolean };
+    expect(r.isError, r.content[0].text).toBeFalsy();
+    return JSON.parse(r.content[0].text);
+  }
+
+  it("acórdão do STF com sigla ADI: inciso I com base legal e evidência, sem \"efeito vinculante\"", async () => {
+    const mcp = await conectar(
+      siteQueResponde({
+        juris: [
+          {
+            id: "adi1",
+            sigla_classe: "ADI",
+            numero_processo: "9001",
+            classe_processual: "AÇÃO DIRETA DE INCONSTITUCIONALIDADE",
+            orgao_julgador: "Tribunal Pleno",
+            texto_ementa: "EMENTA FICTÍCIA DE AÇÃO DIRETA PARA TESTE.",
+          },
+        ],
+      }),
+    );
+    const r = await chamar(mcp, "busca_direta", { tribunal: "stf", texto: "exemplo" });
+    const e = r.acordaos[0].enquadramento927;
+
+    expect(e.inciso).toBe("I");
+    expect(e.baseLegal).toBe(
+      'CPC, art. 927, I: "as decisões do Supremo Tribunal Federal em controle concentrado de constitucionalidade;"',
+    );
+    expect(e.evidencia).toBe("STF; sigla da classe informada pelo site: ADI");
+    expect(e.avisoSituacao).toMatch(/não informam se este acórdão é a decisão definitiva de mérito/);
+    expect(e.textoLegalConferidoEm).toBe("2026-10-08");
+    expect(JSON.stringify(r)).not.toMatch(/efeito vinculante/i);
+  });
+
+  it("obter_ementa traz o mesmo enquadramento que a busca deu ao acórdão", async () => {
+    const mcp = await conectar(siteQueResponde(fixture("stj-sem-classe.json")));
+    const busca = await chamar(mcp, "busca_direta", { tribunal: "stj", texto: "exemplo" });
+    const ementa = await chamar(mcp, "obter_ementa", { id: "stj:201" });
+
+    expect(ementa.enquadramento927).toEqual(busca.acordaos.find((a: { id: string }) => a.id === "stj:201").enquadramento927);
+    expect(ementa.enquadramento927).toEqual({
+      inciso: "não classificado",
+      motivo: "classe não informada pelo site",
+      notas: [],
+      textoLegalConferidoEm: "2026-10-08",
+    });
+  });
+
+  it("STJ: turma com classe conhecida fica não classificado com o motivo, nunca \"fora do rol\"", async () => {
+    const mcp = await conectar(siteQueResponde(fixture("stj-sem-classe.json")));
+    const r = await chamar(mcp, "busca_direta", { tribunal: "stj", texto: "exemplo" });
+    const turma = r.acordaos.find((a: { id: string }) => a.id === "stj:202").enquadramento927;
+
+    expect(turma.inciso).toBe("não classificado");
+    expect(turma.motivo).toBe(
+      "a classe informada (Recurso Especial) não basta para nenhuma regra fixa: os dados não informam se o julgamento " +
+        "foi de caso repetitivo, de incidente ou orientação do plenário ou do órgão especial, nem se o recurso especial " +
+        "foi julgado no regime da relevância (inciso III-A)",
+    );
+    expect(turma.baseLegal).toBeUndefined();
+    expect(JSON.stringify(r)).not.toMatch(/fora do rol/i);
+  });
+
+  it("acórdão do mesmo processo do paradigma de um tema e acórdão com numero_tema não herdam o inciso: só nota", async () => {
+    const resposta = fixture("stf-juris.json") as { juris: Record<string, unknown>[] };
+    resposta.juris.push({
+      id: "103",
+      sigla_classe: "RE",
+      numero_processo: "100003",
+      numero_tema: 777,
+      classe_processual: "RECURSO EXTRAORDINÁRIO",
+      orgao_julgador: "Segunda Turma",
+      texto_ementa: "EMENTA FICTÍCIA DE ACÓRDÃO LIGADO A TEMA.",
+    });
+    const mcp = await conectar(siteQueResponde(resposta));
+    const r = await chamar(mcp, "busca_direta", { tribunal: "stf", texto: "exemplo" });
+    const porId = Object.fromEntries(r.acordaos.map((a: { id: string; enquadramento927: unknown }) => [a.id, a.enquadramento927]));
+
+    // RE 100001 é o processo do paradigma do tema 999 de repercussão geral, julgado pelo Tribunal Pleno.
+    expect(porId["stf:101"].inciso).toBe("não classificado");
+    expect(porId["stf:101"].notas).toEqual([
+      "mesmo processo do paradigma do repercussão geral nº 999 informado pelo site; o acórdão não herda o enquadramento nem a tese",
+      'órgão informado: Tribunal Pleno; o nome do órgão não comprova "orientação" do plenário ou do órgão especial ' +
+        "(art. 927, V) nem a quem ela vincula",
+    ]);
+    expect(porId["stf:103"].inciso).toBe("não classificado");
+    expect(porId["stf:103"].notas).toEqual([
+      "o site liga este acórdão ao tema nº 777 do STF; o acórdão não herda o enquadramento nem a tese do tema",
+    ]);
+  });
+
+  const RESSALVA =
+    '"Precedente qualificado" é o rótulo da lista do site: não comprova enquadramento, vigência nem aplicabilidade. ' +
+    "O enquadramento legal vem em enquadramento927, com a evidência ou o motivo.";
+
+  it("lista de qualificados do STF: súmula vinculante no inciso II com aviso de situação; repercussão geral não classificada; ressalva junto", async () => {
+    const mcp = await conectar(siteQueResponde(fixture("stf-juris.json")));
+    const r = await chamar(mcp, "busca_direta", { tribunal: "stf", texto: "exemplo" });
+    const [vinculante, rg] = r.qualificados;
+
+    expect(vinculante.tipo).toBe("súmula vinculante");
+    expect(vinculante.enquadramento927).toMatchObject({
+      inciso: "II",
+      baseLegal: 'CPC, art. 927, II: "os enunciados de súmula vinculante;"',
+      evidencia: "lista de súmulas vinculantes do site (STF), súmula vinculante nº 1",
+      avisoSituacao: "situação da súmula vinculante (revisão, cancelamento) não informada pelo site: conferir antes de citar",
+    });
+    expect(rg.tipo).toBe("repercussão geral");
+    expect(rg.enquadramento927).toMatchObject({
+      inciso: "não classificado",
+      motivo:
+        "enquadramento no art. 927 não verificado: a repercussão geral não é expressamente mencionada nesse artigo e o " +
+        "CPC distingue os regimes no art. 1.035, § 7º",
+    });
+    expect(r.ressalvaQualificados).toBe(RESSALVA);
+  });
+
+  it("lista de qualificados do STJ: tema repetitivo com tese no inciso III; súmula do STJ não classificada", async () => {
+    const mcp = await conectar(siteQueResponde(fixture("stj-sem-classe.json")));
+    const r = await chamar(mcp, "busca_direta", { tribunal: "stj", texto: "exemplo" });
+    const [tema, sumula] = r.qualificados;
+
+    expect(tema.enquadramento927).toMatchObject({
+      inciso: "III",
+      evidencia: "lista de tema repetitivo do site (STJ), tema repetitivo nº 1001, com tese informada",
+      avisoSituacao: "situação do tema repetitivo (julgamento concluído, revisão, superação) não verificada: conferir antes de citar",
+    });
+    expect(tema.enquadramento927.baseLegal).toMatch(/^CPC, art\. 927, III: "os acórdãos em incidente de assunção/);
+    expect(sumula.enquadramento927).toMatchObject({
+      inciso: "não classificado",
+      motivo: "súmula do STJ: o inciso IV exige matéria infraconstitucional, que os dados não informam",
+    });
+    expect(r.ressalvaQualificados).toBe(RESSALVA);
+  });
+
+  it("tema repetitivo sem tese firmada não é classificado, mesmo com a descrição da questão no texto", async () => {
+    const mcp = await conectar(
+      siteQueResponde({
+        results: [],
+        repetitivos: [{ id: "5", numero: 2002, descricao_tese: "Questão fictícia submetida a julgamento." }],
+      }),
+    );
+    const r = await chamar(mcp, "busca_direta", { tribunal: "stj", texto: "exemplo" });
+
+    expect(r.qualificados[0].texto).toBe("Questão fictícia submetida a julgamento.");
+    expect(r.qualificados[0].enquadramento927).toMatchObject({
+      inciso: "não classificado",
+      motivo: "tema repetitivo do STJ sem tese informada pelo site",
+    });
+  });
+
+  it("busca ampla: a ressalva vem junto da lista de qualificados e diz onde está o enquadramento, que ela não traz", async () => {
+    const mcp = await conectar(siteQueResponde(fixture("stj-sem-classe.json")));
+    const r = await chamar(mcp, "busca_ampla", { formulacoes: ["exemplo"], tribunais: ["stj"] });
+
+    expect(r.qualificados).toHaveLength(2);
+    expect(r.ressalvaQualificados).toBe(
+      '"Precedente qualificado" é o rótulo da lista do site: não comprova enquadramento, vigência nem aplicabilidade. ' +
+        "A busca ampla não traz o enquadramento927: veja-o no obter_ementa (acórdãos) e na busca_direta (qualificados).",
+    );
+    expect(JSON.stringify(r)).not.toMatch(/"enquadramento927":/);
+    // O enquadramento de um acórdão achado pela busca ampla sai no obter_ementa, sem nova busca.
+    expect((await chamar(mcp, "obter_ementa", { id: "stj:202" })).enquadramento927.inciso).toBe("não classificado");
   });
 });

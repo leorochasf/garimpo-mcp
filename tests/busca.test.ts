@@ -40,6 +40,7 @@ describe("busca direta", () => {
         texto: "Tese fictícia de tema repetitivo.",
         orgao: "PRIMEIRA SEÇÃO",
         link: "https://processo.stj.jus.br/repetitivos/exemplo",
+        enquadramento927: expect.objectContaining({ inciso: "III" }),
       },
       {
         tipo: "súmula",
@@ -47,6 +48,7 @@ describe("busca direta", () => {
         texto: "Enunciado fictício de súmula do STJ.",
         orgao: "PRIMEIRA SEÇÃO",
         link: "https://scon.stj.jus.br/SCON/exemplo",
+        enquadramento927: expect.objectContaining({ inciso: "não classificado" }),
       },
     ]);
   });

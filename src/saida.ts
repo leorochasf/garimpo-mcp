@@ -51,7 +51,11 @@ export interface QualificadosDaBusca {
   qualificados: Qualificado[];
 }
 
-export interface QualificadoAmplo extends Qualificado {
+/**
+ * Sem o enquadramento927: na busca ampla ele não cabe no teto de 25 mil caracteres (50 acórdãos + 10 qualificados de
+ * tamanho real já ocupam ~24,5 mil; ver o teste de tamanho em tests/ampla.test.ts).
+ */
+export interface QualificadoAmplo extends Omit<Qualificado, "enquadramento927"> {
   tribunal: string;
   /** Quantas formulações trouxeram este precedente. */
   formulacoes: number;
@@ -82,7 +86,7 @@ export function juntarQualificados(buscas: QualificadosDaBusca[], o: OpcoesQuali
   return [...juntos.values()]
     .sort((a, b) => b.formulacoes.size - a.formulacoes.size)
     .slice(0, o.teto ?? 10)
-    .map(({ q, tribunal, formulacoes }) => ({
+    .map(({ q: { enquadramento927: _, ...q }, tribunal, formulacoes }) => ({
       ...q,
       texto: q.texto.length > tamanho ? `${q.texto.slice(0, tamanho)}…` : q.texto,
       tribunal,

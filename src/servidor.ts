@@ -139,6 +139,9 @@ export function criarServidor(
         "precedentes qualificados (temas, súmulas). O site costuma devolver poucos acórdãos do STF por busca (de 2 a 7 na medição de out/2026). " +
         "O campo cabecalhoDeCobertura diz se veio o número pedido (pode haver mais) ou menos (a base não tem mais " +
         "para o texto; no STF, que devolve poucos por busca, pode haver mais). " +
+        "Cada acórdão e cada precedente qualificado traz enquadramento927: o inciso do art. 927 do CPC com a " +
+        "evidência tirada dos dados do site, ou \"não classificado\" com o motivo; o rótulo da lista de qualificados " +
+        "não prova enquadramento, vigência nem aplicabilidade. " +
         "Ementas são longas: prefira limite baixo aqui e busca_ampla para volume.",
       annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: {
@@ -175,6 +178,8 @@ export function criarServidor(
         "máximo. Busca vazia não é busca com erro: tribunal em que nenhuma busca deu resposta aparece \"com erro\" " +
         "(ou \"não pesquisado\"), sem achados. Se nenhuma busca deu resposta, a ferramenta responde com erro e o " +
         "motivo de cada busca, nunca com lista vazia. Para ler a ementa inteira, use obter_ementa com o id. " +
+        "A busca ampla não traz o enquadramento927 (enquadramento no art. 927 do CPC): o de cada acórdão vem no " +
+        "obter_ementa, e o dos precedentes qualificados, na busca_direta. " +
         "Formulações boas variam sinônimos técnicos, dispositivo legal e nome do instituto.",
       annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: {
@@ -202,7 +207,7 @@ export function criarServidor(
       title: "Obter ementa",
       description:
         "Devolve a ementa inteira e os dados de um acórdão já devolvido por busca_direta ou busca_ampla nesta " +
-        "sessão, pelo id (ex.: \"stj:12345\"). Não faz nova busca no site.",
+        "sessão, pelo id (ex.: \"stj:12345\"), com o mesmo enquadramento927 da busca. Não faz nova busca no site.",
       annotations: { readOnlyHint: true, openWorldHint: false },
       inputSchema: { id: z.string().describe("Id do acórdão, como veio na busca (tribunal:id)") },
     },

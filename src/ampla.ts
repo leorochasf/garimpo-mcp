@@ -4,7 +4,7 @@
  */
 
 import { Cliente, RecusaError } from "./cliente.js";
-import { type Acordao, buscaDireta, type FiltrosBusca, lembrar } from "./busca.js";
+import { type Acordao, buscaDireta, type FiltrosBusca, lembrar, RESSALVA_ROTULO } from "./busca.js";
 import { juntarEquivalentes, type Ocorrencia } from "./equivalencia.js";
 import { ordenarPorAderencia, trecho } from "./pontuacao.js";
 import { juntarQualificados, type QualificadoAmplo, type QualificadosDaBusca, reservarPorTribunal } from "./saida.js";
@@ -64,6 +64,8 @@ export interface ResultadoAmplo {
   acordaos: ItemAmplo[];
   /** Precedentes qualificados que as buscas devolveram, sem repetidos. */
   qualificados: QualificadoAmplo[];
+  /** Vai junto da lista de precedentes qualificados: o rótulo é do site, e o enquadramento927 fica fora desta saída. */
+  ressalvaQualificados: string;
   avisos: string[];
 }
 
@@ -226,6 +228,9 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<
       return item;
     }),
     qualificados: juntarQualificados(qualificados, { tamanhoTexto: 200 }),
+    ressalvaQualificados:
+      `${RESSALVA_ROTULO}A busca ampla não traz o enquadramento927: veja-o no obter_ementa (acórdãos) e na busca_direta ` +
+      "(qualificados).",
     avisos,
   };
 }
