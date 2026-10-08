@@ -4,7 +4,8 @@
  */
 
 import { Cliente, RecusaError } from "./cliente.js";
-import { type Acordao, buscaDireta, type FiltrosBusca } from "./busca.js";
+import { type Acordao, buscaDireta, type FiltrosBusca, lembrar } from "./busca.js";
+import { juntarEquivalentes } from "./equivalencia.js";
 
 export interface ParametrosAmpla extends FiltrosBusca {
   formulacoes: string[];
@@ -94,7 +95,20 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<
     avisos.push("O STF devolve no máximo 4 acórdãos por busca; a cobertura dele depende do número de formulações.");
   }
 
-  const ordenados = [...juntos.values()].sort(
+  // Cópias do mesmo acórdão achadas em buscas diferentes viram um acórdão só (regra do ticket 06).
+  const juncao = juntarEquivalentes(
+    [...juntos.values()].map((x) => ({ registro: x.acordao, formulacoes: x.formulacoes, melhorPosicao: x.melhorPosicao })),
+  );
+  const acordaos = juncao.acordaos.map((j) => {
+    lembrar(j.ids, j.registro);
+    return {
+      acordao: j.registro,
+      formulacoes: j.formulacoes,
+      relevancia: Math.max(...j.ids.map((id) => juntos.get(id)!.relevancia)),
+      melhorPosicao: j.melhorPosicao,
+    };
+  });
+  const ordenados = acordaos.sort(
     (a, b) =>
       b.formulacoes.size - a.formulacoes.size || b.relevancia - a.relevancia || a.melhorPosicao - b.melhorPosicao,
   );

@@ -74,6 +74,23 @@ describe("busca ampla", () => {
     ]);
   });
 
+  it("cópias do mesmo acórdão achadas por formulações diferentes viram um só, com as formulações somadas", async () => {
+    const ementa = "EMENTA FICTÍCIA DO MESMO ACÓRDÃO EM DOIS REGISTROS.";
+    const { cliente } = siteFalso((_t, texto) =>
+      respostaJson({
+        results:
+          texto === "a"
+            ? [{ ...bruto("copia-a", 0.5, `Ementa: ${ementa}`), numero_processo: null }]
+            : [bruto("copia-b", 0.5, ementa)],
+      }),
+    );
+    const r = await buscaAmpla(cliente, { formulacoes: ["a", "b"], tribunais: ["stj"] });
+
+    expect(r.totalAcordaos).toBe(1);
+    expect(r.acordaos.map((a) => [a.id, a.numero, a.formulacoes])).toEqual([["stj:copia-b", "copia-b/UF", 2]]);
+    expect(acordaoNaMemoria("stj:copia-a")?.numero).toBe("copia-b/UF");
+  });
+
   it("recusa no meio: devolve o que já juntou, avisa que ficou incompleta e não faz novas buscas", async () => {
     const { cliente, estado } = siteFalso((_t, texto, n) =>
       n < 3 ? respostaJson({ results: [bruto(`r-${texto}`, 0.5)] }) : new Response("", { status: 429 }),
@@ -129,8 +146,16 @@ describe("busca ampla", () => {
 
   it("saída compacta cabe numa resposta; ementa inteira sai por id, sem nova busca", async () => {
     const ementaLonga = "X".repeat(4000);
+    // Ementa idêntica e números de processo diferentes: ninguém se junta. Os números diferem nos dígitos porque a
+    // regra de equivalência (ticket 06) compara números só pelos dígitos ("a-0/UF" e "b-0/UF" seriam o mesmo).
+    const formulacao = (texto: string) => ["a", "b", "c"].indexOf(texto);
     const { cliente, estado } = siteFalso((_t, texto) =>
-      respostaJson({ results: Array.from({ length: 100 }, (_, i) => bruto(`${texto}-${i}`, 0.5, ementaLonga)) }),
+      respostaJson({
+        results: Array.from({ length: 100 }, (_, i) => ({
+          ...bruto(`${texto}-${i}`, 0.5, ementaLonga),
+          numero_processo: `${String(i).padStart(3, "0")}-${formulacao(texto)}/UF`,
+        })),
+      }),
     );
     const r = await buscaAmpla(cliente, { formulacoes: ["a", "b", "c"], tribunais: ["stj"] });
 

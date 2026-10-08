@@ -4,6 +4,7 @@
  */
 
 import { Cliente, FormatoInesperadoError } from "./cliente.js";
+import { juntarEquivalentes } from "./equivalencia.js";
 import { infoTribunal } from "./tribunais.js";
 
 export const SITE = "https://www.jurisprudenciaia.com.br";
@@ -13,6 +14,8 @@ export interface Acordao {
   id: string;
   tribunal: string;
   numero: string;
+  /** O site não trouxe número de processo: o `numero` é só o id do site. */
+  semNumero: boolean;
   numeroCnj?: string;
   classe?: string;
   relator?: string;
@@ -79,6 +82,11 @@ export function acordaoNaMemoria(id: string): Acordao | undefined {
   return memoria.get(id);
 }
 
+/** Guarda o acórdão sob o id de cada cópia, para que qualquer um deles leia a ementa e peça o inteiro teor. */
+export function lembrar(ids: readonly string[], acordao: Acordao): void {
+  for (const id of ids) memoria.set(id, acordao);
+}
+
 export async function buscaDireta(cliente: Cliente, p: ParametrosBusca): Promise<ResultadoBusca> {
   const tribunal = p.tribunal.toLowerCase();
   const info = infoTribunal(tribunal);
@@ -108,7 +116,14 @@ export async function buscaDireta(cliente: Cliente, p: ParametrosBusca): Promise
     throw new FormatoInesperadoError(`O JurisprudênciaIA devolveu algo que não é JSON na busca do ${tribunal.toUpperCase()}.`);
   }
   const resultado = normalizar(tribunal, json);
-  for (const a of resultado.acordaos) memoria.set(a.id, a);
+  // Cópias do mesmo acórdão na base do site viram um acórdão só (regra do ticket 06).
+  const { acordaos } = juntarEquivalentes(
+    resultado.acordaos.map((registro, posicao) => ({ registro, formulacoes: new Set<number>(), melhorPosicao: posicao })),
+  );
+  resultado.acordaos = acordaos.sort((a, b) => a.melhorPosicao - b.melhorPosicao).map((a) => {
+    lembrar(a.ids, a.registro);
+    return a.registro;
+  });
   if (tribunal === "stf") {
     resultado.avisos.push(
       `O STF devolve no máximo ${info.tetoResultados} acórdãos por busca. Para mais, use outras formulações (busca_ampla).`,
@@ -165,11 +180,13 @@ export function normalizar(tribunal: string, json: unknown): ResultadoBusca {
 
 function paraAcordao(tribunal: string, x: Bruto): Acordao {
   const sigla = texto(x.sigla_classe);
-  const numero = texto(x.numero_processo) ?? texto(x.numero_processo_cnj) ?? String(x.id);
+  const numeroDeVerdade = texto(x.numero_processo) ?? texto(x.numero_processo_cnj);
+  const numero = numeroDeVerdade ?? String(x.id);
   return limpar({
     id: `${tribunal}:${x.id}`,
     tribunal,
     numero: sigla && !numero.startsWith(sigla) ? `${sigla} ${numero}` : numero,
+    semNumero: !numeroDeVerdade,
     numeroCnj: texto(x.numero_processo_cnj),
     classe: texto(x.classe_processual),
     relator: texto(x.relator),

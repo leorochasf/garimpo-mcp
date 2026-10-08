@@ -64,6 +64,26 @@ describe("busca direta", () => {
     expect(a.link).toMatch(/^https:\/\/projudi/);
   });
 
+  it("duas cópias do mesmo acórdão viram um só; o id de qualquer cópia acha o registro mantido", async () => {
+    const ementa = "APELAÇÃO CÍVEL. EXEMPLO FICTÍCIO DE ACÓRDÃO EM DOIS REGISTROS.";
+    const comum = { data_julgamento: "2025-05-06T00:00:00.000Z", orgao_julgador: "Câmara Exemplo" };
+    const { cliente } = clienteFalso([
+      respostaJson({
+        results: [
+          // Cópia sem número de processo (o site põe só o id) e com "Ementa:" no começo.
+          { id: "copia-a", texto_ementa: `Ementa: ${ementa}`, ...comum },
+          { id: "copia-b", texto_ementa: ementa, numero_processo: "0000009-99.2024.8.21.0001", link_pdf: "https://exemplo.test/b", ...comum },
+          { id: "outro", texto_ementa: "OUTRA EMENTA FICTÍCIA.", numero_processo: "0000008-88.2024.8.21.0001", ...comum },
+        ],
+      }),
+    ]);
+    const r = await buscaDireta(cliente, { tribunal: "tjrs", texto: "exemplo" });
+
+    expect(r.acordaos.map((a) => a.id)).toEqual(["tjrs:copia-b", "tjrs:outro"]);
+    expect(acordaoNaMemoria("tjrs:copia-a")?.numero).toBe("0000009-99.2024.8.21.0001");
+    expect(acordaoNaMemoria("tjrs:copia-a")?.link).toBe("https://exemplo.test/b");
+  });
+
   it("formato inesperado vira erro claro, não lista vazia", () => {
     expect(() => normalizar("stj", { mensagem: "outra coisa" })).toThrow(FormatoInesperadoError);
   });
