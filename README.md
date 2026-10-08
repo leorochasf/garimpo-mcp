@@ -18,6 +18,14 @@ de quem usa.
 | `obter_inteiro_teor` | Baixa o PDF oficial do portal do tribunal (STJ, TJMG, TSE) e devolve o caminho do arquivo. STF, TJGO e demais: devolve o link e explica como obter no navegador |
 | `listar_tribunais` | Para cada tribunal: busca, precedentes qualificados, teto de resultados por busca e se o inteiro teor é baixado ou só linkado |
 
+As respostas de `busca_direta`, `busca_ampla` e `obter_ementa` trazem, no campo `avisoNaturezaJuridica`, a linha
+"Resultado de busca em base não oficial. Confira o acórdão no link oficial do tribunal antes de citar; a ementa não
+substitui o inteiro teor."
+
+`busca_direta`, `busca_ampla`, `obter_ementa` e `listar_tribunais` são declaradas ao cliente como ferramentas que
+só leem (as duas buscas, como ferramentas que consultam serviço externo); `obter_inteiro_teor` não, porque grava
+o PDF no disco. Cabe a cada cliente decidir se usa essa marca para dispensar o pedido de permissão.
+
 ## Uso responsável (travas embutidas)
 
 Toda chamada ao site passa por um cliente único que:
