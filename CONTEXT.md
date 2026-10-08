@@ -23,7 +23,7 @@ Uma consulta à base do JurisprudênciaIA, num tribunal, que devolve ementas int
 _Evitar_: pesquisa IA, chat, scraping
 
 **Busca ampla**:
-Um conjunto de buscas diretas com várias formulações da mesma tese, em um ou mais tribunais, cujos resultados são juntados sem acórdão repetido e ordenados por quantas formulações acharam cada acórdão.
+Um conjunto de buscas diretas com várias formulações da mesma tese, em um ou mais tribunais, cujos resultados são juntados sem acórdão repetido (registros equivalentes viram um acórdão só) e ordenados pela aderência, depois por quantas formulações acharam cada acórdão e pela melhor posição na busca de origem; cada tribunal com acórdão aderente tem vagas garantidas na lista, e os precedentes qualificados devolvidos vêm numa lista própria.
 _Evitar_: varredura, crawler, burst
 
 **Aderência**:

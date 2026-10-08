@@ -69,9 +69,13 @@ servidor.registerTool(
   {
     title: "Busca ampla",
     description:
-      "Roda várias formulações da mesma tese em um ou mais tribunais e devolve uma lista única, sem repetidos, " +
-      "ordenada por quantas formulações acharam cada acórdão (desempate pela relevância). Saída compacta: " +
-      "número, tribunal, data, órgão, começo da ementa e link. Para ler a ementa inteira, use obter_ementa com o id. " +
+      "Roda várias formulações da mesma tese em um ou mais tribunais e devolve uma lista única de acórdãos, sem " +
+      "repetidos (registros duplicados na base do site viram um acórdão só), ordenada pela aderência (quantas " +
+      "palavras de alguma formulação estão na ementa), depois por quantas formulações acharam cada acórdão e pela " +
+      "posição na busca de origem. Cada tribunal pedido com acórdão aderente tem vagas garantidas. Aderência mede " +
+      "proximidade de texto, não relevância jurídica. Saída compacta: número, tribunal, data, órgão, começo da " +
+      "ementa e link; e, em lista separada, os precedentes qualificados (temas, súmulas) que o site devolveu. " +
+      "Para ler a ementa inteira, use obter_ementa com o id. " +
       "Formulações boas variam sinônimos técnicos, dispositivo legal e nome do instituto.",
     inputSchema: {
       formulacoes: z.array(z.string().min(2)).min(1).max(20).describe("Formulações da mesma tese (até 20)"),

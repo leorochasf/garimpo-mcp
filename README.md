@@ -13,7 +13,7 @@ de quem usa.
 | Ferramenta | O que faz |
 |---|---|
 | `busca_direta` | Uma busca num tribunal: acórdãos (até 100) e, em lista separada, precedentes qualificados (temas, súmulas). Filtros opcionais: período, relator, órgão, classe |
-| `busca_ampla` | Várias formulações da mesma tese em um ou mais tribunais: lista única, sem repetidos, ordenada por quantas formulações acharam cada acórdão. Saída compacta (número, tribunal, data, órgão, começo da ementa, link) |
+| `busca_ampla` | Várias formulações da mesma tese em um ou mais tribunais: lista única de acórdãos, sem repetidos (registros duplicados na base do site viram um acórdão só), ordenada pela **aderência** (palavras de alguma formulação presentes na ementa), depois por quantas formulações acharam cada acórdão e pela posição na busca de origem. Cada tribunal pedido com acórdão aderente tem vagas garantidas (até 3). Saída compacta (número, tribunal, data, órgão, começo da ementa, link) e, em lista separada, os precedentes qualificados que o site devolveu |
 | `obter_ementa` | Ementa inteira de um acórdão já devolvido nesta sessão, pelo id, sem nova busca no site |
 | `obter_inteiro_teor` | Baixa o PDF oficial do portal do tribunal (STJ, TJMG, TSE) e devolve o caminho do arquivo. STF, TJGO e demais: devolve o link e explica como obter no navegador |
 | `listar_tribunais` | Para cada tribunal: busca, precedentes qualificados, teto de resultados por busca e se o inteiro teor é baixado ou só linkado |
@@ -104,6 +104,10 @@ civil do Estado por omissão."*
 - **STJ:** a maioria dos números de processo vem sem a classe (ex.: `1.234.567/SP`).
 - **TJGO:** dados completos, mas com cerca de 2 meses de defasagem.
 - Mesma busca repetida traz o mesmo conjunto em **ordem variável** (o site reordena por IA).
+- **Busca ampla:** aderência mede proximidade de texto com a formulação, não relevância jurídica. A nota de
+  relevância do site não entra na ordem: o site só reranqueia os primeiros de cada busca e dá aos demais uma nota
+  de outra escala. Para caber numa resposta, a saída mostra 100 caracteres do começo de cada ementa (sem o rótulo
+  "Ementa:") e 200 do texto de cada precedente qualificado; a ementa inteira sai por `obter_ementa`.
 - **Inteiro teor:** STF (proteção anti-robô), TJGO (reCAPTCHA) e os demais tribunais não são baixados
   automaticamente: o Garimpo devolve o link e explica como obter no navegador.
 - **TSE:** downloads seguidos esperam 10 s entre si (o portal recusa chamadas em sequência).
