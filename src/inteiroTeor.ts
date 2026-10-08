@@ -24,9 +24,16 @@ export interface PedidoInteiroTeor {
   pasta?: string;
 }
 
-export type ResultadoInteiroTeor =
-  | { baixado: true; arquivo: string; recibo: string; sha256: string; bytes: number; fonte: string }
-  | { baixado: false; link?: string; explicacao: string };
+export interface InteiroTeorBaixado {
+  baixado: true;
+  arquivo: string;
+  recibo: string;
+  sha256: string;
+  bytes: number;
+  fonte: string;
+}
+
+export type ResultadoInteiroTeor = InteiroTeorBaixado | { baixado: false; link?: string; explicacao: string };
 
 export type ClientePorTribunal = (sigla: string) => Cliente;
 

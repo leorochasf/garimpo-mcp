@@ -14,6 +14,7 @@ import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
  */
 export const LIMITE_CARACTERES_PARTE = 24_000;
 
+
 /** Contrato do recibo de origem: quem grava (inteiroTeor.ts) e quem confere (aqui) usam os mesmos textos. */
 export const NAO_INFORMADO = "não informado";
 export const FORMATO_RECIBO = "recibo de origem do Garimpo, versão 1";
@@ -53,12 +54,7 @@ export interface ParteDoInteiroTeor {
 
 export async function lerInteiroTeor(caminhoPedido: string, parte = 1): Promise<ParteDoInteiroTeor> {
   const caminho = resolve(caminhoPedido);
-  let bytes: Uint8Array;
-  try {
-    bytes = await readFile(caminho);
-  } catch (e) {
-    throw new Error(`Não consegui ler o arquivo ${caminho} (${(e as Error).message}).`);
-  }
+  const bytes = await lerArquivo(caminho);
   const sha256 = createHash("sha256").update(bytes).digest("hex");
   const origem = await conferirOrigem(caminho, sha256);
   const paginas = await extrairPaginas(bytes, caminho);
@@ -81,7 +77,19 @@ export async function lerInteiroTeor(caminhoPedido: string, parte = 1): Promise<
 
   // O cabeçalho é o mesmo em todas as partes, menos as páginas e a próxima parte: reserva-se o pior caso dos dois.
   const pior = "9".repeat(6);
-  const reserva = JSON.stringify(base(`páginas ${pior}–${pior} de ${pior} (parte ${pior} de ${pior})`, 999_999)).length;
+  // Mais os dados do download, medidos, que vão junto quando a 1ª parte sai na resposta do obter_inteiro_teor:
+  // reservados em todas as partes, para a divisão ser a mesma nas duas ferramentas.
+  const download = {
+    baixado: true,
+    arquivo: caminho,
+    recibo: caminhoDoRecibo(caminho),
+    sha256,
+    bytes: bytes.length,
+    fonte: origem.linkDaBusca ?? "",
+  };
+  const reserva =
+    JSON.stringify(base(`páginas ${pior}–${pior} de ${pior} (parte ${pior} de ${pior})`, 999_999)).length +
+    JSON.stringify(download).length;
   const partes = dividir(paginas, LIMITE_CARACTERES_PARTE - reserva);
   const total = partes.length;
 
@@ -104,7 +112,11 @@ interface Origem {
   campos: Pick<Cabecalho, "tribunal" | "numero" | "data" | "linkOficial" | "id">;
   vinculo?: VinculoDeclarado;
   avisos: string[];
+  /** Link que veio na busca, como o recibo registra (é a "fonte" na resposta do obter_inteiro_teor). */
+  linkDaBusca?: string;
 }
+
+const caminhoDoRecibo = (caminho: string) => `${caminho.replace(/\.pdf$/i, "")}.recibo.txt`;
 
 const SEM_DADOS = {
   tribunal: NAO_INFORMADO,
@@ -119,8 +131,10 @@ const SEM_DADOS = {
  * mesmo sha256 do arquivo atual. Qualquer outro caso: não conferida, com aviso específico.
  */
 async function conferirOrigem(caminho: string, sha256: string): Promise<Origem> {
-  const nomeRecibo = `${caminho.replace(/\.pdf$/i, "")}.recibo.txt`;
+  const nomeRecibo = caminhoDoRecibo(caminho);
+  let linkDaBusca: string | undefined;
   const naoConferida = (motivo: string, vinculo?: VinculoDeclarado): Origem => ({
+    linkDaBusca,
     origem: "não conferida",
     campos: SEM_DADOS,
     vinculo,
@@ -147,6 +161,7 @@ async function conferirOrigem(caminho: string, sha256: string): Promise<Origem> 
       `o recibo ao lado deste PDF (${basename(nomeRecibo)}) não está num formato que o Garimpo reconheça.`,
     );
   }
+  linkDaBusca = recibo.get("Link que veio na busca");
   const campo = (nome: string) => recibo.get(nome) || NAO_INFORMADO;
   const campos = {
     tribunal: campo("Tribunal"),
@@ -173,15 +188,51 @@ async function conferirOrigem(caminho: string, sha256: string): Promise<Origem> 
     origem: `conferida: download pelo Garimpo em ${campo("Data e hora")}, com o mesmo sha256 do recibo ao lado do PDF`,
     campos,
     avisos: [],
+    linkDaBusca,
   };
 }
 
-/** Texto de cada página do PDF ("" = página sem texto extraível). Falha do extrator é erro de leitura explícito. */
-async function extrairPaginas(bytes: Uint8Array, caminho: string): Promise<string[]> {
+async function lerArquivo(caminho: string): Promise<Uint8Array> {
+  try {
+    return await readFile(caminho);
+  } catch (e) {
+    throw new Error(`Não consegui ler o arquivo ${caminho} (${(e as Error).message}).`);
+  }
+}
+
+type DocumentoPdf = Awaited<ReturnType<typeof getDocument>["promise"]>;
+
+/** Abre o PDF no extrator, usa e fecha. Falha do extrator é erro de leitura explícito, com o que se tentava fazer. */
+async function comPdf<T>(
+  bytes: Uint8Array,
+  caminho: string,
+  tentativa: string,
+  usar: (documento: DocumentoPdf) => Promise<T>,
+): Promise<T> {
   // O pdfjs toma posse do buffer que recebe e recusa Buffer: vai uma cópia em Uint8Array.
   const tarefa = getDocument({ data: new Uint8Array(bytes), verbosity: 0 });
   try {
-    const documento = await tarefa.promise;
+    return await usar(await tarefa.promise);
+  } catch (e) {
+    throw new Error(
+      `Erro de leitura: o extrator não conseguiu ${tentativa} ${basename(caminho)} (${(e as Error).message}). ` +
+        "O arquivo pode estar truncado ou corrompido; nada foi alterado. Abra o arquivo para conferir.",
+    );
+  } finally {
+    await tarefa.destroy();
+  }
+}
+
+/** Total de páginas do PDF, contado pela estrutura do documento, sem extrair texto. */
+export async function contarPaginas(caminhoPedido: string): Promise<number> {
+  const caminho = resolve(caminhoPedido);
+  const bytes = await lerArquivo(caminho);
+  return comPdf(bytes, caminho, "contar as páginas do PDF", async (documento) => documento.numPages);
+}
+
+/** Texto de cada página do PDF ("" = página sem texto extraível). */
+function extrairPaginas(bytes: Uint8Array, caminho: string): Promise<string[]> {
+  return comPdf(bytes, caminho, "ler o PDF", async (documento) => {
     const paginas: string[] = [];
     for (let i = 1; i <= documento.numPages; i++) {
       const conteudo = await (await documento.getPage(i)).getTextContent();
@@ -189,14 +240,7 @@ async function extrairPaginas(bytes: Uint8Array, caminho: string): Promise<strin
       paginas.push(texto.trim());
     }
     return paginas;
-  } catch (e) {
-    throw new Error(
-      `Erro de leitura: o extrator não conseguiu ler o PDF ${basename(caminho)} (${(e as Error).message}). O arquivo ` +
-        "pode estar truncado ou corrompido; nada foi alterado. Abra o arquivo para conferir.",
-    );
-  } finally {
-    await tarefa.destroy();
-  }
+  });
 }
 
 /** Um pedaço de uma parte: uma página do PDF inteira ou um segmento de página grande demais. */

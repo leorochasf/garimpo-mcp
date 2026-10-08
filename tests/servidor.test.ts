@@ -109,8 +109,13 @@ describe("servidor MCP", () => {
 });
 
 describe("obter inteiro teor pela porta (tribunal falso e pasta temporária)", () => {
-  const PDF = "%PDF-1.7\nconteudo ficticio\n%%EOF";
-  const pdf = () => new Response(new TextEncoder().encode(PDF), { headers: { "content-type": "application/pdf" } });
+  // Teto da resposta: cerca de 8 mil tokens estimados, a 3 caracteres por token, cabeçalho incluído.
+  const TETO = 24_000;
+  const linhas = (n: number) =>
+    Array.from({ length: 25 }, (_, i) => `Pagina ${n} linha ${i + 1}: texto generico de exemplo sobre responsabilidade civil.`);
+  /** PDF sintético de 30 páginas: dá mais de uma parte. */
+  const PDF = Buffer.from(pdfSintetico(Array.from({ length: 30 }, (_, i) => linhas(i + 1)))).toString("latin1");
+  const pdf = () => new Response(Buffer.from(PDF, "latin1"), { headers: { "content-type": "application/pdf" } });
   const html = (texto: string, headers: Record<string, string> = {}) =>
     new Response(texto, { headers: { "content-type": "text/html", ...headers } });
 
@@ -127,36 +132,117 @@ describe("obter inteiro teor pela porta (tribunal falso e pasta temporária)", (
   // O TSE entrega o PDF dentro de um envelope multipart.
   const tseFalso = () =>
     clienteFalso([
-      new Response(`--fronteiraXYZ\r\nContent-Type: application/octet-stream\r\n\r\n${PDF}\r\n--fronteiraXYZ--\r\n`),
+      new Response(
+        Buffer.from(`--fronteiraXYZ\r\nContent-Type: application/octet-stream\r\n\r\n${PDF}\r\n--fronteiraXYZ--\r\n`, "latin1"),
+      ),
     ]);
+  const LINKS = {
+    stj: "https://scon.stj.jus.br/SCON/GetInteiroTeorDoAcordao?num_registro=202000000001&dt_publicacao=10/12/2020",
+    tjmg: "https://www5.tjmg.jus.br/jurisprudencia/relatorioEspelhoAcordao.do?inteiroTeor=true&numero=1",
+    tse: "https://sjur-servicos.tse.jus.br/sjur-servicos/rest/download/pdf/1",
+  };
 
-  it("STJ, TJMG e TSE falsos: baixa e grava o PDF na pasta injetada, com a resposta de sempre", async () => {
+  /** Servidor com STJ, TJMG e TSE falsos e uma pasta temporária; o TJMG pode entregar outras respostas. */
+  async function montar(tjmg: Parameters<typeof clienteFalso>[0] = [pdf()], registros: unknown[] = []) {
     const pasta = await mkdtemp(join(tmpdir(), "garimpo-porta-"));
-    const falsos = { stj: stjFalso(), tjmg: clienteFalso([pdf()]), tse: tseFalso() };
-    const mcp = await conectar(siteFalso([]), {
+    const falsos = { stj: stjFalso(), tjmg: clienteFalso(tjmg), tse: tseFalso() };
+    const mcp = await conectar(siteFalso(registros), {
       tribunais: (sigla) => falsos[sigla as keyof typeof falsos].cliente,
       pasta,
     });
-    const links = {
-      stj: "https://scon.stj.jus.br/SCON/GetInteiroTeorDoAcordao?num_registro=202000000001&dt_publicacao=10/12/2020",
-      tjmg: "https://www5.tjmg.jus.br/jurisprudencia/relatorioEspelhoAcordao.do?inteiroTeor=true&numero=1",
-      tse: "https://sjur-servicos.tse.jus.br/sjur-servicos/rest/download/pdf/1",
+    const chamar = async (name: string, args: Record<string, unknown>) => {
+      const r = (await mcp.callTool({ name, arguments: args })) as { content: { text: string }[]; isError?: boolean };
+      return { isError: r.isError, texto: r.content[0].text };
     };
+    return { pasta, falsos, chamar };
+  }
 
-    for (const [tribunal, link] of Object.entries(links)) {
-      const r = (await mcp.callTool({ name: "obter_inteiro_teor", arguments: { tribunal, link } })) as {
-        content: { text: string }[];
-        isError?: boolean;
-      };
+  it("STJ, TJMG e TSE falsos: grava o PDF e devolve a 1ª parte, igual à do ler_inteiro_teor, com origem conferida e a chamada para a parte 2", async () => {
+    const { pasta, falsos, chamar } = await montar();
+
+    for (const [tribunal, link] of Object.entries(LINKS)) {
+      const r = await chamar("obter_inteiro_teor", { tribunal, link });
       expect(r.isError, tribunal).toBeFalsy();
-      const dado = JSON.parse(r.content[0].text);
-      expect(Object.keys(dado).sort(), tribunal).toEqual(["arquivo", "baixado", "bytes", "fonte", "recibo", "sha256"]);
+      expect(r.texto.length, tribunal).toBeLessThanOrEqual(TETO);
+      const dado = JSON.parse(r.texto);
       expect(dado).toMatchObject({ baixado: true, bytes: PDF.length, fonte: link });
       expect(dirname(dado.arquivo), tribunal).toBe(pasta);
       expect(await readFile(dado.arquivo, "latin1"), tribunal).toBe(PDF);
+      expect(dado.recibo).toBe(dado.arquivo.replace(/\.pdf$/, ".recibo.txt"));
+
+      expect(dado.cabecalho.origem, tribunal).toMatch(/^conferida: download pelo Garimpo/);
+      expect(dado.cabecalho).toMatchObject({ tribunal: tribunal.toUpperCase(), linkOficial: expect.stringMatching(/^https:/) });
+      expect(dado.cabecalho.paginasDoPdf).toMatch(/^páginas 1–\d+ de 30 \(parte 1 de \d+\)$/);
+      expect(dado.texto).toMatch(/^\[página 1 de 30\]\nPagina 1 linha 1: /);
+      expect(dado.proximaParte).toEqual({ ferramenta: "ler_inteiro_teor", argumentos: { caminho: dado.arquivo, parte: 2 } });
+
+      // Mesmo cabeçalho e mesma divisão do ler_inteiro_teor: a parte 1 lida depois é a mesma.
+      const lida = JSON.parse((await chamar("ler_inteiro_teor", { caminho: dado.arquivo })).texto);
+      for (const campo of ["cabecalho", "avisos", "texto", "proximaParte"]) expect(dado[campo], campo).toEqual(lida[campo]);
+      const segunda = await chamar("ler_inteiro_teor", dado.proximaParte.argumentos);
+      expect(segunda.isError).toBeFalsy();
+      expect(JSON.parse(segunda.texto).cabecalho.paginasDoPdf).toMatch(/\(parte 2 de \d+\)$/);
     }
     expect((await readdir(pasta)).filter((f) => f.endsWith(".pdf"))).toHaveLength(3);
     expect(falsos.stj.chamadas).toHaveLength(3);
+  });
+
+  it("link longo: a 1ª parte vem inteira e a resposta, com os dados do download, fica dentro do teto", async () => {
+    const { chamar } = await montar();
+    const link = `${LINKS.tjmg}&extra=${"x".repeat(4_000)}`;
+    const r = await chamar("obter_inteiro_teor", { tribunal: "tjmg", link });
+    expect(r.texto.length).toBeLessThanOrEqual(TETO);
+    const dado = JSON.parse(r.texto);
+    expect(dado.fonte).toBe(link);
+    expect(dado.texto).toMatch(/^\[página 1 de 30\]/);
+    const lida = JSON.parse((await chamar("ler_inteiro_teor", { caminho: dado.arquivo })).texto);
+    expect(dado.texto).toBe(lida.texto);
+  });
+
+  it("1ª parte que não cabe com os dados do download: aviso e a chamada para lê-la, nunca resposta acima do teto", async () => {
+    // O mesmo acórdão e os mesmos bytes, pedidos por outro link, muito mais longo: o arquivo é o mesmo e o recibo
+    // original (com o link curto) é preservado.
+    const acordao = { id: "801", texto_ementa: "EMENTA FICTÍCIA.", numero_processo: "1.0000.00.000003-0/001", link_pdf: LINKS.tjmg };
+    const { chamar } = await montar([pdf(), pdf()], [acordao]);
+    await chamar("busca_direta", { tribunal: "tjmg", texto: "exemplo" });
+    const primeiro = JSON.parse((await chamar("obter_inteiro_teor", { id: "tjmg:801", texto: false })).texto);
+    const r = await chamar("obter_inteiro_teor", { id: "tjmg:801", link: `${LINKS.tjmg}&extra=${"x".repeat(6_000)}` });
+    expect(r.isError).toBeFalsy();
+    expect(r.texto.length).toBeLessThanOrEqual(TETO);
+    const dado = JSON.parse(r.texto);
+    expect(dado.arquivo).toBe(primeiro.arquivo);
+    expect(dado.texto).toBeUndefined();
+    expect(dado.aviso).toMatch(/1ª parte não coube nesta resposta/);
+    expect(dado.proximaParte).toEqual({ ferramenta: "ler_inteiro_teor", argumentos: { caminho: dado.arquivo, parte: 1 } });
+  });
+
+  it("texto: false — só o caminho, o recibo e o total de páginas, sem texto", async () => {
+    const { chamar } = await montar();
+    const r = await chamar("obter_inteiro_teor", { tribunal: "tjmg", link: LINKS.tjmg, texto: false });
+    expect(r.isError).toBeFalsy();
+    const dado = JSON.parse(r.texto);
+    expect(Object.keys(dado).sort()).toEqual(["arquivo", "baixado", "bytes", "fonte", "recibo", "sha256", "totalDePaginasDoPdf"]);
+    expect(dado.totalDePaginasDoPdf).toBe(30);
+    expect(await readFile(dado.arquivo, "latin1")).toBe(PDF);
+  });
+
+  it("PDF salvo mas ilegível pelo extrator: download e recibo preservados, motivo informado, nenhum número inventado", async () => {
+    const ilegivel = new TextEncoder().encode("%PDF-1.7\nconteudo ficticio\n%%EOF");
+    const { pasta, chamar } = await montar([new Response(ilegivel), new Response(ilegivel)]);
+
+    const comTexto = await chamar("obter_inteiro_teor", { tribunal: "tjmg", link: LINKS.tjmg });
+    expect(comTexto.isError).toBeFalsy();
+    const dado = JSON.parse(comTexto.texto);
+    expect(Object.keys(dado).sort()).toEqual(["arquivo", "baixado", "bytes", "erroDeLeitura", "fonte", "recibo", "sha256"]);
+    expect(dado.erroDeLeitura).toMatch(/^Erro de leitura: o extrator não conseguiu ler o PDF .* O download continua valendo/);
+    expect(dado.erroDeLeitura).not.toMatch(/sem conteúdo|sem texto/);
+    expect(await readFile(dado.arquivo)).toEqual(Buffer.from(ilegivel));
+    expect(await readFile(dado.recibo, "utf8")).toMatch(/^Formato: recibo de origem do Garimpo/);
+
+    const semTexto = JSON.parse((await chamar("obter_inteiro_teor", { tribunal: "tjmg", link: LINKS.tjmg, texto: false })).texto);
+    expect(semTexto).toMatchObject({ arquivo: dado.arquivo, recibo: dado.recibo, totalDePaginasDoPdf: "não disponível" });
+    expect(semTexto.motivo).toMatch(/não conseguiu (ler|contar)/);
+    expect((await readdir(pasta)).sort()).toEqual([basename(dado.arquivo), basename(dado.recibo)].sort());
   });
 });
 

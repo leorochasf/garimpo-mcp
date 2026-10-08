@@ -9,8 +9,14 @@ import { z } from "zod";
 import { Cliente, VERSAO } from "./cliente.js";
 import { acordaoNaMemoria, buscaDireta } from "./busca.js";
 import { buscaAmpla } from "./ampla.js";
-import { type ClientePorTribunal, clientePadrao, obterInteiroTeor, pastaPadrao } from "./inteiroTeor.js";
-import { lerInteiroTeor } from "./leitura.js";
+import {
+  type ClientePorTribunal,
+  clientePadrao,
+  type InteiroTeorBaixado,
+  obterInteiroTeor,
+  pastaPadrao,
+} from "./inteiroTeor.js";
+import { contarPaginas, LIMITE_CARACTERES_PARTE, lerInteiroTeor } from "./leitura.js";
 import { SIGLAS, TRIBUNAIS } from "./tribunais.js";
 
 // Tribunal e datas são conferidos dentro da ferramenta, não no esquema: o erro do esquema sai embrulhado em texto
@@ -77,6 +83,37 @@ function comAvisoNaturezaJuridica<T extends object>(dado: T) {
 
 function erro(e: unknown) {
   return { content: [{ type: "text" as const, text: (e as Error).message }], isError: true };
+}
+
+/**
+ * A resposta de um download feito: com a 1ª parte do texto ou, sem texto, com o total de páginas. Uma falha aqui não
+ * desfaz o download: vem o motivo, nunca um número inventado. A 1ª parte que não couber no teto junto com os dados do
+ * download fica para o ler_inteiro_teor.
+ */
+async function comPrimeiraParteOuTotal(baixado: InteiroTeorBaixado, texto: boolean) {
+  if (!texto) {
+    try {
+      return { ...baixado, totalDePaginasDoPdf: await contarPaginas(baixado.arquivo) };
+    } catch (e) {
+      return { ...baixado, totalDePaginasDoPdf: "não disponível", motivo: (e as Error).message };
+    }
+  }
+  let parte;
+  try {
+    parte = await lerInteiroTeor(baixado.arquivo, 1);
+  } catch (e) {
+    return {
+      ...baixado,
+      erroDeLeitura: `${(e as Error).message} O download continua valendo: o PDF e o recibo de origem estão salvos.`,
+    };
+  }
+  const resposta = { ...baixado, ...parte };
+  if (JSON.stringify(resposta).length <= LIMITE_CARACTERES_PARTE) return resposta;
+  return {
+    ...baixado,
+    aviso: "A 1ª parte não coube nesta resposta junto com os dados do download; leia-a com o ler_inteiro_teor.",
+    proximaParte: { ferramenta: "ler_inteiro_teor", argumentos: { caminho: baixado.arquivo, parte: 1 } },
+  };
 }
 
 export interface OpcoesServidor {
@@ -184,6 +221,9 @@ export function criarServidor(
         "Baixa o PDF oficial do acórdão do portal do próprio tribunal e devolve o caminho do arquivo salvo, o " +
         "sha256 e o caminho do recibo de origem gravado ao lado (link oficial, data e hora, sha256; declaração do " +
         "Garimpo, não certidão). Nunca sobrescreve nem deixa arquivo pela metade; recusa PDF acima de 50 MB. " +
+        "Já devolve a 1ª parte do texto, com o mesmo cabeçalho do ler_inteiro_teor e a chamada pronta para a parte " +
+        "seguinte; com texto: false, devolve só o caminho, o recibo e o total de páginas do PDF. Se o PDF salvo não " +
+        "puder ser lido, o download continua valendo e vem o motivo. " +
         "Baixa do STJ, TJMG e TSE. Para STF, TJGO e demais devolve o link e explica como obter no navegador " +
         "(o Garimpo não contorna captcha nem proteção anti-robô). Informe o id que veio na busca ou tribunal + link.",
       // Só grava arquivo novo, nunca sobrescreve: sem a marca, o MCP presume "destrutiva".
@@ -193,12 +233,17 @@ export function criarServidor(
         tribunal: tribunal.optional().describe("Tribunal, se informar o link em vez do id"),
         link: z.string().url().optional().describe("Link do inteiro teor que veio na busca"),
         pasta: z.string().optional().describe(`Pasta onde salvar o PDF (padrão: ${pasta ?? pastaPadrao()})`),
+        texto: z
+          .boolean()
+          .optional()
+          .describe("Devolver a 1ª parte do texto (padrão: sim); false devolve só o caminho, o recibo e o total de páginas"),
       },
     },
-    async (args) => {
+    async ({ texto = true, ...args }) => {
       try {
         conferirTribunais(args.tribunal);
-        return json(await obterInteiroTeor({ ...args, pasta: args.pasta ?? pasta }, tribunais));
+        const r = await obterInteiroTeor({ ...args, pasta: args.pasta ?? pasta }, tribunais);
+        return json(r.baixado ? await comPrimeiraParteOuTotal(r, texto) : r);
       } catch (e) {
         return erro(e);
       }
