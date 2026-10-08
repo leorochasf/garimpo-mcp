@@ -55,8 +55,14 @@ A linha fixa, em toda resposta com jurisprudência, que lembra que é resultado 
 _Evitar_: disclaimer, ressalva
 
 **Precedente qualificado**:
-Tema de repercussão geral, tema repetitivo, súmula, súmula vinculante, IAC, PUIL, IRR ou OJ, que o site devolve em listas próprias, separadas dos acórdãos.
+Tema de repercussão geral, tema repetitivo, súmula, súmula vinculante, IAC, PUIL, IRR ou OJ, que o site devolve em listas próprias, separadas dos acórdãos. É o rótulo da lista do site e não comprova enquadramento, vigência nem aplicabilidade jurídica; o enquadramento legal é informado separadamente em Enquadramento no art. 927, com evidência ou motivo de não classificação.
 _Evitar_: tema (sozinho, é ambíguo entre tribunais)
+_Ressalva sobre o rótulo decidida pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeita a revisão do dono._
+
+**Enquadramento no art. 927**:
+O inciso do art. 927 do CPC em que um precedente se encaixa por regra fixa, com a base legal literal e a evidência tirada dos dados; ou "não classificado", com o motivo. Descreve o tipo identificado, não a vigência nem a aplicação ao caso concreto, e nunca é deduzido da falta de dados.
+_Evitar_: força, peso, nível, vinculante (sozinho), persuasivo, fora do rol (para acórdão)
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
 
 **Inteiro teor oficial**:
 O PDF do acórdão baixado do portal do próprio tribunal, nunca de cópia de terceiro.
@@ -100,6 +106,33 @@ _Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 �
 **Recusa**:
 Uma resposta do site ou do tribunal que nega a chamada (429, 403, 503, desafio anti-robô, captcha). O Garimpo nunca contorna uma recusa: espera e tenta uma vez, ou para e avisa.
 _Evitar_: erro (genérico demais), bloqueio contornável
+
+## Conferência de citação
+
+**Citação**:
+O texto que o usuário pretende citar como sendo de um acórdão e pede para conferir.
+_Evitar_: trecho (é outro termo), excerto
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
+**Conferência de citação**:
+A comparação literal de uma citação com a ementa ou com o inteiro teor, por regra fixa e sem IA, que termina num veredito: encontrado literalmente, encontrado com supressão indicada, difere só em maiúsculas/pontuação, não encontrado ou não verificável. Achar o texto não autentica a fonte.
+_Evitar_: verificação de autenticidade, validação
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
+**Supressão indicada**:
+Corte que o usuário marca dentro da citação com "(...)" ou "[...]" — ou com reticências, só quando ele pede expressamente que valham como corte. Sem marcador, frases juntadas não são supressão.
+_Evitar_: omissão, resumo
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
+**Passagem parecida**:
+Passagem copiada da fonte que tem a grande maioria das palavras da citação na mesma ordem, mostrada só como sugestão e sempre como diferente da citação.
+_Evitar_: correção, versão certa, trecho
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
+**Sinal de outro autor**:
+Indício, na fonte, de que a passagem pode não ser do tribunal: aspas em volta dela, marcador de transcrição logo antes ("in verbis", "confira-se"…), ou a seção do acórdão (relatório, voto vencido). É indício, não autoria comprovada; a falta de sinal não prova que a passagem é do tribunal.
+_Evitar_: autoria, citação de terceiro
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
 
 ## Banco de provas
 
