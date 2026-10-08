@@ -8,7 +8,7 @@
  * - intervalo mínimo opcional entre chamadas ao mesmo host (ex.: TSE).
  */
 
-export const VERSAO = "0.1.0";
+export const VERSAO = "0.2.0";
 export const USER_AGENT = `Garimpo/${VERSAO} (cliente MCP local e nao oficial de pesquisa de jurisprudencia)`;
 
 /** O site ou o tribunal negou a chamada. Nunca é contornada. */
