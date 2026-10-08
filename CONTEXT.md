@@ -166,6 +166,38 @@ Indício, na fonte, de que a passagem pode não ser do tribunal: aspas em volta 
 _Evitar_: autoria, citação de terceiro
 _Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
 
+## Filtros locais e referências a precedente
+
+**Filtro local**:
+Condição que a chamada da busca ampla impõe às ementas já recebidas ("deve conter", "não pode conter", referência a precedente), sem nova chamada ao site. Tira acórdãos da lista e não muda a ordem relativa dos que ficam; a reserva por tribunal e o corte vêm depois.
+_Evitar_: filtro (sozinho — confunde com os filtros do site: data, relator, órgão, classe), refinamento
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
+**Excluído pelo filtro**:
+Acórdão achado, com ementa conferível, que descumpriu um filtro local e saiu da lista. É contado no cabeçalho de cobertura e não se confunde com lista cortada.
+_Evitar_: descartado, oculto
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
+**Sem ementa para conferir**:
+Acórdão achado que veio sem ementa e, com um filtro local ativo, sai da lista por não haver texto a conferir. É contado à parte de excluído pelo filtro.
+_Evitar_: excluído pelo filtro, acórdão vazio
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
+**Referência a precedente**:
+Menção, na ementa, a Tema, Súmula ou Súmula Vinculante pelo número, com o tribunal só quando o texto o declara junto (ou ao fim de uma enumeração reconhecida); Súmula Vinculante é do STF pelo próprio tipo. Não é conferência de citação nem prova de que o acórdão aplica o precedente.
+_Evitar_: citação (é o texto que o usuário confere), tema (sozinho)
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
+**Tribunal não indicado**:
+Situação da referência a precedente cuja ementa não diz de que tribunal ela é. Nunca é completada pelo tribunal do acórdão.
+_Evitar_: tribunal desconhecido, tribunal presumido
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
+**Mapa de referências**:
+A lista, na busca ampla, das referências a precedente mais frequentes entre os acórdãos achados (antes dos filtros locais e do corte), com quantos acórdãos fazem cada uma. Frequência não é relevância.
+_Evitar_: mapa de citações, ranking de precedentes
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
 ## Banco de provas
 
 **Banco de provas**:
