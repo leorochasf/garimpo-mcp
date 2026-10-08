@@ -122,7 +122,7 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<
     totalAcordaos: ordenados.length,
     mostrados: mostrados.length,
     acordaos: mostrados.map(({ acordao: a, formulacoes }) => {
-      const ementa = a.ementa.replace(/^\s*ementa\s*[:.\-–—]?\s*/i, "");
+      const ementa = a.ementa.replace(/^\s*ementa\b\s*[:.\-–—]?\s*/i, "");
       const item: ItemAmplo = {
         id: a.id,
         numero: a.numero,
