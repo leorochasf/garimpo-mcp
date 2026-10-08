@@ -11,7 +11,7 @@ import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { Cliente, VERSAO } from "./cliente.js";
 import { acordaoNaMemoria } from "./busca.js";
-import { FORMATO_RECIBO, NAO_INFORMADO, ORIGEM_DOWNLOAD } from "./leitura.js";
+import { FORMATO_RECIBO, LIMITE_BYTES_PDF, NAO_INFORMADO, ORIGEM_DOWNLOAD } from "./leitura.js";
 import { infoTribunal } from "./tribunais.js";
 
 export interface PedidoInteiroTeor {
@@ -58,6 +58,13 @@ export const clientePadrao: ClientePorTribunal = (sigla) => {
   return c;
 };
 
+/** O caminho para ler um acórdão sem download automático, a partir do link: a leitura local não contorna nada. */
+const PONTE =
+  "Para ler pelo Garimpo: abra o link no navegador, baixe o PDF e passe o caminho do arquivo ao ler_inteiro_teor " +
+  "(com o id que veio na busca, ou tribunal + número, se quiser o cabeçalho preenchido como vínculo declarado). " +
+  "Ele sai como inteiro teor " +
+  "trazido pelo usuário, de origem declarada e não conferida.";
+
 export function pastaPadrao(): string {
   return process.env.GARIMPO_PASTA ?? join(homedir(), "Garimpo", "inteiro-teor");
 }
@@ -83,6 +90,7 @@ export async function obterInteiroTeor(
     let explicacao = info.motivoLink ?? "";
     if (tribunal === "tjgo" && acordao?.numeroCnj) explicacao += ` Número CNJ para pesquisar: ${acordao.numeroCnj}.`;
     if (!linkOficial) explicacao += " O JurisprudênciaIA não trouxe link para este acórdão.";
+    explicacao += ` ${PONTE}`;
     return { baixado: false, link: linkOficial, explicacao };
   }
   if (!link) {
@@ -129,13 +137,13 @@ interface Baixado {
   urlFinal: string;
 }
 
-/** Teto de uma resposta no download, contado nos bytes recebidos, com ou sem Content-Length. */
-const LIMITE_BYTES = 50 * 1024 * 1024;
-
-/** Lê o corpo até o fim, cortando acima de 50 MB; conexão que cai no meio vira erro claro. Nada é gravado aqui. */
+/**
+ * Lê o corpo até o fim, cortando acima de 50 MB (contados nos bytes recebidos, com ou sem Content-Length); conexão
+ * que cai no meio vira erro claro. Nada é gravado aqui.
+ */
 async function lerCorpo(r: Response, sigla: string): Promise<Uint8Array> {
   const excesso = new Error(`A resposta do ${sigla} passa de 50 MB; o download foi interrompido e nada foi salvo.`);
-  if (Number(r.headers.get("content-length")) > LIMITE_BYTES) {
+  if (Number(r.headers.get("content-length")) > LIMITE_BYTES_PDF) {
     await r.body?.cancel();
     throw excesso;
   }
@@ -154,7 +162,7 @@ async function lerCorpo(r: Response, sigla: string): Promise<Uint8Array> {
     }
     if (lido.done) return Buffer.concat(pedacos);
     total += lido.value.length;
-    if (total > LIMITE_BYTES) {
+    if (total > LIMITE_BYTES_PDF) {
       await leitor.cancel();
       throw excesso;
     }

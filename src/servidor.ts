@@ -225,7 +225,8 @@ export function criarServidor(
         "seguinte; com texto: false, devolve só o caminho, o recibo e o total de páginas do PDF. Se o PDF salvo não " +
         "puder ser lido, o download continua valendo e vem o motivo. " +
         "Baixa do STJ, TJMG e TSE. Para STF, TJGO e demais devolve o link e explica como obter no navegador " +
-        "(o Garimpo não contorna captcha nem proteção anti-robô). Informe o id que veio na busca ou tribunal + link.",
+        "(o Garimpo não contorna captcha nem proteção anti-robô) e como ler o PDF baixado: passar o caminho do " +
+        "arquivo ao ler_inteiro_teor. Informe o id que veio na busca ou tribunal + link.",
       // Só grava arquivo novo, nunca sobrescreve: sem a marca, o MCP presume "destrutiva".
       annotations: { destructiveHint: false },
       inputSchema: {
@@ -255,22 +256,34 @@ export function criarServidor(
     {
       title: "Ler inteiro teor",
       description:
-        "Lê, pelo caminho do arquivo, o PDF do inteiro teor que o obter_inteiro_teor baixou e devolve uma parte do " +
-        "texto (cerca de 8 mil tokens estimados, feita de páginas do PDF inteiras; página grande demais vem em " +
-        "segmentos). Cada parte traz o mesmo cabeçalho: tribunal, número, data, link oficial, sha256, id, nome do " +
-        "arquivo, origem e \"páginas X–Y de N (parte P de T)\" (páginas do PDF, não folhas dos autos); o que faltar " +
+        "Lê, pelo caminho do arquivo, o PDF do inteiro teor que o obter_inteiro_teor baixou, ou um PDF que o " +
+        "usuário baixou à mão (em qualquer pasta; não aceita URL nem pasta, só PDF de até 50 MB), e devolve uma " +
+        "parte do texto (cerca de 8 mil tokens estimados, feita de páginas do PDF inteiras; página grande demais " +
+        "vem em segmentos). Cada parte traz o mesmo cabeçalho: tribunal, número, data, link oficial, sha256, id, " +
+        "nome do arquivo, origem e \"páginas X–Y de N (parte P de T)\" (páginas do PDF, não folhas dos autos); o que faltar " +
         "vem como \"não informado\". A origem só é conferida com o recibo de origem ao lado do PDF e o mesmo sha256; " +
-        "senão vem \"não conferida\", com o motivo. Página sem texto extraível é avisada (não faz OCR). Só lê: não " +
-        "grava, não copia e não chama a rede. Comece pela parte 1; a resposta traz a chamada para a parte seguinte.",
+        "senão vem \"não conferida\", com o motivo. PDF sem recibo é inteiro teor trazido pelo usuário: origem " +
+        "declarada, não conferida, nunca oficial. Para ele, informe se quiser o id da busca, ou tribunal + número: o " +
+        "cabeçalho vem como vínculo declarado (da memória da sessão, sem rede) e diz se o número aparece no texto " +
+        "(encontrado / não encontrado / não verificável; só informativo). Página sem texto extraível é avisada " +
+        "(não faz OCR). Só lê: não grava, não copia e não chama a rede. Comece pela parte 1; a resposta traz a " +
+        "chamada para a parte seguinte.",
       annotations: { readOnlyHint: true, openWorldHint: false },
       inputSchema: {
-        caminho: z.string().min(1).describe("Caminho do PDF, como veio no campo arquivo do obter_inteiro_teor"),
+        caminho: z
+          .string()
+          .min(1)
+          .describe("Caminho do PDF: o campo arquivo do obter_inteiro_teor ou o de um PDF que você baixou (não URL)"),
         parte: z.number().int().optional().describe("Número da parte (padrão 1)"),
+        id: z.string().optional().describe("Opcional, PDF trazido: id do acórdão que ele seria, como veio na busca"),
+        tribunal: tribunal.optional().describe("Opcional, PDF trazido: tribunal do acórdão que ele seria"),
+        numero: z.string().optional().describe("Opcional, PDF trazido: número do processo do acórdão que ele seria"),
       },
     },
-    async ({ caminho, parte }) => {
+    async ({ caminho, parte, ...vinculo }) => {
       try {
-        return json(await lerInteiroTeor(caminho, parte));
+        conferirTribunais(vinculo.tribunal);
+        return json(await lerInteiroTeor(caminho, parte, vinculo));
       } catch (e) {
         return erro(e);
       }

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, truncate, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -716,12 +716,15 @@ describe("ler inteiro teor em partes (pela porta)", () => {
       expect(dado.proximaParte).toBeUndefined();
     });
 
-    it("sem recibo: não conferida, com aviso de recibo ausente, e o texto sai do mesmo jeito", async () => {
+    it("sem recibo: tratado como trazido pelo usuário (origem declarada, não conferida), com aviso de recibo ausente, e o texto sai do mesmo jeito", async () => {
       const { salvo, ler } = await baixado(pdfSintetico([pagina(1)]), [acordao]);
       await rm(salvo.recibo);
       const dado = JSON.parse((await ler()).texto);
-      expect(dado.cabecalho).toMatchObject({ ...naoInformado, origem: "não conferida" });
-      expect(dado.avisos).toEqual([expect.stringMatching(/^Origem não conferida: não há recibo de origem ao lado deste PDF/)]);
+      expect(dado.cabecalho).toMatchObject({
+        ...naoInformado,
+        origem: "declarada pelo usuário, não conferida (inteiro teor trazido pelo usuário)",
+      });
+      expect(dado.avisos).toEqual([expect.stringMatching(/não conferida: não há recibo de origem ao lado deste PDF/)]);
       expect(dado.vinculoDeclarado).toBeUndefined();
       expect(dado.texto).toContain(pagina(1)[0]);
     });
@@ -757,6 +760,14 @@ describe("ler inteiro teor em partes (pela porta)", () => {
       });
       expect(dado.avisos).toEqual([expect.stringMatching(/^Origem não conferida: o PDF mudou depois do download/)]);
       expect(dado.vinculoDeclarado).toMatchObject({ tribunal: "TJMG", id: "tjmg:701", declaradoPor: expect.stringMatching(/sha256/) });
+    });
+
+    it("vínculo informado para um PDF de origem conferida: não é usado, e o cabeçalho continua vindo do recibo", async () => {
+      const { ler, salvo, chamar } = await baixado(pdfSintetico([pagina(1)]), [acordao]);
+      const semVinculo = JSON.parse((await ler()).texto);
+      const dado = JSON.parse((await chamar("ler_inteiro_teor", { caminho: salvo.arquivo, tribunal: "tjgo", numero: "9999999" })).texto);
+      expect(dado.cabecalho).toEqual(semVinculo.cabecalho);
+      expect(dado.avisos).toEqual([expect.stringMatching(/^O vínculo informado não foi usado: a origem deste PDF é conferida pelo recibo/)]);
     });
   });
 
@@ -809,5 +820,208 @@ describe("ler inteiro teor em partes (pela porta)", () => {
     await ler(1);
     await ler(5);
     expect((await readdir(pasta)).sort()).toEqual(antes);
+  });
+});
+
+describe("inteiro teor trazido pelo usuário (pela porta)", () => {
+  const pagina = (n: number) =>
+    Array.from({ length: 5 }, (_, i) => `Pagina ${n} linha ${i + 1}: texto generico de exemplo sobre responsabilidade civil.`);
+  type Resposta = { isError?: boolean; texto: string };
+
+  /** Servidor sem tribunal nenhum (a leitura não chama a rede) e uma pasta qualquer, fora da pasta do Garimpo. */
+  async function montar(registros: unknown[] = []) {
+    const pastaDoUsuario = await mkdtemp(join(tmpdir(), "garimpo-usuario-"));
+    const pasta = await mkdtemp(join(tmpdir(), "garimpo-pasta-"));
+    const mcp = await conectar(siteFalso(registros), {
+      tribunais: () => {
+        throw new Error("a leitura não pode chamar tribunal");
+      },
+      pasta,
+    });
+    const chamar = async (name: string, args: Record<string, unknown>): Promise<Resposta> => {
+      const r = (await mcp.callTool({ name, arguments: args })) as { content: { text: string }[]; isError?: boolean };
+      return { isError: r.isError, texto: r.content[0].text };
+    };
+    return { pastaDoUsuario, pasta, chamar };
+  }
+
+  it("PDF numa pasta qualquer: lido, com origem declarada pelo usuário e o sha256 no cabeçalho; nada gravado na pasta", async () => {
+    const { pastaDoUsuario, pasta, chamar } = await montar();
+    const pdf = pdfSintetico([pagina(1), pagina(2)]);
+    const caminho = join(pastaDoUsuario, "acordao baixado à mão.pdf");
+    await writeFile(caminho, pdf);
+
+    const r = await chamar("ler_inteiro_teor", { caminho });
+    expect(r.isError, r.texto).toBeFalsy();
+    const dado = JSON.parse(r.texto);
+    expect(dado.cabecalho).toEqual({
+      tribunal: "não informado",
+      numero: "não informado",
+      data: "não informado",
+      linkOficial: "não informado",
+      sha256: createHash("sha256").update(pdf).digest("hex"),
+      id: "não informado",
+      arquivo: "acordao baixado à mão.pdf",
+      origem: "declarada pelo usuário, não conferida (inteiro teor trazido pelo usuário)",
+      paginasDoPdf: "páginas 1–2 de 2 (parte 1 de 1)",
+    });
+    expect(dado.avisos).toEqual([
+      expect.stringMatching(/^Inteiro teor trazido pelo usuário — origem declarada, não conferida: não há recibo de origem/),
+    ]);
+    expect(dado.avisos[0]).toMatch(/Não trate este PDF como inteiro teor oficial/);
+    expect(r.texto).not.toMatch(/conferida: download|origem oficial/);
+    expect(dado.texto).toContain(pagina(2)[4]);
+    expect(await readdir(pastaDoUsuario)).toEqual(["acordao baixado à mão.pdf"]);
+    expect(await readdir(pasta)).toEqual([]);
+  });
+
+  it("recusa, com mensagem clara, arquivo que não é PDF, PDF acima de 50 MB, caminho de pasta e URL", async () => {
+    const { pastaDoUsuario, chamar } = await montar();
+    const texto = join(pastaDoUsuario, "notas.pdf");
+    await writeFile(texto, "Isto e um texto comum com extensao de PDF.");
+    const grande = join(pastaDoUsuario, "grande.pdf");
+    await writeFile(grande, "%PDF-1.4\n");
+    await truncate(grande, 50 * 1024 * 1024 + 1);
+
+    const casos: [string, RegExp][] = [
+      [texto, /^O arquivo .*notas\.pdf não é um PDF \(não começa com a assinatura %PDF\)/],
+      [grande, /^O arquivo .*grande\.pdf passa de 50 MB/],
+      [pastaDoUsuario, /^O caminho .* é uma pasta, não um arquivo\. Informe o caminho do PDF/],
+      ["https://exemplo.test/acordao.pdf", /^O ler_inteiro_teor não aceita endereço da internet/],
+      ["file:///C:/acordao.pdf", /^O ler_inteiro_teor não aceita endereço da internet/],
+      [join(pastaDoUsuario, "nao-existe.pdf"), /^Não consegui ler o arquivo /],
+    ];
+    for (const [caminho, mensagem] of casos) {
+      const r = await chamar("ler_inteiro_teor", { caminho });
+      expect(r.isError, caminho).toBe(true);
+      expect(r.texto, caminho).toMatch(mensagem);
+    }
+    expect((await readdir(pastaDoUsuario)).sort()).toEqual(["grande.pdf", "notas.pdf"]);
+  });
+
+  describe("vínculo declarado", () => {
+    const LINK = "https://exemplo.test/tjsp/acordao/701";
+    const acordao = {
+      id: "701",
+      texto_ementa: "EMENTA FICTÍCIA.",
+      numero_processo: "1000002-03.2024.8.26.0001",
+      data_julgamento: "2024-03-15T00:00:00.000Z",
+      link_pdf: LINK,
+    };
+    const VINCULO = /^declarado pelo usuário/;
+
+    /** PDF trazido pelo usuário numa pasta qualquer, com estas páginas. */
+    async function trazido(paginas: string[][], registros: unknown[] = []) {
+      const m = await montar(registros);
+      if (registros.length) await m.chamar("busca_direta", { tribunal: "tjsp", texto: "exemplo" });
+      const caminho = join(m.pastaDoUsuario, "acordao.pdf");
+      await writeFile(caminho, pdfSintetico(paginas));
+      return { ...m, caminho };
+    }
+
+    it("pelo id da busca: cabeçalho preenchido da memória da sessão, com a marca \"declarado\", número encontrado no texto, e a parte seguinte com o mesmo vínculo", async () => {
+      const paginas = Array.from({ length: 30 }, (_, i) =>
+        i === 0 ? ["Processo n. 1000002-03.2024.8.26.0001", ...pagina(1)] : [...pagina(i + 1), ...pagina(i + 1), ...pagina(i + 1), ...pagina(i + 1), ...pagina(i + 1)],
+      );
+      const { caminho, chamar } = await trazido(paginas, [acordao]);
+      const r = await chamar("ler_inteiro_teor", { caminho, id: "tjsp:701" });
+      expect(r.isError, r.texto).toBeFalsy();
+      const dado = JSON.parse(r.texto);
+      expect(dado.cabecalho).toMatchObject({
+        tribunal: "TJSP",
+        numero: "1000002-03.2024.8.26.0001",
+        data: "2024-03-15",
+        linkOficial: LINK,
+        id: "tjsp:701",
+        origem: "declarada pelo usuário, não conferida (inteiro teor trazido pelo usuário)",
+        vinculo: expect.stringMatching(VINCULO),
+        numeroNoTexto: "encontrado",
+      });
+      expect(dado.cabecalho.vinculo).toMatch(/não prova/);
+      expect(dado.proximaParte).toEqual({ ferramenta: "ler_inteiro_teor", argumentos: { caminho, parte: 2, id: "tjsp:701" } });
+      const segunda = JSON.parse((await chamar("ler_inteiro_teor", dado.proximaParte.argumentos)).texto);
+      expect({ ...segunda.cabecalho, paginasDoPdf: "" }).toEqual({ ...dado.cabecalho, paginasDoPdf: "" });
+    });
+
+    it("por tribunal + número: o que não foi informado fica \"não informado\"; número com outra pontuação no texto conta como encontrado", async () => {
+      const { caminho, chamar } = await trazido([["Recurso 1.000.002/0001 julgado."], pagina(2)]);
+      const dado = JSON.parse((await chamar("ler_inteiro_teor", { caminho, tribunal: "tjgo", numero: "10000020001" })).texto);
+      expect(dado.cabecalho).toMatchObject({
+        tribunal: "TJGO",
+        numero: "10000020001",
+        data: "não informado",
+        linkOficial: "não informado",
+        id: "não informado",
+        vinculo: expect.stringMatching(VINCULO),
+        numeroNoTexto: "encontrado",
+      });
+    });
+
+    it("número que não está no texto: \"não encontrado\", e a leitura sai do mesmo jeito", async () => {
+      const { caminho, chamar } = await trazido([pagina(1)]);
+      const r = await chamar("ler_inteiro_teor", { caminho, tribunal: "tjgo", numero: "5000009-99.2023.8.09.0001" });
+      expect(r.isError).toBeFalsy();
+      const dado = JSON.parse(r.texto);
+      expect(dado.cabecalho.numeroNoTexto).toBe("não encontrado");
+      expect(dado.texto).toContain(pagina(1)[0]);
+    });
+
+    it("\"não verificável\" quando o PDF não tem texto extraível ou quando não há número para conferir", async () => {
+      const semTexto = await trazido([[], []]);
+      const a = JSON.parse((await semTexto.chamar("ler_inteiro_teor", { caminho: semTexto.caminho, tribunal: "tjgo", numero: "5000009-99.2023.8.09.0001" })).texto);
+      expect(a.cabecalho.numeroNoTexto).toBe("não verificável");
+
+      // Id que não está na memória desta sessão: vale o que foi informado, sem nova chamada à rede.
+      const semNumero = await trazido([pagina(1)]);
+      const b = JSON.parse((await semNumero.chamar("ler_inteiro_teor", { caminho: semNumero.caminho, id: "tjsp:999" })).texto);
+      expect(b.cabecalho).toMatchObject({
+        id: "tjsp:999",
+        tribunal: "TJSP",
+        numero: "não informado",
+        vinculo: expect.stringMatching(VINCULO),
+        numeroNoTexto: "não verificável",
+      });
+      expect(b.avisos).toContainEqual("O acórdão tjsp:999 não está na memória desta sessão: o cabeçalho traz só o que foi informado.");
+    });
+
+    it("sem vínculo informado: nem marca de vínculo nem conferência do número", async () => {
+      const { caminho, chamar } = await trazido([pagina(1)]);
+      const dado = JSON.parse((await chamar("ler_inteiro_teor", { caminho })).texto);
+      expect(dado.cabecalho.vinculo).toBeUndefined();
+      expect(dado.cabecalho.numeroNoTexto).toBeUndefined();
+    });
+
+    it("tribunal que não existe: erro que ensina as siglas", async () => {
+      const { caminho, chamar } = await trazido([pagina(1)]);
+      const r = await chamar("ler_inteiro_teor", { caminho, tribunal: "xyz", numero: "123456" });
+      expect(r.isError).toBe(true);
+      expect(r.texto).toMatch(/^Tribunal "xyz" não existe no Garimpo/);
+    });
+  });
+});
+
+describe("ponte: resposta \"só link\" ensina a ler o PDF baixado no navegador (pela porta)", () => {
+  it("STF, TJGO e um tribunal genérico: a explicação traz a instrução de baixar e passar o caminho ao ler_inteiro_teor, sem chamar o tribunal", async () => {
+    const chamadas: string[] = [];
+    const mcp = await conectar(siteFalso([]), {
+      tribunais: (sigla) => {
+        chamadas.push(sigla);
+        throw new Error("só link não chama tribunal");
+      },
+      pasta: await mkdtemp(join(tmpdir(), "garimpo-ponte-")),
+    });
+    for (const tribunal of ["stf", "tjgo", "tjrs"]) {
+      const r = (await mcp.callTool({
+        name: "obter_inteiro_teor",
+        arguments: { tribunal, link: `https://exemplo.test/${tribunal}/acordao` },
+      })) as { content: { text: string }[]; isError?: boolean };
+      expect(r.isError, tribunal).toBeFalsy();
+      const dado = JSON.parse(r.content[0].text);
+      expect(dado).toMatchObject({ baixado: false, link: `https://exemplo.test/${tribunal}/acordao` });
+      expect(dado.explicacao, tribunal).toMatch(
+        /Para ler pelo Garimpo: abra o link no navegador, baixe o PDF e passe o caminho do arquivo ao ler_inteiro_teor/,
+      );
+    }
+    expect(chamadas).toEqual([]);
   });
 });
