@@ -24,7 +24,8 @@ ao JurisprudênciaIA nem à JAI. Licença MIT. Feito para qualquer pessoa usar.
    máximo 2 chamadas simultâneas no total do processo (site e tribunais somados); em 429/503, espera e **uma** nova tentativa; recusa de novo = para e
    avisa o usuário; User-Agent honesto identificando o Garimpo. **Nunca** contornar limite, captcha ou
    bloqueio anti-robô (Cloudflare, AWS WAF, reCAPTCHA): o que não sai por HTTP comum devolve link + explicação.
-4. **Não publicar.** O repositório fica local/privado até o dono confirmar a autorização da JAI (ticket 04).
+4. **Publicação só com OK final do dono.** A JAI autorizou a publicação (informado pelo dono em 2026-10-08).
+   O repositório no GitHub nasce **privado**; torná-lo público e rodar `npm publish` só com OK expresso do dono (ticket 04).
 5. **Testes sem rede por padrão.** Unitários sobre respostas gravadas (fixtures); teste ao vivo só opcional,
    curto, atrás de variável de ambiente.
 
