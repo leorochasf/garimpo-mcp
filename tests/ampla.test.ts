@@ -75,9 +75,9 @@ describe("busca ampla", () => {
     ]);
   });
 
-  // Reescrito no ticket 09: a regra do ticket 02 ("por quantas formulações acharam, desempate pela relevância") mudou
-  // de propósito. Agora vem primeiro a aderência, depois o nº de formulações e a melhor posição na busca de origem.
-  // A nota do site não decide: a gravação do ticket 05 mostrou que o site só reranqueia os primeiros de cada busca
+  // A regra antiga ("por quantas formulações acharam, desempate pela relevância") mudou de propósito.
+  // Agora vem primeiro a aderência, depois o nº de formulações e a melhor posição na busca de origem.
+  // A nota do site não decide: a gravação de respostas reais mostrou que o site só reranqueia os primeiros de cada busca
   // (rerank_score, de 0 a 1) e os demais vêm só com score, noutra escala; notas de buscas diferentes também não se
   // comparam. A posição na busca de origem já põe os reranqueados na frente.
   it("a nota do site não decide: reranqueado (0,9) fica à frente do não reranqueado (score 70) da mesma busca", async () => {
@@ -250,7 +250,7 @@ describe("busca ampla", () => {
   it("saída compacta cabe numa resposta; ementa inteira sai por id, sem nova busca", async () => {
     const ementaLonga = "X".repeat(4000);
     // Ementa idêntica e números de processo diferentes: ninguém se junta. Os números diferem nos dígitos porque a
-    // regra de equivalência (ticket 06) compara números só pelos dígitos ("a-0/UF" e "b-0/UF" seriam o mesmo).
+    // regra de equivalência compara números só pelos dígitos ("a-0/UF" e "b-0/UF" seriam o mesmo).
     const formulacao = (texto: string) => ["a", "b", "c"].indexOf(texto);
     const { cliente, estado } = siteFalso((_t, texto) =>
       respostaJson({

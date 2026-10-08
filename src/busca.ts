@@ -116,7 +116,8 @@ export async function buscaDireta(cliente: Cliente, p: ParametrosBusca): Promise
     throw new FormatoInesperadoError(`O JurisprudênciaIA devolveu algo que não é JSON na busca do ${tribunal.toUpperCase()}.`);
   }
   const resultado = normalizar(tribunal, json);
-  // Cópias do mesmo acórdão na base do site viram um acórdão só (regra do ticket 06).
+  // Cópias do mesmo acórdão na base do site viram um acórdão só (mesmo tribunal, data e ementa,
+  // sem números de processo que se contradigam).
   const { acordaos } = juntarEquivalentes(
     resultado.acordaos.map((registro, posicao) => ({ registro, formulacoes: new Set<number>(), melhorPosicao: posicao })),
   );

@@ -38,7 +38,7 @@ export interface ResultadoAmplo {
   totalAcordaos: number;
   mostrados: number;
   acordaos: ItemAmplo[];
-  /** Precedentes qualificados que as buscas devolveram, sem repetidos (regra do ticket 08). */
+  /** Precedentes qualificados que as buscas devolveram, sem repetidos. */
   qualificados: QualificadoAmplo[];
   avisos: string[];
 }
@@ -94,7 +94,8 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<
         "a cobertura dele depende do número de formulações.");
   }
 
-  // Cópias do mesmo acórdão achadas em buscas diferentes viram um acórdão só (regra do ticket 06).
+  // Cópias do mesmo acórdão achadas em buscas diferentes viram um acórdão só (mesmo tribunal, data e ementa,
+  // sem números de processo que se contradigam).
   const juncao = juntarEquivalentes([...juntos.values()]);
   for (const j of juncao.acordaos) lembrar(j.ids, j.registro);
   // A nota de relevância do site fica de fora de propósito: só os primeiros de cada busca são reranqueados
@@ -111,10 +112,10 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<
     p.formulacoes,
   );
   const maximo = p.maximo ?? 50;
-  // Cada tribunal com acórdão na faixa de aderência de cima tem vagas garantidas (regra do ticket 08).
+  // Cada tribunal com acórdão na faixa de aderência de cima tem vagas garantidas na lista mostrada.
   const mostrados = reservarPorTribunal(ordenados, { maximo, naFaixaDeCima: (x) => x.faixa === 0 });
   // Tamanhos escolhidos para 50 acórdãos + 10 qualificados caberem numa resposta (< 25 mil caracteres) com campos
-  // de tamanho real (número CNJ, links longos): ver o teste de tamanho em tests/ampla.test.ts e o ticket 09.
+  // de tamanho real (número CNJ, links longos): ver o teste de tamanho em tests/ampla.test.ts.
   const tamanho = p.tamanhoTrecho ?? 100;
   return {
     buscasFeitas: feitas,

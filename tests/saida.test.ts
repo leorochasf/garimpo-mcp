@@ -120,7 +120,7 @@ describe("seção de precedentes qualificados", () => {
 
   it("lista mostrada (50) + 10 qualificados com texto cortado cabem numa resposta", () => {
     // Mesmo item compacto que o teste de tamanho da busca ampla já usa (tests/ampla.test.ts), ementa cortada em 160.
-    // Com links e números de processo longos, a lista de 50 sozinha já passa de 21 mil: ver comentário do ticket 08.
+    // Com links e números de processo longos, a lista de 50 sozinha já passa de 21 mil.
     const mostrados: ItemAmplo[] = Array.from({ length: 50 }, (_, i) => ({
       id: `stj:a-${i}`,
       numero: `a-${i}/UF`,

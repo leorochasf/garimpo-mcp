@@ -82,7 +82,7 @@ export function aderencia(ementa: string, formulacoes: readonly string[]): numbe
 
 /**
  * Faixas de aderência: pisos em ordem decrescente; abaixo do último fica a faixa "resto".
- * Valores iniciais do plano; a calibração é do ticket 10.
+ * Valores iniciais do plano.
  */
 export const FAIXAS_PADRAO: readonly number[] = [1, 0.85, 0.7];
 
