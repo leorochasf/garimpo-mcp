@@ -10,6 +10,7 @@ import { Cliente, VERSAO } from "./cliente.js";
 import { acordaoNaMemoria, buscaDireta } from "./busca.js";
 import { buscaAmpla } from "./ampla.js";
 import { type ClientePorTribunal, clientePadrao, obterInteiroTeor, pastaPadrao } from "./inteiroTeor.js";
+import { lerInteiroTeor } from "./leitura.js";
 import { SIGLAS, TRIBUNAIS } from "./tribunais.js";
 
 // Tribunal e datas são conferidos dentro da ferramenta, não no esquema: o erro do esquema sai embrulhado em texto
@@ -198,6 +199,33 @@ export function criarServidor(
       try {
         conferirTribunais(args.tribunal);
         return json(await obterInteiroTeor({ ...args, pasta: args.pasta ?? pasta }, tribunais));
+      } catch (e) {
+        return erro(e);
+      }
+    },
+  );
+
+  servidor.registerTool(
+    "ler_inteiro_teor",
+    {
+      title: "Ler inteiro teor",
+      description:
+        "Lê, pelo caminho do arquivo, o PDF do inteiro teor que o obter_inteiro_teor baixou e devolve uma parte do " +
+        "texto (cerca de 8 mil tokens estimados, feita de páginas do PDF inteiras; página grande demais vem em " +
+        "segmentos). Cada parte traz o mesmo cabeçalho: tribunal, número, data, link oficial, sha256, id, nome do " +
+        "arquivo, origem e \"páginas X–Y de N (parte P de T)\" (páginas do PDF, não folhas dos autos); o que faltar " +
+        "vem como \"não informado\". A origem só é conferida com o recibo de origem ao lado do PDF e o mesmo sha256; " +
+        "senão vem \"não conferida\", com o motivo. Página sem texto extraível é avisada (não faz OCR). Só lê: não " +
+        "grava, não copia e não chama a rede. Comece pela parte 1; a resposta traz a chamada para a parte seguinte.",
+      annotations: { readOnlyHint: true, openWorldHint: false },
+      inputSchema: {
+        caminho: z.string().min(1).describe("Caminho do PDF, como veio no campo arquivo do obter_inteiro_teor"),
+        parte: z.number().int().optional().describe("Número da parte (padrão 1)"),
+      },
+    },
+    async ({ caminho, parte }) => {
+      try {
+        return json(await lerInteiroTeor(caminho, parte));
       } catch (e) {
         return erro(e);
       }

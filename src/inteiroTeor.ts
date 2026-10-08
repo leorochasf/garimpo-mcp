@@ -11,6 +11,7 @@ import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { Cliente, VERSAO } from "./cliente.js";
 import { acordaoNaMemoria } from "./busca.js";
+import { FORMATO_RECIBO, NAO_INFORMADO, ORIGEM_DOWNLOAD } from "./leitura.js";
 import { infoTribunal } from "./tribunais.js";
 
 export interface PedidoInteiroTeor {
@@ -107,6 +108,7 @@ export async function obterInteiroTeor(
       "Tamanho em bytes": String(baixado.pdf.length),
       Tribunal: tribunal.toUpperCase(),
       "Número": acordao?.numero,
+      "Data do julgamento": acordao?.dataJulgamento,
       Id: acordao?.id ?? pedido.id,
       "Nome do arquivo": basename(arquivo),
     });
@@ -153,13 +155,12 @@ async function lerCorpo(r: Response, sigla: string): Promise<Uint8Array> {
   }
 }
 
-const NAO_INFORMADO = "não informado";
 
 /** Recibo de origem: linhas "Campo: valor", estáveis, para gente ler e para o Garimpo conferir depois. */
 function textoDoRecibo(campos: Record<string, string | undefined>): string {
   const linhas = {
-    Formato: "recibo de origem do Garimpo, versão 1",
-    Origem: "download pelo Garimpo",
+    Formato: FORMATO_RECIBO,
+    Origem: ORIGEM_DOWNLOAD,
     ...campos,
     "Versão do Garimpo": VERSAO,
     Natureza:

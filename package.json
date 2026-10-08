@@ -39,10 +39,11 @@
     "prepublishOnly": "npm test"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.13.0"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
+    "pdfjs-dist": "^6.4.299",
     "zod": "^3.25.0"
   },
   "devDependencies": {

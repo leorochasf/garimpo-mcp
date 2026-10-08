@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Cliente, VERSAO } from "../src/cliente.js";
 import { criarServidor, type OpcoesServidor } from "../src/servidor.js";
 import { clienteFalso, respostaJson } from "./apoio.js";
+import { pdfSintetico } from "./pdfSintetico.js";
 
 /**
  * O Garimpo inteiro, chamado como o Claude chama: cliente MCP em memória e site falso por trás, sem rede.
@@ -31,14 +32,15 @@ function siteFalso(registros: unknown[]) {
 }
 
 describe("servidor MCP", () => {
-  it("marca como só leem as buscas, obter ementa e listar tribunais; obter inteiro teor não, nem destrutiva; as buscas saem para a internet", async () => {
+  it("marca como só leem as buscas, obter ementa, listar tribunais e ler inteiro teor (sem sair para a internet); obter inteiro teor não, nem destrutiva; as buscas saem para a internet", async () => {
     const mcp = await conectar(siteFalso([]));
     const { tools } = await mcp.listTools();
     const marca = Object.fromEntries(tools.map((t) => [t.name, t.annotations ?? {}]));
 
-    for (const nome of ["busca_direta", "busca_ampla", "obter_ementa", "listar_tribunais"]) {
+    for (const nome of ["busca_direta", "busca_ampla", "obter_ementa", "listar_tribunais", "ler_inteiro_teor"]) {
       expect(marca[nome].readOnlyHint, nome).toBe(true);
     }
+    expect(marca.ler_inteiro_teor.openWorldHint).toBe(false);
     expect(marca.obter_inteiro_teor.readOnlyHint).not.toBe(true);
     expect(marca.obter_inteiro_teor.destructiveHint).toBe(false);
     expect(marca.busca_direta.openWorldHint).toBe(true);
@@ -509,5 +511,217 @@ describe("erros que ensinam e listas como texto", () => {
 
     for (const r of respostas) expect(r.isError).toBe(true);
     expect(buscas).toEqual([]);
+  });
+});
+
+describe("ler inteiro teor em partes (pela porta)", () => {
+  const LINK_TJMG = "https://www5.tjmg.jus.br/jurisprudencia/relatorioEspelhoAcordao.do?inteiroTeor=true&numero=1";
+  // Teto da resposta: cerca de 8 mil tokens estimados, a 3 caracteres por token, cabeçalho incluído.
+  const TETO = 24_000;
+  /** Página genérica de linhas únicas e reconhecíveis ("Pagina 7 linha 3: …"). */
+  const pagina = (n: number, linhas = 25) =>
+    Array.from({ length: linhas }, (_, i) => `Pagina ${n} linha ${i + 1}: texto generico de exemplo sobre responsabilidade civil.`);
+
+  type Resposta = { isError?: boolean; texto: string };
+
+  /** Servidor com um TJMG falso que entrega este PDF, uma pasta temporária e o PDF já baixado pelo Garimpo. */
+  async function baixado(pdf: Uint8Array<ArrayBuffer>, registros: unknown[] = []) {
+    const pasta = await mkdtemp(join(tmpdir(), "garimpo-leitura-"));
+    const tjmg = clienteFalso([new Response(pdf)]);
+    const mcp = await conectar(siteFalso(registros), { tribunais: () => tjmg.cliente, pasta });
+    const chamar = async (name: string, args: Record<string, unknown>): Promise<Resposta> => {
+      const r = (await mcp.callTool({ name, arguments: args })) as { content: { text: string }[]; isError?: boolean };
+      return { isError: r.isError, texto: r.content[0].text };
+    };
+    if (registros.length) await chamar("busca_direta", { tribunal: "tjmg", texto: "exemplo" });
+    const args = registros.length ? { id: "tjmg:701" } : { tribunal: "tjmg", link: LINK_TJMG };
+    const salvo = JSON.parse((await chamar("obter_inteiro_teor", args)).texto);
+    const ler = (parte?: number, caminho: string = salvo.arquivo) =>
+      chamar("ler_inteiro_teor", parte === undefined ? { caminho } : { caminho, parte });
+    return { pasta, salvo, ler, chamar };
+  }
+
+  /** Lê todas as partes, da 1ª à última que a 1ª anuncia. */
+  async function todas(ler: (parte?: number) => Promise<Resposta>) {
+    const primeira = await ler(1);
+    expect(primeira.isError, primeira.texto).toBeFalsy();
+    const total = Number(JSON.parse(primeira.texto).cabecalho.paginasDoPdf.match(/\(parte 1 de (\d+)\)$/)[1]);
+    const respostas = [primeira];
+    for (let p = 2; p <= total; p++) respostas.push(await ler(p));
+    return respostas;
+  }
+
+  it("PDF de várias páginas: as partes cobrem todas as páginas, sem perda nem repetição, e dizem onde se está", async () => {
+    const paginas = Array.from({ length: 30 }, (_, i) => pagina(i + 1));
+    const { ler } = await baixado(pdfSintetico(paginas));
+    const respostas = await todas(ler);
+
+    expect(respostas.length).toBeGreaterThan(1);
+    let seguinte = 1;
+    respostas.forEach((r, i) => {
+      expect(r.isError).toBeFalsy();
+      expect(r.texto.length).toBeLessThanOrEqual(TETO);
+      const { cabecalho, texto } = JSON.parse(r.texto);
+      const [, x, y] = cabecalho.paginasDoPdf.match(
+        new RegExp(`^páginas? (\\d+)(?:–(\\d+))? de 30 \\(parte ${i + 1} de ${respostas.length}\\)$`),
+      );
+      expect(Number(x)).toBe(seguinte);
+      seguinte = Number(y ?? x) + 1;
+      expect(texto).toMatch(new RegExp(`^\\[página ${x} de 30\\]`));
+    });
+    expect(seguinte).toBe(31);
+
+    const tudo = respostas.map((r) => JSON.parse(r.texto).texto).join("\n");
+    for (const linha of paginas.flat()) expect(tudo.split(linha).length - 1, linha).toBe(1);
+    for (let n = 1; n <= 30; n++) expect(tudo.split(`[página ${n} de 30]`).length - 1).toBe(1);
+  });
+
+  it("página grande demais: dividida em segmentos com a continuação indicada, sem perder texto, e sempre igual", async () => {
+    const grande = pagina(2, 600);
+    const { ler } = await baixado(pdfSintetico([pagina(1), grande, pagina(3)]));
+    const respostas = await todas(ler);
+    const textos = respostas.map((r) => JSON.parse(r.texto).texto as string);
+
+    for (const r of respostas) expect(r.texto.length).toBeLessThanOrEqual(TETO);
+    const segmentos = textos.join("\n").match(/\[página 2 de 3, segmento \d+ de \d+[^\]]*\]/g) ?? [];
+    expect(segmentos.length).toBeGreaterThan(1);
+    segmentos.forEach((s, k) => {
+      const ultimo = k === segmentos.length - 1;
+      expect(s).toBe(
+        `[página 2 de 3, segmento ${k + 1} de ${segmentos.length}${ultimo ? "" : `; continua no segmento ${k + 2}`}]`,
+      );
+    });
+    expect(JSON.parse(respostas[1].texto).cabecalho.paginasDoPdf).toMatch(/^página 2 de 3 \(parte 2 de \d+\)$/);
+    const tudo = textos.join("\n");
+    for (const linha of [...pagina(1), ...grande, ...pagina(3)]) expect(tudo.split(linha).length - 1, linha).toBe(1);
+    // Determinística: a mesma parte, lida de novo, vem igual.
+    expect((await ler(2)).texto).toBe(respostas[1].texto);
+  });
+
+  describe("origem", () => {
+    const acordao = {
+      id: "701",
+      texto_ementa: "EMENTA FICTÍCIA.",
+      numero_processo: "1.0000.00.000002-0/001",
+      data_julgamento: "2024-03-15T00:00:00.000Z",
+      link_pdf: LINK_TJMG,
+    };
+    const naoInformado = { tribunal: "não informado", numero: "não informado", data: "não informado", linkOficial: "não informado", id: "não informado" };
+
+    it("recibo válido e mesmo sha256: origem conferida, cabeçalho completo vindo do recibo, sem aviso de origem", async () => {
+      const pdf = pdfSintetico([pagina(1)]);
+      const { salvo, ler } = await baixado(pdf, [acordao]);
+      const r = await ler();
+      expect(r.isError).toBeFalsy();
+      const dado = JSON.parse(r.texto);
+      expect(dado.cabecalho).toEqual({
+        tribunal: "TJMG",
+        numero: "1.0000.00.000002-0/001",
+        data: "2024-03-15",
+        linkOficial: LINK_TJMG,
+        sha256: createHash("sha256").update(pdf).digest("hex"),
+        id: "tjmg:701",
+        arquivo: basename(salvo.arquivo),
+        origem: expect.stringMatching(/^conferida: download pelo Garimpo em \d{4}-\d{2}-\d{2}T.*mesmo sha256/),
+        paginasDoPdf: "página 1 de 1 (parte 1 de 1)",
+      });
+      expect(dado.avisos).toEqual([]);
+      expect(dado.vinculoDeclarado).toBeUndefined();
+      expect(dado.proximaParte).toBeUndefined();
+    });
+
+    it("sem recibo: não conferida, com aviso de recibo ausente, e o texto sai do mesmo jeito", async () => {
+      const { salvo, ler } = await baixado(pdfSintetico([pagina(1)]), [acordao]);
+      await rm(salvo.recibo);
+      const dado = JSON.parse((await ler()).texto);
+      expect(dado.cabecalho).toMatchObject({ ...naoInformado, origem: "não conferida" });
+      expect(dado.avisos).toEqual([expect.stringMatching(/^Origem não conferida: não há recibo de origem ao lado deste PDF/)]);
+      expect(dado.vinculoDeclarado).toBeUndefined();
+      expect(dado.texto).toContain(pagina(1)[0]);
+    });
+
+    it("recibo de formato desconhecido: não conferida, com aviso de formato", async () => {
+      const { salvo, ler } = await baixado(pdfSintetico([pagina(1)]), [acordao]);
+      const recibo = await readFile(salvo.recibo, "utf8");
+      await writeFile(salvo.recibo, recibo.replace("versão 1", "versão 99"));
+      const dado = JSON.parse((await ler()).texto);
+      expect(dado.cabecalho).toMatchObject({ ...naoInformado, origem: "não conferida" });
+      expect(dado.avisos).toEqual([expect.stringMatching(/^Origem não conferida: o recibo .* não está num formato que o Garimpo reconheça/)]);
+    });
+
+    it("recibo que não registra download pelo Garimpo: não conferida, e os dados do recibo só como vínculo declarado", async () => {
+      const { salvo, ler } = await baixado(pdfSintetico([pagina(1)]), [acordao]);
+      const recibo = await readFile(salvo.recibo, "utf8");
+      await writeFile(salvo.recibo, recibo.replace("Origem: download pelo Garimpo", "Origem: declarada pelo usuário"));
+      const dado = JSON.parse((await ler()).texto);
+      expect(dado.cabecalho).toMatchObject({ ...naoInformado, origem: "não conferida" });
+      expect(dado.avisos).toEqual([expect.stringMatching(/^Origem não conferida: o recibo .* não registra download pelo Garimpo/)]);
+      expect(dado.vinculoDeclarado).toMatchObject({ tribunal: "TJMG", id: "tjmg:701" });
+    });
+
+    it("PDF mudou depois do download (sha256 diferente): não conferida, e os dados do recibo só como vínculo declarado", async () => {
+      const { salvo, ler } = await baixado(pdfSintetico([pagina(1)]), [acordao]);
+      const outro = pdfSintetico([pagina(9)]);
+      await writeFile(salvo.arquivo, outro);
+      const dado = JSON.parse((await ler()).texto);
+      expect(dado.cabecalho).toMatchObject({
+        ...naoInformado,
+        origem: "não conferida",
+        sha256: createHash("sha256").update(outro).digest("hex"),
+      });
+      expect(dado.avisos).toEqual([expect.stringMatching(/^Origem não conferida: o PDF mudou depois do download/)]);
+      expect(dado.vinculoDeclarado).toMatchObject({ tribunal: "TJMG", id: "tjmg:701", declaradoPor: expect.stringMatching(/sha256/) });
+    });
+  });
+
+  it("página sem texto extraível: aviso na própria página; PDF inteiro sem texto: aviso no topo, nunca \"sem conteúdo\"", async () => {
+    const misto = await baixado(pdfSintetico([pagina(1), [], pagina(3)]));
+    const dadoMisto = JSON.parse((await misto.ler()).texto);
+    expect(dadoMisto.texto).toContain("[página 2 de 3: sem texto extraível; pode ser escaneada]");
+    expect(dadoMisto.avisos.join(" ")).not.toMatch(/Nenhuma página/);
+
+    const vazio = await baixado(pdfSintetico([[], []]));
+    const dadoVazio = JSON.parse((await vazio.ler()).texto);
+    expect(dadoVazio.avisos[0]).toMatch(/^Nenhuma página deste PDF tem texto extraível; pode ser escaneado\. O Garimpo não faz OCR/);
+    expect(dadoVazio.texto).toBe(
+      "[página 1 de 2: sem texto extraível; pode ser escaneada]\n\n[página 2 de 2: sem texto extraível; pode ser escaneada]",
+    );
+  });
+
+  it("PDF truncado: erro de leitura explícito, nunca \"sem conteúdo\" nem \"sem texto\"", async () => {
+    const pdf = pdfSintetico([pagina(1), pagina(2)]);
+    const { salvo, ler } = await baixado(pdf);
+    await writeFile(salvo.arquivo, pdf.subarray(0, Math.floor(pdf.length * 0.6)));
+    const r = await ler();
+    expect(r.isError).toBe(true);
+    expect(r.texto).toMatch(/^Erro de leitura: o extrator não conseguiu ler o PDF .*truncado ou corrompido/);
+    expect(r.texto).not.toMatch(/sem conteúdo|sem texto/);
+  });
+
+  it("parte inexistente: erro que ensina o total de partes", async () => {
+    const { ler } = await baixado(pdfSintetico([pagina(1)]));
+    for (const parte of [2, 0]) {
+      const r = await ler(parte);
+      expect(r.isError).toBe(true);
+      expect(r.texto).toBe(`A parte ${parte} não existe: este PDF tem 1 parte (de 1 a 1).`);
+    }
+  });
+
+  it("a resposta traz a chamada pronta para a parte seguinte, e a última não", async () => {
+    const { salvo, ler } = await baixado(pdfSintetico(Array.from({ length: 30 }, (_, i) => pagina(i + 1))));
+    const respostas = await todas(ler);
+    respostas.forEach((r, i) => {
+      const { proximaParte } = JSON.parse(r.texto);
+      if (i === respostas.length - 1) expect(proximaParte).toBeUndefined();
+      else expect(proximaParte).toEqual({ ferramenta: "ler_inteiro_teor", argumentos: { caminho: salvo.arquivo, parte: i + 2 } });
+    });
+  });
+
+  it("só lê: nada é gravado nem apagado na pasta", async () => {
+    const { pasta, ler } = await baixado(pdfSintetico([pagina(1), []]));
+    const antes = (await readdir(pasta)).sort();
+    await ler(1);
+    await ler(5);
+    expect((await readdir(pasta)).sort()).toEqual(antes);
   });
 });
