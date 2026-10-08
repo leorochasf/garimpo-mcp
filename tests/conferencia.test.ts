@@ -310,6 +310,7 @@ describe("conferência de citação no inteiro teor — limites (módulo puro)",
       paginasDoPdf: "página 1 de 1",
       parte: "parte 1 de 1",
       textoDaFonte: "A RESPONSABILIDADE CIVIL DO ENTE FICTICIO exige prova",
+      secao: "não identificada",
     });
   });
 
@@ -327,5 +328,140 @@ describe("conferência de citação no inteiro teor — limites (módulo puro)",
     );
     expect(r.veredito).toBe("não encontrado");
     expect("passagemCandidata" in r && r.passagemCandidata?.motivo).toMatch(/nunca o retira.*; e ainda difere em maiúsculas\/pontuação$/);
+  });
+});
+
+describe("conferência de citação no inteiro teor — seção do acórdão (módulo puro)", () => {
+  function inteiroTeor(paginas: string[]): InteiroTeorParaConferir {
+    return {
+      origem: "não conferida",
+      totalDePaginas: paginas.length,
+      totalDePartes: 1,
+      unidades: paginas.map((texto, i) => ({ pagina: i + 1, parte: 1, texto })),
+    };
+  }
+  const CITACAO = "a responsabilidade civil do ente ficticio exige prova do nexo causal";
+  /** A 1ª ocorrência da citação no PDF fictício. */
+  function ocorrencia(paginas: string[], citacao = CITACAO) {
+    const r = conferirNoInteiroTeor(inteiroTeor(paginas), lerCitacao(citacao, { reticenciasComoCorte: false }));
+    expect(r.veredito).toBe("encontrado literalmente");
+    return (r as { ocorrencias: { secao?: string; sinalDeOutroAutor?: string }[] }).ocorrencias[0];
+  }
+
+  it.each([
+    ["EMENTA", "ementa"],
+    ["ACÓRDÃO", "acórdão"],
+    ["VOTO", "voto"],
+    ["VOTO-VISTA", "voto-vista"],
+    ["VOTO VISTA", "voto-vista"],
+    ["VOTO VOGAL", "voto vogal"],
+    ["CERTIDÃO", "certidão"],
+    ["CERTIDÃO DE JULGAMENTO", "certidão"],
+    ["V O T O", "voto"],
+    ["V O T O  V E N C I D O", "voto vencido"],
+    ["V O T O V E N C I D O", "voto vencido"],
+    ["VOTO-VENCIDO", "voto vencido"],
+    ["VOTO VENCIDO DO DESEMBARGADOR FICTICIO", "voto vencido"],
+    ["Voto vencido", "voto vencido"],
+    ["Relatório", "relatório"],
+    ["Voto", "voto"],
+    ["VOTO:", "voto"],
+  ])("título \"%s\" sozinho na linha: seção %s (aviso forte só no relatório e no voto vencido)", (titulo, secao) => {
+    const o = ocorrencia([`Cabecalho ficticio.
+${titulo}
+Texto antes.
+Para ${CITACAO}.`]);
+    expect(o.secao).toBe(secao);
+    expect(Boolean(o.sinalDeOutroAutor)).toBe(secao === "relatório" || secao === "voto vencido");
+  });
+
+  it.each(["RELATÓRIO.", "VOTO VENCIDO."])("fim de frase de ementa em maiúsculas (\"%s\" sozinho na linha) não é título: segue a ementa, sem aviso", (linha) => {
+    const o = ocorrencia([`EMENTA
+PROCESSUAL CIVIL. FICTICIO. NULIDADE DO
+${linha}
+Tese: ${CITACAO}.`]);
+    expect(o.secao).toBe("ementa");
+    expect(o.sinalDeOutroAutor).toBeUndefined();
+  });
+
+  it("ementa transcrita dentro do relatório (\"EMENTA\" sozinho na linha) não fecha o relatório: aviso forte mantido", () => {
+    const o = ocorrencia([`EMENTA
+Texto da ementa ficticia.
+RELATÓRIO
+A sentenca ficticia tem esta ementa:
+EMENTA
+Para ${CITACAO}.
+VOTO
+Texto do voto.`]);
+    expect(o.secao).toBe("relatório");
+    expect(o.sinalDeOutroAutor).toMatch(/^ATENÇÃO, pode ser de outro autor: a passagem está no relatório/);
+  });
+
+  it("passagem no relatório: aviso forte, com o título e a página do PDF dele, sem atribuir autoria", () => {
+    const o = ocorrencia(["EMENTA\nTexto da ementa ficticia.", `RELATÓRIO\nO autor alega que ${CITACAO}.`, "VOTO\nTexto do voto."]);
+    expect(o.secao).toBe("relatório");
+    expect(o.sinalDeOutroAutor).toBe(
+      'ATENÇÃO, pode ser de outro autor: a passagem está no relatório (título "RELATÓRIO" na página 2 do PDF), que ' +
+        "costuma reproduzir alegações das partes e decisões anteriores; não a cite como fundamento do tribunal sem " +
+        "conferir no PDF",
+    );
+  });
+
+  it("passagem no voto vencido: aviso forte; o voto antes dele não muda isso", () => {
+    const o = ocorrencia(["VOTO\nTexto do voto do relator.", `VOTO VENCIDO\nDivirjo, porque ${CITACAO}.`]);
+    expect(o.secao).toBe("voto vencido");
+    expect(o.sinalDeOutroAutor).toBe(
+      'ATENÇÃO, pode ser de outro autor: a passagem está num voto vencido (título "VOTO VENCIDO" na página 2 do ' +
+        "PDF), que, pelo título, não prevaleceu no julgamento; não a cite como fundamento do tribunal sem conferir no " +
+        "PDF",
+    );
+  });
+
+  it("aviso forte da seção vem junto do marcador de transcrição, quando os dois aparecem", () => {
+    const o = ocorrencia([`RELATÓRIO\nAlega o recorrente, in verbis:\n${CITACAO}.`]);
+    expect(o.sinalDeOutroAutor).toMatch(/^ATENÇÃO, pode ser de outro autor: a passagem está no relatório .*; logo antes da passagem há o marcador de transcrição "in verbis"$/);
+  });
+
+  it("sem título com forma de seção antes da passagem: não identificada, sem sinal", () => {
+    const o = ocorrencia([`Texto ficticio sem titulo nenhum.\nPara ${CITACAO}.`, "RELATÓRIO\nDepois da passagem."]);
+    expect(o.secao).toBe("não identificada");
+    expect(o.sinalDeOutroAutor).toBeUndefined();
+  });
+
+  it.each([
+    ["\"voto\" no corpo do texto", "Acompanho o voto do relator, no sentido de que"],
+    ["\"relatório\" no corpo do texto", "Conforme o relatório, adoto o entendimento de que"],
+    ["título em minúsculas no meio da frase", "voto vencido"],
+    ["título que só começa com letra maiúscula, com mais palavras", "Voto vencido do Desembargador ficticio no ponto"],
+  ])("%s não muda a seção", (_caso, linha) => {
+    const o = ocorrencia([`VOTO\nTexto do voto.\n${linha}\n${CITACAO}.`]);
+    expect(o.secao).toBe("voto");
+    expect(o.sinalDeOutroAutor).toBeUndefined();
+  });
+
+  it("passagem que atravessa um título de seção: as duas seções, com o aviso forte se uma delas o pede", () => {
+    const o = ocorrencia(
+      ["RELATÓRIO\nTexto do relatorio termina aqui com estas palavras finais\nVOTO\nE o voto comeca com estas palavras iniciais."],
+      "termina aqui com estas palavras finais VOTO E o voto comeca",
+    );
+    expect(o.secao).toBe("relatório e voto (a passagem atravessa um título de seção)");
+    expect(o.sinalDeOutroAutor).toMatch(/^ATENÇÃO, pode ser de outro autor: a passagem está no relatório/);
+  });
+
+  it("supressão: cada pedaço com a sua seção", () => {
+    const r = conferirNoInteiroTeor(
+      inteiroTeor(["RELATÓRIO\nPrimeiro pedaco ficticio da fundamentacao.", "VOTO\nSegundo pedaco ficticio da mesma fundamentacao."]),
+      lerCitacao("Primeiro pedaco ficticio da fundamentacao (...) Segundo pedaco ficticio da mesma fundamentacao", {
+        reticenciasComoCorte: false,
+      }),
+    );
+    expect(r.veredito).toBe("encontrado com supressão indicada");
+    const [{ pedacos }] = (r as { ocorrencias: { pedacos: { secao: string }[] }[] }).ocorrencias;
+    expect(pedacos.map((p) => p.secao)).toEqual(["relatório", "voto"]);
+  });
+
+  it("na ementa do JurisprudênciaIA não há seção: o campo não aparece", () => {
+    const r = conferirNaEmenta(`EMENTA FICTÍCIA. Para ${CITACAO}.`, lerCitacao(CITACAO, { reticenciasComoCorte: false }));
+    expect((r as { ocorrencias: object[] }).ocorrencias[0]).not.toHaveProperty("secao");
   });
 });

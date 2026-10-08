@@ -1494,7 +1494,7 @@ describe("conferir citação no inteiro teor (pela porta)", () => {
         caminho,
         origem: ORIGEM_TRAZIDO,
         veredito: "encontrado literalmente",
-        ocorrencias: [{ local: "no inteiro teor", paginasDoPdf: "página 2 de 3", parte: "parte 1 de 1" }],
+        ocorrencias: [{ local: "no inteiro teor", paginasDoPdf: "página 2 de 3", parte: "parte 1 de 1", secao: "não identificada" }],
         total: 1,
         equivalencias: [],
       },
@@ -1539,7 +1539,9 @@ describe("conferir citação no inteiro teor (pela porta)", () => {
     ]);
     const [fonte] = (await conferir([{ citacao: CITACAO, caminho }])).resultados[0].fontes;
     expect(fonte.veredito).toBe("encontrado literalmente");
-    expect(fonte.ocorrencias).toEqual([{ local: "no inteiro teor", paginasDoPdf: "páginas 1–2 de 2", parte: "parte 1 de 1" }]);
+    expect(fonte.ocorrencias).toEqual([
+      { local: "no inteiro teor", paginasDoPdf: "páginas 1–2 de 2", parte: "parte 1 de 1", secao: "não identificada" },
+    ]);
     expect(fonte.equivalencias).toEqual(["espaço ou quebra de linha"]);
   });
 
@@ -1707,5 +1709,100 @@ describe("conferir citação no inteiro teor (pela porta)", () => {
     expect(JSON.parse(lida.content[0].text).texto).toContain(`[página 30 de 30]\n`);
     expect(JSON.parse(lida.content[0].text).texto).toContain(`Ao final, ${CITACAO}.`);
     expect(noGrande).toMatchObject({ paginasDoPdf: "página 1 de 1", segmento: "segmento 2 de 2 da página 1" });
+  });
+});
+
+describe("PDF trazido pelo usuário e seção do acórdão na conferência (pela porta)", () => {
+  const ORIGEM_TRAZIDO = "declarada pelo usuário, não conferida (inteiro teor trazido pelo usuário)";
+  const CITACAO = "a responsabilidade civil do ente ficticio exige prova do nexo causal";
+  const linhas = (n: number) => Array.from({ length: n }, (_, i) => `Linha ${i + 1} de texto generico ficticio de exemplo.`);
+
+  /** PDF sintético numa pasta qualquer, sem recibo: inteiro teor trazido pelo usuário. */
+  async function pdfTrazido(paginas: string[][]) {
+    const pasta = await mkdtemp(join(tmpdir(), "garimpo-secao-"));
+    const caminho = join(pasta, "baixado-a-mao.pdf");
+    await writeFile(caminho, pdfSintetico(paginas));
+    return { pasta, caminho };
+  }
+
+  async function conferirEm(mcp: Client, citacoes: unknown[]) {
+    const r = (await mcp.callTool({ name: "conferir_citacao", arguments: { citacoes } })) as {
+      content: { text: string }[];
+      isError?: boolean;
+    };
+    expect(r.isError, r.content[0].text).toBeFalsy();
+    return JSON.parse(r.content[0].text) as { notaSinalDeOutroAutor: string; resultados: { fontes: Record<string, any>[] }[] };
+  }
+
+  it("PDF trazido: a conferência funciona, marca a origem declarada, não grava nada e não chama a rede", async () => {
+    const { pasta, caminho } = await pdfTrazido([[...linhas(4), `Para ${CITACAO}.`]]);
+    let chamadas = 0;
+    const site = new Cliente({
+      nome: "O site",
+      esperar: async () => {},
+      fetch: (async () => {
+        chamadas++;
+        return respostaJson({ results: [] });
+      }) as typeof fetch,
+    });
+
+    const r = await conferirEm(await conectar(site), [{ citacao: CITACAO, caminho }]);
+
+    expect(r.resultados[0].fontes[0]).toMatchObject({ origem: ORIGEM_TRAZIDO, veredito: "encontrado literalmente" });
+    expect(chamadas).toBe(0);
+    expect(await readdir(pasta)).toEqual(["baixado-a-mao.pdf"]);
+  });
+
+  it("PDF trazido com o id de um acórdão: vínculo declarado, que não prova que o PDF é esse acórdão, mesmo achando a citação nos dois", async () => {
+    const { caminho } = await pdfTrazido([[...linhas(4), `Para ${CITACAO}.`]]);
+    const site = new Cliente({
+      nome: "O site",
+      esperar: async () => {},
+      fetch: (async () =>
+        respostaJson({ results: [{ id: "vd1", texto_ementa: `EMENTA FICTÍCIA. Para ${CITACAO}.`, numero_processo: "1.000.012/SP" }] })) as typeof fetch,
+    });
+    const mcp = await conectar(site);
+    await mcp.callTool({ name: "busca_direta", arguments: { tribunal: "stj", texto: "exemplo" } });
+
+    const [ementa, inteiroTeor] = (await conferirEm(mcp, [{ citacao: CITACAO, id: "stj:vd1", caminho }])).resultados[0].fontes;
+
+    expect(ementa).toMatchObject({ fonte: "ementa", veredito: "encontrado literalmente" });
+    expect(ementa).not.toHaveProperty("vinculo");
+    expect(inteiroTeor).toMatchObject({ fonte: "inteiro teor", origem: ORIGEM_TRAZIDO, veredito: "encontrado literalmente" });
+    expect(inteiroTeor.vinculo).toBe(
+      "declarado pelo usuário: o id stj:vd1 diz qual acórdão seria este PDF, mas não prova que ele é esse acórdão; " +
+        "achar a citação no texto também não prova",
+    );
+  });
+
+  it("seção do acórdão: aviso forte no relatório e no voto vencido; \"não identificada\" sem título; menção no corpo não muda", async () => {
+    const { caminho } = await pdfTrazido([
+      ["Texto inicial ficticio sem titulo de secao.", "Antes de tudo, a culpa do ente ficticio deve ser provada pelo autor."],
+      ["RELATÓRIO", "O autor ficticio alega que", `${CITACAO} no caso.`],
+      ["VOTO", "Acompanho o voto do relator, porque o dever de indenizar depende de prova do dano efetivo."],
+      ["VOTO VENCIDO", "Divirjo, pois a omissao do ente ficticio dispensa a prova do dano efetivo."],
+    ]);
+    const r = await conferirEm(await conectar(siteFalso([])), [
+      { citacao: CITACAO, caminho },
+      { citacao: "a omissao do ente ficticio dispensa a prova do dano efetivo", caminho },
+      { citacao: "o dever de indenizar depende de prova do dano efetivo", caminho },
+      { citacao: "a culpa do ente ficticio deve ser provada pelo autor", caminho },
+    ]);
+    const [relatorio, vencido, voto, semTitulo] = r.resultados.map((x) => x.fontes[0].ocorrencias[0]);
+
+    expect(relatorio.secao).toBe("relatório");
+    expect(relatorio.sinalDeOutroAutor).toMatch(/^ATENÇÃO, pode ser de outro autor: a passagem está no relatório \(título "RELATÓRIO" na página 2 do PDF\)/);
+    expect(vencido.secao).toBe("voto vencido");
+    expect(vencido.sinalDeOutroAutor).toMatch(/^ATENÇÃO, pode ser de outro autor: a passagem está num voto vencido \(título "VOTO VENCIDO" na página 4 do PDF\), que, pelo título, não prevaleceu/);
+    // "voto do relator" no corpo do texto não abre seção: segue a do título VOTO.
+    expect(voto.secao).toBe("voto");
+    expect(voto.sinalDeOutroAutor).toBeUndefined();
+    expect(semTitulo.secao).toBe("não identificada");
+    expect(semTitulo.sinalDeOutroAutor).toBeUndefined();
+    // Nunca atribui autoria nem diz que é a tese vencedora; a falta de sinal não prova que é do tribunal.
+    expect(JSON.stringify(r.resultados)).not.toMatch(/vencedora|autoria|é do tribunal/);
+    expect(r.notaSinalDeOutroAutor).toMatch(/não diz de quem é a passagem nem se é a tese vencedora/);
+    expect(r.notaSinalDeOutroAutor).toMatch(/a falta de sinal não prova que a passagem é do tribunal/);
+    expect(r.notaSinalDeOutroAutor).toMatch(/seção "não identificada"/);
   });
 });

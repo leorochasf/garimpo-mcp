@@ -46,6 +46,8 @@ export type Posicao = Onde & {
   frase?: string;
   /** Só no "difere só em maiúsculas/pontuação": a passagem exata da fonte, para citar por ela. */
   textoDaFonte?: string;
+  /** Só no inteiro teor: a seção do acórdão pelo último título de seção antes da passagem, ou "não identificada". */
+  secao?: string;
   /** Indício, na fonte, de que a passagem pode não ser do tribunal (na ementa, só aspas). */
   sinalDeOutroAutor?: string;
 };
@@ -161,6 +163,8 @@ interface Fonte {
   onde(a: number, b: number): Onde;
   /** Na ementa: a frase que contém o intervalo. */
   frase?(a: number, b: number): string;
+  /** No inteiro teor: a seção do acórdão em que fica o intervalo. */
+  secao?(a: number, b: number): string;
   sinal(a: number, b: number): string | undefined;
   /** Com supressão: se a cadeia de pedaços de a até b cabe na fonte (no PDF, até 3 páginas seguidas). */
   cadeiaAceita(a: number, b: number): boolean;
@@ -290,6 +294,7 @@ function posicao(fonte: Fonte, a: number, b: number, literal: boolean): Posicao 
     ...fonte.onde(a, b),
     ...(fonte.frase ? { frase: fonte.frase(a, b) } : {}),
     ...(literal ? {} : { textoDaFonte: fonte.texto.slice(a, b) }),
+    ...(fonte.secao ? { secao: fonte.secao(a, b) } : {}),
     ...(sinal ? { sinalDeOutroAutor: sinal } : {}),
   };
 }
@@ -373,6 +378,7 @@ function fonteDoInteiroTeor(leitura: InteiroTeorParaConferir): FonteDoInteiroTeo
     }
     return unidades[lo];
   };
+  const titulos = titulosDeSecao(texto, (i) => unidadeEm(i).pagina);
   return {
     texto,
     unidades,
@@ -391,7 +397,8 @@ function fonteDoInteiroTeor(leitura: InteiroTeorParaConferir): FonteDoInteiroTeo
         ...(x.segmento || y.segmento ? { segmento: x === y ? segmento(x) : `${segmento(x)} até ${segmento(y)}` } : {}),
       };
     },
-    sinal: (a, b) => sinalNoInteiroTeor(texto, a, b),
+    secao: (a, b) => nomeDaSecao(secoesEm(titulos, a, b)),
+    sinal: (a, b) => sinalNoInteiroTeor(texto, a, b, secoesEm(titulos, a, b)),
     // Sem caixa e pontuação, o hífen de fim de linha viraria espaço e a palavra partida passaria por pontuação.
     soltaAceita: (a, b) => !HIFEN_DE_FIM_DE_LINHA.test(texto.slice(a, b)),
     cadeiaAceita: (a, b) => unidadeEm(b - 1).pagina - unidadeEm(a).pagina < MAXIMO_DE_PAGINAS_DA_SUPRESSAO,
@@ -425,11 +432,19 @@ const MARCADORES = [
 const MARCADOR = new RegExp(`(?<![\\p{L}\\p{N}])(?:${MARCADORES.join("|")})(?![\\p{L}\\p{N}])`, "giu");
 
 /**
- * Sinal de outro autor no inteiro teor: a passagem entre aspas, ou um marcador de transcrição ("in verbis",
- * "confira-se"…) logo antes dela, copiado como está na fonte. É indício, não autoria; a falta dele não prova nada.
+ * Sinal de outro autor no inteiro teor: a passagem no relatório ou num voto vencido (aviso forte, pelo título de
+ * seção), entre aspas, ou com um marcador de transcrição ("in verbis", "confira-se"…) logo antes dela, copiado como
+ * está na fonte. É indício, não autoria; a falta dele não prova nada.
  */
-function sinalNoInteiroTeor(texto: string, a: number, b: number): string | undefined {
+function sinalNoInteiroTeor(texto: string, a: number, b: number, secoes: Secoes): string | undefined {
   const sinais: string[] = [];
+  const fortes = secoes.titulos.flatMap((t) => {
+    const aviso = AVISO_DA_SECAO[t.secao];
+    return aviso ? [aviso(t)] : [];
+  });
+  if (fortes.length) {
+    sinais.push(`${fortes.join("; ")}; não a cite como fundamento do tribunal sem conferir no PDF`);
+  }
   if (entreAspas(texto, a, b, Math.max(0, a - JANELA_DAS_ASPAS))) {
     sinais.push("a passagem está entre aspas no inteiro teor");
   }
@@ -437,7 +452,91 @@ function sinalNoInteiroTeor(texto: string, a: number, b: number): string | undef
   if (marcadores.length) {
     sinais.push(`logo antes da passagem há o marcador de transcrição "${marcadores[marcadores.length - 1][0]}"`);
   }
-  return sinais.length ? `pode ser de outro autor: ${sinais.join("; ")}` : undefined;
+  if (!sinais.length) return undefined;
+  return `${fortes.length ? "ATENÇÃO, pode" : "pode"} ser de outro autor: ${sinais.join("; ")}`;
+}
+
+type Secao = "ementa" | "acórdão" | "relatório" | "voto" | "voto-vista" | "voto vencido" | "voto vogal" | "certidão";
+
+/**
+ * Títulos fixos com forma de seção e a seção do acórdão que cada um abre. A chave é o título sem espaços nem hífens,
+ * para casar "VOTO-VISTA" com "VOTO VISTA" e as letras espaçadas ("V O T O  V E N C I D O").
+ */
+const SECOES: Record<string, Secao> = {
+  EMENTA: "ementa",
+  ACÓRDÃO: "acórdão",
+  RELATÓRIO: "relatório",
+  VOTO: "voto",
+  VOTOVISTA: "voto-vista",
+  VOTOVENCIDO: "voto vencido",
+  VOTOVOGAL: "voto vogal",
+  CERTIDÃO: "certidão",
+  CERTIDÃODEJULGAMENTO: "certidão",
+};
+
+/** Título de seção achado no PDF: onde começa, a seção que abre, a linha como está na fonte e a página do PDF. */
+interface TituloDeSecao {
+  inicio: number;
+  secao: Secao;
+  titulo: string;
+  pagina: number;
+}
+
+/** Seções com aviso forte: o texto nelas costuma não ser fundamento do tribunal. Indício, nunca autoria. */
+const AVISO_DA_SECAO: Partial<Record<Secao, (t: TituloDeSecao) => string>> = {
+  relatório: (t) =>
+    `a passagem está no relatório (título "${t.titulo}" na página ${t.pagina} do PDF), que costuma reproduzir ` +
+    "alegações das partes e decisões anteriores",
+  "voto vencido": (t) =>
+    `a passagem está num voto vencido (título "${t.titulo}" na página ${t.pagina} do PDF), que, pelo título, não ` +
+    "prevaleceu no julgamento",
+};
+
+/** Seções que um "EMENTA" ou "ACÓRDÃO" sozinho na linha não fecha: é a transcrição de outra decisão dentro delas. */
+const TRANSCREVEM_DECISOES: Secao[] = ["relatório", "voto vencido"];
+
+/**
+ * Os títulos de seção do PDF, em ordem: só a linha que é inteira um dos títulos fixos — em maiúsculas ou só com a 1ª
+ * letra maiúscula ("Voto vencido") —, sem nada depois além de ":" (ponto final não: "NULIDADE DO\nRELATÓRIO." é fim
+ * de frase de ementa em maiúsculas, não título). Em maiúsculas, "VOTO VENCIDO" pode vir seguido do nome do julgador.
+ * "Voto" ou "relatório" no corpo do texto não abrem seção.
+ */
+function titulosDeSecao(texto: string, paginaEm: (i: number) => number): TituloDeSecao[] {
+  const titulos: TituloDeSecao[] = [];
+  for (const m of texto.matchAll(/^[^\n]{1,80}$/gm)) {
+    const titulo = m[0].trim();
+    const linha = titulo.normalize("NFC").replace(/\s*:$/, "");
+    const maiusculas = /^[\p{Lu}\s-]+$/u.test(linha);
+    if (!maiusculas && !/^\p{Lu}[\p{Ll}\s-]+$/u.test(linha)) continue;
+    const chave = linha.toUpperCase().replace(/[\s-]/g, "");
+    const secao = SECOES[chave] ?? (maiusculas && chave.startsWith("VOTOVENCIDO") ? "voto vencido" : undefined);
+    if (!secao) continue;
+    const anterior = titulos[titulos.length - 1];
+    if ((secao === "ementa" || secao === "acórdão") && anterior && TRANSCREVEM_DECISOES.includes(anterior.secao)) {
+      continue;
+    }
+    titulos.push({ inicio: m.index, secao, titulo, pagina: paginaEm(m.index) });
+  }
+  return titulos;
+}
+
+/** As seções por que passa o intervalo [a, b): a do último título antes dele (se houver) e as que se abrem nele. */
+interface Secoes {
+  identificada: boolean;
+  titulos: TituloDeSecao[];
+}
+
+function secoesEm(titulos: TituloDeSecao[], a: number, b: number): Secoes {
+  const antes = titulos.filter((t) => t.inicio <= a).pop();
+  const dentro = titulos.filter((t) => t.inicio > a && t.inicio < b);
+  return { identificada: Boolean(antes), titulos: antes ? [antes, ...dentro] : dentro };
+}
+
+/** "voto", "não identificada" ou, atravessando título, "relatório e voto (a passagem atravessa um título de seção)". */
+function nomeDaSecao({ identificada, titulos }: Secoes): string {
+  const nomes = [...(identificada ? [] : ["não identificada"]), ...titulos.map((t) => t.secao)];
+  if (nomes.length === 1) return nomes[0];
+  return `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]} (a passagem atravessa um título de seção)`;
 }
 
 /**

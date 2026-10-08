@@ -323,9 +323,12 @@ export function criarServidor(
         "ou sem texto extraível). Hífen, meia-risca e travessão nunca são iguais. Reticências soltas são procuradas " +
         "como texto, salvo reticenciasComoCorte. Na ementa, a posição vem como a frase que contém a citação; no " +
         "inteiro teor, como página do PDF (nunca folha dos autos), parte do ler_inteiro_teor e segmento, com a origem " +
-        "do PDF (conferida ou não conferida). Passagem entre aspas, ou no PDF logo depois de \"in verbis\", " +
-        "\"confira-se\" e semelhantes, ganha o aviso de que pode ser de outro autor. Achar o texto não autentica a " +
-        "fonte. Só lê: não chama a rede e não grava.",
+        "do PDF (conferida, não conferida ou declarada pelo usuário, no PDF trazido) e a seção do acórdão pelo título " +
+        "de seção (EMENTA, ACÓRDÃO, RELATÓRIO, VOTO, VOTO-VISTA, VOTO VENCIDO, VOTO VOGAL, CERTIDÃO), ou \"não " +
+        "identificada\". Passagem entre aspas, ou no PDF logo depois de \"in verbis\", \"confira-se\" e semelhantes, " +
+        "ganha o aviso de que pode ser de outro autor; no relatório ou num voto vencido, aviso forte. O Garimpo nunca " +
+        "diz de quem é a passagem. Achar o texto não autentica a fonte, e o id junto do caminho de um PDF trazido é só " +
+        "vínculo declarado. Só lê: não chama a rede e não grava.",
       annotations: { readOnlyHint: true, openWorldHint: false },
       inputSchema: {
         // Item malformado é conferido dentro da ferramenta: vira resultado próprio, com frase que ensina a corrigir,
@@ -394,7 +397,22 @@ export function criarServidor(
           if (!leituras.has(caminho)) leituras.set(caminho, lerParaConferir(caminho));
           try {
             const leitura = await leituras.get(caminho)!;
-            fontes.push({ fonte: "inteiro teor", caminho, origem: leitura.origem, ...conferirNoInteiroTeor(leitura, lida) });
+            // Com o id junto, o usuário diz qual acórdão seria o PDF: vínculo declarado, que não vira prova.
+            const vinculo =
+              id !== undefined && !leitura.origem.startsWith("conferida")
+                ? {
+                    vinculo:
+                      `declarado pelo usuário: o id ${id} diz qual acórdão seria este PDF, mas não prova que ele é ` +
+                      "esse acórdão; achar a citação no texto também não prova",
+                  }
+                : {};
+            fontes.push({
+              fonte: "inteiro teor",
+              caminho,
+              origem: leitura.origem,
+              ...vinculo,
+              ...conferirNoInteiroTeor(leitura, lida),
+            });
           } catch (e) {
             fontes.push({ fonte: "inteiro teor", caminho, ...naoVerificavel((e as Error).message) });
           }
@@ -409,7 +427,9 @@ export function criarServidor(
           "conferida com o recibo de origem ao lado dele e o mesmo sha256.",
         notaSinalDeOutroAutor:
           "Sinal de outro autor é indício, não autoria: o Garimpo não diz de quem é a passagem nem se é a tese " +
-          "vencedora, e a falta de sinal não prova que a passagem é do tribunal.",
+          "vencedora, e a falta de sinal não prova que a passagem é do tribunal. No inteiro teor, a seção vem do último " +
+          "título de seção antes da passagem (EMENTA, ACÓRDÃO, RELATÓRIO, VOTO, VOTO-VISTA, VOTO VENCIDO, VOTO VOGAL, " +
+          'CERTIDÃO, sozinho na linha); sem título assim, seção "não identificada".',
       });
     },
   );
