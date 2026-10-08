@@ -30,6 +30,30 @@ _Evitar_: varredura, crawler, burst
 O quanto as palavras de uma formulação aparecem na ementa de um acórdão. Mede proximidade do texto com a tese, não relevância jurídica.
 _Evitar_: cobertura (é métrica do banco de provas), relevância, score
 
+**Trecho**:
+O pedaço curto da ementa, mostrado na lista da busca ampla, onde aparecem mais palavras da tese; se nenhuma aparece, é o começo da ementa.
+_Evitar_: resumo, snippet, começo da ementa (é só o caso sem palavra nenhuma)
+
+**Cabeçalho de cobertura**:
+A parte da resposta que diz o que foi pesquisado e o que ficou de fora: por tribunal, buscas vazias, buscas com erro, acórdãos achados e mostrados; as formulações que não trouxeram nada; e se a lista foi cortada.
+_Evitar_: resumo, metadados, estatísticas
+
+**Busca vazia**:
+Uma busca direta que o site respondeu sem nenhum acórdão. Diz só que aquela formulação não achou nada naquele tribunal, não que o tribunal nunca decidiu a tese.
+_Evitar_: zero resultados (sozinho, confunde com busca com erro)
+
+**Busca com erro**:
+Uma busca direta que não chegou a uma resposta utilizável (recusa, erro do site, formato inesperado). Nunca é contada como busca vazia.
+_Evitar_: busca vazia, falha silenciosa
+
+**Lista cortada**:
+Lista mostrada com menos acórdãos do que a busca achou, por causa do máximo pedido.
+_Evitar_: lista completa (quando cortada), resultado parcial (é o caso de recusa)
+
+**Aviso de natureza jurídica**:
+A linha fixa, em toda resposta com jurisprudência, que lembra que é resultado de busca em base não oficial e deve ser conferido no link oficial antes de citar.
+_Evitar_: disclaimer, ressalva
+
 **Precedente qualificado**:
 Tema de repercussão geral, tema repetitivo, súmula, súmula vinculante, IAC, PUIL, IRR ou OJ, que o site devolve em listas próprias, separadas dos acórdãos.
 _Evitar_: tema (sozinho, é ambíguo entre tribunais)
