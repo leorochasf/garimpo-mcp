@@ -126,7 +126,8 @@ export async function buscaDireta(cliente: Cliente, p: ParametrosBusca): Promise
   });
   if (tribunal === "stf") {
     resultado.avisos.push(
-      `O STF devolve no máximo ${info.tetoResultados} acórdãos por busca. Para mais, use outras formulações (busca_ampla).`,
+      "O site costuma devolver poucos acórdãos do STF por busca (de 2 a 7 na medição de out/2026). " +
+        "Para mais, use outras formulações (busca_ampla).",
     );
   }
   return resultado;

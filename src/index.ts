@@ -46,7 +46,7 @@ servidor.registerTool(
     description:
       "Pesquisa jurisprudência num tribunal pela busca direta do JurisprudênciaIA (sem o chat de IA do site). " +
       "Devolve acórdãos com ementa inteira, número, órgão, data e link oficial, e, em lista separada, os " +
-      "precedentes qualificados (temas, súmulas). O STF devolve no máximo 4 acórdãos por busca. " +
+      "precedentes qualificados (temas, súmulas). O site costuma devolver poucos acórdãos do STF por busca (de 2 a 7 na medição de out/2026). " +
       "Ementas são longas: prefira limite baixo aqui e busca_ampla para volume.",
     inputSchema: {
       tribunal,

@@ -12,7 +12,11 @@ export interface InfoTribunal {
   nome: string;
   /** Listas de precedentes qualificados que o site devolve em separado. */
   qualificados: string[];
-  /** Máximo de acórdãos observado por busca (STF = 4; demais = 100). */
+  /**
+   * Máximo de acórdãos observado por busca. Só informa (aviso e listar_tribunais); não limita a busca.
+   * STF = 7: o site costuma devolver poucos acórdãos do STF por busca (de 2 a 7 na medição de out/2026).
+   * Demais = 100.
+   */
   tetoResultados: number;
   /** "baixa" = o Garimpo baixa o PDF oficial; "link" = devolve link + explicação. */
   inteiroTeor: InteiroTeorModo;
@@ -50,7 +54,7 @@ export const TRIBUNAIS: InfoTribunal[] = [
     sigla: "stf",
     nome: "Supremo Tribunal Federal",
     qualificados: ["repercussão geral", "súmula vinculante", "súmula"],
-    tetoResultados: 4,
+    tetoResultados: 7,
     inteiroTeor: "link",
     motivoLink: EXPLICA_STF,
     extrasBusca: {

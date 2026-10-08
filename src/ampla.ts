@@ -90,7 +90,8 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<
     );
   }
   if (p.tribunais.some((t) => t.toLowerCase() === "stf")) {
-    avisos.push("O STF devolve no máximo 4 acórdãos por busca; a cobertura dele depende do número de formulações.");
+    avisos.push("O site costuma devolver poucos acórdãos do STF por busca (de 2 a 7 na medição de out/2026); " +
+        "a cobertura dele depende do número de formulações.");
   }
 
   // Cópias do mesmo acórdão achadas em buscas diferentes viram um acórdão só (regra do ticket 06).

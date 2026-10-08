@@ -4,12 +4,13 @@ import { FormatoInesperadoError } from "../src/cliente.js";
 import { clienteFalso, fixture, respostaJson } from "./apoio.js";
 
 describe("busca direta", () => {
-  it("STF: lê os acórdãos do campo juris e avisa do teto de 4", async () => {
+  it("STF: lê os acórdãos do campo juris e avisa que o site devolve poucos acórdãos do STF", async () => {
     const { cliente, chamadas } = clienteFalso([respostaJson(fixture("stf-juris.json"))]);
     const r = await buscaDireta(cliente, { tribunal: "STF", texto: "exemplo", limite: 50 });
     expect(r.acordaos.map((a) => a.numero)).toEqual(["RE 100001", "ARE 100002"]);
     expect(r.acordaos[0]).toMatchObject({ orgao: "Tribunal Pleno", dataJulgamento: "2020-03-11" });
-    expect(r.avisos.join(" ")).toMatch(/no máximo 4/);
+    expect(r.avisos.join(" ")).toMatch(/poucos acórdãos do STF por busca \(de 2 a 7 na medição de out\/2026\)/);
+    expect(r.avisos.join(" ")).not.toMatch(/no máximo/);
     expect(r.avisos.join(" ")).toMatch(/sem ementa/);
     expect(r.qualificados.map((q) => q.tipo)).toEqual(["súmula vinculante", "repercussão geral"]);
     const corpo = JSON.parse(String(chamadas[0].init.body));
