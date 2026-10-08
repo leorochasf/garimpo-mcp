@@ -32,9 +32,10 @@ Corpo:
 - STF: `include_rg: true, rg_only: false, rg_limit, rg_score_threshold: 0.45, sumulas_limit, sumulas_vinc_limit, qualified_strict: true`
 - TST: `include_sumulas, sumulas_limit, include_irrs, irrs_limit, include_ojs, ojs_limit, qualified_strict: true`
 
-**`limit` medido:** STJ e TJGO aceitam até **100** (pedir 200 devolve 100 no TJGO). **STF devolve no
-máximo 4 acórdãos por busca**, qualquer que seja o `limit`. Subir o `limit` de 10 para 100, com o mesmo
-número de chamadas, foi o que mais aumentou a cobertura nos testes.
+**`limit` medido:** STJ e TJGO aceitam até **100** (pedir 200 devolve 100 no TJGO). **O STF devolve poucos
+acórdãos por busca, qualquer que seja o `limit`**: de 2 a 7 na gravação de 2026-10-08 (o "no máximo 4" medido
+antes não se confirmou). Subir o `limit` de 10 para 100, com o mesmo número de chamadas, foi o que mais
+aumentou a cobertura nos testes.
 
 Resposta — onde estão os acórdãos (atenção, varia):
 - `reranked_results` quando o reranqueamento rodou (pode faltar);
@@ -48,6 +49,12 @@ numa lista só, cada item com `__kind` (`juris`, `sumula`, `repetitivo`, `puil`,
 `original_bucket` (a lista de origem: `results`, `juris`, `sumulas`, `rg`…). Ler essa lista como "acórdãos"
 faz súmula virar acórdão. O Garimpo usa dela só a ordem e o `rerank_score` dos itens cujo `original_bucket` é
 `results`/`juris`. Vem junto um objeto `rerank` (`applied`, `candidateCount`, `fallbackUsed`…).
+
+**O site só reranqueia os 20 primeiros de cada busca** (gravação de 2026-10-08: `rerank.rerankedCandidateCount: 20`
+em todas as buscas fora do STF, de ~100 candidatos). Esses 20 vêm com `rerank_score`, de 0 a 1; os demais vêm só com
+`score`, noutra escala (dezenas), que também muda de uma formulação ou tribunal para outro. As duas notas não se
+comparam entre si, nem notas de buscas diferentes: por isso a busca ampla não ordena pela nota do site, e sim pela
+posição na busca de origem (que já põe os reranqueados na frente).
 Sem os extras do tribunal (`*_limit`, `qualified_strict`), o STJ devolve ~50 súmulas e ~50 repetitivos por busca,
 pouco pertinentes; com eles, poucos e próximos da busca.
 
