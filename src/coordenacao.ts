@@ -6,6 +6,7 @@
  *   conferindo que ainda é a mesma aquisição. Arquivo de vaga incompleto ou ilegível nunca é vaga livre.
  * - Vaga (ou trava) alheia só é retomada quando o PID dono comprovadamente não existe; tempo nunca libera.
  * - A pausa por host é reservada sob uma trava curta, com a vaga já ocupada: duas janelas não saem juntas.
+ * - O disjuntor de cada serviço (disjuntor.ts) fica no mesmo estado e é decidido e gravado sob a mesma trava.
  * - Estado ilegível, sem permissão ou de versão mais nova = rede parada, com o caminho e a instrução.
  */
 
@@ -14,6 +15,17 @@ import { readFileSync, unlinkSync } from "node:fs";
 import { link, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { homedir, hostname } from "node:os";
 import { join } from "node:path";
+import {
+  aplicarResultado,
+  type Chamada,
+  decidirSaida,
+  type Disjuntor,
+  disjuntorValido,
+  type Ordem,
+  type Pausa,
+  type Resultado,
+  type Saida,
+} from "./disjuntor.js";
 
 /** Libera a vaga ocupada (termina quando ela está livre); chamar mais de uma vez não faz nada. */
 export type Liberar = () => Promise<void>;
@@ -23,15 +35,29 @@ export interface ContaDeEspera {
   esperadoMs: number;
 }
 
+/** Uma chamada que quer sair: o host (pausa por host), o serviço (disjuntor) e quem ela é. */
+export interface PedidoDeSaida {
+  host: string;
+  intervaloMs: number;
+  servico: string;
+  chamada: Chamada;
+  /** Falso quando a ferramenta em andamento já fez a sua chamada de prova. */
+  provaPermitida: boolean;
+}
+
 /** O que o cliente pede à coordenação. Implementada em arquivos (produção) ou em memória (testes do cliente). */
 export interface Coordenacao {
   /** Ocupa uma das vagas, esperando se preciso. */
   ocupar(conta: ContaDeEspera, sinal?: AbortSignal): Promise<Liberar>;
+  /** Sem vaga e sem gravar nada: o que o disjuntor do serviço diz agora ("sai" = pode ocupar uma vaga). */
+  conferir(p: PedidoDeSaida, agora: () => number): Promise<Ordem>;
   /**
-   * Com a vaga já ocupada: confere o estado compartilhado e, se o host tem pausa, reserva a saída agora.
-   * Devolve 0 se pode sair (saída registrada) ou quantos ms faltam para a pausa vencer (nada registrado).
+   * Com a vaga já ocupada: decide pelo disjuntor do serviço e pela pausa do host. Se a chamada sai, registra a
+   * saída (instante no host, chamada de prova); senão, não registra nada.
    */
-  reservarSaida(host: string, intervaloMs: number, agora: () => number): Promise<number>;
+  reservarSaida(p: PedidoDeSaida, agora: () => number): Promise<Ordem>;
+  /** Anota no disjuntor do serviço o resultado de uma chamada que saiu; devolve a pausa em vigor, se houver. */
+  anotar(servico: string, chamada: Chamada, saida: Saida, r: Resultado, agora: () => number): Promise<Pausa | undefined>;
 }
 
 const MAXIMO_DE_VAGAS = 2;
@@ -39,7 +65,8 @@ const MAXIMO_DE_VAGAS = 2;
 const ESPERA_MAXIMA_POR_VAGA_MS = 3 * 60_000;
 const INTERVALO_DE_CONFERENCIA_MS = 250;
 const FORMATO_ESTADO = "garimpo-protecao";
-const VERSAO_ESTADO = 1;
+/** 1: vagas e pausas (B3-01); 2: mais os disjuntores. A 1 é lida e gravada de volta como 2. */
+const VERSAO_ESTADO = 2;
 
 /** A rede está parada: nenhuma chamada sai até o usuário agir. A leitura local continua. */
 export class RedeParadaError extends Error {
@@ -140,7 +167,7 @@ async function lerDono(caminho: string): Promise<Dono | "ausente" | undefined> {
 }
 
 /** Só a inexistência comprovada do processo conta; PID existente, sem acesso ou de outra máquina mantém a posse. */
-function donoMorto(d: Dono): boolean {
+function donoMorto(d: { pid: number; maquina: string }): boolean {
   if (d.maquina !== hostname() || d.pid === process.pid) return false;
   try {
     process.kill(d.pid, 0);
@@ -202,6 +229,8 @@ interface Estado {
   versao: number;
   /** Última saída por host com pausa (ms no relógio comum). */
   pausas: Record<string, number>;
+  /** Disjuntor por serviço; o de um serviço fechado pela prova fica, para a geração não voltar a zero. */
+  disjuntores: Record<string, Disjuntor>;
 }
 
 export interface OpcoesCoordenacao {
@@ -251,21 +280,45 @@ export class CoordenacaoEmArquivo implements Coordenacao {
     }
   }
 
-  async reservarSaida(host: string, intervaloMs: number, agora: () => number): Promise<number> {
-    if (intervaloMs <= 0) {
-      await this.lerEstado();
-      return 0;
-    }
+  async conferir(p: PedidoDeSaida, agora: () => number): Promise<Ordem> {
+    const estado = await this.lerEstado();
+    return decidirSaida(estado.disjuntores[p.servico], p.chamada, agora(), p.provaPermitida, donoMorto).ordem;
+  }
+
+  async reservarSaida(p: PedidoDeSaida, agora: () => number): Promise<Ordem> {
+    const decidir = (estado: Estado, instante: number) =>
+      decidirSaida(estado.disjuntores[p.servico], p.chamada, instante, p.provaPermitida, donoMorto);
+    // Sem nada a gravar (saída comum sem pausa de host, ou chamada que não sai), basta ler.
+    const previa = decidir(await this.lerEstado(), agora());
+    if (previa.ordem.tipo !== "sai" || (!previa.novo && p.intervaloMs <= 0)) return previa.ordem;
     return this.comTrava(async () => {
       const estado = await this.lerEstado(true);
       const instante = agora();
-      const ultima = estado.pausas[host];
-      // Relógio que voltou não prende a chamada além de uma pausa inteira.
-      const falta = ultima === undefined ? 0 : Math.min(intervaloMs, ultima + intervaloMs - instante);
-      if (falta > 0) return falta;
-      estado.pausas[host] = instante;
+      const { ordem, novo } = decidir(estado, instante);
+      if (ordem.tipo !== "sai") return ordem;
+      if (p.intervaloMs > 0) {
+        const ultima = estado.pausas[p.host];
+        // Relógio que voltou não prende a chamada além de uma pausa inteira.
+        const falta = ultima === undefined ? 0 : Math.min(p.intervaloMs, ultima + p.intervaloMs - instante);
+        if (falta > 0) return { tipo: "espera", ms: falta, motivo: "host" };
+        estado.pausas[p.host] = instante;
+      }
+      if (novo) estado.disjuntores[p.servico] = novo;
       await this.gravarEstado(estado);
-      return 0;
+      return ordem;
+    });
+  }
+
+  async anotar(servico: string, chamada: Chamada, saida: Saida, r: Resultado, agora: () => number) {
+    return this.comTrava(async () => {
+      const estado = await this.lerEstado(true);
+      const atual = estado.disjuntores[servico];
+      const novo = aplicarResultado(atual, chamada, saida, r, agora(), servico);
+      if (novo && novo !== atual) {
+        estado.disjuntores[servico] = novo;
+        await this.gravarEstado(estado);
+      }
+      return novo?.pausa;
     });
   }
 
@@ -376,28 +429,33 @@ export class CoordenacaoEmArquivo implements Coordenacao {
     } catch (e) {
       if (codigo(e) === "ENOENT") {
         if (!sobTrava) return this.comTrava(() => this.lerEstado(true));
-        const novo: Estado = { formato: FORMATO_ESTADO, versao: VERSAO_ESTADO, pausas: {} };
+        const novo: Estado = { formato: FORMATO_ESTADO, versao: VERSAO_ESTADO, pausas: {}, disjuntores: {} };
         await this.gravarEstado(novo);
         return novo;
       }
       throw ehPermissao(e) ? semPermissao(this.estado) : ilegivel(this.estado);
     }
-    let estado: { formato?: unknown; versao?: unknown; pausas?: unknown };
+    let estado: { formato?: unknown; versao?: unknown; pausas?: unknown; disjuntores?: unknown };
     try {
       estado = JSON.parse(texto);
     } catch {
       throw ilegivel(this.estado);
     }
     if (estado?.formato !== FORMATO_ESTADO || !Number.isInteger(estado.versao)) throw ilegivel(this.estado);
-    if ((estado.versao as number) > VERSAO_ESTADO) throw versaoMaisNova(this.estado);
-    const pausas = estado.pausas;
-    const pausasValidas =
-      estado.versao === VERSAO_ESTADO &&
+    const versao = estado.versao as number;
+    if (versao > VERSAO_ESTADO) throw versaoMaisNova(this.estado);
+    const { pausas } = estado;
+    const disjuntores = versao === 1 ? {} : estado.disjuntores;
+    const valido =
+      versao >= 1 &&
       typeof pausas === "object" &&
       pausas !== null &&
-      Object.values(pausas).every((v) => Number.isFinite(v));
-    if (!pausasValidas) throw ilegivel(this.estado);
-    return estado as Estado;
+      Object.values(pausas).every((v) => Number.isFinite(v)) &&
+      typeof disjuntores === "object" &&
+      disjuntores !== null &&
+      Object.values(disjuntores).every(disjuntorValido);
+    if (!valido) throw ilegivel(this.estado);
+    return { ...estado, versao: VERSAO_ESTADO, pausas, disjuntores } as Estado;
   }
 
   /** Grava por temporário + renomeação: quem lê vê o estado anterior ou o novo, nunca pela metade. */

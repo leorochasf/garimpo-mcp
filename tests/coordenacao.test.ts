@@ -175,7 +175,7 @@ describe("rede parada", () => {
     const { cliente, chamadas } = clienteNaPasta([() => respostaJson({})]);
     await (await cliente.requisitar("https://exemplo.test/a")).text();
     expect(chamadas).toHaveLength(1);
-    expect(JSON.parse(await readFile(estado(), "utf8"))).toMatchObject({ versao: 1 });
+    expect(JSON.parse(await readFile(estado(), "utf8"))).toMatchObject({ versao: 2 });
   });
 
   it("estado ilegível: nenhuma chamada sai, com o caminho e a instrução; o arquivo fica intacto e a leitura de PDF local continua", async () => {

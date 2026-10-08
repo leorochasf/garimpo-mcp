@@ -3,7 +3,7 @@
  * viram um acórdão só) e ordenadas pela aderência → nº de formulações → melhor posição na busca de origem.
  */
 
-import { Cliente, RecusaError } from "./cliente.js";
+import { Cliente, RecusaError, umaProvaPorFerramenta } from "./cliente.js";
 import { type Acordao, buscaDireta, type FiltrosBusca, RESSALVA_ROTULO } from "./busca.js";
 import { ART_927_CONFERIDO_EM } from "./enquadramento.js";
 import { juntarEquivalentes, type Ocorrencia } from "./equivalencia.js";
@@ -137,7 +137,8 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla, memoria?:
       }
     }
   };
-  await Promise.all([trabalhar(), trabalhar()]);
+  // Se o serviço estiver aguardando a chamada de prova, a busca ampla inteira faz no máximo uma.
+  await umaProvaPorFerramenta(() => Promise.all([trabalhar(), trabalhar()]));
 
   // Nenhuma busca deu resposta: é erro, nunca lista vazia, que se leria como "os tribunais nunca decidiram a
   // tese" (ADR-0001). A mensagem de recusa vai junto, com o "espere e tente de novo".

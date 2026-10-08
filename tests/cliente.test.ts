@@ -296,9 +296,16 @@ describe("cliente — travas de uso responsável", () => {
     expect(pico).toBe(2);
   });
 
-  it("depois de uma recusa, chamadas que já estavam na fila do mesmo serviço não saem", async () => {
+  it("depois da recusa final, nenhuma chamada ao serviço sai até a pausa vencer: nem a da fila nem a nova", async () => {
+    const relogio = { agora: 1_000 };
     const recusa = () => new Response("", { status: 429 });
-    const { cliente, chamadas } = clienteFalso([recusa, recusa, respostaJson({ depois: true })], { vagas: new Vagas(1) });
+    const { cliente, chamadas } = clienteFalso([recusa, recusa, respostaJson({ depois: true })], {
+      vagas: new Vagas(1),
+      agora: () => relogio.agora,
+      esperar: async (ms) => {
+        relogio.agora += ms;
+      },
+    });
     const a = cliente.requisitar("https://exemplo.test/a").catch((x) => x);
     const b = cliente.requisitar("https://exemplo.test/b").catch((x) => x); // na fila atrás de "a"
     expect(await a).toBeInstanceOf(RecusaError);
@@ -307,8 +314,20 @@ describe("cliente — travas de uso responsável", () => {
     expect(eb.message).toMatch(/não foi feita/);
     expect(chamadas.map((c) => c.url)).toEqual(["https://exemplo.test/a", "https://exemplo.test/a"]);
 
-    // Chamada nova, pedida depois da recusa, é decisão de quem pediu: sai normalmente.
-    expect(await (await cliente.requisitar("https://exemplo.test/c")).json()).toEqual({ depois: true });
+    const ec = await cliente.requisitar("https://exemplo.test/c").catch((x) => x);
+    expect(ec).toBeInstanceOf(RecusaError);
+    expect(ec.message).toMatch(/pausadas/);
+    expect(chamadas).toHaveLength(2);
+  });
+
+  it("no TSE, a espera antes da nova tentativa é de no mínimo 10 s, mesmo que ele peça menos", async () => {
+    const { cliente, chamadas, esperas } = clienteFalso([
+      new Response("", { status: 429, headers: { "retry-after": "3" } }),
+      respostaJson({}),
+    ]);
+    await cliente.requisitar("https://sjur-servicos.tse.jus.br/x");
+    expect(chamadas).toHaveLength(2);
+    expect(esperas).toEqual([10_000]);
   });
 
   it("recusa que chega enquanto outra chamada espera a pausa do host: essa chamada não sai (2 vagas)", async () => {

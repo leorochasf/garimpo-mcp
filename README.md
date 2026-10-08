@@ -40,9 +40,13 @@ Toda chamada ao site passa por um cliente único que:
 - faz **no máximo 2 chamadas simultâneas no total das janelas do Garimpo do usuário** (JurisprudênciaIA e
   tribunais somados): cada janela do Claude roda um Garimpo próprio, e todas dividem as mesmas 2 vagas pela pasta
   de dados (abaixo);
-- em recusa temporária (HTTP 429 ou 503), **espera e tenta uma única vez**; se recusar de novo, **para** e avisa;
+- em recusa temporária (HTTP 429 ou 503), **espera e tenta uma única vez** (o tempo que o serviço pedir, ou 5 s;
+  no TSE, no mínimo 10 s); enquanto isso, as outras chamadas ao mesmo serviço, em todas as janelas, esperam essa
+  nova tentativa sem ocupar vaga;
 - trata 403 e desafios anti-robô (Cloudflare, AWS WAF, reCAPTCHA) como recusa: **nunca contorna**, devolve o
   link para abrir no navegador;
+- depois de uma **recusa final** (a nova tentativa recusada de novo, 403, desafio anti-robô ou pedido de espera
+  acima de 30 s), **pausa o serviço** em todas as janelas (abaixo);
 - identifica-se com um User-Agent honesto (`Garimpo/<versão> …`).
 
 Os termos de uso do site preveem limites por IP e bloqueio em caso de uso abusivo. Use com moderação.
@@ -51,10 +55,24 @@ Os termos de uso do site preveem limites por IP e bloqueio em caso de uso abusiv
 das vagas: com uma delas aberta, o total pode passar de 2. A proteção também não alcança outras pessoas, máquinas
 ou programas que usem o mesmo IP.
 
+### Pausa depois de uma recusa
+
+A pausa é **por serviço**: uma recusa do TSE não pausa o JurisprudênciaIA nem os outros tribunais. Ela dura 1 min
+na primeira recusa final e dobra a cada nova (2, 4, 8… até 60 min); se o serviço pedir mais tempo, vale o pedido,
+mesmo acima de 60 min. Durante a pausa, a chamada àquele serviço falha na hora, sem sair para a rede, dizendo até
+que horas ele está pausado; na busca ampla, as buscas pausadas aparecem "com erro" no cabeçalho de cobertura.
+
+- **Recuperação:** vencida a pausa, sai uma única **chamada de prova** (um pedido real, sem nova tentativa); as
+  outras chamadas ao serviço esperam a decisão dela. Aceita, tudo volta ao normal e a próxima pausa recomeça em
+  1 min. Recusada, a pausa recomeça dobrada. Erro sem recusa (serviço fora do ar, tempo esgotado) não conta como
+  recusa: outra prova pode sair 5 s depois (10 s no TSE), e cada ferramenta faz no máximo uma prova.
+- Não há comando para "liberar" a pausa: espere a hora indicada. Resposta atrasada de uma chamada feita antes da
+  recusa nunca encerra a pausa.
+
 ### Pasta de dados e rede parada
 
-As vagas e a pausa do TSE ficam em arquivos comuns na subpasta `protecao` da pasta de dados do usuário:
-`%LOCALAPPDATA%\garimpo` (Windows), `~/Library/Caches/garimpo` (macOS) ou `$XDG_CACHE_HOME/garimpo`
+As vagas, a pausa do TSE e as pausas por recusa ficam em arquivos comuns na subpasta `protecao` da pasta de
+dados do usuário: `%LOCALAPPDATA%\garimpo` (Windows), `~/Library/Caches/garimpo` (macOS) ou `$XDG_CACHE_HOME/garimpo`
 (`~/.cache/garimpo`) no Linux. A variável de ambiente `GARIMPO_DADOS` troca a pasta inteira. Janelas com valores
 diferentes **não dividem** o freio entre si: isso serve para separar instalações, não para escapar de uma recusa.
 
