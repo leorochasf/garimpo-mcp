@@ -1,11 +1,12 @@
 /**
- * Busca ampla: várias formulações × um ou mais tribunais, juntadas sem repetidos e
- * ordenadas por quantas formulações acharam cada acórdão (desempate: relevância).
+ * Busca ampla: várias formulações × um ou mais tribunais, juntadas sem acórdão repetido (registros equivalentes
+ * viram um acórdão só) e ordenadas pela aderência → nº de formulações → melhor posição na busca de origem.
  */
 
 import { Cliente, RecusaError } from "./cliente.js";
 import { type Acordao, buscaDireta, type FiltrosBusca, lembrar } from "./busca.js";
-import { juntarEquivalentes } from "./equivalencia.js";
+import { juntarEquivalentes, type Ocorrencia } from "./equivalencia.js";
+import { ordenarPorAderencia } from "./pontuacao.js";
 
 export interface ParametrosAmpla extends FiltrosBusca {
   formulacoes: string[];
@@ -39,16 +40,9 @@ export interface ResultadoAmplo {
   avisos: string[];
 }
 
-interface Acumulado {
-  acordao: Acordao;
-  formulacoes: Set<number>;
-  relevancia: number;
-  melhorPosicao: number;
-}
-
 export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<ResultadoAmplo> {
   const tarefas = p.tribunais.flatMap((tribunal) => p.formulacoes.map((texto, f) => ({ tribunal, texto, f })));
-  const juntos = new Map<string, Acumulado>();
+  const juntos = new Map<string, Ocorrencia<Acordao>>();
   const avisos: string[] = [];
   let feitas = 0;
   let recusa: RecusaError | undefined;
@@ -71,9 +65,8 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<
         });
         feitas++;
         r.acordaos.forEach((a, posicao) => {
-          const atual = juntos.get(a.id) ?? { acordao: a, formulacoes: new Set(), relevancia: -Infinity, melhorPosicao: Infinity };
+          const atual = juntos.get(a.id) ?? { registro: a, formulacoes: new Set(), melhorPosicao: Infinity };
           atual.formulacoes.add(t.f);
-          atual.relevancia = Math.max(atual.relevancia, a.relevancia ?? -Infinity);
           atual.melhorPosicao = Math.min(atual.melhorPosicao, posicao);
           juntos.set(a.id, atual);
         });
@@ -96,21 +89,20 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<
   }
 
   // Cópias do mesmo acórdão achadas em buscas diferentes viram um acórdão só (regra do ticket 06).
-  const juncao = juntarEquivalentes(
-    [...juntos.values()].map((x) => ({ registro: x.acordao, formulacoes: x.formulacoes, melhorPosicao: x.melhorPosicao })),
-  );
-  const acordaos = juncao.acordaos.map((j) => {
-    lembrar(j.ids, j.registro);
-    return {
+  const juncao = juntarEquivalentes([...juntos.values()]);
+  for (const j of juncao.acordaos) lembrar(j.ids, j.registro);
+  // A nota de relevância do site fica de fora de propósito: só os primeiros de cada busca são reranqueados
+  // (rerank_score), os demais vêm com score de outra escala, e notas de buscas diferentes não se comparam.
+  // A melhor posição na busca de origem já põe os reranqueados na frente.
+  const ordenados = ordenarPorAderencia(
+    juncao.acordaos.map((j) => ({
       acordao: j.registro,
-      formulacoes: j.formulacoes,
-      relevancia: Math.max(...j.ids.map((id) => juntos.get(id)!.relevancia)),
+      tribunal: j.registro.tribunal,
+      ementa: j.registro.ementa,
+      formulacoes: j.formulacoes.size,
       melhorPosicao: j.melhorPosicao,
-    };
-  });
-  const ordenados = acordaos.sort(
-    (a, b) =>
-      b.formulacoes.size - a.formulacoes.size || b.relevancia - a.relevancia || a.melhorPosicao - b.melhorPosicao,
+    })),
+    p.formulacoes,
   );
   const maximo = p.maximo ?? 50;
   const tamanho = p.tamanhoTrecho ?? 160;
@@ -129,7 +121,7 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<
         orgao: a.orgao,
         trecho: a.ementa.length > tamanho ? `${a.ementa.slice(0, tamanho)}…` : a.ementa,
         link: a.link ?? a.linkConsulta,
-        formulacoes: formulacoes.size,
+        formulacoes,
       };
       return item;
     }),

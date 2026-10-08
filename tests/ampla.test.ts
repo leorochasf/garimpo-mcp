@@ -61,16 +61,42 @@ describe("busca ampla", () => {
     expect(r.acordaos.find((a) => a.id === "tjgo:tjgo-so-3")?.formulacoes).toBe(1);
   });
 
-  it("empate na contagem é desempatado pela relevância", async () => {
-    const { cliente } = siteFalso((_t, texto) =>
+  it("acórdão achado por 1 formulação com todas as palavras dela vem antes do assunto largo achado por todas", async () => {
+    const formulacoes = ["prescrição dano ambiental", "imprescritibilidade reparação ambiental", "prazo prescricional dano ambiental"];
+    const largo = bruto("largo", 0.9, "REPARAÇÃO DO DANO AMBIENTAL. OBRIGAÇÃO DE RECOMPOR A ÁREA. EXEMPLO FICTÍCIO.");
+    const exato = bruto("exato", 0.1, "IMPRESCRITIBILIDADE DA PRETENSÃO DE REPARAÇÃO DO DANO AMBIENTAL. EXEMPLO FICTÍCIO.");
+    const { cliente } = siteFalso((_t, texto) => respostaJson({ results: texto === formulacoes[0] ? [largo, exato] : [largo] }));
+
+    const r = await buscaAmpla(cliente, { formulacoes, tribunais: ["stj"] });
+
+    expect(r.acordaos.map((a) => [a.id, a.formulacoes])).toEqual([
+      ["stj:exato", 1],
+      ["stj:largo", 3],
+    ]);
+  });
+
+  // Reescrito no ticket 09: a regra do ticket 02 ("por quantas formulações acharam, desempate pela relevância") mudou
+  // de propósito. Agora vem primeiro a aderência, depois o nº de formulações e a melhor posição na busca de origem.
+  // A nota do site não decide: a gravação do ticket 05 mostrou que o site só reranqueia os primeiros de cada busca
+  // (rerank_score, de 0 a 1) e os demais vêm só com score, noutra escala; notas de buscas diferentes também não se
+  // comparam. A posição na busca de origem já põe os reranqueados na frente.
+  it("a nota do site não decide: reranqueado (0,9) fica à frente do não reranqueado (score 70) da mesma busca", async () => {
+    const formulacoes = ["dano moral coletivo", "dano moral difuso"];
+    const aderente = { ...bruto("aderente", 0.1, "DANO MORAL COLETIVO. EXEMPLO FICTÍCIO."), rerank_score: undefined, score: 20 };
+    const naoReranqueado = { ...bruto("nao-reranqueado", 0), rerank_score: undefined, score: 70 };
+    const { cliente } = siteFalso(() =>
       respostaJson({
-        results: texto === "a" ? [bruto("fraco", 0.1), bruto("forte", 0.8)] : [bruto("fraco", 0.2), bruto("forte", 0.3)],
+        reranked_results: [{ id: "reranqueado", original_bucket: "results", rerank_score: 0.9 }],
+        results: [naoReranqueado, aderente, { ...bruto("reranqueado", 0), rerank_score: undefined, score: 30 }],
       }),
     );
-    const r = await buscaAmpla(cliente, { formulacoes: ["a", "b"], tribunais: ["stj"] });
+
+    const r = await buscaAmpla(cliente, { formulacoes, tribunais: ["stj"] });
+
     expect(r.acordaos.map((a) => [a.id, a.formulacoes])).toEqual([
-      ["stj:forte", 2],
-      ["stj:fraco", 2],
+      ["stj:aderente", 2],
+      ["stj:reranqueado", 2],
+      ["stj:nao-reranqueado", 2],
     ]);
   });
 
