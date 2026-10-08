@@ -97,3 +97,79 @@ describe("servidor MCP", () => {
     });
   });
 });
+
+describe("erro nunca vira lista vazia (busca ampla)", () => {
+  /** Site falso que responde conforme o tribunal e a ordem da chamada. */
+  function siteQueResponde(responder: (tribunal: string, n: number) => Response) {
+    let n = 0;
+    return new Cliente({
+      nome: "O site",
+      esperar: async () => {},
+      fetch: (async (url: string) => responder(String(url).match(/tribunais\/(\w+)\/search/)![1], n++)) as typeof fetch,
+    });
+  }
+  const acordao = (id: string) => ({
+    id,
+    texto_ementa: `EMENTA FICTÍCIA ${id}. Responsabilidade civil.`,
+    numero_processo: `${id}/UF`,
+    data_julgamento: "2024-01-02T00:00:00.000Z",
+    link_pdf: `https://exemplo.test/${id}`,
+  });
+  // Resposta que o Garimpo não sabe ler: busca com erro que não é recusa.
+  const formatoDesconhecido = () => respostaJson({ mensagem: "formato que o Garimpo não conhece" });
+
+  async function ampla(site: Cliente, args: Record<string, unknown>) {
+    const mcp = await conectar(site);
+    const r = (await mcp.callTool({ name: "busca_ampla", arguments: args })) as { content: { text: string }[]; isError?: boolean };
+    return { isError: r.isError, texto: r.content[0].text };
+  }
+
+  it("todas as buscas com erro comum: responde com erro e o motivo de cada busca, sem lista vazia", async () => {
+    const r = await ampla(siteQueResponde(formatoDesconhecido), { formulacoes: ["tese a", "tese b"], tribunais: ["stj", "tjgo"] });
+
+    expect(r.isError).toBe(true);
+    for (const busca of ["STJ / formulação 1", "STJ / formulação 2", "TJGO / formulação 1", "TJGO / formulação 2"]) {
+      expect(r.texto).toMatch(new RegExp(`${busca}: .*formato`));
+    }
+    expect(r.texto).toMatch(/^Nenhuma das 4 buscas deu resposta/);
+    expect(r.texto).not.toMatch(/base não oficial/);
+  });
+
+  it("recusa já na primeira busca, nenhuma feita: responde com erro e a mensagem de recusa", async () => {
+    const r = await ampla(siteQueResponde(() => new Response("", { status: 429 })), { formulacoes: ["tese a", "tese b"], tribunais: ["stj"] });
+
+    expect(r.isError).toBe(true);
+    expect(r.texto).toMatch(/recusou a chamada duas vezes/);
+    expect(r.texto).toMatch(/Espere alguns minutos e tente de novo/);
+    expect(r.texto).toMatch(/^Nenhuma das 2 buscas deu resposta/);
+    expect(r.texto).not.toMatch(/base não oficial/);
+  });
+
+  it("falha parcial: um tribunal deu resposta e o outro só erro → resultado, com o tribunal \"com erro\"", async () => {
+    const r = await ampla(
+      siteQueResponde((tribunal, n) => (tribunal === "stj" ? respostaJson({ results: [acordao(`ok${n}`)] }) : formatoDesconhecido())),
+      { formulacoes: ["tese a", "tese b"], tribunais: ["stj", "tjgo"] },
+    );
+
+    expect(r.isError).toBeFalsy();
+    const dado = JSON.parse(r.texto);
+    expect(dado.acordaos).toHaveLength(2);
+    expect(dado.cabecalhoDeCobertura.porTribunal.find((t: { tribunal: string }) => t.tribunal === "tjgo")).toMatchObject({
+      comErro: 2,
+      situacao: "com erro",
+    });
+  });
+
+  it("recusa no meio, com alguma busca feita: resultado parcial com o aviso de busca incompleta no topo", async () => {
+    const r = await ampla(
+      siteQueResponde((_t, n) => (n === 0 ? respostaJson({ results: [acordao("ok")] }) : new Response("", { status: 429 }))),
+      { formulacoes: ["tese a", "tese b", "tese c", "tese d"], tribunais: ["stj"] },
+    );
+
+    expect(r.isError).toBeFalsy();
+    const dado = JSON.parse(r.texto);
+    expect(dado.completa).toBe(false);
+    expect(dado.acordaos).toHaveLength(1);
+    expect(dado.avisos[0]).toMatch(/^BUSCA INCOMPLETA: 1 de 4 buscas/);
+  });
+});

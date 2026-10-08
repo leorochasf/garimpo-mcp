@@ -68,7 +68,16 @@ export interface ResultadoAmplo {
 }
 
 export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<ResultadoAmplo> {
-  const tarefas = p.tribunais.flatMap((t) => p.formulacoes.map((texto, f) => ({ tribunal: t.toLowerCase(), texto, f })));
+  const tarefas = p.tribunais.flatMap((t) =>
+    p.formulacoes.map((texto, f) => ({
+      tribunal: t.toLowerCase(),
+      texto,
+      f,
+      rotulo: `${t.toUpperCase()} / formulação ${f + 1}`,
+      /** Por que a busca não deu resposta: vai na resposta de erro da falha total. */
+      motivo: undefined as string | undefined,
+    })),
+  );
   const juntos = new Map<string, Ocorrencia<Acordao>>();
   const qualificados: QualificadosDaBusca[] = [];
   const avisos: string[] = [];
@@ -114,12 +123,31 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<
         });
       } catch (e) {
         porTribunal.get(t.tribunal)!.comErro++;
-        if (e instanceof RecusaError) recusa ??= e;
-        else avisos.push(`${t.tribunal.toUpperCase()} / formulação ${t.f + 1}: ${(e as Error).message}`);
+        if (e instanceof RecusaError) {
+          recusa ??= e;
+          t.motivo = `${t.rotulo}: recusa`;
+        } else {
+          t.motivo = `${t.rotulo}: ${(e as Error).message}`;
+          avisos.push(t.motivo);
+        }
       }
     }
   };
   await Promise.all([trabalhar(), trabalhar()]);
+
+  // Nenhuma busca deu resposta: é erro, nunca lista vazia, que se leria como "os tribunais nunca decidiram a
+  // tese" (ADR-0001). A mensagem de recusa vai junto, com o "espere e tente de novo".
+  if (feitas === 0) {
+    throw new Error(
+      [
+        `Nenhuma das ${tarefas.length} buscas deu resposta, por isso não há lista de acórdãos ` +
+          "(o erro não significa que os tribunais nunca decidiram a tese).",
+        ...(recusa ? [recusa.message] : []),
+        "Motivo de cada busca:",
+        ...tarefas.map((t) => t.motivo ?? `${t.rotulo}: não feita (a busca parou na recusa)`),
+      ].join("\n"),
+    );
+  }
 
   if (recusa) {
     avisos.unshift(

@@ -227,13 +227,11 @@ describe("busca ampla", () => {
       }) as typeof fetch,
     });
     const direta = buscaDireta(cliente, { tribunal: "stj", texto: "outra operação" }).catch((x) => x);
-    const ampla = buscaAmpla(cliente, { formulacoes: ["a", "b", "c"], tribunais: ["stj"] });
+    const ampla = buscaAmpla(cliente, { formulacoes: ["a", "b", "c"], tribunais: ["stj"] }).catch((x) => x);
 
     expect(await direta).toBeInstanceOf(RecusaError);
-    const r = await ampla;
-    expect(r.completa).toBe(false);
-    expect(r.buscasFeitas).toBe(0);
-    expect(r.avisos[0]).toMatch(/^BUSCA INCOMPLETA: 0 de 3 buscas/);
+    // Nenhuma busca da ampla deu resposta: é erro com a recusa, nunca lista vazia (ADR-0001).
+    expect((await ampla).message).toMatch(/^Nenhuma das 3 buscas deu resposta[\s\S]*Espere alguns minutos e tente de novo/);
     expect(chamadas).toBe(2); // só a busca direta e a nova tentativa dela
   });
 
@@ -385,15 +383,30 @@ describe("cabeçalho de cobertura da busca ampla", () => {
   });
 
   it("recusa antes de chegar a um tribunal: ele aparece \"não pesquisado\", nunca \"0 achados\"", async () => {
-    const { cliente } = siteFalso(() => new Response("", { status: 429 }));
+    // O STJ só responde depois da recusa do TJGO: nenhuma das duas filas chega a pegar o TJRS.
+    let liberarStj!: () => void;
+    const stjLiberado = new Promise<void>((r) => (liberarStj = r));
+    let chamadasTjgo = 0;
+    const cliente = new Cliente({
+      nome: "O site",
+      esperar: async () => {},
+      fetch: (async (url: string) => {
+        if (String(url).includes("/stj/")) {
+          await stjLiberado;
+          return respostaJson({ results: [bruto("stj-1", 0.5)] });
+        }
+        if (++chamadasTjgo === 2) setTimeout(liberarStj, 0);
+        return new Response("", { status: 429 });
+      }) as typeof fetch,
+    });
 
     const r = await buscaAmpla(cliente, { formulacoes: ["a"], tribunais: ["stj", "tjgo", "tjrs"] });
 
-    expect(r.cabecalhoDeCobertura.porTribunal.find((t) => t.tribunal === "tjrs")).toEqual({
-      tribunal: "tjrs", buscasFeitas: 0, vazias: 0, comErro: 0, naoFeitas: 1, situacao: "não pesquisado",
-    });
-    expect(r.cabecalhoDeCobertura.porTribunal.some((t) => t.situacao === "com erro")).toBe(true);
-    expect(r.cabecalhoDeCobertura.porTribunal.every((t) => !("achados" in t))).toBe(true);
+    expect(r.cabecalhoDeCobertura.porTribunal).toEqual([
+      { tribunal: "stj", buscasFeitas: 1, vazias: 0, comErro: 0, achados: 1, mostrados: 1 },
+      { tribunal: "tjgo", buscasFeitas: 0, vazias: 0, comErro: 1, situacao: "com erro" },
+      { tribunal: "tjrs", buscasFeitas: 0, vazias: 0, comErro: 0, naoFeitas: 1, situacao: "não pesquisado" },
+    ]);
   });
 
   it("recusa no meio de um tribunal: o cabeçalho conta as buscas que não chegaram a ser feitas", async () => {

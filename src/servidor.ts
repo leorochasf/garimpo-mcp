@@ -87,7 +87,8 @@ export function criarServidor(site: Cliente): McpServer {
         "o site devolveu. O campo cabecalhoDeCobertura traz, por tribunal, buscas feitas, vazias, com erro e não " +
         "feitas, acórdãos achados e mostrados; as formulações que não trouxeram nada; e se a lista foi cortada pelo " +
         "máximo. Busca vazia não é busca com erro: tribunal em que nenhuma busca deu resposta aparece \"com erro\" " +
-        "(ou \"não pesquisado\"), sem achados. Para ler a ementa inteira, use obter_ementa com o id. " +
+        "(ou \"não pesquisado\"), sem achados. Se nenhuma busca deu resposta, a ferramenta responde com erro e o " +
+        "motivo de cada busca, nunca com lista vazia. Para ler a ementa inteira, use obter_ementa com o id. " +
         "Formulações boas variam sinônimos técnicos, dispositivo legal e nome do instituto.",
       annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: {
