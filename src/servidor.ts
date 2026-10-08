@@ -9,6 +9,7 @@ import { z } from "zod";
 import { Cliente, VERSAO } from "./cliente.js";
 import { acordaoNaMemoria, buscaDireta } from "./busca.js";
 import { buscaAmpla } from "./ampla.js";
+import { conferirNaEmenta, lerCitacao, naoVerificavel } from "./conferencia.js";
 import {
   type ClientePorTribunal,
   clientePadrao,
@@ -292,6 +293,85 @@ export function criarServidor(
       } catch (e) {
         return erro(e);
       }
+    },
+  );
+
+  servidor.registerTool(
+    "conferir_citacao",
+    {
+      title: "Conferir citação",
+      description:
+        "Confere, por regra fixa e sem IA, se cada citação está literalmente na ementa do acórdão (id que veio " +
+        "na busca; ementa guardada na memória do Garimpo). Até 20 citações por chamada; cada uma com 5 palavras ou mais e " +
+        "até 3 mil caracteres, mandada sem as aspas de abertura e fechamento. Vereditos: \"encontrado literalmente\" " +
+        "(só diferença de espaço, quebra de linha, espaço não separável, forma Unicode dos acentos ou aspas e " +
+        "apóstrofos tipográficos, avisadas em equivalencias); \"encontrado com supressão indicada\" (cortes marcados " +
+        "com (...) ou [...], pedaços de 5 palavras ou mais, na ordem); \"difere só em maiúsculas/pontuação\" (não é " +
+        "literal; vem o texto exato da fonte); \"não encontrado\" (com a passagem parecida da fonte, quando houver, " +
+        "que não é o texto informado); \"não verificável\" (acórdão fora da memória ou sem ementa). Hífen, meia-risca " +
+        "e travessão nunca são iguais. Reticências soltas são procuradas como texto, salvo reticenciasComoCorte. " +
+        "A posição vem como a frase da ementa que contém a citação; passagem entre aspas na ementa ganha o aviso de " +
+        "que pode ser de outro autor. Achar o texto não autentica a fonte. Só lê: não chama a rede e não grava.",
+      annotations: { readOnlyHint: true, openWorldHint: false },
+      inputSchema: {
+        // Item malformado é conferido dentro da ferramenta: vira resultado próprio, com frase que ensina a corrigir,
+        // sem derrubar as outras citações.
+        citacoes: listaOuTexto(
+          z.array(
+            z.union([
+              z.object({
+                citacao: z.string().optional().describe("Texto a conferir, sem as aspas das pontas; cortes com (...) ou [...]"),
+                id: z.string().optional().describe("Id do acórdão, como veio na busca (tribunal:id): confere na ementa"),
+              }),
+              z.string(),
+            ]),
+          ),
+        ).describe("Citações a conferir (até 20), cada uma { citacao, id }"),
+        reticenciasComoCorte: z
+          .boolean()
+          .optional()
+          .describe("Reticências soltas (... ou …) valem como corte (padrão: não; são procuradas como texto)"),
+      },
+    },
+    async ({ citacoes, reticenciasComoCorte = false }) => {
+      if (!citacoes.length || citacoes.length > 20) {
+        return erro(
+          new Error(
+            `São ${citacoes.length} citações; mande de 1 a 20 por chamada, cada uma { citacao, id }. ` +
+              "Com mais de 20, divida-as em mais de uma chamada.",
+          ),
+        );
+      }
+      const resultados = citacoes.map((item, i) => {
+        if (typeof item === "string" || item.citacao === undefined || item.id === undefined) {
+          return {
+            citacao: i + 1,
+            erro:
+              "Cada citação vai como { citacao, id }: o texto a conferir e o id do acórdão como veio na busca " +
+              '(ex.: { "citacao": "…", "id": "stj:12345" }).',
+          };
+        }
+        const { citacao, id } = item;
+        let lida;
+        try {
+          lida = lerCitacao(citacao, { reticenciasComoCorte });
+        } catch (e) {
+          return { citacao: i + 1, erro: (e as Error).message };
+        }
+        const a = acordaoNaMemoria(id);
+        const conferida = a
+          ? conferirNaEmenta(a.ementa, lida)
+          : naoVerificavel(`O acórdão ${id} não está na memória do Garimpo. Refaça a busca que o trouxe e confira de novo.`);
+        return { citacao: i + 1, fontes: [{ fonte: "ementa", id, ...conferida }] };
+      });
+      return comAvisoNaturezaJuridica({
+        reticenciasComoCorte,
+        resultados,
+        aviso: "Achar o texto não autentica a fonte: a ementa é a que o JurisprudênciaIA devolveu.",
+        notaSinalDeOutroAutor:
+          "Sinal de outro autor é indício, não autoria: o Garimpo não diz de quem é a passagem nem se é a tese " +
+          "vencedora, e a falta de sinal não prova que a passagem é do tribunal.",
+      });
     },
   );
 

@@ -1283,3 +1283,151 @@ describe("enquadramento no art. 927 nas respostas (pela porta)", () => {
     expect((await chamar(mcp, "obter_ementa", { id: "stj:202" })).enquadramento927.inciso).toBe("não classificado");
   });
 });
+
+describe("conferir citação na ementa (pela porta)", () => {
+  const EMENTA =
+    "EMENTA FICTÍCIA. ADMINISTRATIVO. 1. A responsabilidade civil do Estado por omissão exige a demonstração do " +
+    "nexo causal entre a falta do serviço e o dano sofrido. 2. Recurso conhecido e não provido.";
+
+  /** Site falso que conta as chamadas: a conferência não pode fazer nenhuma. */
+  function siteQueConta() {
+    let chamadas = 0;
+    const site = new Cliente({
+      nome: "O site",
+      esperar: async () => {},
+      fetch: (async () => {
+        chamadas++;
+        return respostaJson({
+          results: [
+            { id: "conf1", texto_ementa: EMENTA, numero_processo: "1.000.009/SP", link_pdf: "https://exemplo.test/conf1" },
+            { id: "conf2", texto_ementa: "", numero_processo: "1.000.010/SP", link_pdf: "https://exemplo.test/conf2" },
+          ],
+        });
+      }) as typeof fetch,
+    });
+    return { site, chamadas: () => chamadas };
+  }
+
+  async function chamar(mcp: Client, args: Record<string, unknown>) {
+    const r = (await mcp.callTool({ name: "conferir_citacao", arguments: args })) as {
+      content: { text: string }[];
+      isError?: boolean;
+    };
+    return { isError: r.isError, texto: r.content[0].text };
+  }
+
+  it("é marcada como só leitura e sem sair para a internet", async () => {
+    const mcp = await conectar(siteQueConta().site);
+    const { tools } = await mcp.listTools();
+    const marca = tools.find((t) => t.name === "conferir_citacao")!.annotations;
+    expect(marca?.readOnlyHint).toBe(true);
+    expect(marca?.openWorldHint).toBe(false);
+  });
+
+  it("confere várias citações numa chamada, sem rede: cada uma com o próprio resultado, e um erro não apaga as outras", async () => {
+    const { site, chamadas } = siteQueConta();
+    const mcp = await conectar(site);
+    await mcp.callTool({ name: "busca_direta", arguments: { tribunal: "stj", texto: "responsabilidade civil" } });
+    const antes = chamadas();
+
+    const r = await chamar(mcp, {
+      citacoes: [
+        { citacao: "exige a demonstração do nexo causal entre a falta do serviço", id: "stj:conf1" },
+        { citacao: "exige a demonstração do nexo causal entre a culpa do serviço e o dano sofrido", id: "stj:conf1" },
+        { citacao: "nexo causal", id: "stj:conf1" },
+        { citacao: "exige a demonstração do nexo causal entre a falta do serviço", id: "stj:nunca-buscado" },
+        { citacao: "exige a demonstração do nexo causal entre a falta do serviço", id: "stj:conf2" },
+        { citacao: "A responsabilidade civil do Estado (...) Recurso conhecido e não provido.", id: "stj:conf1" },
+      ],
+    });
+
+    expect(r.isError).toBeFalsy();
+    expect(chamadas()).toBe(antes);
+    const dado = JSON.parse(r.texto);
+    expect(dado.reticenciasComoCorte).toBe(false);
+    expect(dado.avisoNaturezaJuridica).toMatch(/base não oficial/);
+    expect(dado.aviso).toMatch(/não autentica/);
+    expect(dado.notaSinalDeOutroAutor).toMatch(/a falta de sinal não prova/);
+    const [verdadeira, alterada, curta, foraDaMemoria, semEmenta, comCorte] = dado.resultados;
+
+    expect(verdadeira.citacao).toBe(1);
+    expect(verdadeira.fontes[0]).toMatchObject({ fonte: "ementa", id: "stj:conf1", veredito: "encontrado literalmente", total: 1 });
+    expect(verdadeira.fontes[0].ocorrencias[0].frase).toMatch(/^1\. A responsabilidade civil/);
+
+    expect(alterada.fontes[0].veredito).toBe("não encontrado");
+    expect(alterada.fontes[0].passagemParecida.texto).toBe(
+      "exige a demonstração do nexo causal entre a falta do serviço e o dano sofrido",
+    );
+
+    expect(curta.erro).toMatch(/tem 2 palavras; o mínimo é 5/);
+    expect(curta.fontes).toBeUndefined();
+
+    expect(foraDaMemoria.fontes[0].veredito).toBe("não verificável");
+    expect(foraDaMemoria.fontes[0].motivo).toMatch(/não está na memória do Garimpo.*Refaça a busca/);
+
+    expect(semEmenta.fontes[0].veredito).toBe("não verificável");
+    expect(semEmenta.fontes[0].motivo).toMatch(/sem ementa/);
+
+    expect(comCorte.fontes[0].veredito).toBe("encontrado com supressão indicada");
+  });
+
+  it("aceita a lista como texto de lista JSON e informa a opção das reticências ligada", async () => {
+    const { site } = siteQueConta();
+    const mcp = await conectar(site);
+    await mcp.callTool({ name: "busca_direta", arguments: { tribunal: "stj", texto: "responsabilidade civil" } });
+
+    const r = await chamar(mcp, {
+      citacoes: JSON.stringify([{ citacao: "A responsabilidade civil do Estado … a falta do serviço e o dano sofrido.", id: "stj:conf1" }]),
+      reticenciasComoCorte: true,
+    });
+
+    expect(r.isError).toBeFalsy();
+    const dado = JSON.parse(r.texto);
+    expect(dado.reticenciasComoCorte).toBe(true);
+    expect(dado.resultados[0].fontes[0].veredito).toBe("encontrado com supressão indicada");
+  });
+
+  it("item malformado (sem id, ou texto solto) tem resultado próprio que ensina o formato, sem derrubar os outros", async () => {
+    const { site } = siteQueConta();
+    const mcp = await conectar(site);
+    await mcp.callTool({ name: "busca_direta", arguments: { tribunal: "stj", texto: "responsabilidade civil" } });
+
+    const r = await chamar(mcp, {
+      citacoes: [
+        { citacao: "exige a demonstração do nexo causal entre a falta do serviço" },
+        "exige a demonstração do nexo causal",
+        { citacao: "exige a demonstração do nexo causal entre a falta do serviço", id: "stj:conf1" },
+      ],
+    });
+
+    expect(r.isError).toBeFalsy();
+    const [semId, solto, boa] = JSON.parse(r.texto).resultados;
+    expect(semId.erro).toMatch(/\{ citacao, id \}/);
+    expect(solto.erro).toMatch(/\{ citacao, id \}/);
+    expect(boa.fontes[0].veredito).toBe("encontrado literalmente");
+    expect(JSON.parse(r.texto).resultados[1].fontes).toBeUndefined();
+  });
+
+  it("fora da memória: não verificável só com o motivo, sem contagem inventada", async () => {
+    const mcp = await conectar(siteQueConta().site);
+    const r = await chamar(mcp, { citacoes: [{ citacao: "exige a demonstração do nexo causal entre", id: "stj:jamais" }] });
+    expect(JSON.parse(r.texto).resultados[0].fontes[0]).toEqual({
+      fonte: "ementa",
+      id: "stj:jamais",
+      veredito: "não verificável",
+      motivo: "O acórdão stj:jamais não está na memória do Garimpo. Refaça a busca que o trouxe e confira de novo.",
+    });
+  });
+
+  it("mais de 20 citações (ou nenhuma): recusa com frase que ensina a corrigir, sem texto técnico", async () => {
+    const mcp = await conectar(siteQueConta().site);
+    const citacoes = Array.from({ length: 21 }, () => ({ citacao: "uma citação qualquer de exemplo aqui", id: "stj:conf1" }));
+    const r = await chamar(mcp, { citacoes });
+    expect(r.isError).toBe(true);
+    expect(r.texto).toMatch(/São 21 citações; mande de 1 a 20 por chamada/);
+    expect(r.texto).not.toMatch(/validation|Invalid|invalid_|"code"|"path"|MCP error/);
+    const vazia = await chamar(mcp, { citacoes: [] });
+    expect(vazia.isError).toBe(true);
+    expect(vazia.texto).toMatch(/São 0 citações; mande de 1 a 20/);
+  });
+});
