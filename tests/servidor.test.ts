@@ -1,14 +1,20 @@
+import { mkdtemp, readdir, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { describe, expect, it } from "vitest";
 import { Cliente } from "../src/cliente.js";
-import { criarServidor } from "../src/servidor.js";
-import { respostaJson } from "./apoio.js";
+import { criarServidor, type OpcoesServidor } from "../src/servidor.js";
+import { clienteFalso, respostaJson } from "./apoio.js";
 
-/** O Garimpo inteiro, chamado como o Claude chama: cliente MCP em memória e site falso por trás, sem rede. */
-async function conectar(site: Cliente) {
+/**
+ * O Garimpo inteiro, chamado como o Claude chama: cliente MCP em memória e site falso por trás, sem rede.
+ * Opcionalmente, tribunais falsos e a pasta de gravação.
+ */
+async function conectar(site: Cliente, opcoes?: OpcoesServidor) {
   const [ladoCliente, ladoServidor] = InMemoryTransport.createLinkedPair();
-  await criarServidor(site).connect(ladoServidor);
+  await criarServidor(site, opcoes).connect(ladoServidor);
   const mcp = new Client({ name: "teste", version: "0" });
   await mcp.connect(ladoCliente);
   return mcp;
@@ -24,7 +30,7 @@ function siteFalso(registros: unknown[]) {
 }
 
 describe("servidor MCP", () => {
-  it("marca como só leem as buscas, obter ementa e listar tribunais; obter inteiro teor não; as buscas saem para a internet", async () => {
+  it("marca como só leem as buscas, obter ementa e listar tribunais; obter inteiro teor não, nem destrutiva; as buscas saem para a internet", async () => {
     const mcp = await conectar(siteFalso([]));
     const { tools } = await mcp.listTools();
     const marca = Object.fromEntries(tools.map((t) => [t.name, t.annotations ?? {}]));
@@ -33,6 +39,7 @@ describe("servidor MCP", () => {
       expect(marca[nome].readOnlyHint, nome).toBe(true);
     }
     expect(marca.obter_inteiro_teor.readOnlyHint).not.toBe(true);
+    expect(marca.obter_inteiro_teor.destructiveHint).toBe(false);
     expect(marca.busca_direta.openWorldHint).toBe(true);
     expect(marca.busca_ampla.openWorldHint).toBe(true);
     expect(marca.obter_ementa.openWorldHint).toBe(false);
@@ -95,6 +102,58 @@ describe("servidor MCP", () => {
         expect(r.texto).not.toMatch(/base não oficial/);
       }
     });
+  });
+});
+
+describe("obter inteiro teor pela porta (tribunal falso e pasta temporária)", () => {
+  const PDF = "%PDF-1.7\nconteudo ficticio\n%%EOF";
+  const pdf = () => new Response(new TextEncoder().encode(PDF), { headers: { "content-type": "application/pdf" } });
+  const html = (texto: string, headers: Record<string, string> = {}) =>
+    new Response(texto, { headers: { "content-type": "text/html", ...headers } });
+
+  // STJ em 3 passos (página → mediado → PDF do iframe), o último só com o cookie da sessão.
+  const PDF_STJ = "https://processo.stj.jus.br/processo/julgamento/eletronico/documento/?documento_sequencial=1";
+  const stjFalso = () =>
+    clienteFalso([
+      html(`<a href="javascript:AbreDocumento('/processo/documento/mediado/?documento_sequencial=1')">REsp</a>`, {
+        "set-cookie": "JSESSIONID=abc; path=/processo",
+      }),
+      html(`<iframe src='${PDF_STJ}'></iframe>`),
+      (_url, init) => (new Headers(init.headers).get("Cookie")?.includes("JSESSIONID=abc") ? pdf() : html("<html></html>")),
+    ]);
+  // O TSE entrega o PDF dentro de um envelope multipart.
+  const tseFalso = () =>
+    clienteFalso([
+      new Response(`--fronteiraXYZ\r\nContent-Type: application/octet-stream\r\n\r\n${PDF}\r\n--fronteiraXYZ--\r\n`),
+    ]);
+
+  it("STJ, TJMG e TSE falsos: baixa e grava o PDF na pasta injetada, com a resposta de sempre", async () => {
+    const pasta = await mkdtemp(join(tmpdir(), "garimpo-porta-"));
+    const falsos = { stj: stjFalso(), tjmg: clienteFalso([pdf()]), tse: tseFalso() };
+    const mcp = await conectar(siteFalso([]), {
+      tribunais: (sigla) => falsos[sigla as keyof typeof falsos].cliente,
+      pasta,
+    });
+    const links = {
+      stj: "https://scon.stj.jus.br/SCON/GetInteiroTeorDoAcordao?num_registro=202000000001&dt_publicacao=10/12/2020",
+      tjmg: "https://www5.tjmg.jus.br/jurisprudencia/relatorioEspelhoAcordao.do?inteiroTeor=true&numero=1",
+      tse: "https://sjur-servicos.tse.jus.br/sjur-servicos/rest/download/pdf/1",
+    };
+
+    for (const [tribunal, link] of Object.entries(links)) {
+      const r = (await mcp.callTool({ name: "obter_inteiro_teor", arguments: { tribunal, link } })) as {
+        content: { text: string }[];
+        isError?: boolean;
+      };
+      expect(r.isError, tribunal).toBeFalsy();
+      const dado = JSON.parse(r.content[0].text);
+      expect(Object.keys(dado).sort(), tribunal).toEqual(["arquivo", "baixado", "bytes", "fonte"]);
+      expect(dado).toMatchObject({ baixado: true, bytes: PDF.length, fonte: link });
+      expect(dirname(dado.arquivo), tribunal).toBe(pasta);
+      expect(await readFile(dado.arquivo, "latin1"), tribunal).toBe(PDF);
+    }
+    expect(await readdir(pasta)).toHaveLength(3);
+    expect(falsos.stj.chamadas).toHaveLength(3);
   });
 });
 

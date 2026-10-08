@@ -1,6 +1,7 @@
 /**
- * Monta o servidor MCP do Garimpo com o cliente do site injetado, sem ligá-lo a transporte nenhum:
- * o stdio liga em index.ts; os testes ligam um cliente MCP em memória com um site falso por trás.
+ * Monta o servidor MCP do Garimpo com o cliente do site, o dos tribunais e a pasta de gravação injetados, sem
+ * ligá-lo a transporte nenhum: o stdio liga em index.ts; os testes ligam um cliente MCP em memória com site e
+ * tribunais falsos por trás e uma pasta temporária.
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -8,7 +9,7 @@ import { z } from "zod";
 import { Cliente, VERSAO } from "./cliente.js";
 import { acordaoNaMemoria, buscaDireta } from "./busca.js";
 import { buscaAmpla } from "./ampla.js";
-import { obterInteiroTeor, pastaPadrao } from "./inteiroTeor.js";
+import { type ClientePorTribunal, clientePadrao, obterInteiroTeor, pastaPadrao } from "./inteiroTeor.js";
 import { SIGLAS, TRIBUNAIS } from "./tribunais.js";
 
 // Tribunal e datas são conferidos dentro da ferramenta, não no esquema: o erro do esquema sai embrulhado em texto
@@ -77,7 +78,17 @@ function erro(e: unknown) {
   return { content: [{ type: "text" as const, text: (e as Error).message }], isError: true };
 }
 
-export function criarServidor(site: Cliente): McpServer {
+export interface OpcoesServidor {
+  /** Cliente de cada tribunal para baixar o inteiro teor (padrão: os portais reais). */
+  tribunais?: ClientePorTribunal;
+  /** Pasta onde o PDF é salvo quando a chamada não informa outra (padrão: pastaPadrao(), lida a cada chamada). */
+  pasta?: string;
+}
+
+export function criarServidor(
+  site: Cliente,
+  { tribunais = clientePadrao, pasta }: OpcoesServidor = {},
+): McpServer {
   const servidor = new McpServer({ name: "garimpo", version: VERSAO });
 
   servidor.registerTool(
@@ -172,17 +183,19 @@ export function criarServidor(site: Cliente): McpServer {
         "Baixa o PDF oficial do acórdão do portal do próprio tribunal e devolve o caminho do arquivo salvo. " +
         "Baixa do STJ, TJMG e TSE. Para STF, TJGO e demais devolve o link e explica como obter no navegador " +
         "(o Garimpo não contorna captcha nem proteção anti-robô). Informe o id que veio na busca ou tribunal + link.",
+      // Só grava arquivo novo, nunca sobrescreve: sem a marca, o MCP presume "destrutiva".
+      annotations: { destructiveHint: false },
       inputSchema: {
         id: z.string().optional().describe("Id do acórdão, como veio na busca (tribunal:id)"),
         tribunal: tribunal.optional().describe("Tribunal, se informar o link em vez do id"),
         link: z.string().url().optional().describe("Link do inteiro teor que veio na busca"),
-        pasta: z.string().optional().describe(`Pasta onde salvar o PDF (padrão: ${pastaPadrao()})`),
+        pasta: z.string().optional().describe(`Pasta onde salvar o PDF (padrão: ${pasta ?? pastaPadrao()})`),
       },
     },
     async (args) => {
       try {
         conferirTribunais(args.tribunal);
-        return json(await obterInteiroTeor(args));
+        return json(await obterInteiroTeor({ ...args, pasta: args.pasta ?? pasta }, tribunais));
       } catch (e) {
         return erro(e);
       }
