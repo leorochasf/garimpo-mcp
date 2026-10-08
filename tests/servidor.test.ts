@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Cliente, VERSAO } from "../src/cliente.js";
 import { criarServidor, type OpcoesServidor } from "../src/servidor.js";
 import { clienteFalso, respostaJson } from "./apoio.js";
-import { pdfSintetico } from "./pdfSintetico.js";
+import { pdfSintetico, type TextoPosicionado } from "./pdfSintetico.js";
 
 /**
  * O Garimpo inteiro, chamado como o Claude chama: cliente MCP em memória e site falso por trás, sem rede.
@@ -1023,5 +1023,87 @@ describe("ponte: resposta \"só link\" ensina a ler o PDF baixado no navegador (
       );
     }
     expect(chamadas).toEqual([]);
+  });
+});
+
+describe("ordem de leitura do texto do PDF (pela porta)", () => {
+  /** Texto da página 1 lido pelo ler_inteiro_teor, sem o marcador de página: PDF numa pasta qualquer, sem rede. */
+  async function lido(posicionados: TextoPosicionado[]) {
+    const pasta = await mkdtemp(join(tmpdir(), "garimpo-ordem-"));
+    const caminho = join(pasta, "ordem.pdf");
+    await writeFile(caminho, pdfSintetico([posicionados]));
+    const mcp = await conectar(siteFalso([]), { tribunais: () => { throw new Error("a leitura não chama tribunal"); }, pasta });
+    const r = (await mcp.callTool({ name: "ler_inteiro_teor", arguments: { caminho } })) as { content: { text: string }[]; isError?: boolean };
+    expect(r.isError, r.content[0].text).toBeFalsy();
+    return (JSON.parse(r.content[0].text).texto as string).replace(/^\[página 1 de 1\]\n/, "");
+  }
+
+  it("pedaços de uma linha desenhados fora da ordem (como negrito, itálico ou link) saem na ordem visual", async () => {
+    const texto = await lido([
+      { x: 30, y: 800, texto: "Primeira linha do voto, sem formatacao nenhuma." },
+      { x: 250, y: 788, texto: "o que nao ocorreu no caso." },
+      { x: 30, y: 788, texto: "conforme o item (i) do art. 36-A," },
+      { x: 30, y: 776, texto: "em que ha" },
+      { x: 300, y: 776, texto: "devem ser de iniciativa" },
+      { x: 80, y: 776, texto: "mencao a pretensa candidatura" },
+    ]);
+    expect(texto).toBe(
+      "Primeira linha do voto, sem formatacao nenhuma.\n" +
+        "conforme o item (i) do art. 36-A, o que nao ocorreu no caso.\n" +
+        "em que ha mencao a pretensa candidatura devem ser de iniciativa",
+    );
+  });
+
+  it("colunas, cabeçalho, citação recuada, carimbo de margem girado e rodapé não embaralham, cada um na sua linha", async () => {
+    const texto = await lido([
+      { x: 30, y: 820, texto: "CABECALHO GENERICO DO TRIBUNAL" },
+      { x: 30, y: 780, texto: "Coluna um, linha um." },
+      { x: 30, y: 768, texto: "Coluna um, linha dois." },
+      { x: 310, y: 780, texto: "Coluna dois, linha um." },
+      { x: 310, y: 768, texto: "Coluna dois, linha dois." },
+      { x: 80, y: 700, texto: "Citacao recuada, primeira linha," },
+      { x: 80, y: 688, texto: "citacao recuada, segunda linha." },
+      { x: 570, y: 100, texto: "Carimbo generico na margem", girado: true },
+      { x: 30, y: 650, texto: "Ultimo paragrafo do voto." },
+      { x: 30, y: 30, texto: "Rodape generico com assinatura eletronica.", tamanho: 7 },
+    ]);
+    expect(texto).toBe(
+      [
+        "CABECALHO GENERICO DO TRIBUNAL",
+        "Coluna um, linha um.",
+        "Coluna um, linha dois.",
+        "Coluna dois, linha um.",
+        "Coluna dois, linha dois.",
+        "Citacao recuada, primeira linha,",
+        "citacao recuada, segunda linha.",
+        "Carimbo generico na margem",
+        "Ultimo paragrafo do voto.",
+        "Rodape generico com assinatura eletronica.",
+      ].join("\n"),
+    );
+  });
+
+  it("fim de página: o carimbo de assinatura aposto à parte sai na sua linha, não colado ao último parágrafo", async () => {
+    const texto = await lido([
+      { x: 30, y: 650, texto: "Ultimo paragrafo do voto." },
+      { x: 30, y: 30, texto: "Assinado eletronicamente em data generica.", tamanho: 7, carimbo: true },
+    ]);
+    expect(texto).toBe("Ultimo paragrafo do voto.\nAssinado eletronicamente em data generica.");
+  });
+
+  it("expoente de nota de rodapé fica na linha, e carimbo de margem girado em dois pedaços sai numa linha só", async () => {
+    const texto = await lido([
+      { x: 30, y: 800, texto: "Texto do voto" },
+      { x: 100, y: 804, texto: "1", tamanho: 6 },
+      { x: 106, y: 800, texto: "e segue na mesma linha." },
+      { x: 570, y: 100, texto: "Documento assinado", girado: true },
+      { x: 570, y: 200, texto: "digitalmente", girado: true },
+      { x: 30, y: 788, texto: "Linha seguinte do voto." },
+    ]);
+    const linhas = texto.split("\n");
+    expect(linhas).toHaveLength(3);
+    expect(linhas[0]).toMatch(/^Texto do voto ?1 ?e segue na mesma linha\.$/);
+    expect(linhas[1]).toMatch(/^Documento assinado ?digitalmente$/);
+    expect(linhas[2]).toBe("Linha seguinte do voto.");
   });
 });

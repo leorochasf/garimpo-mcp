@@ -359,11 +359,84 @@ function extrairPaginas(bytes: Uint8Array, caminho: string): Promise<string[]> {
     const paginas: string[] = [];
     for (let i = 1; i <= documento.numPages; i++) {
       const conteudo = await (await documento.getPage(i)).getTextContent();
-      const texto = conteudo.items.map((item) => ("str" in item ? item.str + (item.hasEOL ? "\n" : "") : "")).join("");
-      paginas.push(texto.trim());
+      paginas.push(naOrdemDeLeitura(conteudo.items.filter((item) => "str" in item)).trim());
     }
     return paginas;
   });
+}
+
+/** O que o extrator devolve de cada item de texto: o texto, a matriz de posição [a, b, c, d, x, y] e a largura. */
+interface ItemDoExtrator {
+  str: string;
+  transform: number[];
+  width: number;
+}
+
+/** Pedaço de texto numa linha: onde começa ao longo da linha, quanto ocupa e o corpo da letra. */
+interface Pedaco {
+  str: string;
+  inicio: number;
+  largura: number;
+  corpo: number;
+}
+
+/** Linha da página: direção do texto (vetor unitário), altura da base nessa direção e maior corpo de letra. */
+interface Linha {
+  dx: number;
+  dy: number;
+  base: number;
+  corpo: number;
+  pedacos: Pedaco[];
+}
+
+/**
+ * Texto da página na ordem de leitura. As linhas seguem a ordem do fluxo do PDF (colunas, cabeçalho e rodapé ficam
+ * onde o PDF os põe), mas a quebra de linha vem da posição: pedaços seguidos na mesma direção e na mesma altura são
+ * uma linha, e uma mudança de altura é uma linha nova — o carimbo aposto à parte não cola no último parágrafo.
+ * Dentro de uma linha que o fluxo desenha fora de ordem (pedaços com negrito, itálico, sublinhado ou link), os
+ * pedaços vão do começo para o fim da linha. Texto girado (carimbo de margem) segue a mesma regra na sua direção.
+ */
+function naOrdemDeLeitura(itens: ItemDoExtrator[]): string {
+  const linhas: Linha[] = [];
+  let atual: Linha | undefined;
+  for (const { str, transform, width } of itens) {
+    // Item vazio só marca fim de linha do fluxo, às vezes no meio de uma linha da página: a posição decide.
+    if (!str) continue;
+    const [a, b, c, d, x, y] = transform;
+    const escala = Math.hypot(a, b) || 1;
+    const [dx, dy] = [a / escala, b / escala];
+    const corpo = Math.hypot(c, d) || 1;
+    // Na direção do texto: horizontal, base = y e início = x; girado, o mesmo nos eixos girados.
+    const base = dx * y - dy * x;
+    // Meia altura de letra (a maior da linha) de tolerância: índice e expoente ficam na linha; a linha seguinte, nunca.
+    if (
+      !atual ||
+      dx * atual.dx + dy * atual.dy < 0.999 ||
+      Math.abs(base - atual.base) > Math.max(corpo, atual.corpo) / 2
+    ) {
+      linhas.push((atual = { dx, dy, base, corpo, pedacos: [] }));
+    }
+    atual.corpo = Math.max(atual.corpo, corpo);
+    atual.pedacos.push({ str, inicio: dx * x + dy * y, largura: width, corpo });
+  }
+  return linhas.map(({ pedacos }) => juntarLinha(pedacos)).join("\n");
+}
+
+/**
+ * Linha em ordem no fluxo sai como o extrator a deu, espaços dele incluídos. Fora de ordem, os pedaços com texto vão
+ * do começo para o fim da linha, e os espaços do extrator (que cobrem o vão do salto, às vezes por cima de outro
+ * pedaço) dão lugar a um espaço onde houver vão visível entre dois pedaços.
+ */
+function juntarLinha(pedacos: Pedaco[]): string {
+  const comTexto = pedacos.filter((p) => p.str.trim());
+  const emOrdem = comTexto.every((p, k) => k === 0 || p.inicio >= comTexto[k - 1].inicio - p.corpo / 2);
+  if (emOrdem) return pedacos.map((p) => p.str).join("");
+  comTexto.sort((p, q) => p.inicio - q.inicio);
+  return comTexto.reduce((linha, p, k) => {
+    const anterior = comTexto[k - 1];
+    const vao = anterior && p.inicio - (anterior.inicio + anterior.largura) > p.corpo * 0.15;
+    return linha + (vao && !/\s$/.test(linha) && !/^\s/.test(p.str) ? " " : "") + p.str;
+  }, "");
 }
 
 /** Um pedaço de uma parte: uma página do PDF inteira ou um segmento de página grande demais. */
