@@ -2,6 +2,8 @@
 
 _Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
 
+Confirmado pelo dono em 2026-10-08.
+
 Para entregar o inteiro teor como texto, o Garimpo extrai o texto do PDF com o `pdfjs-dist` (Apache-2.0) na
 versão atual, que exige Node `>=22.13.0` (metadado do npm, `pdfjs-dist@6.4.299`). Por isso o mínimo do Garimpo
 sobe de Node 20 para `>=22.13.0`, com instrução de atualização no README. Motivo: o Garimpo lê PDFs vindos da
