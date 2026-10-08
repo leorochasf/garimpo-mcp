@@ -19,10 +19,11 @@ ao JurisprudênciaIA nem à JAI. Licença MIT. Feito para qualquer pessoa usar.
    esse código como base. O conhecimento da API vem de `docs/api-jurisprudenciaia.md`, mapeada de forma independente.
 2. **Nada específico de usuário ou instituição.** Nenhum dado de processo real, nome de pessoa, órgão
    público, caminho de máquina ou fluxo de trabalho de alguém. Exemplos de busca são genéricos.
-3. **Uso responsável é requisito, não opção.** Toda chamada ao site passa pelo cliente único, com: no
-   máximo 2 chamadas simultâneas no total das janelas do Garimpo do usuário (site e tribunais somados; não protege
-   IP dividido com outras pessoas, máquinas ou programas); em 429/503, espera e **uma** nova tentativa; recusa de novo = para e
-   avisa o usuário. Objetivo: o máximo de cobertura do inteiro teor sem que o usuário do Garimpo tenha o IP bloqueado ou banido — por isso esses freios ficam.
+3. **Uso responsável é requisito, não opção.** Toda chamada ao site passa pelo cliente único, com freios que
+   valem no total das janelas do Garimpo do usuário (não protege IP dividido com outras pessoas, máquinas ou
+   programas): no máximo 2 chamadas simultâneas (site e tribunais somados); em 429/503,
+   espera e **uma** nova tentativa; recusa de novo = para e avisa o usuário, com o serviço pausado em todas as
+   janelas; estado de proteção ilegível = rede parada até o usuário agir. Objetivo: o máximo de cobertura do inteiro teor sem que o usuário do Garimpo tenha o IP bloqueado ou banido — por isso esses freios ficam.
 4. **Publicação só com OK final do dono.** A JAI autorizou a publicação (informado pelo dono em 2026-10-08).
    O repositório no GitHub nasce **privado**; torná-lo público e rodar `npm publish` só com OK expresso do dono.
 5. **Testes sem rede por padrão.** Unitários sobre respostas gravadas (fixtures); teste ao vivo só opcional,
