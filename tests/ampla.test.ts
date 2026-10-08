@@ -100,6 +100,46 @@ describe("busca ampla", () => {
     ]);
   });
 
+  it("STF achado por 1 formulação ganha vagas reservadas ao lado de um tribunal grande achado por todas", async () => {
+    const formulacoes = ["dano moral coletivo", "dano moral difuso", "dano moral transindividual"];
+    const aderente = (id: string) => bruto(id, 0.5, `DANO MORAL COLETIVO. EXEMPLO FICTÍCIO ${id}.`);
+    const { cliente } = siteFalso((tribunal, texto) =>
+      respostaJson({
+        results:
+          tribunal === "tjgo"
+            ? Array.from({ length: 100 }, (_, i) => aderente(`tj-${i}`))
+            : texto === formulacoes[0]
+              ? Array.from({ length: 4 }, (_, i) => aderente(`stf-${i}`))
+              : [],
+      }),
+    );
+
+    const r = await buscaAmpla(cliente, { formulacoes, tribunais: ["tjgo", "stf"] });
+
+    expect(r.mostrados).toBe(50);
+    expect(r.acordaos).toHaveLength(50);
+    expect(r.acordaos.filter((a) => a.tribunal === "stf").map((a) => a.id)).toEqual(["stf:stf-0", "stf:stf-1", "stf:stf-2"]);
+    // A reserva não pula para o topo: os do STF ficam no fim, depois dos achados por mais formulações.
+    expect(r.acordaos.slice(47).every((a) => a.tribunal === "stf")).toBe(true);
+  });
+
+  it("precedentes qualificados devolvidos pelas buscas saem numa seção própria, sem nenhuma chamada a mais", async () => {
+    const tema = { numero: 900, tese_firmada: "Tese fictícia de repercussão geral.", link: "https://exemplo.test/tema-900" };
+    const { cliente, estado } = siteFalso((tribunal, texto) =>
+      respostaJson({
+        juris: [bruto(`${tribunal}-${texto}`, 0.5)],
+        ...(tribunal === "stf" ? { rg: texto === "c" ? [] : [tema] } : {}),
+      }),
+    );
+
+    const r = await buscaAmpla(cliente, { formulacoes: ["a", "b", "c"], tribunais: ["stf", "stj"] });
+
+    expect(estado.chamadas).toBe(6); // 3 formulações × 2 tribunais, como antes
+    expect(r.qualificados).toEqual([
+      { tipo: "repercussão geral", numero: "900", texto: tema.tese_firmada, link: tema.link, tribunal: "stf", formulacoes: 2 },
+    ]);
+  });
+
   it("cópias do mesmo acórdão achadas por formulações diferentes viram um só, com as formulações somadas", async () => {
     const ementa = "EMENTA FICTÍCIA DO MESMO ACÓRDÃO EM DOIS REGISTROS.";
     const { cliente } = siteFalso((_t, texto) =>

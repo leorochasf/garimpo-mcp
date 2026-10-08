@@ -7,6 +7,7 @@ import { Cliente, RecusaError } from "./cliente.js";
 import { type Acordao, buscaDireta, type FiltrosBusca, lembrar } from "./busca.js";
 import { juntarEquivalentes, type Ocorrencia } from "./equivalencia.js";
 import { ordenarPorAderencia } from "./pontuacao.js";
+import { juntarQualificados, type QualificadoAmplo, type QualificadosDaBusca, reservarPorTribunal } from "./saida.js";
 
 export interface ParametrosAmpla extends FiltrosBusca {
   formulacoes: string[];
@@ -37,12 +38,15 @@ export interface ResultadoAmplo {
   totalAcordaos: number;
   mostrados: number;
   acordaos: ItemAmplo[];
+  /** Precedentes qualificados que as buscas devolveram, sem repetidos (regra do ticket 08). */
+  qualificados: QualificadoAmplo[];
   avisos: string[];
 }
 
 export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<ResultadoAmplo> {
   const tarefas = p.tribunais.flatMap((tribunal) => p.formulacoes.map((texto, f) => ({ tribunal, texto, f })));
   const juntos = new Map<string, Ocorrencia<Acordao>>();
+  const qualificados: QualificadosDaBusca[] = [];
   const avisos: string[] = [];
   let feitas = 0;
   let recusa: RecusaError | undefined;
@@ -64,6 +68,7 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<
           classe: p.classe,
         });
         feitas++;
+        qualificados.push({ tribunal: t.tribunal.toLowerCase(), formulacao: t.f, qualificados: r.qualificados });
         r.acordaos.forEach((a, posicao) => {
           const atual = juntos.get(a.id) ?? { registro: a, formulacoes: new Set(), melhorPosicao: Infinity };
           atual.formulacoes.add(t.f);
@@ -105,14 +110,16 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<
     p.formulacoes,
   );
   const maximo = p.maximo ?? 50;
+  // Cada tribunal com acórdão na faixa de aderência de cima tem vagas garantidas (regra do ticket 08).
+  const mostrados = reservarPorTribunal(ordenados, { maximo, naFaixaDeCima: (x) => x.faixa === 0 });
   const tamanho = p.tamanhoTrecho ?? 160;
   return {
     buscasFeitas: feitas,
     buscasPlanejadas: tarefas.length,
     completa: !recusa && feitas === tarefas.length,
     totalAcordaos: ordenados.length,
-    mostrados: Math.min(maximo, ordenados.length),
-    acordaos: ordenados.slice(0, maximo).map(({ acordao: a, formulacoes }) => {
+    mostrados: mostrados.length,
+    acordaos: mostrados.map(({ acordao: a, formulacoes }) => {
       const item: ItemAmplo = {
         id: a.id,
         numero: a.numero,
@@ -125,6 +132,7 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<
       };
       return item;
     }),
+    qualificados: juntarQualificados(qualificados),
     avisos,
   };
 }
