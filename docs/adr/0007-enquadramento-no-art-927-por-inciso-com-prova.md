@@ -2,6 +2,8 @@
 
 _Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
 
+Texto do inciso III-A do art. 927 conferido em 2026-10-08 contra a Lei nº 15.484, de 4 de agosto de 2026 (texto do Planalto, DOU de 4.8.2026, edição extra; vigência após 30 dias da publicação, art. 7º).
+
 Cada precedente devolvido pelo Garimpo sai com o **enquadramento no art. 927** do CPC: o inciso em que ele se
 encaixa por regra fixa, com a base legal literal e a evidência tirada dos dados do site, ou "não classificado"
 com o motivo. A escala "vinculante / qualificado / observância / persuasivo" do documento de melhorias foi
