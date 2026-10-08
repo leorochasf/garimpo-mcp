@@ -80,6 +80,90 @@ export function aderencia(ementa: string, formulacoes: readonly string[]): numbe
   return aderenciaPreparada(ementa, formulacoes.map(prepararFormulacao));
 }
 
+/** Texto minúsculo e sem acento, com a posição de cada caractere dele no texto de entrada (mais uma, o fim). */
+function semAcentoComPosicoes(texto: string): { texto: string; origem: number[] } {
+  let saida = "";
+  const origem: number[] = [];
+  let i = 0;
+  for (const letra of texto) {
+    const normal = semAcento(letra);
+    for (let k = 0; k < normal.length; k++) origem.push(i);
+    saida += normal;
+    i += letra.length;
+  }
+  origem.push(texto.length);
+  return { texto: saida, origem };
+}
+
+const LETRA = /[\p{L}\p{N}]/u;
+
+/**
+ * Recorta `texto` entre `inicio` e `fim`, com "…" onde cortou. Palavra partida na ponta sai (se tiver até 20
+ * caracteres), para o trecho nunca passar do tamanho pedido (fora as reticências).
+ */
+function recortar(texto: string, inicio: number, fim: number): string {
+  // Nunca corta ao meio um caractere de dois códigos (emoji e afins).
+  const meioDePar = (i: number) => i > 0 && i < texto.length && /[\uDC00-\uDFFF]/.test(texto[i]);
+  if (meioDePar(inicio)) inicio++;
+  if (meioDePar(fim)) fim--;
+  const partida = (i: number) => i > 0 && i < texto.length && LETRA.test(texto[i - 1]) && LETRA.test(texto[i]);
+  if (partida(inicio)) {
+    let i = inicio;
+    while (i < texto.length && LETRA.test(texto[i])) i++;
+    if (i - inicio <= 20) inicio = i;
+  }
+  if (partida(fim)) {
+    let i = fim;
+    while (i > inicio && LETRA.test(texto[i - 1])) i--;
+    if (fim - i <= 20) fim = i;
+  }
+  return `${inicio > 0 ? "…" : ""}${texto.slice(inicio, fim).trim()}${fim < texto.length ? "…" : ""}`;
+}
+
+/**
+ * Trecho da ementa onde a tese aparece: janela de ~`tamanho` caracteres em torno da maior concentração de palavras
+ * da formulação de maior aderência (empate: a primeira), com o mesmo casamento por radical da aderência. Sem
+ * nenhuma palavra da tese na ementa, é o começo dela.
+ */
+export function trecho(ementa: string, formulacoes: readonly string[], tamanho: number): string {
+  const texto = ementa.replace(/\s+/g, " ").trim();
+  const normal = semAcentoComPosicoes(texto);
+  let escolhida: RegExp[] = [];
+  let melhor = 0;
+  for (const buscas of formulacoes.map(prepararFormulacao)) {
+    if (buscas.length === 0) continue;
+    const valor = buscas.filter((b) => b.test(normal.texto)).length / buscas.length;
+    if (valor > melhor) [melhor, escolhida] = [valor, buscas];
+  }
+
+  // Cada palavra casada: início e fim no texto, e qual palavra da formulação ela casou.
+  const achadas = escolhida
+    .flatMap((busca, palavra) =>
+      [...normal.texto.matchAll(new RegExp(busca.source, "g"))].map((m) => {
+        const comeco = m.index + (/^[a-z0-9]/.test(m[0]) ? 0 : 1);
+        let final = comeco;
+        while (final < normal.texto.length && /[a-z0-9]/.test(normal.texto[final])) final++;
+        return { inicio: normal.origem[comeco], fim: normal.origem[final], palavra };
+      }),
+    )
+    .sort((a, b) => a.inicio - b.inicio);
+  if (achadas.length === 0) return recortar(texto, 0, tamanho);
+
+  // A janela que começa em cada palavra casada: vence a que tem mais palavras diferentes (empate: a primeira).
+  let janela = { inicio: 0, fim: 0, palavras: 0 };
+  for (let i = 0; i < achadas.length; i++) {
+    const dentro = achadas.slice(i).filter((a) => a.fim <= achadas[i].inicio + tamanho);
+    const palavras = new Set(dentro.map((a) => a.palavra)).size;
+    if (palavras > janela.palavras) {
+      janela = { inicio: achadas[i].inicio, fim: Math.max(...dentro.map((a) => a.fim)), palavras };
+    }
+  }
+  // Centraliza as palavras casadas na janela.
+  const sobra = Math.max(0, tamanho - (janela.fim - janela.inicio));
+  const inicio = Math.max(0, Math.min(janela.inicio - Math.floor(sobra / 2), texto.length - tamanho));
+  return recortar(texto, inicio, Math.max(janela.fim, inicio + tamanho));
+}
+
 /**
  * Faixas de aderência: pisos em ordem decrescente; abaixo do último fica a faixa "resto".
  * Valores iniciais do plano.

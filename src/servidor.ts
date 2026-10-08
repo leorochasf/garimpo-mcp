@@ -80,9 +80,9 @@ export function criarServidor(site: Cliente): McpServer {
         "repetidos (registros duplicados na base do site viram um acórdão só), ordenada pela aderência (quantas " +
         "palavras de alguma formulação estão na ementa), depois por quantas formulações acharam cada acórdão e pela " +
         "posição na busca de origem. Cada tribunal pedido com acórdão aderente tem vagas garantidas. Aderência mede " +
-        "proximidade de texto, não relevância jurídica. Saída compacta: número, tribunal, data, órgão, começo da " +
-        "ementa e link; e, em lista separada, os precedentes qualificados (temas, súmulas) que o site devolveu. " +
-        "Para ler a ementa inteira, use obter_ementa com o id. " +
+        "proximidade de texto, não relevância jurídica. Saída compacta: número, tribunal, data, órgão, trecho da " +
+        "ementa onde a tese aparece e link; e, em lista separada, os precedentes qualificados (temas, súmulas) que " +
+        "o site devolveu. Para ler a ementa inteira, use obter_ementa com o id. " +
         "Formulações boas variam sinônimos técnicos, dispositivo legal e nome do instituto.",
       annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: {

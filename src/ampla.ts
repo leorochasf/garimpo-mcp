@@ -6,7 +6,7 @@
 import { Cliente, RecusaError } from "./cliente.js";
 import { type Acordao, buscaDireta, type FiltrosBusca, lembrar } from "./busca.js";
 import { juntarEquivalentes, type Ocorrencia } from "./equivalencia.js";
-import { ordenarPorAderencia } from "./pontuacao.js";
+import { ordenarPorAderencia, trecho } from "./pontuacao.js";
 import { juntarQualificados, type QualificadoAmplo, type QualificadosDaBusca, reservarPorTribunal } from "./saida.js";
 
 export interface ParametrosAmpla extends FiltrosBusca {
@@ -16,7 +16,7 @@ export interface ParametrosAmpla extends FiltrosBusca {
   limitePorBusca?: number;
   /** Máximo de itens na saída compacta (padrão 50). */
   maximo?: number;
-  /** Caracteres do começo da ementa na saída compacta (padrão 100, sem o rótulo "Ementa:"). */
+  /** Caracteres do trecho da ementa na saída compacta (padrão 120, sem o rótulo "Ementa:"). */
   tamanhoTrecho?: number;
 }
 
@@ -116,7 +116,7 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<
   const mostrados = reservarPorTribunal(ordenados, { maximo, naFaixaDeCima: (x) => x.faixa === 0 });
   // Tamanhos escolhidos para 50 acórdãos + 10 qualificados caberem numa resposta (< 25 mil caracteres) com campos
   // de tamanho real (número CNJ, links longos): ver o teste de tamanho em tests/ampla.test.ts.
-  const tamanho = p.tamanhoTrecho ?? 100;
+  const tamanho = p.tamanhoTrecho ?? 120;
   return {
     buscasFeitas: feitas,
     buscasPlanejadas: tarefas.length,
@@ -131,7 +131,7 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<
         tribunal: a.tribunal,
         data: a.dataJulgamento,
         orgao: a.orgao,
-        trecho: ementa.length > tamanho ? `${ementa.slice(0, tamanho)}…` : ementa,
+        trecho: trecho(ementa, p.formulacoes, tamanho),
         link: a.link ?? a.linkConsulta,
         formulacoes,
       };

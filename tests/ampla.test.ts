@@ -146,7 +146,9 @@ describe("busca ampla", () => {
     const link = (i: number) => `https://jurisprudencia.tribunal-exemplo.invalid/consulta/inteiro-teor/documento?id=${String(i).padStart(10, "0")}`;
     const realista = (texto: string, i: number) => ({
       id: `${texto}${String(i).padStart(9, "0")}`,
-      texto_ementa: `EMENTA: APELAÇÃO CÍVEL. EXEMPLO FICTÍCIO ${texto}-${i}. ${"Texto fictício de ementa. ".repeat(150)}`,
+      texto_ementa:
+        `EMENTA: APELAÇÃO CÍVEL. EXEMPLO FICTÍCIO ${texto}-${i}. ${"Texto fictício de ementa. ".repeat(75)}` +
+        `DANO MORAL COLETIVO RECONHECIDO. ${"Texto fictício de ementa. ".repeat(75)}`,
       sigla_classe: "ApCiv",
       numero_processo: `50${String(i).padStart(5, "0")}-${texto.length}1.2024.8.21.0001`,
       orgao_julgador: "Décima Segunda Câmara Cível",
@@ -160,19 +162,22 @@ describe("busca ampla", () => {
       numero_processo_paradigma: `RE ${1_000_000 + i}`,
       link: link(900 + i),
     });
+    // A tese no meio da ementa: o trecho sai do meio, com "…" nas duas pontas (o caso mais longo).
+    const formulacoes = ["dano moral coletivo", "dano moral difuso", "dano moral transindividual"];
+    // Chaves curtas, como antes, para o id e o número não crescerem com o texto da formulação.
+    const chave = (texto: string) => ["a", "bb", "ccc"][formulacoes.indexOf(texto)];
     const { cliente } = siteFalso((tribunal, texto) =>
       respostaJson({
-        results: Array.from({ length: 100 }, (_, i) => realista(`${tribunal}${texto}`, i)),
+        results: Array.from({ length: 100 }, (_, i) => realista(`${tribunal}${chave(texto)}`, i)),
         rg: Array.from({ length: 30 }, (_, i) => tema(i)),
       }),
     );
 
-    const r = await buscaAmpla(cliente, { formulacoes: ["a", "bb", "ccc"], tribunais: ["tjrs", "stj"] });
+    const r = await buscaAmpla(cliente, { formulacoes, tribunais: ["tjrs", "stj"] });
 
     expect(r.acordaos).toHaveLength(50);
     expect(r.qualificados).toHaveLength(10);
-    // O rótulo "EMENTA:" do começo não gasta o trecho.
-    expect(r.acordaos[0].trecho).toMatch(/^APELAÇÃO CÍVEL\. EXEMPLO FICTÍCIO/);
+    expect(r.acordaos.every((a) => /^….*DANO MORAL COLETIVO RECONHECIDO\..*…$/.test(a.trecho))).toBe(true);
     // Mesmo formato da resposta da ferramenta (src/index.ts: JSON sem recuo).
     expect(JSON.stringify(r).length).toBeLessThan(25_000);
   });
@@ -264,11 +269,76 @@ describe("busca ampla", () => {
 
     expect(r.totalAcordaos).toBe(300);
     expect(r.mostrados).toBe(50);
-    expect(r.acordaos[0].trecho.length).toBeLessThanOrEqual(161);
+    expect(r.acordaos[0].trecho.length).toBeLessThanOrEqual(122);
     expect(JSON.stringify(r).length).toBeLessThan(25_000);
 
     const antes = estado.chamadas;
     expect(acordaoNaMemoria(r.acordaos[0].id)?.ementa).toBe(ementaLonga);
     expect(estado.chamadas).toBe(antes);
+  });
+});
+
+describe("trecho da busca ampla", () => {
+  // Enchimento sem nenhuma palavra das formulações dos testes abaixo.
+  const enchimento = (n: number) => "Texto de enchimento sem relação com a tese. ".repeat(n);
+  const umAcordao = async (ementa: string, formulacoes: string[]) => {
+    const { cliente } = siteFalso(() => respostaJson({ results: [bruto("unico", 0.5, ementa)] }));
+    const r = await buscaAmpla(cliente, { formulacoes, tribunais: ["stj"] });
+    return r.acordaos[0].trecho;
+  };
+
+  it("palavras da tese no meio da ementa: o trecho mostra o meio, com … nas pontas", async () => {
+    // Um "dano" solto no começo não puxa a janela: ela vai para onde as palavras se concentram.
+    const ementa = `EMENTA: DANO. ${enchimento(10)}PRESCRIÇÃO DA PRETENSÃO DE REPARAÇÃO DO DANO AMBIENTAL. ${enchimento(10)}`;
+
+    const trecho = await umAcordao(ementa, ["prescrição dano ambiental"]);
+
+    expect(trecho).toContain("PRESCRIÇÃO DA PRETENSÃO DE REPARAÇÃO DO DANO AMBIENTAL.");
+    expect(trecho.startsWith("…")).toBe(true);
+    expect(trecho.endsWith("…")).toBe(true);
+    expect(trecho.length).toBeLessThanOrEqual(122);
+  });
+
+  it("acórdão achado por duas formulações: o trecho segue a de maior aderência", async () => {
+    // A 1ª formulação tem só 1 de 3 palavras no começo; a 2ª tem todas no fim.
+    const ementa = `RESPONSABILIDADE. ${enchimento(10)}DANO MORAL COLETIVO RECONHECIDO.`;
+    const formulacoes = ["responsabilidade objetiva estado", "dano moral coletivo"];
+    const { cliente } = siteFalso(() => respostaJson({ results: [bruto("unico", 0.5, ementa)] }));
+
+    const r = await buscaAmpla(cliente, { formulacoes, tribunais: ["stj"] });
+
+    expect(r.acordaos[0].formulacoes).toBe(2);
+    expect(r.acordaos[0].trecho).toMatch(/^….*DANO MORAL COLETIVO RECONHECIDO\.$/);
+  });
+
+  it("duas formulações com a mesma aderência: o trecho segue a primeira", async () => {
+    const ementa = `${enchimento(5)}DANO MORAL COLETIVO. ${enchimento(10)}RESPONSABILIDADE OBJETIVA DO ESTADO. ${enchimento(5)}`;
+
+    const trecho = await umAcordao(ementa, ["responsabilidade objetiva estado", "dano moral coletivo"]);
+
+    expect(trecho).toContain("RESPONSABILIDADE OBJETIVA DO ESTADO.");
+    expect(trecho).not.toContain("DANO");
+  });
+
+  it("ementa sem palavra da tese: o trecho é o começo da ementa, sem o rótulo", async () => {
+    const trecho = await umAcordao(`EMENTA: APELAÇÃO CÍVEL. ${enchimento(10)}`, ["prescrição dano ambiental"]);
+
+    expect(trecho).toMatch(/^APELAÇÃO CÍVEL\. Texto de enchimento/);
+    expect(trecho.endsWith("…")).toBe(true);
+  });
+
+  it("palavra casada pelo radical (prescrição × imprescritível) entra no trecho", async () => {
+    const trecho = await umAcordao(`${enchimento(10)}A PRETENSÃO É IMPRESCRITÍVEL. ${enchimento(10)}`, ["prescrição"]);
+
+    expect(trecho).toContain("IMPRESCRITÍVEL");
+    expect(trecho.startsWith("…")).toBe(true);
+  });
+  it("caractere de dois códigos (emoji) nas pontas não é cortado ao meio", async () => {
+    for (const n of [57, 58, 59, 60]) {
+      const trecho = await umAcordao(`${"😀".repeat(n)} DANO MORAL COLETIVO ${"😀".repeat(n)}`, ["dano moral coletivo"]);
+
+      expect(trecho).toContain("DANO MORAL COLETIVO");
+      expect(trecho).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/);
+    }
   });
 });

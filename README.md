@@ -13,7 +13,7 @@ de quem usa.
 | Ferramenta | O que faz |
 |---|---|
 | `busca_direta` | Uma busca num tribunal: acórdãos (até 100) e, em lista separada, precedentes qualificados (temas, súmulas). Filtros opcionais: período, relator, órgão, classe |
-| `busca_ampla` | Várias formulações da mesma tese em um ou mais tribunais (até 20 formulações e 5 tribunais), juntadas numa lista única de acórdãos: **sem repetidos** (o mesmo acórdão achado por buscas diferentes, ou guardado em dois registros na base do site, vira um acórdão só); ordenada pela **aderência** (palavras de alguma formulação presentes na ementa), depois por quantas formulações acharam cada acórdão e pela melhor posição na busca de origem; com **vagas por tribunal** (cada tribunal pedido que tenha acórdão na faixa mais alta de aderência tem até 3 vagas garantidas na lista). Saída compacta, 50 acórdãos por padrão (até 200): número, tribunal, data, órgão, começo da ementa, link. Em lista própria, até 10 **precedentes qualificados** (temas, súmulas) que o site devolveu, sem repetidos |
+| `busca_ampla` | Várias formulações da mesma tese em um ou mais tribunais (até 20 formulações e 5 tribunais), juntadas numa lista única de acórdãos: **sem repetidos** (o mesmo acórdão achado por buscas diferentes, ou guardado em dois registros na base do site, vira um acórdão só); ordenada pela **aderência** (palavras de alguma formulação presentes na ementa), depois por quantas formulações acharam cada acórdão e pela melhor posição na busca de origem; com **vagas por tribunal** (cada tribunal pedido que tenha acórdão na faixa mais alta de aderência tem até 3 vagas garantidas na lista). Saída compacta, 50 acórdãos por padrão (até 200): número, tribunal, data, órgão, **trecho** da ementa onde a tese aparece, link. Em lista própria, até 10 **precedentes qualificados** (temas, súmulas) que o site devolveu, sem repetidos |
 | `obter_ementa` | Ementa inteira de um acórdão já devolvido nesta sessão, pelo id, sem nova busca no site |
 | `obter_inteiro_teor` | Baixa o PDF oficial do portal do tribunal (STJ, TJMG, TSE) e devolve o caminho do arquivo. STF, TJGO e demais: devolve o link e explica como obter no navegador |
 | `listar_tribunais` | Para cada tribunal: busca, precedentes qualificados, teto de resultados por busca e se o inteiro teor é baixado ou só linkado |
@@ -115,8 +115,9 @@ civil do Estado por omissão."*
 - Mesma busca repetida traz o mesmo conjunto em **ordem variável** (o site reordena por IA).
 - **Busca ampla:** aderência mede proximidade de texto com a formulação, não relevância jurídica. A nota de
   relevância do site não entra na ordem: o site só reranqueia os primeiros de cada busca e dá aos demais uma nota
-  de outra escala. Para caber numa resposta, a saída mostra 100 caracteres do começo de cada ementa (sem o rótulo
-  "Ementa:") e 200 do texto de cada precedente qualificado; a ementa inteira sai por `obter_ementa`. A lista de
+  de outra escala. Para caber numa resposta, a saída mostra um trecho de ~120 caracteres de cada ementa, onde mais
+  palavras da formulação mais aderente aparecem juntas (sem nenhuma, o começo da ementa, sem o rótulo "Ementa:"),
+  e 200 do texto de cada precedente qualificado; a ementa inteira sai por `obter_ementa`. A lista de
   precedentes qualificados só traz o que o site devolve: há teses com tema conhecido em que ela vem vazia.
 - **Inteiro teor:** STF (proteção anti-robô), TJGO (reCAPTCHA) e os demais tribunais não são baixados
   automaticamente: o Garimpo devolve o link e explica como obter no navegador.
