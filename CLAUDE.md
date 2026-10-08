@@ -32,3 +32,17 @@ ao JurisprudênciaIA nem à JAI. Licença MIT. Feito para qualquer pessoa usar.
 - O dono é jurista, não programador: antes de mudança relevante, 2–3 frases do que vai fazer e por quê.
 - Pronto = rodou e foi visto funcionando (testes + uma chamada real quando a tarefa pede), não "deveria funcionar".
 - Commits pequenos, mensagem em pt-BR, `git add` com caminho explícito.
+
+## Agent skills
+
+### Issue tracker
+
+Tickets e specs ficam em `TICKETS/<bloco>/`, local e fora do git. Ver `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Estados em português: a-triar, falta-informacao, pronto-para-agente, pronto-para-humano, nao-fazer (fim: resolvido). Ver `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Contexto único: `CONTEXT.md` + `docs/adr/` na raiz. Ver `docs/agents/domain.md`.
