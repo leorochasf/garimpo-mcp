@@ -34,7 +34,7 @@ async function vagasDepoisDaLiberacao() {
   return vagasNaPasta();
 }
 
-/** Cliente com a coordenação real na pasta temporária; o relógio da coordenação pode ser falso. */
+/** Cliente com a coordenação real na pasta temporária; o relógio, comum ao cliente e à coordenação, pode ser falso. */
 function clienteNaPasta(
   respostas: (() => Response)[],
   extra: {
@@ -59,6 +59,7 @@ function clienteNaPasta(
     vagas: coordenacao,
     intervaloMinimoPorHost: extra.intervaloMinimoPorHost,
     esperar: extra.esperar ?? (async () => {}),
+    ...(relogio && { agora: () => relogio.agora }),
     fetch: (async (url: string) => {
       chamadas.push(url);
       const r = respostas.shift();
@@ -90,20 +91,25 @@ describe("vagas em arquivo", () => {
   });
 
   it("espera da pausa do host não ocupa vaga", async () => {
+    // Relógio falso: sob carga, o tempo real entre as chamadas pode passar da pausa, e a espera não aconteceria.
+    const relogio = { agora: 0 };
+    const esperas: number[] = [];
     const vistasNaEspera: string[][] = [];
     const { cliente, chamadas } = clienteNaPasta([() => respostaJson({}), () => respostaJson({})], {
+      relogio,
       intervaloMinimoPorHost: { "tse.test": 300 },
       esperar: async (ms) => {
+        esperas.push(ms);
         vistasNaEspera.push(await vagasNaPasta());
-        await tique(ms);
+        relogio.agora += ms;
       },
     });
     await (await cliente.requisitar("https://tse.test/a")).text();
-    await tique();
+    expect(await vagasDepoisDaLiberacao()).toEqual([]);
     await (await cliente.requisitar("https://tse.test/b")).text();
     expect(chamadas).toHaveLength(2);
-    expect(vistasNaEspera.length).toBeGreaterThan(0);
-    for (const vistas of vistasNaEspera) expect(vistas).toEqual([]);
+    expect(esperas).toEqual([300]);
+    expect(vistasNaEspera).toEqual([[]]);
   });
 
   it("liberar não apaga a aquisição nova que outro gravou no lugar", async () => {
