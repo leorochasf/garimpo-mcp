@@ -62,6 +62,41 @@ _Evitar_: tema (sozinho, é ambíguo entre tribunais)
 O PDF do acórdão baixado do portal do próprio tribunal, nunca de cópia de terceiro.
 _Evitar_: íntegra (do site), documento
 
+**Inteiro teor trazido pelo usuário**:
+O PDF que o usuário entrega ao Garimpo pelo caminho do arquivo (ex.: baixado à mão do STF ou do TJGO). A origem é declarada pelo usuário e não é conferida; nunca é chamado de oficial por declaração ou pelo nome do arquivo.
+_Evitar_: inteiro teor oficial, PDF oficial
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
+**Origem conferida**:
+Situação do PDF lido ao lado de um recibo de origem válido, que registra download pelo Garimpo, com o mesmo sha256 do arquivo atual. Sem isso, a origem é **não conferida**, mesmo que o recibo exista.
+_Evitar_: autenticado, certificado
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
+**Vínculo declarado**:
+A indicação, feita pelo usuário, de qual acórdão um PDF trazido seria. Preenche o cabeçalho, mas não prova a identidade do PDF; achar ou não o número do processo no texto é só informativo.
+_Evitar_: vínculo confirmado, identificação
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
+**Página do PDF**:
+A posição de uma página dentro do arquivo do inteiro teor. Não é a folha dos autos.
+_Evitar_: folha, fl.
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
+**Parte**:
+Um pedaço da leitura do inteiro teor como texto, formado por páginas do PDF inteiras até um teto de tamanho; uma página grande demais é dividida em segmentos, com a continuação indicada.
+_Evitar_: página (uma parte tem várias), bloco, chunk
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
+**Recibo de origem**:
+A declaração do próprio Garimpo, gravada ao lado do PDF, de onde, quando e com que sha256 o arquivo foi obtido. Prova que os bytes não mudaram desde então; não é certidão do tribunal nem autenticação independente.
+_Evitar_: certidão, comprovante oficial, autenticação
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
+**Página sem texto extraível**:
+Página do PDF da qual não sai texto nenhum. Pode ser imagem escaneada, mas isso não é afirmado; nunca é lida como "página sem conteúdo".
+_Evitar_: página escaneada (é só uma das causas), página vazia
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
 **Recusa**:
 Uma resposta do site ou do tribunal que nega a chamada (429, 403, 503, desafio anti-robô, captcha). O Garimpo nunca contorna uma recusa: espera e tenta uma vez, ou para e avisa.
 _Evitar_: erro (genérico demais), bloqueio contornável
