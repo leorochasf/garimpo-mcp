@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { acordaoNaMemoria, buscaDireta, normalizar } from "../src/busca.js";
+import { buscaDireta, normalizar } from "../src/busca.js";
 import { FormatoInesperadoError } from "../src/cliente.js";
+import { Memoria } from "../src/memoria.js";
 import { clienteFalso, fixture, respostaJson } from "./apoio.js";
 
 describe("busca direta", () => {
@@ -20,14 +21,15 @@ describe("busca direta", () => {
 
   it("STJ sem classe: não quebra, mantém o número e segue a ordem reranqueada", async () => {
     const { cliente } = clienteFalso([respostaJson(fixture("stj-sem-classe.json"))]);
-    const r = await buscaDireta(cliente, { tribunal: "stj", texto: "exemplo" });
+    const memoria = new Memoria();
+    const r = await buscaDireta(cliente, { tribunal: "stj", texto: "exemplo" }, memoria);
     expect(r.acordaos.map((a) => a.id)).toEqual(["stj:202", "stj:201"]);
     const semClasse = r.acordaos[1];
     expect(semClasse.numero).toBe("1.000.001/SP");
     expect(semClasse.classe).toBeUndefined();
     expect(semClasse.relevancia).toBe(0.1);
     expect(semClasse.link).toMatch(/num_registro=202000000001/);
-    expect(acordaoNaMemoria("stj:201")?.ementa).toMatch(/EXEMPLO FICTÍCIO/);
+    expect((await memoria.obter("stj:201"))?.acordao.ementa).toMatch(/EXEMPLO FICTÍCIO/);
   });
 
   it("precedentes qualificados ficam separados dos acórdãos (súmula do reranqueamento não vira acórdão)", () => {
@@ -80,11 +82,12 @@ describe("busca direta", () => {
         ],
       }),
     ]);
-    const r = await buscaDireta(cliente, { tribunal: "tjrs", texto: "exemplo" });
+    const memoria = new Memoria();
+    const r = await buscaDireta(cliente, { tribunal: "tjrs", texto: "exemplo" }, memoria);
 
     expect(r.acordaos.map((a) => a.id)).toEqual(["tjrs:copia-b", "tjrs:outro"]);
-    expect(acordaoNaMemoria("tjrs:copia-a")?.numero).toBe("0000009-99.2024.8.21.0001");
-    expect(acordaoNaMemoria("tjrs:copia-a")?.link).toBe("https://exemplo.test/b");
+    expect((await memoria.obter("tjrs:copia-a"))?.acordao.numero).toBe("0000009-99.2024.8.21.0001");
+    expect((await memoria.obter("tjrs:copia-a"))?.acordao.link).toBe("https://exemplo.test/b");
   });
 
   it("formato inesperado vira erro claro, não lista vazia", () => {

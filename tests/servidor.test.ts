@@ -919,7 +919,7 @@ describe("inteiro teor trazido pelo usuário (pela porta)", () => {
       return { ...m, caminho };
     }
 
-    it("pelo id da busca: cabeçalho preenchido da memória da sessão, com a marca \"declarado\", número encontrado no texto, e a parte seguinte com o mesmo vínculo", async () => {
+    it("pelo id da busca: cabeçalho preenchido da memória do Garimpo, com a marca \"declarado\", número encontrado no texto, e a parte seguinte com o mesmo vínculo", async () => {
       const paginas = Array.from({ length: 30 }, (_, i) =>
         i === 0 ? ["Processo n. 1000002-03.2024.8.26.0001", ...pagina(1)] : [...pagina(i + 1), ...pagina(i + 1), ...pagina(i + 1), ...pagina(i + 1), ...pagina(i + 1)],
       );
@@ -971,7 +971,7 @@ describe("inteiro teor trazido pelo usuário (pela porta)", () => {
       const a = JSON.parse((await semTexto.chamar("ler_inteiro_teor", { caminho: semTexto.caminho, tribunal: "tjgo", numero: "5000009-99.2023.8.09.0001" })).texto);
       expect(a.cabecalho.numeroNoTexto).toBe("não verificável");
 
-      // Id que não está na memória desta sessão: vale o que foi informado, sem nova chamada à rede.
+      // Id que não está na memória do Garimpo: vale o que foi informado, sem nova chamada à rede.
       const semNumero = await trazido([pagina(1)]);
       const b = JSON.parse((await semNumero.chamar("ler_inteiro_teor", { caminho: semNumero.caminho, id: "tjsp:999" })).texto);
       expect(b.cabecalho).toMatchObject({
@@ -981,7 +981,7 @@ describe("inteiro teor trazido pelo usuário (pela porta)", () => {
         vinculo: expect.stringMatching(VINCULO),
         numeroNoTexto: "não verificável",
       });
-      expect(b.avisos).toContainEqual("O acórdão tjsp:999 não está na memória desta sessão: o cabeçalho traz só o que foi informado.");
+      expect(b.avisos).toContainEqual("O acórdão tjsp:999 não está na memória do Garimpo: o cabeçalho traz só o que foi informado.");
     });
 
     it("sem vínculo informado: nem marca de vínculo nem conferência do número", async () => {

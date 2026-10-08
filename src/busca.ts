@@ -6,6 +6,7 @@
 import { Cliente, FormatoInesperadoError } from "./cliente.js";
 import { type Enquadramento927, enquadrarAcordao, enquadrarQualificado, type ParadigmaDoSite } from "./enquadramento.js";
 import { juntarEquivalentes } from "./equivalencia.js";
+import type { Memoria } from "./memoria.js";
 import { infoTribunal } from "./tribunais.js";
 
 export const SITE = "https://www.jurisprudenciaia.com.br";
@@ -88,19 +89,8 @@ const LISTAS_QUALIFICADOS: Record<string, string> = {
 
 const LISTAS_ACORDAOS = ["results", "juris"];
 
-/** Memória da sessão: acórdãos já devolvidos, por id composto. Não refaz busca no site. */
-const memoria = new Map<string, Acordao>();
-
-export function acordaoNaMemoria(id: string): Acordao | undefined {
-  return memoria.get(id);
-}
-
-/** Guarda o acórdão sob o id de cada cópia, para que qualquer um deles leia a ementa e peça o inteiro teor. */
-export function lembrar(ids: readonly string[], acordao: Acordao): void {
-  for (const id of ids) memoria.set(id, acordao);
-}
-
-export async function buscaDireta(cliente: Cliente, p: ParametrosBusca): Promise<ResultadoBusca> {
+/** Sem `memoria`, os acórdãos não são guardados (a busca ampla guarda depois de juntar as cópias). */
+export async function buscaDireta(cliente: Cliente, p: ParametrosBusca, memoria?: Memoria): Promise<ResultadoBusca> {
   const tribunal = p.tribunal.toLowerCase();
   const info = infoTribunal(tribunal);
   if (!info) throw new Error(`Tribunal "${p.tribunal}" não é coberto pela busca direta. Use listar_tribunais.`);
@@ -137,10 +127,9 @@ export async function buscaDireta(cliente: Cliente, p: ParametrosBusca): Promise
   const { acordaos } = juntarEquivalentes(
     resultado.acordaos.map((registro, posicao) => ({ registro, formulacoes: new Set<number>(), melhorPosicao: posicao })),
   );
-  resultado.acordaos = acordaos.sort((a, b) => a.melhorPosicao - b.melhorPosicao).map((a) => {
-    lembrar(a.ids, a.registro);
-    return a.registro;
-  });
+  acordaos.sort((a, b) => a.melhorPosicao - b.melhorPosicao);
+  memoria?.lembrar(acordaos);
+  resultado.acordaos = acordaos.map((a) => a.registro);
   if (tribunal === "stf") {
     resultado.avisos.push(
       "O site costuma devolver poucos acórdãos do STF por busca (de 2 a 7 na medição de out/2026). " +

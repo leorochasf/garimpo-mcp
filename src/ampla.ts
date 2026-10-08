@@ -4,9 +4,10 @@
  */
 
 import { Cliente, RecusaError } from "./cliente.js";
-import { type Acordao, buscaDireta, type FiltrosBusca, lembrar, RESSALVA_ROTULO } from "./busca.js";
+import { type Acordao, buscaDireta, type FiltrosBusca, RESSALVA_ROTULO } from "./busca.js";
 import { ART_927_CONFERIDO_EM } from "./enquadramento.js";
 import { juntarEquivalentes, type Ocorrencia } from "./equivalencia.js";
+import type { Memoria } from "./memoria.js";
 import { ordenarPorAderencia, trecho } from "./pontuacao.js";
 import { juntarQualificados, type QualificadoAmplo, type QualificadosDaBusca, reservarPorTribunal } from "./saida.js";
 
@@ -70,7 +71,7 @@ export interface ResultadoAmplo {
   avisos: string[];
 }
 
-export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<ResultadoAmplo> {
+export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla, memoria?: Memoria): Promise<ResultadoAmplo> {
   const tarefas = p.tribunais.flatMap((t) =>
     p.formulacoes.map((texto, f) => ({
       tribunal: t.toLowerCase(),
@@ -166,7 +167,7 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<
   // Cópias do mesmo acórdão achadas em buscas diferentes viram um acórdão só (mesmo tribunal, data e ementa,
   // sem números de processo que se contradigam).
   const juncao = juntarEquivalentes([...juntos.values()]);
-  for (const j of juncao.acordaos) lembrar(j.ids, j.registro);
+  memoria?.lembrar(juncao.acordaos);
   // A nota de relevância do site fica de fora de propósito: só os primeiros de cada busca são reranqueados
   // (rerank_score), os demais vêm com score de outra escala, e notas de buscas diferentes não se comparam.
   // A melhor posição na busca de origem já põe os reranqueados na frente.

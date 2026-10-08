@@ -10,8 +10,8 @@ import { copyFile, link as ligar, lstat, mkdir, readFile, rm, writeFile } from "
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { Cliente, VERSAO } from "./cliente.js";
-import { acordaoNaMemoria } from "./busca.js";
 import { FORMATO_RECIBO, LIMITE_BYTES_PDF, NAO_INFORMADO, ORIGEM_DOWNLOAD } from "./leitura.js";
+import type { Memoria } from "./memoria.js";
 import { infoTribunal } from "./tribunais.js";
 
 export interface PedidoInteiroTeor {
@@ -72,11 +72,13 @@ export function pastaPadrao(): string {
 export async function obterInteiroTeor(
   pedido: PedidoInteiroTeor,
   clienteDe: ClientePorTribunal = clientePadrao,
+  memoria?: Memoria,
 ): Promise<ResultadoInteiroTeor> {
-  const acordao = pedido.id ? acordaoNaMemoria(pedido.id) : undefined;
+  const acordao = pedido.id ? (await memoria?.obter(pedido.id))?.acordao : undefined;
   if (pedido.id && !acordao && !pedido.link) {
     throw new Error(
-      `O acórdão ${pedido.id} não está na memória desta sessão. Refaça a busca ou informe tribunal e link.`,
+      `O acórdão ${pedido.id} não está na memória do Garimpo, que guarda os acórdãos por 24 h desde a busca. ` +
+        "Refaça a busca que o trouxe ou informe tribunal e link.",
     );
   }
   const tribunal = (acordao?.tribunal ?? pedido.tribunal ?? pedido.id?.split(":")[0] ?? "").toLowerCase();

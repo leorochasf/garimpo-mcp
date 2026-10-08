@@ -7,7 +7,8 @@ import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
-import { acordaoNaMemoria } from "./busca.js";
+import type { Acordao } from "./busca.js";
+import type { Memoria } from "./memoria.js";
 
 /**
  * Teto de uma resposta, cabeçalho incluído: cerca de 8 mil tokens estimados, a 3 caracteres por token (estimativa
@@ -69,8 +70,9 @@ export async function lerInteiroTeor(
   caminhoPedido: string,
   parte = 1,
   informado: VinculoInformado = {},
+  memoria?: Memoria,
 ): Promise<ParteDoInteiroTeor> {
-  const { base, partes, n } = await abrir(caminhoPedido, informado);
+  const { base, partes, n } = await abrir(caminhoPedido, informado, memoria);
   const total = partes.length;
   if (!Number.isInteger(parte) || parte < 1 || parte > total) {
     throw new Error(
@@ -132,7 +134,7 @@ export async function lerParaConferir(caminhoPedido: string): Promise<InteiroTeo
 }
 
 /** Lê o PDF, confere a origem, extrai o texto e o divide em partes; o cabeçalho de cada parte sai de `base`. */
-async function abrir(caminhoPedido: string, informado: VinculoInformado) {
+async function abrir(caminhoPedido: string, informado: VinculoInformado, memoria?: Memoria) {
   const { bytes, caminho } = await lerArquivo(caminhoPedido);
   const sha256 = createHash("sha256").update(bytes).digest("hex");
   const origem = await conferirOrigem(caminho, sha256);
@@ -148,10 +150,11 @@ async function abrir(caminhoPedido: string, informado: VinculoInformado) {
       "O vínculo informado não foi usado: a origem deste PDF é conferida pelo recibo, e o cabeçalho vem dele.",
     );
   } else if (usado) {
-    campos = vinculoDoUsuario(informado, paginas);
-    if (informado.id && !acordaoNaMemoria(informado.id)) {
+    const lembrado = informado.id ? (await memoria?.obter(informado.id))?.acordao : undefined;
+    campos = vinculoDoUsuario(informado, paginas, lembrado);
+    if (informado.id && !lembrado) {
       avisos.push(
-        `O acórdão ${informado.id} não está na memória desta sessão: o cabeçalho traz só o que foi informado.`,
+        `O acórdão ${informado.id} não está na memória do Garimpo: o cabeçalho traz só o que foi informado.`,
       );
     }
   }
@@ -195,11 +198,10 @@ async function abrir(caminhoPedido: string, informado: VinculoInformado) {
 }
 
 /**
- * Cabeçalho pelo vínculo declarado pelo usuário: o que a memória da sessão tem do id, os dados informados por cima e
+ * Cabeçalho pelo vínculo declarado pelo usuário: o que a memória do Garimpo tem do id (`a`), os dados informados por cima e
  * "não informado" no resto, sem chamar a rede. A busca do número do processo no texto é só informativa.
  */
-function vinculoDoUsuario(informado: VinculoInformado, paginas: string[]) {
-  const a = informado.id ? acordaoNaMemoria(informado.id) : undefined;
+function vinculoDoUsuario(informado: VinculoInformado, paginas: string[], a: Acordao | undefined) {
   const numero = informado.numero ?? (a && !a.semNumero ? a.numero : undefined);
   const campos = {
     tribunal: (informado.tribunal ?? a?.tribunal ?? informado.id?.split(":")[0])?.toUpperCase() || NAO_INFORMADO,
@@ -213,7 +215,7 @@ function vinculoDoUsuario(informado: VinculoInformado, paginas: string[]) {
     vinculo:
       "declarado pelo usuário: os dados acima dizem qual acórdão seria este PDF, mas não provam que ele é esse " +
       "acórdão; o número no texto é só informativo",
-    // O número indicado pelo usuário; sem ele, o que a memória da sessão tem do id (número e CNJ).
+    // O número indicado pelo usuário; sem ele, o que a memória tem do id (número e CNJ).
     numeroNoTexto: numeroNoTexto(informado.numero ? [informado.numero] : [numero, a?.numeroCnj], paginas.join("\n")),
   };
 }

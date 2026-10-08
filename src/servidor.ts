@@ -7,8 +7,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { Cliente, VERSAO } from "./cliente.js";
-import { acordaoNaMemoria, buscaDireta } from "./busca.js";
+import { buscaDireta } from "./busca.js";
 import { buscaAmpla } from "./ampla.js";
+import { pastaDeDados } from "./coordenacao.js";
 import { conferirNaEmenta, conferirNoInteiroTeor, lerCitacao, naoVerificavel } from "./conferencia.js";
 import {
   type ClientePorTribunal,
@@ -24,6 +25,7 @@ import {
   lerInteiroTeor,
   lerParaConferir,
 } from "./leitura.js";
+import { Memoria, obtidoDoSite } from "./memoria.js";
 import { SIGLAS, TRIBUNAIS } from "./tribunais.js";
 
 // Tribunal e datas são conferidos dentro da ferramenta, não no esquema: o erro do esquema sai embrulhado em texto
@@ -128,13 +130,25 @@ export interface OpcoesServidor {
   tribunais?: ClientePorTribunal;
   /** Pasta onde o PDF é salvo quando a chamada não informa outra (padrão: pastaPadrao(), lida a cada chamada). */
   pasta?: string;
+  /** Pasta de dados, cuja subpasta "memoria" guarda os acórdãos para todas as janelas (padrão: pastaDeDados()). */
+  dados?: string;
+  /** Relógio (ms) da validade da memória e da data de obtenção. */
+  agora?: () => number;
+  /** Teto de espaço da memória em disco (padrão: 200 MB). */
+  tetoDaMemoria?: number;
 }
 
 export function criarServidor(
   site: Cliente,
-  { tribunais = clientePadrao, pasta }: OpcoesServidor = {},
+  { tribunais = clientePadrao, pasta, dados, agora, tetoDaMemoria }: OpcoesServidor = {},
 ): McpServer {
   const servidor = new McpServer({ name: "garimpo", version: VERSAO });
+  // GARIMPO_SEM_MEMORIA=1 desliga só a memória em disco (a janela guarda enquanto está aberta), nunca o freio.
+  const memoria = new Memoria({
+    dados: process.env.GARIMPO_SEM_MEMORIA === "1" ? undefined : (dados ?? pastaDeDados()),
+    agora,
+    tetoBytes: tetoDaMemoria,
+  });
 
   servidor.registerTool(
     "busca_direta",
@@ -162,7 +176,7 @@ export function criarServidor(
       try {
         conferirTribunais(args.tribunal);
         conferirDatas(args);
-        return comAvisoNaturezaJuridica(await buscaDireta(site, args));
+        return comAvisoNaturezaJuridica(await buscaDireta(site, args, memoria));
       } catch (e) {
         return erro(e);
       }
@@ -202,7 +216,7 @@ export function criarServidor(
       try {
         conferirTribunais(...args.tribunais);
         conferirDatas(args);
-        return comAvisoNaturezaJuridica(await buscaAmpla(site, args));
+        return comAvisoNaturezaJuridica(await buscaAmpla(site, args, memoria));
       } catch (e) {
         return erro(e);
       }
@@ -214,15 +228,24 @@ export function criarServidor(
     {
       title: "Obter ementa",
       description:
-        "Devolve a ementa inteira e os dados de um acórdão já devolvido por busca_direta ou busca_ampla nesta " +
-        "sessão, pelo id (ex.: \"stj:12345\"), com o mesmo enquadramento927 da busca. Não faz nova busca no site.",
+        "Devolve a ementa inteira e os dados de um acórdão já devolvido por busca_direta ou busca_ampla, pelo id " +
+        "(ex.: \"stj:12345\"), com o mesmo enquadramento927 da busca e a data e hora em que foi obtido do site " +
+        "(obtidoDoSite). A memória do Garimpo guarda os acórdãos por 24 h desde a busca, para todas as janelas. " +
+        "Não faz nova busca no site: fora da memória, refaça a busca que o trouxe.",
       annotations: { readOnlyHint: true, openWorldHint: false },
       inputSchema: { id: z.string().describe("Id do acórdão, como veio na busca (tribunal:id)") },
     },
     async ({ id }) => {
-      const a = acordaoNaMemoria(id);
-      if (!a) return erro(new Error(`O acórdão ${id} não está na memória desta sessão. Refaça a busca que o trouxe.`));
-      return comAvisoNaturezaJuridica(a);
+      const guardado = await memoria.obter(id);
+      if (!guardado) {
+        return erro(
+          new Error(
+            `O acórdão ${id} não está na memória do Garimpo, que guarda os acórdãos por 24 h desde a busca. ` +
+              "Refaça a busca que o trouxe.",
+          ),
+        );
+      }
+      return comAvisoNaturezaJuridica({ ...guardado.acordao, obtidoDoSite: obtidoDoSite(guardado.obtidoEm) });
     },
   );
 
@@ -256,7 +279,7 @@ export function criarServidor(
     async ({ texto = true, ...args }) => {
       try {
         conferirTribunais(args.tribunal);
-        const r = await obterInteiroTeor({ ...args, pasta: args.pasta ?? pasta }, tribunais);
+        const r = await obterInteiroTeor({ ...args, pasta: args.pasta ?? pasta }, tribunais, memoria);
         return json(r.baixado ? await comPrimeiraParteOuTotal(r, texto) : r);
       } catch (e) {
         return erro(e);
@@ -277,7 +300,7 @@ export function criarServidor(
         "vem como \"não informado\". A origem só é conferida com o recibo de origem ao lado do PDF e o mesmo sha256; " +
         "senão vem \"não conferida\", com o motivo. PDF sem recibo é inteiro teor trazido pelo usuário: origem " +
         "declarada, não conferida, nunca oficial. Para ele, informe se quiser o id da busca, ou tribunal + número: o " +
-        "cabeçalho vem como vínculo declarado (da memória da sessão, sem rede) e diz se o número aparece no texto " +
+        "cabeçalho vem como vínculo declarado (da memória do Garimpo, sem rede) e diz se o número aparece no texto " +
         "(encontrado / não encontrado / não verificável; só informativo). Página sem texto extraível é avisada " +
         "(não faz OCR). Só lê: não grava, não copia e não chama a rede. Comece pela parte 1; a resposta traz a " +
         "chamada para a parte seguinte.",
@@ -296,7 +319,7 @@ export function criarServidor(
     async ({ caminho, parte, ...vinculo }) => {
       try {
         conferirTribunais(vinculo.tribunal);
-        return json(await lerInteiroTeor(caminho, parte, vinculo));
+        return json(await lerInteiroTeor(caminho, parte, vinculo, memoria));
       } catch (e) {
         return erro(e);
       }
@@ -387,7 +410,7 @@ export function criarServidor(
         }
         const fontes = [];
         if (id !== undefined) {
-          const a = acordaoNaMemoria(id);
+          const a = (await memoria.obter(id))?.acordao;
           const conferida = a
             ? conferirNaEmenta(a.ementa, lida)
             : naoVerificavel(`O acórdão ${id} não está na memória do Garimpo. Refaça a busca que o trouxe e confira de novo.`);

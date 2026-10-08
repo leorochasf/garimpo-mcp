@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { buscaDireta } from "../src/busca.js";
 import { Cliente } from "../src/cliente.js";
 import { obterInteiroTeor, PAUSA_TSE_MS } from "../src/inteiroTeor.js";
+import { Memoria } from "../src/memoria.js";
 import { clienteFalso, fixture, respostaJson } from "./apoio.js";
 
 const PDF = new TextEncoder().encode("%PDF-1.7\nconteudo ficticio\n%%EOF");
@@ -137,12 +138,13 @@ describe("inteiro teor — link + explicação", () => {
         ],
       }),
     ]);
-    const r = await buscaDireta(busca.cliente, { tribunal: "stf", texto: "exemplo" });
+    const memoria = new Memoria();
+    const r = await buscaDireta(busca.cliente, { tribunal: "stf", texto: "exemplo" }, memoria);
     expect(r.acordaos.map((a) => a.linkConsulta)).toEqual([consulta, acordao]);
 
     const { cliente, chamadas } = clienteFalso([]);
     for (const [id, link] of [["stf:103", consulta], ["stf:104", acordao]]) {
-      const t = await obterInteiroTeor({ id, pasta }, () => cliente);
+      const t = await obterInteiroTeor({ id, pasta }, () => cliente, memoria);
       expect(t).toMatchObject({ baixado: false, link });
       if (!t.baixado) expect(t.explicacao).not.toMatch(/não trouxe link/);
     }
@@ -151,9 +153,10 @@ describe("inteiro teor — link + explicação", () => {
 
   it("TJGO devolve link, explicação e o número CNJ para pesquisar no portal", async () => {
     const busca = clienteFalso([respostaJson(fixture("tjgo.json"))]);
-    await buscaDireta(busca.cliente, { tribunal: "tjgo", texto: "exemplo" });
+    const memoria = new Memoria();
+    await buscaDireta(busca.cliente, { tribunal: "tjgo", texto: "exemplo" }, memoria);
     const { cliente, chamadas } = clienteFalso([]);
-    const r = await obterInteiroTeor({ id: "tjgo:301", pasta }, () => cliente);
+    const r = await obterInteiroTeor({ id: "tjgo:301", pasta }, () => cliente, memoria);
     expect(r.baixado).toBe(false);
     if (r.baixado) return;
     expect(r.link).toMatch(/^https:\/\/projudi\.tjgo\.jus\.br/);
@@ -186,15 +189,16 @@ describe("inteiro teor — TJMG e TSE", () => {
     const base = "https://www5.tjmg.jus.br/jurisprudencia/relatorioEspelhoAcordao.do?inteiroTeor=true&numero=";
     const mesmoNumero = (id: string) => ({ id, numero_processo: "1.0000.00.000001-0/001", texto_ementa: "EMENTA FICTÍCIA.", link_pdf: `${base}${id}` });
     const busca = clienteFalso([respostaJson({ results: [mesmoNumero("901"), mesmoNumero("902")] })]);
-    await buscaDireta(busca.cliente, { tribunal: "tjmg", texto: "exemplo" });
+    const memoria = new Memoria();
+    await buscaDireta(busca.cliente, { tribunal: "tjmg", texto: "exemplo" }, memoria);
 
     const conteudo = (t: string) => () => new Response(new TextEncoder().encode(`%PDF-1.7\n${t}\n%%EOF`));
     const { cliente } = clienteFalso([conteudo("A"), conteudo("B"), conteudo("B2"), conteudo("B2")]);
-    const a = await obterInteiroTeor({ id: "tjmg:901", pasta }, () => cliente);
-    const b = await obterInteiroTeor({ id: "tjmg:902", pasta }, () => cliente);
+    const a = await obterInteiroTeor({ id: "tjmg:901", pasta }, () => cliente, memoria);
+    const b = await obterInteiroTeor({ id: "tjmg:902", pasta }, () => cliente, memoria);
     // O mesmo acórdão de novo com conteúdo diferente: arquivo novo; com conteúdo igual: reaproveita.
-    const b2 = await obterInteiroTeor({ id: "tjmg:902", pasta }, () => cliente);
-    const b3 = await obterInteiroTeor({ id: "tjmg:902", pasta }, () => cliente);
+    const b2 = await obterInteiroTeor({ id: "tjmg:902", pasta }, () => cliente, memoria);
+    const b3 = await obterInteiroTeor({ id: "tjmg:902", pasta }, () => cliente, memoria);
     if (!a.baixado || !b.baixado || !b2.baixado || !b3.baixado) throw new Error("deveria ter baixado");
 
     expect(new Set([a.arquivo, b.arquivo, b2.arquivo]).size).toBe(3);

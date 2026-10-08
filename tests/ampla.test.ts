@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buscaAmpla } from "../src/ampla.js";
-import { acordaoNaMemoria, buscaDireta } from "../src/busca.js";
+import { buscaDireta } from "../src/busca.js";
 import { Cliente, RecusaError, Vagas } from "../src/cliente.js";
+import { Memoria } from "../src/memoria.js";
 import { respostaJson } from "./apoio.js";
 
 /** Acórdão fictício no formato do site. */
@@ -203,11 +204,12 @@ describe("busca ampla", () => {
             : [bruto("copia-b", 0.5, ementa)],
       }),
     );
-    const r = await buscaAmpla(cliente, { formulacoes: ["a", "b"], tribunais: ["stj"] });
+    const memoria = new Memoria();
+    const r = await buscaAmpla(cliente, { formulacoes: ["a", "b"], tribunais: ["stj"] }, memoria);
 
     expect(r.totalAcordaos).toBe(1);
     expect(r.acordaos.map((a) => [a.id, a.numero, a.formulacoes])).toEqual([["stj:copia-b", "copia-b/UF", 2]]);
-    expect(acordaoNaMemoria("stj:copia-a")?.numero).toBe("copia-b/UF");
+    expect((await memoria.obter("stj:copia-a"))?.acordao.numero).toBe("copia-b/UF");
   });
 
   it("recusa no meio: devolve o que já juntou, avisa que ficou incompleta e não faz novas buscas", async () => {
@@ -274,7 +276,8 @@ describe("busca ampla", () => {
         })),
       }),
     );
-    const r = await buscaAmpla(cliente, { formulacoes: ["a", "b", "c"], tribunais: ["stj"] });
+    const memoria = new Memoria();
+    const r = await buscaAmpla(cliente, { formulacoes: ["a", "b", "c"], tribunais: ["stj"] }, memoria);
 
     expect(r.totalAcordaos).toBe(300);
     expect(r.mostrados).toBe(50);
@@ -282,7 +285,7 @@ describe("busca ampla", () => {
     expect(JSON.stringify(r).length).toBeLessThan(25_000);
 
     const antes = estado.chamadas;
-    expect(acordaoNaMemoria(r.acordaos[0].id)?.ementa).toBe(ementaLonga);
+    expect((await memoria.obter(r.acordaos[0].id))?.acordao.ementa).toBe(ementaLonga);
     expect(estado.chamadas).toBe(antes);
   });
 });
