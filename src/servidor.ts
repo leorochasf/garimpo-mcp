@@ -53,6 +53,8 @@ export function criarServidor(site: Cliente): McpServer {
         "Pesquisa jurisprudência num tribunal pela busca direta do JurisprudênciaIA (sem o chat de IA do site). " +
         "Devolve acórdãos com ementa inteira, número, órgão, data e link oficial, e, em lista separada, os " +
         "precedentes qualificados (temas, súmulas). O site costuma devolver poucos acórdãos do STF por busca (de 2 a 7 na medição de out/2026). " +
+        "O campo cabecalhoDeCobertura diz se veio o número pedido (pode haver mais) ou menos (a base não tem mais " +
+        "para o texto; no STF, que devolve poucos por busca, pode haver mais). " +
         "Ementas são longas: prefira limite baixo aqui e busca_ampla para volume.",
       annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: {
@@ -82,7 +84,10 @@ export function criarServidor(site: Cliente): McpServer {
         "posição na busca de origem. Cada tribunal pedido com acórdão aderente tem vagas garantidas. Aderência mede " +
         "proximidade de texto, não relevância jurídica. Saída compacta: número, tribunal, data, órgão, trecho da " +
         "ementa onde a tese aparece e link; e, em lista separada, os precedentes qualificados (temas, súmulas) que " +
-        "o site devolveu. Para ler a ementa inteira, use obter_ementa com o id. " +
+        "o site devolveu. O campo cabecalhoDeCobertura traz, por tribunal, buscas feitas, vazias, com erro e não " +
+        "feitas, acórdãos achados e mostrados; as formulações que não trouxeram nada; e se a lista foi cortada pelo " +
+        "máximo. Busca vazia não é busca com erro: tribunal em que nenhuma busca deu resposta aparece \"com erro\" " +
+        "(ou \"não pesquisado\"), sem achados. Para ler a ementa inteira, use obter_ementa com o id. " +
         "Formulações boas variam sinônimos técnicos, dispositivo legal e nome do instituto.",
       annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: {

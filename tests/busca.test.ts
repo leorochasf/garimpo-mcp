@@ -95,3 +95,48 @@ describe("busca direta", () => {
     expect(chamadas).toHaveLength(0);
   });
 });
+
+describe("cabeçalho de cobertura da busca direta", () => {
+  const registros = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({ id: `d${i}`, texto_ementa: `EMENTA FICTÍCIA ${i}.`, numero_processo: `${i}/UF` }));
+  const cabecalho = async (tribunal: string, n: number, p: { limite?: number; de?: string } = {}) => {
+    const { cliente } = clienteFalso([respostaJson({ results: registros(n) })]);
+    return (await buscaDireta(cliente, { tribunal, texto: "exemplo", ...p })).cabecalhoDeCobertura;
+  };
+
+  it("veio o número pedido: pode haver mais", async () => {
+    expect(await cabecalho("stj", 3, { limite: 3 })).toBe(
+      "O site devolveu os 3 registros pedidos; pode haver mais: aumente o limite (até 100) ou use a busca ampla.",
+    );
+  });
+
+  it("veio o número pedido no limite de 100: só a busca ampla traz mais", async () => {
+    expect(await cabecalho("stj", 100, { limite: 100 })).toBe("O site devolveu os 100 registros pedidos; pode haver mais: use a busca ampla.");
+  });
+
+  it("veio menos que o pedido: a base não tem mais para este texto", async () => {
+    expect(await cabecalho("stj", 2)).toBe("O site devolveu 2 registros, menos que os 10 pedidos: a base não tem mais para este texto.");
+  });
+
+  it("veio menos que o pedido com filtro: a base não tem mais para este texto e estes filtros", async () => {
+    expect(await cabecalho("stj", 0, { de: "2024-01-01" })).toBe(
+      "O site devolveu 0 registros, menos que os 10 pedidos: a base não tem mais para este texto e estes filtros.",
+    );
+  });
+
+  it("STF com menos que o pedido: não diz que a base acabou, porque o site devolve poucos por busca", async () => {
+    expect(await cabecalho("stf", 3)).toBe(
+      "O site devolveu 3 registros; neste tribunal ele devolve poucos por busca (até 7), " +
+        "então pode haver mais: use a busca ampla com outras formulações.",
+    );
+  });
+
+  it("cópias juntadas não fazem a busca parecer menor que o pedido", async () => {
+    const ementa = "EMENTA FICTÍCIA DO MESMO ACÓRDÃO EM DOIS REGISTROS.";
+    const comum = { data_julgamento: "2025-05-06T00:00:00.000Z", orgao_julgador: "Câmara Exemplo", texto_ementa: ementa };
+    const { cliente } = clienteFalso([respostaJson({ results: [{ id: "a", ...comum }, { id: "b", ...comum }] })]);
+    const r = await buscaDireta(cliente, { tribunal: "stj", texto: "exemplo", limite: 2 });
+    expect(r.acordaos).toHaveLength(1);
+    expect(r.cabecalhoDeCobertura).toMatch(/^O site devolveu os 2 registros pedidos; pode haver mais/);
+  });
+});

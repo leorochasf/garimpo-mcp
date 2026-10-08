@@ -41,6 +41,8 @@ export interface Qualificado {
 
 export interface ResultadoBusca {
   tribunal: string;
+  /** Cabeçalho de cobertura: se veio o número pedido (pode haver mais) ou menos (a base não tem mais). */
+  cabecalhoDeCobertura?: string;
   acordaos: Acordao[];
   qualificados: Qualificado[];
   avisos: string[];
@@ -116,6 +118,9 @@ export async function buscaDireta(cliente: Cliente, p: ParametrosBusca): Promise
     throw new FormatoInesperadoError(`O JurisprudênciaIA devolveu algo que não é JSON na busca do ${tribunal.toUpperCase()}.`);
   }
   const resultado = normalizar(tribunal, json);
+  // Conta os registros que o site devolveu, antes de juntar cópias: a junção não diz nada sobre haver mais na base.
+  const filtrada = [p.de, p.ate, p.relator, p.orgao, p.classe].some(Boolean);
+  const cabecalhoDeCobertura = linhaDeCobertura(resultado.acordaos.length, corpo.limit as number, info.tetoResultados, filtrada);
   // Cópias do mesmo acórdão na base do site viram um acórdão só (mesmo tribunal, data e ementa,
   // sem números de processo que se contradigam).
   const { acordaos } = juntarEquivalentes(
@@ -131,7 +136,24 @@ export async function buscaDireta(cliente: Cliente, p: ParametrosBusca): Promise
         "Para mais, use outras formulações (busca_ampla).",
     );
   }
-  return resultado;
+  return { tribunal, cabecalhoDeCobertura, acordaos: resultado.acordaos, qualificados: resultado.qualificados, avisos: resultado.avisos };
+}
+
+/**
+ * O site não informa o total da base: só dá para dizer se veio o número pedido ou menos. Conta registros (antes de
+ * juntar cópias). Onde o site devolve menos que o pedido por busca (STF), vir menos não quer dizer que a base acabou.
+ */
+function linhaDeCobertura(vieram: number, pedidos: number, tetoDoSite: number, filtrada: boolean): string {
+  if (vieram < pedidos && tetoDoSite < 100) {
+    return `O site devolveu ${vieram} registros; neste tribunal ele devolve poucos por busca (até ${tetoDoSite}), ` +
+      "então pode haver mais: use a busca ampla com outras formulações.";
+  }
+  if (vieram < pedidos) {
+    const eFiltros = filtrada ? " e estes filtros" : "";
+    return `O site devolveu ${vieram} registros, menos que os ${pedidos} pedidos: a base não tem mais para este texto${eFiltros}.`;
+  }
+  const comoVerMais = pedidos < 100 ? "aumente o limite (até 100) ou use a busca ampla" : "use a busca ampla";
+  return `O site devolveu os ${pedidos} registros pedidos; pode haver mais: ${comoVerMais}.`;
 }
 
 type Bruto = Record<string, unknown>;

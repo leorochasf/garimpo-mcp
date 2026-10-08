@@ -31,12 +31,36 @@ export interface ItemAmplo {
   formulacoes: number;
 }
 
+/** Linha do cabeçalho de cobertura de um tribunal. Busca vazia e busca com erro nunca se confundem. */
+export interface CoberturaTribunal {
+  tribunal: string;
+  buscasFeitas: number;
+  vazias: number;
+  comErro: number;
+  /** Só quando uma recusa parou a busca ampla antes de rodar todas as formulações neste tribunal. */
+  naoFeitas?: number;
+  /** Só quando alguma busca do tribunal deu resposta: sem nenhuma, não há "0 achados" a mostrar. */
+  achados?: number;
+  mostrados?: number;
+  /** Nenhuma busca do tribunal deu resposta: "com erro", ou "não pesquisado" se a busca parou antes dele. */
+  situacao?: "com erro" | "não pesquisado";
+}
+
+export interface CabecalhoDeCobertura {
+  porTribunal: CoberturaTribunal[];
+  /** Formulações que não trouxeram nenhum acórdão em nenhum tribunal (todas as buscas delas deram resposta). */
+  formulacoesSemAcordao: string[];
+  /** Só quando a lista foi cortada pelo máximo. */
+  listaCortada?: string;
+}
+
 export interface ResultadoAmplo {
   buscasFeitas: number;
   buscasPlanejadas: number;
   completa: boolean;
   totalAcordaos: number;
   mostrados: number;
+  cabecalhoDeCobertura: CabecalhoDeCobertura;
   acordaos: ItemAmplo[];
   /** Precedentes qualificados que as buscas devolveram, sem repetidos. */
   qualificados: QualificadoAmplo[];
@@ -44,12 +68,20 @@ export interface ResultadoAmplo {
 }
 
 export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<ResultadoAmplo> {
-  const tarefas = p.tribunais.flatMap((tribunal) => p.formulacoes.map((texto, f) => ({ tribunal, texto, f })));
+  const tarefas = p.tribunais.flatMap((t) => p.formulacoes.map((texto, f) => ({ tribunal: t.toLowerCase(), texto, f })));
   const juntos = new Map<string, Ocorrencia<Acordao>>();
   const qualificados: QualificadosDaBusca[] = [];
   const avisos: string[] = [];
   let feitas = 0;
   let recusa: RecusaError | undefined;
+  const porTribunal = new Map<string, { planejadas: number; buscasFeitas: number; vazias: number; comErro: number }>();
+  for (const t of tarefas) {
+    const contas = porTribunal.get(t.tribunal) ?? { planejadas: 0, buscasFeitas: 0, vazias: 0, comErro: 0 };
+    contas.planejadas++;
+    porTribunal.set(t.tribunal, contas);
+  }
+  // Por formulação: quantas buscas dela deram resposta e quantos acórdãos trouxeram somando os tribunais.
+  const porFormulacao = p.formulacoes.map(() => ({ respostas: 0, acordaos: 0 }));
 
   // Duas filas de trabalho, como o cliente: depois de uma recusa ninguém pega tarefa nova.
   let proxima = 0;
@@ -68,7 +100,12 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<
           classe: p.classe,
         });
         feitas++;
-        qualificados.push({ tribunal: t.tribunal.toLowerCase(), formulacao: t.f, qualificados: r.qualificados });
+        const contas = porTribunal.get(t.tribunal)!;
+        contas.buscasFeitas++;
+        if (r.acordaos.length === 0) contas.vazias++;
+        porFormulacao[t.f].respostas++;
+        porFormulacao[t.f].acordaos += r.acordaos.length;
+        qualificados.push({ tribunal: t.tribunal, formulacao: t.f, qualificados: r.qualificados });
         r.acordaos.forEach((a, posicao) => {
           const atual = juntos.get(a.id) ?? { registro: a, formulacoes: new Set(), melhorPosicao: Infinity };
           atual.formulacoes.add(t.f);
@@ -76,6 +113,7 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<
           juntos.set(a.id, atual);
         });
       } catch (e) {
+        porTribunal.get(t.tribunal)!.comErro++;
         if (e instanceof RecusaError) recusa ??= e;
         else avisos.push(`${t.tribunal.toUpperCase()} / formulação ${t.f + 1}: ${(e as Error).message}`);
       }
@@ -117,12 +155,34 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<
   // Tamanhos escolhidos para 50 acórdãos + 10 qualificados caberem numa resposta (< 25 mil caracteres) com campos
   // de tamanho real (número CNJ, links longos): ver o teste de tamanho em tests/ampla.test.ts.
   const tamanho = p.tamanhoTrecho ?? 120;
+  const cabecalho: CabecalhoDeCobertura = {
+    porTribunal: [...porTribunal].map(([tribunal, { planejadas, ...contas }]) => {
+      const naoFeitas = planejadas - contas.buscasFeitas - contas.comErro;
+      const linha: CoberturaTribunal = { tribunal, ...contas, ...(naoFeitas ? { naoFeitas } : {}) };
+      if (contas.buscasFeitas === 0) return { ...linha, situacao: contas.comErro ? "com erro" : "não pesquisado" };
+      return {
+        ...linha,
+        achados: ordenados.filter((x) => x.tribunal === tribunal).length,
+        mostrados: mostrados.filter((x) => x.tribunal === tribunal).length,
+      };
+    }),
+    // Formulação com busca com erro ou não feita em algum tribunal fica de fora: lá ela não foi verificada.
+    formulacoesSemAcordao: p.formulacoes.filter(
+      (_, f) => porFormulacao[f].respostas === p.tribunais.length && porFormulacao[f].acordaos === 0,
+    ),
+  };
+  if (mostrados.length < ordenados.length) {
+    cabecalho.listaCortada =
+      `mostrando ${mostrados.length} de ${ordenados.length}; ` +
+      (maximo < 200 ? "para ver mais, peça máximo maior (até 200)" : "200 é o máximo por resposta");
+  }
   return {
     buscasFeitas: feitas,
     buscasPlanejadas: tarefas.length,
     completa: !recusa && feitas === tarefas.length,
     totalAcordaos: ordenados.length,
     mostrados: mostrados.length,
+    cabecalhoDeCobertura: cabecalho,
     acordaos: mostrados.map(({ acordao: a, formulacoes }) => {
       const ementa = a.ementa.replace(/^\s*ementa\b\s*[:.\-–—]?\s*/i, "");
       const item: ItemAmplo = {

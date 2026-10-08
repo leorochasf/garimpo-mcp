@@ -342,3 +342,120 @@ describe("trecho da busca ampla", () => {
     }
   });
 });
+
+describe("cabeçalho de cobertura da busca ampla", () => {
+  // Resposta que o Garimpo não sabe ler: vira busca com erro.
+  const formatoDesconhecido = () => respostaJson({ mensagem: "formato que o Garimpo não conhece" });
+
+  it("dois tribunais, um só com buscas vazias e outro com acórdãos: contas certas por tribunal", async () => {
+    const { cliente } = siteFalso((tribunal, texto) =>
+      respostaJson({ results: tribunal === "stj" ? [bruto(`${texto}-1`, 0.5), bruto(`${texto}-2`, 0.5)] : [] }),
+    );
+
+    const r = await buscaAmpla(cliente, { formulacoes: ["a", "b"], tribunais: ["stj", "tjgo"] });
+
+    expect(r.cabecalhoDeCobertura.porTribunal).toEqual([
+      { tribunal: "stj", buscasFeitas: 2, vazias: 0, comErro: 0, achados: 4, mostrados: 4 },
+      { tribunal: "tjgo", buscasFeitas: 2, vazias: 2, comErro: 0, achados: 0, mostrados: 0 },
+    ]);
+    expect(r.cabecalhoDeCobertura.listaCortada).toBeUndefined();
+  });
+
+  it("tribunal com todas as buscas com erro aparece \"com erro\", não \"0 achados\"", async () => {
+    const { cliente } = siteFalso((tribunal, texto) =>
+      tribunal === "tjgo" ? formatoDesconhecido() : respostaJson({ results: [bruto(texto, 0.5)] }),
+    );
+
+    const r = await buscaAmpla(cliente, { formulacoes: ["a", "b"], tribunais: ["stj", "tjgo"] });
+
+    const tjgo = r.cabecalhoDeCobertura.porTribunal.find((t) => t.tribunal === "tjgo");
+    expect(tjgo).toEqual({ tribunal: "tjgo", buscasFeitas: 0, vazias: 0, comErro: 2, situacao: "com erro" });
+    expect(tjgo).not.toHaveProperty("achados");
+    expect(r.cabecalhoDeCobertura.porTribunal.find((t) => t.tribunal === "stj")).toMatchObject({ comErro: 0, achados: 2 });
+  });
+
+  it("tribunal com parte das buscas com erro: conta as duas coisas e mostra os achados das que deram certo", async () => {
+    const { cliente } = siteFalso((_t, texto) =>
+      texto === "b" ? formatoDesconhecido() : respostaJson({ results: [bruto(texto, 0.5)] }),
+    );
+
+    const r = await buscaAmpla(cliente, { formulacoes: ["a", "b", "c"], tribunais: ["stj"] });
+
+    expect(r.cabecalhoDeCobertura.porTribunal).toEqual([{ tribunal: "stj", buscasFeitas: 2, vazias: 0, comErro: 1, achados: 2, mostrados: 2 }]);
+  });
+
+  it("recusa antes de chegar a um tribunal: ele aparece \"não pesquisado\", nunca \"0 achados\"", async () => {
+    const { cliente } = siteFalso(() => new Response("", { status: 429 }));
+
+    const r = await buscaAmpla(cliente, { formulacoes: ["a"], tribunais: ["stj", "tjgo", "tjrs"] });
+
+    expect(r.cabecalhoDeCobertura.porTribunal.find((t) => t.tribunal === "tjrs")).toEqual({
+      tribunal: "tjrs", buscasFeitas: 0, vazias: 0, comErro: 0, naoFeitas: 1, situacao: "não pesquisado",
+    });
+    expect(r.cabecalhoDeCobertura.porTribunal.some((t) => t.situacao === "com erro")).toBe(true);
+    expect(r.cabecalhoDeCobertura.porTribunal.every((t) => !("achados" in t))).toBe(true);
+  });
+
+  it("recusa no meio de um tribunal: o cabeçalho conta as buscas que não chegaram a ser feitas", async () => {
+    const { cliente } = siteFalso((_t, texto, n) => (n < 3 ? respostaJson({ results: [bruto(texto, 0.5)] }) : new Response("", { status: 429 })));
+    const formulacoes = Array.from({ length: 10 }, (_, i) => `f${i}`);
+
+    const r = await buscaAmpla(cliente, { formulacoes, tribunais: ["stj"] });
+
+    const [stj] = r.cabecalhoDeCobertura.porTribunal;
+    expect(stj).toMatchObject({ buscasFeitas: 3, achados: 3 });
+    expect(stj.comErro).toBeGreaterThan(0);
+    expect(stj.buscasFeitas + stj.comErro + stj.naoFeitas!).toBe(10);
+    expect(stj.naoFeitas).toBeGreaterThan(0);
+  });
+
+  it("formulação sem acórdão em nenhum tribunal é listada no cabeçalho", async () => {
+    const formulacoes = ["dano moral coletivo", "palavras que não acham nada", "dano moral difuso"];
+    const { cliente } = siteFalso((tribunal, texto) =>
+      respostaJson({ results: texto === formulacoes[1] || (tribunal === "tjgo" && texto === formulacoes[2]) ? [] : [bruto(`${tribunal}-${texto}`, 0.5)] }),
+    );
+
+    const r = await buscaAmpla(cliente, { formulacoes, tribunais: ["stj", "tjgo"] });
+
+    expect(r.cabecalhoDeCobertura.formulacoesSemAcordao).toEqual(["palavras que não acham nada"]);
+  });
+
+  it("formulação cujas buscas só deram erro não é listada como \"sem acórdão\"", async () => {
+    const { cliente } = siteFalso((_t, texto) =>
+      texto === "b" ? formatoDesconhecido() : respostaJson({ results: [bruto(texto, 0.5)] }),
+    );
+
+    const r = await buscaAmpla(cliente, { formulacoes: ["a", "b"], tribunais: ["stj"] });
+
+    expect(r.cabecalhoDeCobertura.formulacoesSemAcordao).toEqual([]);
+  });
+
+  it("formulação vazia num tribunal e com erro no outro não é listada: no outro ela não foi verificada", async () => {
+    const { cliente } = siteFalso((tribunal, texto) =>
+      texto === "b" ? (tribunal === "stj" ? respostaJson({ results: [] }) : formatoDesconhecido()) : respostaJson({ results: [bruto(`${tribunal}-${texto}`, 0.5)] }),
+    );
+
+    const r = await buscaAmpla(cliente, { formulacoes: ["a", "b"], tribunais: ["stj", "tjgo"] });
+
+    expect(r.cabecalhoDeCobertura.formulacoesSemAcordao).toEqual([]);
+  });
+
+  it("mais achados que o máximo: avisa que a lista foi cortada, com X de Y e o máximo até 200", async () => {
+    const { cliente } = siteFalso(() => respostaJson({ results: Array.from({ length: 12 }, (_, i) => bruto(`x-${i}`, 0.5)) }));
+
+    const r = await buscaAmpla(cliente, { formulacoes: ["a"], tribunais: ["stj"], maximo: 5 });
+
+    expect(r.cabecalhoDeCobertura.listaCortada).toBe("mostrando 5 de 12; para ver mais, peça máximo maior (até 200)");
+    expect(r.cabecalhoDeCobertura.porTribunal).toEqual([{ tribunal: "stj", buscasFeitas: 1, vazias: 0, comErro: 0, achados: 12, mostrados: 5 }]);
+  });
+
+  it("lista cortada já no máximo de 200: não manda pedir máximo maior", async () => {
+    const { cliente } = siteFalso((_t, texto) =>
+      respostaJson({ results: Array.from({ length: 100 }, (_, i) => ({ ...bruto(`${texto}-${i}`, 0.5), numero_processo: `${i}${texto.length}/UF` })) }),
+    );
+
+    const r = await buscaAmpla(cliente, { formulacoes: ["a", "bb", "ccc"], tribunais: ["stj"], maximo: 200 });
+
+    expect(r.cabecalhoDeCobertura.listaCortada).toBe("mostrando 200 de 300; 200 é o máximo por resposta");
+  });
+});
