@@ -18,8 +18,6 @@ export interface ParametrosAmpla extends FiltrosBusca {
   maximo?: number;
   /** Caracteres do começo da ementa na saída compacta (padrão 100, sem o rótulo "Ementa:"). */
   tamanhoTrecho?: number;
-  /** Caracteres do começo do texto de cada precedente qualificado (padrão 200). */
-  tamanhoQualificado?: number;
 }
 
 export interface ItemAmplo {
@@ -137,7 +135,7 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<
       };
       return item;
     }),
-    qualificados: juntarQualificados(qualificados, { tamanhoTexto: p.tamanhoQualificado ?? 200 }),
+    qualificados: juntarQualificados(qualificados, { tamanhoTexto: 200 }),
     avisos,
   };
 }
