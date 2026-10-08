@@ -20,7 +20,7 @@ primeira execução; regras de medição gravadas antes também. Fórmulas e par
 | P2 aderência ponderada | 97,3% \| 97,3% | 89,8% \| 94,5% | 46,4% \| 46,5% | **rejeita** |
 | P2 BM25 como desempate | 46,4% \| 97,3% | 32,9% \| 96,4% | 18,7% \| 46,4% | **rejeita** |
 | P2 as duas | 46,4% \| 97,3% | 32,0% \| 96,4% | 18,7% \| 46,4% | **rejeita** |
-| P3 `deveConter`/`naoPodeConter` | — | 93,8% \| 94,5% | 46,0% \| 46,7% | **inconclusivo** |
+| P3 `deveConter`/`naoPodeConter` (com a marca do dono) | — | 94,4% \| 94,5% | 46,6% \| 46,7% | **aprova** |
 | `cita` (5 teses) | — | 99,6% → 55,6% \| 100% | — | **rejeita** |
 | Mapa de referências | — | — | — | **rejeita** |
 
@@ -30,10 +30,13 @@ primeira execução; regras de medição gravadas antes também. Fórmulas e par
   acórdãos sem marca por tese e, mesmo no limite otimista, faz uma tese perder relevantes mostrados e a precisão nos
   10 dela cair de 100% para 90%. Tempo local de ordenar: < 1 ms; pesos e notas: 60–230 ms por tese. Maior resposta:
   21.819 (atual) e 23.984 caracteres (BM25), < 25 mil. P2 fica rejeitado com o número; só reabre com evidência nova.
-- **P3 (filtros locais):** aplicado nas 11 teses (média pareada sobre as 11). Tirou 1.672 acórdãos achados no total e
-  4 dos 961 relevantes marcados achados (no máximo 3,1% numa tese; limite 5%). A precisão nos 50 só muda numa tese
-  (98% → 94% pessimista, 100% otimista), que traz 3 acórdãos sem marca. A adoção depende só deles: com os 3
-  relevantes, a média sobe e P3 aprova; com algum não relevante, rejeita. Lista curta de 3 para o dono.
+- **P3 (filtros locais):** aplicado nas 11 teses (média pareada sobre as 11, nenhuma lista vazia). Na primeira rodada
+  ficou inconclusivo (precisão nos 50: pessimista 94,2% → 93,8%; otimista 94,4% → 94,5%): só mudava numa tese, por 3
+  acórdãos sem marca. O dono marcou os 3 como relevantes (2026-10-08) e o veredito foi refeito sem rede, com a mesma
+  gravação, os mesmos filtros e só essas 3 marcas a mais: a média sobe nos dois limites (pessimista 94,2% → 94,4%;
+  otimista 94,4% → 94,5%); naquela tese, 98% → 100%. Tirou 1.672 acórdãos achados no total e 4 dos 964 relevantes
+  marcados achados (no máximo 3,0% numa tese; limite 5%). **P3 aprova.** As 3 marcas não mudam o veredito dos outros
+  recursos (o `cita` passa a perder 311 de 517 relevantes marcados achados).
 - **`cita`:** nas 5 teses que nomeiam Tema ou Súmula, tirou de 48% a 73% dos relevantes marcados achados (308 de
   514; limite 5% por tese). A maioria das ementas relevantes não menciona o precedente pelo número.
 - **Mapa:** 5 teses elegíveis (as que nomeiam Tema/Súmula); a meta da spec (≥ 8) não é alcançável neste banco. Com o
@@ -48,7 +51,7 @@ Rodando a busca ampla do commit base 6 vezes sobre a mesma gravação, a ordem d
 conjunto dos 50 mudou em 4. Acórdãos empatados em faixa, nº de formulações e melhor posição ficam na ordem em que as
 respostas das duas filas chegam, que varia. O protótipo fixa a chegada em série para comparar as alternativas, e
 reproduz a ordem do commit base a menos desses empates em 11 de 11 teses. Afeta qualquer "a mesma gravação reproduz
-o resultado" dos tickets seguintes.
+o resultado" dos tickets seguintes; o desempate final fixo (ex.: pelo id) virou ticket próprio, que vem antes do P3.
 
 ## Limites
 
