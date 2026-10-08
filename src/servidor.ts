@@ -260,6 +260,11 @@ export function criarServidor(
         "Já devolve a 1ª parte do texto, com o mesmo cabeçalho do ler_inteiro_teor e a chamada pronta para a parte " +
         "seguinte; com texto: false, devolve só o caminho, o recibo e o total de páginas do PDF. Se o PDF salvo não " +
         "puder ser lido, o download continua valendo e vem o motivo. " +
+        "Antes de baixar, procura só na pasta de destino um PDF do mesmo acórdão que o Garimpo já baixou (pelo recibo " +
+        "de origem, mesmo tribunal e id, ou o mesmo link da busca; nunca só pelo número do processo); com o PDF " +
+        "intacto (mesmo sha256 do recibo), responde na hora, sem nenhuma chamada, e diz de quando é o download " +
+        "(jaEstavaNaPasta). Não há como forçar novo download: para outra cópia do tribunal, mova o PDF e o recibo para " +
+        "fora da pasta de destino. " +
         "Baixa do STJ, TJMG e TSE. Para STF, TJGO e demais devolve o link e explica como obter no navegador " +
         "(o Garimpo não contorna captcha nem proteção anti-robô) e como ler o PDF baixado: passar o caminho do " +
         "arquivo ao ler_inteiro_teor. Informe o id que veio na busca ou tribunal + link.",

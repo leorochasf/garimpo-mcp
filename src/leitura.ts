@@ -21,6 +21,21 @@ export const LIMITE_CARACTERES_PARTE = 24_000;
 export const NAO_INFORMADO = "não informado";
 export const FORMATO_RECIBO = "recibo de origem do Garimpo, versão 1";
 export const ORIGEM_DOWNLOAD = "download pelo Garimpo";
+/** O aviso do obter_inteiro_teor quando o PDF já estava na pasta de destino (ADR-0011): vem junto da 1ª parte. */
+export function avisoJaNaPasta(baixadoEm: string, outrasVersoes: number): string {
+  const outras =
+    outrasVersoes === 0
+      ? ""
+      : outrasVersoes === 1
+        ? " Há outra versão válida deste acórdão na pasta de destino, preservada."
+        : ` Há ${outrasVersoes} outras versões válidas deste acórdão na pasta de destino, preservadas.`;
+  return (
+    `O PDF já estava na pasta de destino: baixado pelo Garimpo em ${baixadoEm}, com o mesmo sha256 do recibo de ` +
+    "origem. Nenhuma chamada foi feita ao tribunal nem ao JurisprudênciaIA. Para obter outra cópia do tribunal, mova " +
+    `o PDF e o recibo para fora da pasta de destino.${outras}`
+  );
+}
+
 const SEM_TEXTO = "sem texto extraível; pode ser escaneada";
 const TRAZIDO = "declarada pelo usuário, não conferida (inteiro teor trazido pelo usuário)";
 
@@ -190,6 +205,8 @@ async function abrir(caminhoPedido: string, informado: VinculoInformado, memoria
     sha256,
     bytes: bytes.length,
     fonte: origem.linkDaBusca ?? "",
+    // E o aviso de que o PDF já estava na pasta, no pior caso, quando ele é reaproveitado em vez de baixado.
+    jaEstavaNaPasta: avisoJaNaPasta("9999-99-99T99:99:99.999+99:99", 999),
   };
   const reserva =
     JSON.stringify(base(`páginas ${pior}–${pior} de ${pior} (parte ${pior} de ${pior})`, 999_999)).length +
@@ -242,6 +259,16 @@ interface Origem {
   linkDaBusca?: string;
 }
 
+/** As linhas "Campo: valor" do recibo de origem. */
+export function camposDoRecibo(texto: string): Map<string, string> {
+  return new Map(
+    texto.split(/\r?\n/).flatMap((l) => {
+      const i = l.indexOf(": ");
+      return i > 0 ? [[l.slice(0, i), l.slice(i + 2).trim()] as const] : [];
+    }),
+  );
+}
+
 const caminhoDoRecibo = (caminho: string) => `${caminho.replace(/\.pdf$/i, "")}.recibo.txt`;
 
 const SEM_DADOS = {
@@ -285,12 +312,7 @@ async function conferirOrigem(caminho: string, sha256: string): Promise<Origem> 
       ],
     };
   }
-  const recibo = new Map(
-    texto.split(/\r?\n/).flatMap((l) => {
-      const i = l.indexOf(": ");
-      return i > 0 ? [[l.slice(0, i), l.slice(i + 2).trim()] as const] : [];
-    }),
-  );
+  const recibo = camposDoRecibo(texto);
   if (recibo.get("Formato") !== FORMATO_RECIBO) {
     return naoConferida(
       `o recibo ao lado deste PDF (${basename(nomeRecibo)}) não está num formato que o Garimpo reconheça.`,

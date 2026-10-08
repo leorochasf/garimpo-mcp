@@ -6,11 +6,19 @@
 
 import { createHash, randomUUID } from "node:crypto";
 import { constants } from "node:fs";
-import { copyFile, link as ligar, lstat, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, link as ligar, lstat, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { Cliente, VERSAO } from "./cliente.js";
-import { FORMATO_RECIBO, LIMITE_BYTES_PDF, NAO_INFORMADO, ORIGEM_DOWNLOAD } from "./leitura.js";
+import {
+  avisoJaNaPasta,
+  camposDoRecibo,
+  contarPaginas,
+  FORMATO_RECIBO,
+  LIMITE_BYTES_PDF,
+  NAO_INFORMADO,
+  ORIGEM_DOWNLOAD,
+} from "./leitura.js";
 import type { Memoria } from "./memoria.js";
 import { infoTribunal } from "./tribunais.js";
 
@@ -31,6 +39,8 @@ export interface InteiroTeorBaixado {
   sha256: string;
   bytes: number;
   fonte: string;
+  /** Só quando o PDF já estava na pasta de destino e nada foi baixado: de quando é o download, e que não houve chamada. */
+  jaEstavaNaPasta?: string;
 }
 
 export type ResultadoInteiroTeor = InteiroTeorBaixado | { baixado: false; link?: string; explicacao: string };
@@ -75,14 +85,18 @@ export async function obterInteiroTeor(
   memoria?: Memoria,
 ): Promise<ResultadoInteiroTeor> {
   const acordao = pedido.id ? (await memoria?.obter(pedido.id))?.acordao : undefined;
+  const tribunal = (acordao?.tribunal ?? pedido.tribunal ?? pedido.id?.split(":")[0] ?? "").toLowerCase();
+  const link = pedido.link ?? acordao?.link;
+  const pasta = resolve(pedido.pasta ?? pastaPadrao());
+  // Antes de qualquer chamada, e sem depender da memória: o PDF que o Garimpo já baixou nesta pasta, pelo recibo.
+  const jaBaixado = await procurarNaPasta(pasta, tribunal, [pedido.id, acordao?.id], link);
+  if (jaBaixado) return jaBaixado;
   if (pedido.id && !acordao && !pedido.link) {
     throw new Error(
       `O acórdão ${pedido.id} não está na memória do Garimpo, que guarda os acórdãos por 24 h desde a busca. ` +
         "Refaça a busca que o trouxe ou informe tribunal e link.",
     );
   }
-  const tribunal = (acordao?.tribunal ?? pedido.tribunal ?? pedido.id?.split(":")[0] ?? "").toLowerCase();
-  const link = pedido.link ?? acordao?.link;
   const info = infoTribunal(tribunal);
   if (!info) throw new Error("Informe o id do acórdão (como veio na busca) ou o tribunal e o link.");
 
@@ -109,7 +123,6 @@ export async function obterInteiroTeor(
   else if (tribunal === "tse") baixado = await baixarDireto(cliente, link, "sjur-servicos.tse.jus.br", "TSE");
   else throw new Error(`Download automático não implementado para ${tribunal.toUpperCase()}.`);
 
-  const pasta = resolve(pedido.pasta ?? pastaPadrao());
   await mkdir(pasta, { recursive: true });
   // O número do processo não é único (dois acórdãos podem ter o mesmo): o id do documento entra no nome.
   const idDocumento =
@@ -131,6 +144,83 @@ export async function obterInteiroTeor(
     });
   const salvo = await salvarComRecibo(pasta, nome, baixado.pdf, recibo);
   return { baixado: true, ...salvo, sha256, bytes: baixado.pdf.length, fonte: link };
+}
+
+const SUFIXO_RECIBO = ".recibo.txt";
+
+/**
+ * O PDF do acórdão que o Garimpo já baixou na pasta de destino (ADR-0011), só nela. Casa o recibo de download pelo
+ * Garimpo do mesmo tribunal e de um dos ids; sem nenhum, o do mesmo link da busca, se todos os recibos desse link
+ * disserem o mesmo acórdão e nenhum disser outro que não o pedido. Número do processo sozinho nunca casa. Serve só o
+ * PDF válido, legível e com o sha256 do recibo; com várias versões, a de download mais recente pelo recibo. Nada aqui
+ * grava, apaga ou chama a rede.
+ */
+async function procurarNaPasta(
+  pasta: string,
+  tribunal: string,
+  ids: (string | undefined)[],
+  link: string | undefined,
+): Promise<InteiroTeorBaixado | undefined> {
+  let nomes: string[];
+  try {
+    nomes = await readdir(pasta);
+  } catch {
+    return undefined; // Pasta que ainda não existe ou não se lê: nada já baixado.
+  }
+  const recibos = [];
+  for (const nome of nomes.filter((n) => n.endsWith(SUFIXO_RECIBO))) {
+    const recibo = join(pasta, nome);
+    let campos: Map<string, string>;
+    try {
+      campos = camposDoRecibo(await readFile(recibo, "utf8"));
+    } catch {
+      continue;
+    }
+    if (campos.get("Formato") !== FORMATO_RECIBO || campos.get("Origem") !== ORIGEM_DOWNLOAD) continue;
+    if (campos.get("Tribunal") !== tribunal.toUpperCase()) continue;
+    recibos.push({ recibo, arquivo: `${recibo.slice(0, -SUFIXO_RECIBO.length)}.pdf`, campos });
+  }
+  const pedidos = ids.filter(Boolean);
+  let candidatos = recibos.filter((r) => pedidos.includes(r.campos.get("Id")));
+  if (!candidatos.length && link) {
+    // Pedido com id: só o recibo do link que não diz acórdão nenhum (o que diz outro id é outro acórdão).
+    const peloLink = recibos.filter(
+      (r) =>
+        r.campos.get("Link que veio na busca") === link && (!pedidos.length || r.campos.get("Id") === NAO_INFORMADO),
+    );
+    if (new Set(peloLink.map((r) => r.campos.get("Id"))).size === 1) candidatos = peloLink;
+  }
+  const validos = [];
+  for (const c of candidatos) {
+    const bytes = await bytesConferidos(c.arquivo, c.campos.get("Sha256"));
+    if (bytes !== undefined) validos.push({ ...c, bytes, em: Date.parse(c.campos.get("Data e hora") ?? "") });
+  }
+  if (!validos.length) return undefined;
+  // Data ilegível no recibo nunca passa à frente de uma legível.
+  const escolhido = validos.reduce((a, b) => ((b.em || -Infinity) > (a.em || -Infinity) ? b : a));
+  return {
+    baixado: true,
+    arquivo: escolhido.arquivo,
+    recibo: escolhido.recibo,
+    sha256: escolhido.campos.get("Sha256")!,
+    bytes: escolhido.bytes,
+    fonte: escolhido.campos.get("Link que veio na busca") ?? NAO_INFORMADO,
+    jaEstavaNaPasta: avisoJaNaPasta(escolhido.campos.get("Data e hora") ?? NAO_INFORMADO, validos.length - 1),
+  };
+}
+
+/** Tamanho do PDF que existe, é PDF de até 50 MB, tem o sha256 do recibo e o extrator abre; senão, undefined. */
+async function bytesConferidos(arquivo: string, sha256: string | undefined): Promise<number | undefined> {
+  try {
+    const info = await lstat(arquivo);
+    if (!info.isFile() || info.size > LIMITE_BYTES_PDF) return undefined;
+    const bytes = await readFile(arquivo);
+    if (!ehPdf(bytes) || createHash("sha256").update(bytes).digest("hex") !== sha256) return undefined;
+    await contarPaginas(arquivo);
+    return bytes.length;
+  } catch {
+    return undefined;
+  }
 }
 
 /** O PDF baixado e o endereço de onde ele veio de fato, depois dos redirecionamentos. */

@@ -200,12 +200,15 @@ describe("obter inteiro teor pela porta (tribunal falso e pasta temporária)", (
   });
 
   it("1ª parte que não cabe com os dados do download: aviso e a chamada para lê-la, nunca resposta acima do teto", async () => {
-    // O mesmo acórdão e os mesmos bytes, pedidos por outro link, muito mais longo: o arquivo é o mesmo e o recibo
-    // original (com o link curto) é preservado.
+    // O mesmo acórdão e os mesmos bytes, pedidos por outro link, muito mais longo. O recibo ao lado não registra
+    // download pelo Garimpo, então o PDF não é reaproveitado e baixa de novo: o arquivo é o mesmo e o recibo original
+    // (com o link curto) é preservado.
     const acordao = { id: "801", texto_ementa: "EMENTA FICTÍCIA.", numero_processo: "1.0000.00.000003-0/001", link_pdf: LINKS.tjmg };
     const { chamar } = await montar([pdf(), pdf()], [acordao]);
     await chamar("busca_direta", { tribunal: "tjmg", texto: "exemplo" });
     const primeiro = JSON.parse((await chamar("obter_inteiro_teor", { id: "tjmg:801", texto: false })).texto);
+    const recibo = await readFile(primeiro.recibo, "utf8");
+    await writeFile(primeiro.recibo, recibo.replace("Origem: download pelo Garimpo", "Origem: outra"));
     const r = await chamar("obter_inteiro_teor", { id: "tjmg:801", link: `${LINKS.tjmg}&extra=${"x".repeat(6_000)}` });
     expect(r.isError).toBeFalsy();
     expect(r.texto.length).toBeLessThanOrEqual(TETO);
