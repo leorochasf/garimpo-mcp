@@ -173,3 +173,100 @@ describe("erro nunca vira lista vazia (busca ampla)", () => {
     expect(dado.avisos[0]).toMatch(/^BUSCA INCOMPLETA: 1 de 4 buscas/);
   });
 });
+
+describe("erros que ensinam e listas como texto", () => {
+  /** Site falso que anota cada busca que chegou (tribunal e texto) e devolve um acórdão por busca. */
+  function siteQueAnota() {
+    const buscas: string[] = [];
+    let n = 0;
+    const site = new Cliente({
+      nome: "O site",
+      esperar: async () => {},
+      fetch: (async (url: string, init: RequestInit) => {
+        const tribunal = String(url).match(/tribunais\/(\w+)\/search/)![1];
+        buscas.push(`${tribunal}: ${JSON.parse(String(init.body)).query}`);
+        const id = `a${n++}`;
+        return respostaJson({
+          results: [{ id, texto_ementa: `EMENTA FICTÍCIA ${id}.`, numero_processo: `${id}/UF`, link_pdf: `https://exemplo.test/${id}` }],
+        });
+      }) as typeof fetch,
+    });
+    return { site, buscas };
+  }
+
+  async function chamar(site: Cliente, name: string, args: Record<string, unknown>) {
+    const mcp = await conectar(site);
+    const r = (await mcp.callTool({ name, arguments: args })) as { content: { text: string }[]; isError?: boolean };
+    return { isError: r.isError, texto: r.content[0].text };
+  }
+
+  // Embrulho técnico da validação que o modelo não deve receber.
+  const TECNICO = /validation|Invalid|invalid_|"code"|"path"|MCP error/;
+
+  it("tribunal inválido: frase em português com as siglas válidas, sem texto técnico e sem chamar o site", async () => {
+    const { site, buscas } = siteQueAnota();
+    const respostas = [
+      await chamar(site, "busca_direta", { tribunal: "trf9", texto: "responsabilidade civil" }),
+      await chamar(site, "busca_ampla", { formulacoes: ["responsabilidade civil"], tribunais: ["stj", "trf9"] }),
+      await chamar(site, "obter_inteiro_teor", { tribunal: "trf9", link: "https://exemplo.test/trf9.pdf" }),
+    ];
+
+    for (const r of respostas) {
+      expect(r.isError).toBe(true);
+      expect(r.texto).toMatch(/Tribunal "trf9" não existe no Garimpo/);
+      expect(r.texto).toMatch(/stf, stj, .*tjgo/);
+      expect(r.texto).not.toMatch(TECNICO);
+    }
+    expect(buscas).toEqual([]);
+  });
+
+  it("data fora do formato: frase \"use AAAA-MM-DD\", sem texto técnico e sem chamar o site", async () => {
+    const { site, buscas } = siteQueAnota();
+    const respostas = [
+      await chamar(site, "busca_direta", { tribunal: "stj", texto: "responsabilidade civil", de: "15/03/2024" }),
+      await chamar(site, "busca_ampla", { formulacoes: ["responsabilidade civil"], tribunais: ["stj"], ate: "2024-3-15" }),
+    ];
+
+    for (const r of respostas) {
+      expect(r.isError).toBe(true);
+      expect(r.texto).toMatch(/use AAAA-MM-DD/);
+      expect(r.texto).not.toMatch(TECNICO);
+    }
+    expect(respostas[0].texto).toMatch(/"15\/03\/2024"/);
+    expect(buscas).toEqual([]);
+  });
+
+  it("formulações e tribunais mandados como texto de lista JSON: a busca roda normalmente", async () => {
+    const { site, buscas } = siteQueAnota();
+    const r = await chamar(site, "busca_ampla", {
+      formulacoes: '["responsabilidade civil", "dano moral"]',
+      tribunais: '["stj", "tjgo"]',
+    });
+
+    expect(r.isError).toBeFalsy();
+    expect(JSON.parse(r.texto).acordaos).toHaveLength(4);
+    expect(buscas.sort()).toEqual(["stj: dano moral", "stj: responsabilidade civil", "tjgo: dano moral", "tjgo: responsabilidade civil"]);
+  });
+
+  it("texto solto vale como um item só, inteiro: nunca parte por vírgula", async () => {
+    const { site, buscas } = siteQueAnota();
+    const r = await chamar(site, "busca_ampla", { formulacoes: "art. 37, § 6º", tribunais: "stj" });
+
+    expect(r.isError).toBeFalsy();
+    expect(buscas).toEqual(["stj: art. 37, § 6º"]);
+    expect(JSON.parse(r.texto).cabecalhoDeCobertura.porTribunal).toHaveLength(1);
+  });
+
+  it("os limites (até 20 formulações, até 5 tribunais) valem depois da conversão, sem chamar o site", async () => {
+    const { site, buscas } = siteQueAnota();
+    const vinteEUma = JSON.stringify(Array.from({ length: 21 }, (_, i) => `tese ${i + 1}`));
+    const seisTribunais = JSON.stringify(["stf", "stj", "tst", "tse", "stm", "tjgo"]);
+    const respostas = [
+      await chamar(site, "busca_ampla", { formulacoes: vinteEUma, tribunais: "stj" }),
+      await chamar(site, "busca_ampla", { formulacoes: "responsabilidade civil", tribunais: seisTribunais }),
+    ];
+
+    for (const r of respostas) expect(r.isError).toBe(true);
+    expect(buscas).toEqual([]);
+  });
+});

@@ -11,18 +11,53 @@ import { buscaAmpla } from "./ampla.js";
 import { obterInteiroTeor, pastaPadrao } from "./inteiroTeor.js";
 import { SIGLAS, TRIBUNAIS } from "./tribunais.js";
 
-const tribunal = z
-  .string()
-  .refine((s) => SIGLAS.includes(s.toLowerCase()), { message: `Tribunal desconhecido. Use um de: ${SIGLAS.join(", ")}` })
-  .describe(`Sigla do tribunal: ${SIGLAS.join(", ")}`);
+// Tribunal e datas são conferidos dentro da ferramenta, não no esquema: o erro do esquema sai embrulhado em texto
+// técnico de validação, e a chamada errada precisa de uma frase que diga como corrigir.
+const tribunal = z.string().describe(`Sigla do tribunal: ${SIGLAS.join(", ")}`);
+
+/** Recusa, com frase que ensina a corrigir, tribunal fora da tabela. */
+function conferirTribunais(...tribunais: (string | undefined)[]) {
+  for (const t of tribunais) {
+    if (t !== undefined && !SIGLAS.includes(t.toLowerCase())) {
+      throw new Error(`Tribunal "${t}" não existe no Garimpo. Use uma destas siglas: ${SIGLAS.join(", ")}.`);
+    }
+  }
+}
 
 const filtros = {
-  de: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("Data de julgamento inicial, AAAA-MM-DD"),
-  ate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("Data de julgamento final, AAAA-MM-DD"),
+  de: z.string().optional().describe("Data de julgamento inicial, AAAA-MM-DD"),
+  ate: z.string().optional().describe("Data de julgamento final, AAAA-MM-DD"),
   relator: z.string().optional().describe("Nome do relator"),
   orgao: z.string().optional().describe("Órgão julgador (turma, câmara, seção)"),
   classe: z.string().optional().describe("Classe processual"),
 };
+
+/**
+ * Lista mandada como texto (ADR-0002): modelos que não são o Claude costumam mandar listas assim. Texto de lista
+ * JSON vira a lista; qualquer outro texto vale como um item só. Nunca parte por vírgula ("art. 37, § 6º").
+ */
+function listaOuTexto<T extends z.ZodTypeAny>(lista: T) {
+  return z.preprocess((valor) => {
+    if (typeof valor !== "string") return valor;
+    try {
+      const lido: unknown = JSON.parse(valor);
+      if (Array.isArray(lido)) return lido;
+    } catch {
+      // Não é JSON: texto solto.
+    }
+    return [valor];
+  }, lista);
+}
+
+/** Recusa, com frase que ensina a corrigir, data de julgamento fora de AAAA-MM-DD. */
+function conferirDatas(datas: { de?: string; ate?: string }) {
+  for (const campo of ["de", "ate"] as const) {
+    const d = datas[campo];
+    if (d !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+      throw new Error(`A data em "${campo}" ("${d}") está fora do formato: use AAAA-MM-DD, por exemplo 2024-03-15.`);
+    }
+  }
+}
 
 /** JSON sem recuo: o recuo não leva informação e custa ~10% da resposta da busca ampla. */
 function json(dado: unknown) {
@@ -66,6 +101,8 @@ export function criarServidor(site: Cliente): McpServer {
     },
     async (args) => {
       try {
+        conferirTribunais(args.tribunal);
+        conferirDatas(args);
         return comAvisoNaturezaJuridica(await buscaDireta(site, args));
       } catch (e) {
         return erro(e);
@@ -92,8 +129,8 @@ export function criarServidor(site: Cliente): McpServer {
         "Formulações boas variam sinônimos técnicos, dispositivo legal e nome do instituto.",
       annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: {
-        formulacoes: z.array(z.string().min(2)).min(1).max(20).describe("Formulações da mesma tese (até 20)"),
-        tribunais: z.array(tribunal).min(1).max(5).describe("Tribunais (até 5)"),
+        formulacoes: listaOuTexto(z.array(z.string().min(2)).min(1).max(20)).describe("Formulações da mesma tese (até 20)"),
+        tribunais: listaOuTexto(z.array(tribunal).min(1).max(5)).describe("Tribunais (até 5)"),
         limitePorBusca: z.number().int().min(1).max(100).optional().describe("Acórdãos por busca (padrão 100)"),
         maximo: z.number().int().min(1).max(200).optional().describe("Máximo de acórdãos na resposta (padrão 50)"),
         ...filtros,
@@ -101,6 +138,8 @@ export function criarServidor(site: Cliente): McpServer {
     },
     async (args) => {
       try {
+        conferirTribunais(...args.tribunais);
+        conferirDatas(args);
         return comAvisoNaturezaJuridica(await buscaAmpla(site, args));
       } catch (e) {
         return erro(e);
@@ -142,6 +181,7 @@ export function criarServidor(site: Cliente): McpServer {
     },
     async (args) => {
       try {
+        conferirTribunais(args.tribunal);
         return json(await obterInteiroTeor(args));
       } catch (e) {
         return erro(e);

@@ -22,6 +22,11 @@ As respostas de `busca_direta`, `busca_ampla` e `obter_ementa` trazem, no campo 
 "Resultado de busca em base não oficial. Confira o acórdão no link oficial do tribunal antes de citar; a ementa não
 substitui o inteiro teor."
 
+Tribunal inválido e data fora do formato recebem uma frase em português que diz como corrigir: as siglas válidas;
+"use AAAA-MM-DD". Na `busca_ampla`, `formulacoes` e `tribunais` aceitam lista, texto
+de lista JSON (`"[\"a\", \"b\"]"`) ou texto solto, que vale como **um** item só: o texto nunca é partido por
+vírgula, para que uma formulação como "art. 37, § 6º" chegue inteira.
+
 `busca_direta`, `busca_ampla`, `obter_ementa` e `listar_tribunais` são declaradas ao cliente como ferramentas que
 só leem (as duas buscas, como ferramentas que consultam serviço externo); `obter_inteiro_teor` não, porque grava
 o PDF no disco. Cabe a cada cliente decidir se usa essa marca para dispensar o pedido de permissão.
