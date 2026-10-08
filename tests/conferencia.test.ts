@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { conferirNaEmenta, lerCitacao } from "../src/conferencia.js";
+import { conferirNaEmenta, conferirNoInteiroTeor, lerCitacao } from "../src/conferencia.js";
+import type { InteiroTeorParaConferir } from "../src/leitura.js";
 
 /** Ementa fictícia, sem processo real (regra 2). */
 const EMENTA =
@@ -247,5 +248,84 @@ describe("conferência de citação — ajustes da revisão de spec", () => {
       veredito: "não verificável",
       motivo: "O acórdão veio sem ementa do JurisprudênciaIA: não há texto para conferir.",
     });
+  });
+});
+
+describe("conferência de citação no inteiro teor — limites (módulo puro)", () => {
+  /** Inteiro teor fictício: uma página do PDF por texto ("" = página sem texto extraível), tudo na parte 1. */
+  function inteiroTeor(paginas: string[]): InteiroTeorParaConferir {
+    return {
+      origem: "não conferida",
+      totalDePaginas: paginas.length,
+      totalDePartes: 1,
+      unidades: paginas.map((texto, i) => ({ pagina: i + 1, parte: 1, texto })),
+    };
+  }
+  const conferirPdf = (paginas: string[], citacao: string) =>
+    conferirNoInteiroTeor(inteiroTeor(paginas), lerCitacao(citacao, { reticenciasComoCorte: false }));
+  const PRIMEIRO = "Primeiro pedaco ficticio da fundamentacao.";
+  const SEGUNDO = "Segundo pedaco ficticio da mesma fundamentacao.";
+  const SUPRIMIDA = "Primeiro pedaco ficticio da fundamentacao (...) Segundo pedaco ficticio da mesma fundamentacao";
+
+  it.each([
+    ["na página seguinte", [PRIMEIRO, SEGUNDO], "encontrado com supressão indicada"],
+    ["3 páginas seguidas", [PRIMEIRO, "Texto do meio.", SEGUNDO], "encontrado com supressão indicada"],
+    ["4 páginas", [PRIMEIRO, "Texto do meio.", "Mais texto.", SEGUNDO], "não encontrado"],
+  ])("supressão com os pedaços espalhados em %s: %s", (_caso, paginas, veredito) => {
+    expect(conferirPdf(paginas, SUPRIMIDA).veredito).toBe(veredito);
+  });
+
+  it("supressão: vale a cadeia que cabe em 3 páginas, mesmo com o 1º pedaço também numa página distante antes", () => {
+    const r = conferirPdf([PRIMEIRO, "a", "b", "c", PRIMEIRO, SEGUNDO], SUPRIMIDA);
+    expect(r.veredito).toBe("encontrado com supressão indicada");
+  });
+
+  it.each([
+    [3, true],
+    [4, false],
+  ])("quebra de página com %i linhas de rodapé no meio: passagem candidata só até 3 linhas", (n, candidata) => {
+    const rodape = Array.from({ length: n }, (_, i) => `Rodape ficticio ${i + 1}`).join("\n");
+    const r = conferirPdf(
+      [`Texto antes.\nEm resumo, a responsabilidade civil do ente\n${rodape}`, "ficticio exige prova do nexo causal.\nTexto depois."],
+      "a responsabilidade civil do ente ficticio exige prova do nexo causal",
+    );
+    expect(r.veredito).toBe("não encontrado");
+    expect("passagemCandidata" in r).toBe(candidata);
+  });
+
+  it("a página inteira pulada não é cabeçalho nem rodapé: sem passagem candidata", () => {
+    const r = conferirPdf(
+      ["Texto antes.\nEm resumo, a responsabilidade civil do ente", "LINHA UNICA", "ficticio exige prova do nexo causal.\nTexto depois."],
+      "a responsabilidade civil do ente ficticio exige prova do nexo causal",
+    );
+    expect(r.veredito).toBe("não encontrado");
+    expect("passagemCandidata" in r).toBe(false);
+  });
+
+  it("caixa diferente no PDF: difere só em maiúsculas/pontuação, com o texto exato da fonte e a página", () => {
+    const r = conferirPdf(["Texto.\nA RESPONSABILIDADE CIVIL DO ENTE FICTICIO exige prova."], "a responsabilidade civil do ente ficticio exige prova");
+    expect(r.veredito).toBe("difere só em maiúsculas/pontuação");
+    expect("ocorrencias" in r && r.ocorrencias[0]).toEqual({
+      local: "no inteiro teor",
+      paginasDoPdf: "página 1 de 1",
+      parte: "parte 1 de 1",
+      textoDaFonte: "A RESPONSABILIDADE CIVIL DO ENTE FICTICIO exige prova",
+    });
+  });
+
+  it("marcador de transcrição longe da passagem (fora da janela curta) não dá sinal", () => {
+    const longe = `Confira-se: ${"texto generico ficticio de permeio ".repeat(10)}`;
+    const r = conferirPdf([`${longe}\na responsabilidade civil do ente ficticio exige prova`], "a responsabilidade civil do ente ficticio exige prova");
+    expect(r.veredito).toBe("encontrado literalmente");
+    expect("ocorrencias" in r && r.ocorrencias[0]).not.toHaveProperty("sinalDeOutroAutor");
+  });
+
+  it("passagem candidata com maiúsculas diferentes diz isso no motivo, além do hífen", () => {
+    const r = conferirPdf(
+      ["Texto.\nA RESPONSABILIDADE CIVIL DO ENTE FIC-\nTICIO exige prova."],
+      "a responsabilidade civil do ente ficticio exige prova",
+    );
+    expect(r.veredito).toBe("não encontrado");
+    expect("passagemCandidata" in r && r.passagemCandidata?.motivo).toMatch(/nunca o retira.*; e ainda difere em maiúsculas\/pontuação$/);
   });
 });

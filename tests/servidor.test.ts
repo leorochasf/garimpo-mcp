@@ -1431,3 +1431,276 @@ describe("conferir citação na ementa (pela porta)", () => {
     expect(vazia.texto).toMatch(/São 0 citações; mande de 1 a 20/);
   });
 });
+
+describe("conferir citação no inteiro teor (pela porta)", () => {
+  const ORIGEM_TRAZIDO = "declarada pelo usuário, não conferida (inteiro teor trazido pelo usuário)";
+  const pagina = (n: number, linhas = 20) =>
+    Array.from({ length: linhas }, (_, i) => `Pagina ${n} linha ${i + 1}: texto generico ficticio de exemplo.`);
+
+  /** Site falso que conta as chamadas: a conferência no PDF não pode fazer nenhuma. */
+  function siteQueConta() {
+    let chamadas = 0;
+    const site = new Cliente({
+      nome: "O site",
+      esperar: async () => {},
+      fetch: (async () => {
+        chamadas++;
+        return respostaJson({ results: [] });
+      }) as typeof fetch,
+    });
+    return { site, chamadas: () => chamadas };
+  }
+
+  /** Grava o PDF sintético numa pasta temporária, sem recibo (inteiro teor trazido pelo usuário). */
+  async function pdfTrazido(paginas: Parameters<typeof pdfSintetico>[0]) {
+    const pasta = await mkdtemp(join(tmpdir(), "garimpo-conferir-"));
+    const caminho = join(pasta, "acordao-ficticio.pdf");
+    await writeFile(caminho, pdfSintetico(paginas));
+    return caminho;
+  }
+
+  async function conferir(citacoes: unknown[], site = siteQueConta().site) {
+    return conferirEm(await conectar(site), citacoes);
+  }
+
+  async function conferirEm(mcp: Client, citacoes: unknown[]) {
+    const r = (await mcp.callTool({ name: "conferir_citacao", arguments: { citacoes } })) as {
+      content: { text: string }[];
+      isError?: boolean;
+    };
+    expect(r.isError, r.content[0].text).toBeFalsy();
+    return JSON.parse(r.content[0].text) as { resultados: { fontes: Record<string, any>[]; erro?: string }[] };
+  }
+
+  it("citação achada no PDF: encontrado literalmente, com a página do PDF, a parte, o total e a origem; sem rede", async () => {
+    const caminho = await pdfTrazido([
+      pagina(1),
+      [...pagina(2).slice(0, 5), "A responsabilidade civil do ente ficticio exige prova do nexo causal.", ...pagina(2).slice(5)],
+      pagina(3),
+    ]);
+    const { site, chamadas } = siteQueConta();
+
+    const r = await conferir([{ citacao: "A responsabilidade civil do ente ficticio exige prova do nexo causal.", caminho }], site);
+
+    expect(chamadas()).toBe(0);
+    expect(r.resultados[0].fontes).toEqual([
+      {
+        fonte: "inteiro teor",
+        caminho,
+        origem: ORIGEM_TRAZIDO,
+        veredito: "encontrado literalmente",
+        ocorrencias: [{ local: "no inteiro teor", paginasDoPdf: "página 2 de 3", parte: "parte 1 de 1" }],
+        total: 1,
+        equivalencias: [],
+      },
+    ]);
+  });
+
+  const CITACAO = "a responsabilidade civil do ente ficticio exige prova do nexo causal";
+  /** Linhas genéricas com a citação no meio, na linha `onde`. */
+  const comCitacao = (n: number, linha: string, onde = 5) => [...pagina(n).slice(0, onde), linha, ...pagina(n).slice(onde)];
+
+  it("ocorrências múltiplas: todas com a página, e o total", async () => {
+    const caminho = await pdfTrazido([comCitacao(1, `Para ${CITACAO}.`), pagina(2), comCitacao(3, `E ${CITACAO}, de novo.`)]);
+    const [fonte] = (await conferir([{ citacao: CITACAO, caminho }])).resultados[0].fontes;
+    expect(fonte.veredito).toBe("encontrado literalmente");
+    expect(fonte.total).toBe(2);
+    expect(fonte.ocorrencias.map((o: { paginasDoPdf: string }) => o.paginasDoPdf)).toEqual(["página 1 de 3", "página 3 de 3"]);
+  });
+
+  it("com id e caminho juntos: um veredito para cada fonte, sem confundir onde a citação está", async () => {
+    const caminho = await pdfTrazido([comCitacao(1, `Para ${CITACAO}.`)]);
+    const site = new Cliente({
+      nome: "O site",
+      esperar: async () => {},
+      fetch: (async () =>
+        respostaJson({
+          results: [{ id: "it1", texto_ementa: "EMENTA FICTÍCIA. Recurso conhecido e não provido.", numero_processo: "1.000.011/SP" }],
+        })) as typeof fetch,
+    });
+    const mcp = await conectar(site);
+    await mcp.callTool({ name: "busca_direta", arguments: { tribunal: "stj", texto: "exemplo" } });
+    const r = await conferirEm(mcp, [{ citacao: CITACAO, id: "stj:it1", caminho }]);
+
+    const [ementa, inteiroTeor] = r.resultados[0].fontes;
+    expect(ementa).toMatchObject({ fonte: "ementa", id: "stj:it1", veredito: "não encontrado" });
+    expect(inteiroTeor).toMatchObject({ fonte: "inteiro teor", caminho, veredito: "encontrado literalmente" });
+  });
+
+  it("quebra de página limpa: confirmada, com a página de início e a de fim", async () => {
+    const caminho = await pdfTrazido([
+      [...pagina(1), "Em resumo, a responsabilidade civil do ente"],
+      ["ficticio exige prova do nexo causal.", ...pagina(2)],
+    ]);
+    const [fonte] = (await conferir([{ citacao: CITACAO, caminho }])).resultados[0].fontes;
+    expect(fonte.veredito).toBe("encontrado literalmente");
+    expect(fonte.ocorrencias).toEqual([{ local: "no inteiro teor", paginasDoPdf: "páginas 1–2 de 2", parte: "parte 1 de 1" }]);
+    expect(fonte.equivalencias).toEqual(["espaço ou quebra de linha"]);
+  });
+
+  it("quebra de página com possível rodapé e cabeçalho no meio: só a passagem candidata, sem confirmação", async () => {
+    const caminho = await pdfTrazido([
+      [...pagina(1), "Em resumo, a responsabilidade civil do ente", "Documento ficticio - pagina 1 de 2"],
+      ["TRIBUNAL FICTICIO DE EXEMPLO", "ficticio exige prova do nexo causal.", ...pagina(2)],
+    ]);
+    const [fonte] = (await conferir([{ citacao: CITACAO, caminho }])).resultados[0].fontes;
+    expect(fonte.veredito).toBe("não encontrado");
+    expect(fonte.ocorrencias).toEqual([]);
+    expect(fonte.passagemCandidata).toEqual({
+      texto:
+        "a responsabilidade civil do ente\nDocumento ficticio - pagina 1 de 2\nTRIBUNAL FICTICIO DE EXEMPLO\n" +
+        "ficticio exige prova do nexo causal",
+      local: "no inteiro teor",
+      paginasDoPdf: "páginas 1–2 de 2",
+      parte: "parte 1 de 1",
+      motivo:
+        "a citação só fecha pulando, na quebra de página, 1 linha do fim da página e 1 linha do começo da seguinte, " +
+        "que podem ser cabeçalho ou rodapé — ou texto do acórdão",
+      aviso: "Passagem candidata copiada do PDF: não confirmada. Confira no PDF se ela é mesmo o texto citado antes de citar.",
+    });
+  });
+
+  it("hífen de fim de linha nunca é retirado nem juntado: as duas leituras só dão passagem candidata", async () => {
+    const caminho = await pdfTrazido([[...pagina(1).slice(0, 3), "Em resumo, a responsabilidade civil do ente fic-", "ticio exige prova do nexo causal.", ...pagina(1).slice(3)]]);
+    const r = await conferir([
+      { citacao: CITACAO, caminho },
+      { citacao: "a responsabilidade civil do ente fic-ticio exige prova do nexo causal", caminho },
+      { citacao: "a responsabilidade civil do ente fic- ticio exige prova do nexo causal", caminho },
+    ]);
+    const [semHifen, comHifen, comoNoPdf] = r.resultados.map((x) => x.fontes[0]);
+
+    expect(semHifen.veredito).toBe("não encontrado");
+    expect(semHifen.passagemCandidata.texto).toBe("a responsabilidade civil do ente fic-\nticio exige prova do nexo causal");
+    expect(semHifen.passagemCandidata.motivo).toMatch(/retirando o hífen de fim de linha do PDF, e o Garimpo nunca o retira/);
+    expect(comHifen.veredito).toBe("não encontrado");
+    expect(comHifen.passagemCandidata.motivo).toMatch(/juntando a palavra partida pelo hífen/);
+    // Com o hífen e a quebra de linha como estão no PDF, é literal: só a diagramação difere.
+    expect(comoNoPdf.veredito).toBe("encontrado literalmente");
+    expect(comoNoPdf.equivalencias).toEqual(["espaço ou quebra de linha"]);
+  });
+
+  it("páginas sem texto extraível: não afirma ausência no PDF inteiro e diz quais páginas não foram conferidas", async () => {
+    const caminho = await pdfTrazido([[...pagina(1), "Em resumo, a responsabilidade civil do ente"], [], ["ficticio exige prova do nexo causal.", ...pagina(3)]]);
+    const r = await conferir([
+      { citacao: CITACAO, caminho },
+      { citacao: "Pagina 3 linha 2: texto generico ficticio de exemplo.", caminho },
+    ]);
+    const [ausente, presente] = r.resultados.map((x) => x.fontes[0]);
+
+    // A citação não atravessa a página sem texto, e pode estar nela: nunca "não encontrado".
+    expect(ausente).toEqual({
+      fonte: "inteiro teor",
+      caminho,
+      origem: ORIGEM_TRAZIDO,
+      veredito: "não verificável",
+      motivo:
+        "Não achada nas páginas com texto extraível, mas a página 2 não tem texto extraível (o Garimpo não faz OCR) e " +
+        "não foi conferida: a citação pode estar nela. Abra o arquivo para conferir.",
+      paginasSemTexto: "página 2 de 3",
+    });
+    expect(presente.veredito).toBe("encontrado literalmente");
+    expect(presente.ocorrencias[0].paginasDoPdf).toBe("página 3 de 3");
+  });
+
+  it("PDF sem texto extraível nenhum, PDF truncado e arquivo que não existe: não verificável, com o motivo", async () => {
+    const semTexto = await pdfTrazido([[], []]);
+    const truncado = await pdfTrazido([pagina(1), pagina(2)]);
+    const bytes = await readFile(truncado);
+    await writeFile(truncado, bytes.subarray(0, Math.floor(bytes.length / 3)));
+    const inexistente = join(dirname(semTexto), "nao-existe.pdf");
+
+    const r = await conferir([
+      { citacao: CITACAO, caminho: semTexto },
+      { citacao: CITACAO, caminho: truncado },
+      { citacao: CITACAO, caminho: inexistente },
+    ]);
+    const [vazio, cortado, faltando] = r.resultados.map((x) => x.fontes[0]);
+
+    expect(vazio).toMatchObject({ veredito: "não verificável", origem: ORIGEM_TRAZIDO });
+    expect(vazio.motivo).toMatch(/Nenhuma página deste PDF tem texto extraível.*não quer dizer que a citação não esteja no PDF/);
+    expect(cortado.veredito).toBe("não verificável");
+    expect(cortado.motivo).toMatch(/Erro de leitura.*truncado/);
+    expect(faltando.veredito).toBe("não verificável");
+    expect(faltando.motivo).toMatch(/Não consegui ler o arquivo/);
+    for (const f of [vazio, cortado, faltando]) expect(f.total).toBeUndefined();
+  });
+
+  it("origem: não conferida no PDF trazido e conferida no PDF baixado pelo Garimpo com o recibo", async () => {
+    const pasta = await mkdtemp(join(tmpdir(), "garimpo-conferir-baixado-"));
+    const pdf = pdfSintetico([comCitacao(1, `Para ${CITACAO}.`)]);
+    const tjmg = clienteFalso([new Response(pdf)]);
+    const mcp = await conectar(siteFalso([]), { tribunais: () => tjmg.cliente, pasta });
+    const baixado = (await mcp.callTool({
+      name: "obter_inteiro_teor",
+      arguments: { tribunal: "tjmg", link: "https://www5.tjmg.jus.br/jurisprudencia/relatorioEspelhoAcordao.do?inteiroTeor=true&numero=1" },
+    })) as { content: { text: string }[] };
+    const { arquivo } = JSON.parse(baixado.content[0].text);
+    const trazido = await pdfTrazido([comCitacao(1, `Para ${CITACAO}.`)]);
+
+    const r = await conferirEm(mcp, [{ citacao: CITACAO, caminho: arquivo }, { citacao: CITACAO, caminho: trazido }]);
+    const [doGarimpo, doUsuario] = r.resultados.map((x) => x.fontes[0]);
+
+    expect(doGarimpo.origem).toMatch(/^conferida: download pelo Garimpo em .+, com o mesmo sha256 do recibo/);
+    expect(doUsuario.origem).toBe(ORIGEM_TRAZIDO);
+    for (const f of [doGarimpo, doUsuario]) expect(f.veredito).toBe("encontrado literalmente");
+  });
+
+  it("sinal de outro autor: marcador de transcrição logo antes e aspas em volta, com o sinal observado", async () => {
+    const caminho = await pdfTrazido([
+      [...pagina(1).slice(0, 3), "Sobre o tema, confira-se:", `${CITACAO} segundo a doutrina ficticia.`, ...pagina(1).slice(3)],
+      [...pagina(2).slice(0, 3), `Diz o autor ficticio: "o dever de indenizar depende de prova do dano efetivo".`, ...pagina(2).slice(3)],
+      comCitacao(3, `Por isso, ${CITACAO} neste caso.`.replace(CITACAO, "a culpa do ente ficticio deve ser provada pelo autor")),
+    ]);
+    const r = await conferir([
+      { citacao: `${CITACAO} segundo a doutrina`, caminho },
+      { citacao: "o dever de indenizar depende de prova do dano efetivo", caminho },
+      { citacao: "a culpa do ente ficticio deve ser provada pelo autor", caminho },
+    ]);
+    const [marcador, aspas, nenhum] = r.resultados.map((x) => x.fontes[0].ocorrencias[0]);
+
+    expect(marcador.sinalDeOutroAutor).toBe('pode ser de outro autor: logo antes da passagem há o marcador de transcrição "confira-se"');
+    expect(aspas.sinalDeOutroAutor).toBe("pode ser de outro autor: a passagem está entre aspas no inteiro teor");
+    expect(nenhum.sinalDeOutroAutor).toBeUndefined();
+  });
+
+  it("supressão no PDF: pedaços em até 3 páginas seguidas; espalhados por mais páginas, não encontrado", async () => {
+    const caminho = await pdfTrazido([
+      comCitacao(1, "Primeiro pedaco ficticio da fundamentacao do acordao."),
+      pagina(2),
+      comCitacao(3, "Segundo pedaco ficticio da mesma fundamentacao aqui."),
+      pagina(4),
+      comCitacao(5, "Terceiro pedaco ficticio muito depois no documento."),
+    ]);
+    const r = await conferir([
+      { citacao: "Primeiro pedaco ficticio da fundamentacao (...) Segundo pedaco ficticio da mesma fundamentacao", caminho },
+      { citacao: "Primeiro pedaco ficticio da fundamentacao (...) Terceiro pedaco ficticio muito depois", caminho },
+    ]);
+    const [perto, longe] = r.resultados.map((x) => x.fontes[0]);
+
+    expect(perto.veredito).toBe("encontrado com supressão indicada");
+    expect(perto.ocorrencias[0].pedacos.map((p: { paginasDoPdf: string }) => p.paginasDoPdf)).toEqual(["página 1 de 5", "página 3 de 5"]);
+    expect(longe.veredito).toBe("não encontrado");
+  });
+
+  it("a parte é a mesma do ler_inteiro_teor, e página grande demais traz o segmento", async () => {
+    const longo = await pdfTrazido([
+      ...Array.from({ length: 29 }, (_, i) => pagina(i + 1, 30)),
+      comCitacao(30, `Ao final, ${CITACAO}.`),
+    ]);
+    const grande = await pdfTrazido([
+      Array.from({ length: 600 }, (_, i) => (i === 590 ? `Ao final, ${CITACAO}.` : `Linha ${i + 1} de um texto generico ficticio, longo de proposito.`)),
+    ]);
+    const mcp = await conectar(siteQueConta().site);
+    const r = await conferirEm(mcp, [{ citacao: CITACAO, caminho: longo }, { citacao: CITACAO, caminho: grande }]);
+    const [noLongo, noGrande] = r.resultados.map((x) => x.fontes[0].ocorrencias[0]);
+
+    const parte = noLongo.parte.match(/^parte (\d+) de (\d+)$/);
+    expect(Number(parte[2])).toBeGreaterThan(1);
+    const lida = (await mcp.callTool({ name: "ler_inteiro_teor", arguments: { caminho: longo, parte: Number(parte[1]) } })) as {
+      content: { text: string }[];
+    };
+    expect(JSON.parse(lida.content[0].text).texto).toContain(`[página 30 de 30]\n`);
+    expect(JSON.parse(lida.content[0].text).texto).toContain(`Ao final, ${CITACAO}.`);
+    expect(noGrande).toMatchObject({ paginasDoPdf: "página 1 de 1", segmento: "segmento 2 de 2 da página 1" });
+  });
+});

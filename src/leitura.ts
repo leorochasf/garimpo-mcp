@@ -70,6 +70,69 @@ export async function lerInteiroTeor(
   parte = 1,
   informado: VinculoInformado = {},
 ): Promise<ParteDoInteiroTeor> {
+  const { base, partes, n } = await abrir(caminhoPedido, informado);
+  const total = partes.length;
+  if (!Number.isInteger(parte) || parte < 1 || parte > total) {
+    throw new Error(
+      `A parte ${parte} não existe: este PDF tem ${total} ${total === 1 ? "parte" : "partes"} (de 1 a ${total}).`,
+    );
+  }
+  const escolhida = partes[parte - 1];
+  const [x, y] = [escolhida[0].pagina, escolhida[escolhida.length - 1].pagina];
+  const paginasDoPdf = `${x === y ? `página ${x}` : `páginas ${x}–${y}`} de ${n} (parte ${parte} de ${total})`;
+  return {
+    ...base(paginasDoPdf, parte < total ? parte + 1 : undefined),
+    texto: escolhida.map((u) => u.texto).join(SEPARADOR),
+  };
+}
+
+/** Segmento de uma página grande demais: o número dele e quantos são. */
+export interface Segmento {
+  numero: number;
+  de: number;
+}
+
+/** Um pedaço do inteiro teor com a posição dele: página do PDF, parte do ler_inteiro_teor e segmento. */
+export interface UnidadeDoInteiroTeor {
+  pagina: number;
+  parte: number;
+  /** Só em página grande demais, dividida em segmentos. */
+  segmento?: Segmento;
+  /** O texto da página ou do segmento; "" = página sem texto extraível. */
+  texto: string;
+}
+
+/** O inteiro teor inteiro, extraído uma vez, com a posição de cada pedaço, para a conferência de citação. */
+export interface InteiroTeorParaConferir {
+  origem: string;
+  totalDePaginas: number;
+  totalDePartes: number;
+  unidades: UnidadeDoInteiroTeor[];
+}
+
+/**
+ * Todo o texto do PDF, com as mesmas páginas, partes e segmentos que o ler_inteiro_teor mostra quando recebe só o
+ * caminho. Só lê, como ele: não grava, não copia e não chama a rede.
+ */
+export async function lerParaConferir(caminhoPedido: string): Promise<InteiroTeorParaConferir> {
+  const { origem, partes, n } = await abrir(caminhoPedido, {});
+  return {
+    origem,
+    totalDePaginas: n,
+    totalDePartes: partes.length,
+    unidades: partes.flatMap((unidades, i) =>
+      unidades.map(({ pagina, segmento, semMarca }) => ({
+        pagina,
+        parte: i + 1,
+        ...(segmento ? { segmento } : {}),
+        texto: semMarca,
+      })),
+    ),
+  };
+}
+
+/** Lê o PDF, confere a origem, extrai o texto e o divide em partes; o cabeçalho de cada parte sai de `base`. */
+async function abrir(caminhoPedido: string, informado: VinculoInformado) {
   const { bytes, caminho } = await lerArquivo(caminhoPedido);
   const sha256 = createHash("sha256").update(bytes).digest("hex");
   const origem = await conferirOrigem(caminho, sha256);
@@ -128,21 +191,7 @@ export async function lerInteiroTeor(
   const reserva =
     JSON.stringify(base(`páginas ${pior}–${pior} de ${pior} (parte ${pior} de ${pior})`, 999_999)).length +
     JSON.stringify(download).length;
-  const partes = dividir(paginas, LIMITE_CARACTERES_PARTE - reserva);
-  const total = partes.length;
-
-  if (!Number.isInteger(parte) || parte < 1 || parte > total) {
-    throw new Error(
-      `A parte ${parte} não existe: este PDF tem ${total} ${total === 1 ? "parte" : "partes"} (de 1 a ${total}).`,
-    );
-  }
-  const escolhida = partes[parte - 1];
-  const [x, y] = [escolhida[0].pagina, escolhida[escolhida.length - 1].pagina];
-  const paginasDoPdf = `${x === y ? `página ${x}` : `páginas ${x}–${y}`} de ${n} (parte ${parte} de ${total})`;
-  return {
-    ...base(paginasDoPdf, parte < total ? parte + 1 : undefined),
-    texto: escolhida.map((u) => u.texto).join(SEPARADOR),
-  };
+  return { base, origem: origem.origem, partes: dividir(paginas, LIMITE_CARACTERES_PARTE - reserva), n };
 }
 
 /**
@@ -442,7 +491,11 @@ function juntarLinha(pedacos: Pedaco[]): string {
 /** Um pedaço de uma parte: uma página do PDF inteira ou um segmento de página grande demais. */
 interface Unidade {
   pagina: number;
+  /** Com a marca de página (e de segmento), como sai na parte. */
   texto: string;
+  /** O texto sem a marca; "" = página sem texto extraível. */
+  semMarca: string;
+  segmento?: Segmento;
 }
 
 const SEPARADOR = "\n\n";
@@ -458,9 +511,9 @@ function dividir(paginas: string[], teto: number): Unidade[][] {
   const n = paginas.length;
   const unidades = paginas.flatMap((texto, i): Unidade[] => {
     const pagina = i + 1;
-    if (!texto) return [{ pagina, texto: `[página ${pagina} de ${n}: ${SEM_TEXTO}]` }];
+    if (!texto) return [{ pagina, texto: `[página ${pagina} de ${n}: ${SEM_TEXTO}]`, semMarca: "" }];
     const inteira = `[página ${pagina} de ${n}]\n${texto}`;
-    if (custo(inteira) <= teto) return [{ pagina, texto: inteira }];
+    if (custo(inteira) <= teto) return [{ pagina, texto: inteira, semMarca: texto }];
     const marcaMaior = `[página ${n} de ${n}, segmento 999 de 999; continua no segmento 999]\n`;
     const trechos = cortar(texto, teto - custo(marcaMaior));
     return trechos.map((trecho, k) => ({
@@ -468,6 +521,8 @@ function dividir(paginas: string[], teto: number): Unidade[][] {
       texto:
         `[página ${pagina} de ${n}, segmento ${k + 1} de ${trechos.length}` +
         `${k + 1 < trechos.length ? `; continua no segmento ${k + 2}` : ""}]\n${trecho}`,
+      semMarca: trecho,
+      segmento: { numero: k + 1, de: trechos.length },
     }));
   });
 

@@ -1,8 +1,10 @@
 /**
- * Conferência de citação (ADR-0006): compara, por regra fixa e sem IA, a citação com o texto da fonte e devolve o
- * veredito, a posição de cada ocorrência e as equivalências de diagramação usadas. Pura: sem rede e sem disco.
- * "Citação é literal ou não é citação": só diagramação conta como literal.
+ * Conferência de citação (ADR-0006): compara, por regra fixa e sem IA, a citação com o texto da fonte (a ementa ou o
+ * inteiro teor) e devolve o veredito, a posição de cada ocorrência e as equivalências de diagramação usadas. Pura:
+ * sem rede e sem disco. "Citação é literal ou não é citação": só diagramação conta como literal.
  */
+
+import type { InteiroTeorParaConferir, UnidadeDoInteiroTeor } from "./leitura.js";
 
 export type Veredito =
   | "encontrado literalmente"
@@ -22,32 +24,60 @@ export interface OpcoesCitacao {
   reticenciasComoCorte: boolean;
 }
 
-/** Onde a citação (ou um pedaço dela) está na ementa. */
-export interface PosicaoNaEmenta {
+/** Onde fica uma passagem na ementa. */
+interface OndeNaEmenta {
   local: "na ementa";
-  /** A frase da ementa que contém a passagem, copiada da fonte. */
-  frase: string;
+}
+
+/** Onde fica uma passagem no inteiro teor: página do PDF (nunca "fl."), parte do ler_inteiro_teor e segmento. */
+interface OndeNoInteiroTeor {
+  local: "no inteiro teor";
+  paginasDoPdf: string;
+  parte: string;
+  /** Só quando a passagem está numa página grande demais, dividida em segmentos. */
+  segmento?: string;
+}
+
+type Onde = OndeNaEmenta | OndeNoInteiroTeor;
+
+/** Onde a citação (ou um pedaço dela) está na fonte. */
+export type Posicao = Onde & {
+  /** Só na ementa: a frase que contém a passagem, copiada da fonte. */
+  frase?: string;
   /** Só no "difere só em maiúsculas/pontuação": a passagem exata da fonte, para citar por ela. */
   textoDaFonte?: string;
   /** Indício, na fonte, de que a passagem pode não ser do tribunal (na ementa, só aspas). */
   sinalDeOutroAutor?: string;
-}
+};
 
 /** Sem supressão, a posição da passagem; com supressão, a de cada pedaço, na ordem. */
-export type OcorrenciaNaEmenta = PosicaoNaEmenta | { local: "na ementa"; pedacos: PosicaoNaEmenta[] };
+export type Ocorrencia = Posicao | { local: Onde["local"]; pedacos: Posicao[] };
 
 /** Sugestão para corrigir a citação: copiada da fonte e sempre diferente do texto informado. */
-export interface PassagemParecida {
+export type PassagemParecida = Onde & {
   texto: string;
-  local: "na ementa";
   palavrasEmComum: string;
   aviso: string;
-}
+};
+
+/**
+ * Passagem do PDF que só fecha com a citação retirando um hífen de fim de linha ou pulando linhas na quebra de
+ * página: nunca confirmada, só mostrada para o usuário conferir no PDF (ADR-0006).
+ */
+export type PassagemCandidata = OndeNoInteiroTeor & {
+  texto: string;
+  motivo: string;
+  aviso: string;
+};
 
 /** Fonte sem texto a conferir: só o motivo, sem contagem. */
 export interface NaoVerificavel {
   veredito: "não verificável";
   motivo: string;
+  /** Só no inteiro teor com página sem texto extraível: as páginas em que a citação não pôde ser procurada. */
+  paginasSemTexto?: string;
+  passagemParecida?: PassagemParecida;
+  passagemCandidata?: PassagemCandidata;
 }
 
 export type ResultadoDaFonte = ConferenciaFeita | NaoVerificavel;
@@ -58,17 +88,20 @@ export function naoVerificavel(motivo: string): NaoVerificavel {
 
 export interface ConferenciaFeita {
   veredito: Exclude<Veredito, "não verificável">;
-  ocorrencias: OcorrenciaNaEmenta[];
+  ocorrencias: Ocorrencia[];
   /** Ocorrências apuradas na fonte; com supressão, as combinações dos pedaços não são contadas. */
   total: number | "não apurado";
   equivalencias: string[];
   aviso?: string;
   passagemParecida?: PassagemParecida;
+  passagemCandidata?: PassagemCandidata;
 }
 
 const MINIMO_DE_PALAVRAS = 5;
 const MAXIMO_DE_CARACTERES = 3000;
 const MAXIMO_DE_OCORRENCIAS = 10;
+/** Supressão no PDF: do 1º ao último pedaço, no máximo 3 páginas seguidas. */
+const MAXIMO_DE_PAGINAS_DA_SUPRESSAO = 3;
 
 /** Corte marcado (ADR-0006): só "(...)" e "[...]". */
 const CORTE = /\(\.\.\.\)|\[\.\.\.\]/;
@@ -121,34 +154,127 @@ export function lerCitacao(texto: string, { reticenciasComoCorte }: OpcoesCitaca
   return { pedacos, comSupressao };
 }
 
-export function conferirNaEmenta(ementa: string, citacao: Citacao): ResultadoDaFonte {
-  if (!ementa.trim()) return naoVerificavel("O acórdão veio sem ementa do JurisprudênciaIA: não há texto para conferir.");
-  return citacao.comSupressao ? comSupressao(ementa, citacao.pedacos) : semSupressao(ementa, citacao.pedacos[0]);
+/** O texto de uma fonte e o que a conferência precisa saber dele, com as formas normalizadas guardadas. */
+interface Fonte {
+  texto: string;
+  /** Onde fica o intervalo [a, b) do texto. */
+  onde(a: number, b: number): Onde;
+  /** Na ementa: a frase que contém o intervalo. */
+  frase?(a: number, b: number): string;
+  sinal(a: number, b: number): string | undefined;
+  /** Com supressão: se a cadeia de pedaços de a até b cabe na fonte (no PDF, até 3 páginas seguidas). */
+  cadeiaAceita(a: number, b: number): boolean;
+  /** Se a passagem [a, b) pode dar "difere só em maiúsculas/pontuação" (no PDF, não se tem hífen de fim de linha). */
+  soltaAceita?(a: number, b: number): boolean;
+  normalizados: Map<Set<Regra>, Normalizado>;
 }
 
-function semSupressao(ementa: string, citado: string): ConferenciaFeita {
+function normalizado(fonte: Fonte, regras: Set<Regra>): Normalizado {
+  let n = fonte.normalizados.get(regras);
+  if (!n) fonte.normalizados.set(regras, (n = normalizar(fonte.texto, regras)));
+  return n;
+}
+
+export function conferirNaEmenta(ementa: string, citacao: Citacao): ResultadoDaFonte {
+  if (!ementa.trim()) return naoVerificavel("O acórdão veio sem ementa do JurisprudênciaIA: não há texto para conferir.");
+  const fonte: Fonte = {
+    texto: ementa,
+    onde: () => ({ local: "na ementa" }),
+    frase: (a, b) => fraseEm(ementa, a, b),
+    sinal: (a, b) =>
+      entreAspas(ementa, a, b) ? "pode ser de outro autor: a passagem está entre aspas na ementa" : undefined,
+    cadeiaAceita: () => true,
+    normalizados: new Map(),
+  };
+  return conferir(fonte, citacao) ?? naoEncontrado(fonte, citacao);
+}
+
+/** Intervalo achado na fonte: um, sem supressão; um por pedaço, com supressão. */
+type Intervalos = [number, number][];
+
+interface Achado {
+  literal: boolean;
+  ocorrencias: Intervalos[];
+  total: number | "não apurado";
+}
+
+/**
+ * Procura a citação primeiro só com as equivalências de diagramação (literal) e, sem achar, também sem caixa e
+ * pontuação ("difere só em maiúsculas/pontuação", nunca literal).
+ */
+function procurar(fonte: Fonte, { pedacos, comSupressao }: Citacao): Achado | undefined {
   for (const regras of [LITERAL, SOLTO]) {
-    const fonte = normalizar(ementa, regras);
-    const achados = [...ocorrencias(fonte, normalizar(citado, regras).texto.trim())].map((o) => original(fonte, o));
-    if (!achados.length) continue;
+    const n = normalizado(fonte, regras);
     const literal = regras === LITERAL;
-    const mostrados = achados.slice(0, MAXIMO_DE_OCORRENCIAS);
-    return {
-      veredito: literal ? "encontrado literalmente" : "difere só em maiúsculas/pontuação",
-      ocorrencias: mostrados.map(([a, b]) => posicao(ementa, a, b, literal)),
-      total: achados.length,
-      equivalencias: literal ? equivalenciasUsadas(achados.map(([a, b]) => [ementa.slice(a, b), citado])) : [],
-      ...(achados.length > mostrados.length
-        ? { aviso: `Mostradas ${mostrados.length} de ${achados.length} ocorrências.` }
-        : {}),
-    };
+    const aceita = (achada: Intervalos) => literal || achada.every(([a, b]) => fonte.soltaAceita?.(a, b) ?? true);
+    if (!comSupressao) {
+      const achados = [...ocorrencias(n, normalizar(pedacos[0], regras).texto.trim())]
+        .map((o): Intervalos => [original(n, o)])
+        .filter(aceita);
+      if (achados.length) return { literal, ocorrencias: achados, total: achados.length };
+      continue;
+    }
+    const cadeia = encadear(fonte, n, pedacos.map((p) => normalizar(p, regras).texto.trim()));
+    if (cadeia && aceita(cadeia)) return { literal, ocorrencias: [cadeia], total: "não apurado" };
   }
-  return naoEncontrado(ementa, citado);
+  return undefined;
+}
+
+/**
+ * Pedaços na ordem, sem sobreposição: a partir de cada ocorrência do 1º pedaço, cada pedaço seguinte no 1º lugar
+ * depois do fim do anterior; vale a 1ª cadeia que a fonte aceita (no PDF, até 3 páginas seguidas).
+ */
+function encadear(fonte: Fonte, n: Normalizado, pedacos: string[]): Intervalos | undefined {
+  for (const primeiro of ocorrencias(n, pedacos[0])) {
+    const cadeia = [primeiro];
+    for (const p of pedacos.slice(1)) {
+      const achado = ocorrencias(n, p, cadeia[cadeia.length - 1][1]).next();
+      if (achado.done) return undefined; // começando mais adiante, também não fecharia
+      cadeia.push(achado.value);
+    }
+    const [a] = original(n, cadeia[0]);
+    const [, b] = original(n, cadeia[cadeia.length - 1]);
+    if (fonte.cadeiaAceita(a, b)) return cadeia.map((o) => original(n, o));
+  }
+  return undefined;
+}
+
+/** O veredito e as posições do que foi achado, ou nada se a citação não está na fonte. */
+function conferir(fonte: Fonte, citacao: Citacao): ConferenciaFeita | undefined {
+  const achado = procurar(fonte, citacao);
+  if (!achado) return undefined;
+  const { literal, ocorrencias: achadas } = achado;
+  const mostradas = achadas.slice(0, MAXIMO_DE_OCORRENCIAS);
+  const pares = achadas.flatMap((achada) =>
+    achada.map(([a, b], k): [string, string] => [fonte.texto.slice(a, b), citacao.pedacos[k]]),
+  );
+  return {
+    veredito: !literal
+      ? "difere só em maiúsculas/pontuação"
+      : citacao.comSupressao
+        ? "encontrado com supressão indicada"
+        : "encontrado literalmente",
+    ocorrencias: mostradas.map((achada) =>
+      citacao.comSupressao
+        ? {
+            local: fonte.onde(achada[0][0], achada[0][1]).local,
+            pedacos: achada.map(([a, b]) => posicao(fonte, a, b, literal)),
+          }
+        : posicao(fonte, achada[0][0], achada[0][1], literal),
+    ),
+    total: achado.total,
+    equivalencias: literal ? equivalenciasUsadas(pares) : [],
+    ...(citacao.comSupressao
+      ? { aviso: AVISO_SUPRESSAO }
+      : achadas.length > mostradas.length
+        ? { aviso: `Mostradas ${mostradas.length} de ${achadas.length} ocorrências.` }
+        : {}),
+  };
 }
 
 /** "Não encontrado", com a passagem parecida quando houver (com supressão, pelas palavras de todos os pedaços). */
-function naoEncontrado(ementa: string, citado: string): ConferenciaFeita {
-  const parecida = passagemParecida(ementa, citado);
+function naoEncontrado(fonte: Fonte, citacao: Citacao): ConferenciaFeita {
+  const parecida = passagemParecida(fonte, citacao.pedacos.join(" "));
   return {
     veredito: "não encontrado",
     ocorrencias: [],
@@ -158,37 +284,329 @@ function naoEncontrado(ementa: string, citado: string): ConferenciaFeita {
   };
 }
 
-/** Pedaços na ordem, sem sobreposição: cada um procurado a partir do fim do anterior (o 1º encaixe basta). */
-function comSupressao(ementa: string, pedacos: string[]): ConferenciaFeita {
-  for (const regras of [LITERAL, SOLTO]) {
-    const fonte = normalizar(ementa, regras);
-    const cadeia: [number, number][] = [];
-    let desde = 0;
-    for (const p of pedacos) {
-      const achado = ocorrencias(fonte, normalizar(p, regras).texto.trim(), desde).next();
-      if (achado.done) break;
-      cadeia.push(original(fonte, achado.value));
-      desde = achado.value[1];
-    }
-    if (cadeia.length < pedacos.length) continue;
-    const literal = regras === LITERAL;
-    return {
-      veredito: literal ? "encontrado com supressão indicada" : "difere só em maiúsculas/pontuação",
-      ocorrencias: [{ local: "na ementa", pedacos: cadeia.map(([a, b]) => posicao(ementa, a, b, literal)) }],
-      total: "não apurado",
-      equivalencias: literal ? equivalenciasUsadas(cadeia.map(([a, b], k) => [ementa.slice(a, b), pedacos[k]])) : [],
-      aviso: AVISO_SUPRESSAO,
-    };
-  }
-  return naoEncontrado(ementa, pedacos.join(" "));
+function posicao(fonte: Fonte, a: number, b: number, literal: boolean): Posicao {
+  const sinal = fonte.sinal(a, b);
+  return {
+    ...fonte.onde(a, b),
+    ...(fonte.frase ? { frase: fonte.frase(a, b) } : {}),
+    ...(literal ? {} : { textoDaFonte: fonte.texto.slice(a, b) }),
+    ...(sinal ? { sinalDeOutroAutor: sinal } : {}),
+  };
 }
 
-function posicao(ementa: string, a: number, b: number, literal: boolean): PosicaoNaEmenta {
+/** Separador de uma página sem texto extraível no texto corrido do PDF: nenhuma citação passa por ele. */
+const PAGINA_SEM_TEXTO = "\u0000";
+
+/** O texto corrido do inteiro teor e onde começa cada unidade (página ou segmento) nele. */
+interface FonteDoInteiroTeor extends Fonte {
+  unidades: UnidadeDoInteiroTeor[];
+  inicios: number[];
+}
+
+interface Variante {
+  fonte: Fonte;
+  /** O texto de origem de um intervalo da variante. */
+  origem(a: number, b: number): [number, number];
+  motivo: string;
+}
+
+const fontesDoInteiroTeor = new WeakMap<InteiroTeorParaConferir, FonteDoInteiroTeor>();
+
+/**
+ * Conferência no inteiro teor (ADR-0006): no texto corrido de todas as páginas do PDF, com a posição como página do
+ * PDF, parte do ler_inteiro_teor e segmento. A quebra de página só é atravessada quando é limpa; com hífen de fim de
+ * linha ou possível cabeçalho/rodapé no meio, no máximo uma passagem candidata, nunca confirmada.
+ */
+export function conferirNoInteiroTeor(leitura: InteiroTeorParaConferir, citacao: Citacao): ResultadoDaFonte {
+  const semTexto = leitura.unidades.filter((t) => !t.texto).map((t) => t.pagina);
+  if (semTexto.length === leitura.unidades.length) {
+    return naoVerificavel(
+      "Nenhuma página deste PDF tem texto extraível; pode ser escaneado. O Garimpo não faz OCR: confira a citação " +
+        "abrindo o arquivo. Isso não quer dizer que a citação não esteja no PDF.",
+    );
+  }
+  let fonte = fontesDoInteiroTeor.get(leitura);
+  if (!fonte) fontesDoInteiroTeor.set(leitura, (fonte = fonteDoInteiroTeor(leitura)));
+  const feita = conferir(fonte, citacao);
+  if (feita) return feita;
+  const candidata = passagemCandidata(fonte, citacao);
+  const resultado: ConferenciaFeita = candidata
+    ? { veredito: "não encontrado", ocorrencias: [], total: 0, equivalencias: [], passagemCandidata: candidata }
+    : naoEncontrado(fonte, citacao);
+  if (!semTexto.length) return resultado;
+  // Região sem texto extraível: a citação pode estar nela, então nunca "não encontrado".
+  const paginas = listaDePaginas(semTexto);
+  const uma = semTexto.length === 1;
   return {
-    local: "na ementa",
-    frase: fraseEm(ementa, a, b),
-    ...(literal ? {} : { textoDaFonte: ementa.slice(a, b) }),
-    ...(entreAspas(ementa, a, b) ? { sinalDeOutroAutor: "pode ser de outro autor: a passagem está entre aspas na ementa" } : {}),
+    ...naoVerificavel(
+      `Não achada nas páginas com texto extraível, mas ${uma ? "a" : "as"} ${paginas} não ${uma ? "tem" : "têm"} ` +
+        `texto extraível (o Garimpo não faz OCR) e não ${uma ? "foi conferida" : "foram conferidas"}: a citação pode ` +
+        `estar ${uma ? "nela" : "nelas"}. Abra o arquivo para conferir.`,
+    ),
+    paginasSemTexto: `${paginas} de ${leitura.totalDePaginas}`,
+    ...(resultado.passagemCandidata ? { passagemCandidata: resultado.passagemCandidata } : {}),
+    ...(resultado.passagemParecida ? { passagemParecida: resultado.passagemParecida } : {}),
+  };
+}
+
+/** "página 4" ou "páginas 2, 4 e 7". */
+function listaDePaginas(paginas: number[]): string {
+  if (paginas.length === 1) return `página ${paginas[0]}`;
+  return `páginas ${paginas.slice(0, -1).join(", ")} e ${paginas[paginas.length - 1]}`;
+}
+
+function fonteDoInteiroTeor(leitura: InteiroTeorParaConferir): FonteDoInteiroTeor {
+  const { unidades, totalDePaginas, totalDePartes } = leitura;
+  const inicios: number[] = [];
+  let texto = "";
+  unidades.forEach((t, k) => {
+    if (k) texto += "\n";
+    inicios.push(texto.length);
+    texto += t.texto || PAGINA_SEM_TEXTO;
+  });
+  const unidadeEm = (i: number): UnidadeDoInteiroTeor => {
+    let [lo, hi] = [0, inicios.length - 1];
+    while (lo < hi) {
+      const meio = Math.ceil((lo + hi) / 2);
+      if (inicios[meio] <= i) lo = meio;
+      else hi = meio - 1;
+    }
+    return unidades[lo];
+  };
+  return {
+    texto,
+    unidades,
+    inicios,
+    onde(a, b) {
+      const [x, y] = [unidadeEm(a), unidadeEm(b - 1)];
+      const segmento = (t: UnidadeDoInteiroTeor) =>
+        t.segmento ? `segmento ${t.segmento.numero} de ${t.segmento.de} da página ${t.pagina}` : `página ${t.pagina}`;
+      /** "página 3 de 10" ou "páginas 3–4 de 10"; o mesmo para a parte. */
+      const intervalo = (nome: string, de: number, ate: number, total: number) =>
+        de === ate ? `${nome} ${de} de ${total}` : `${nome}s ${de}–${ate} de ${total}`;
+      return {
+        local: "no inteiro teor",
+        paginasDoPdf: intervalo("página", x.pagina, y.pagina, totalDePaginas),
+        parte: intervalo("parte", x.parte, y.parte, totalDePartes),
+        ...(x.segmento || y.segmento ? { segmento: x === y ? segmento(x) : `${segmento(x)} até ${segmento(y)}` } : {}),
+      };
+    },
+    sinal: (a, b) => sinalNoInteiroTeor(texto, a, b),
+    // Sem caixa e pontuação, o hífen de fim de linha viraria espaço e a palavra partida passaria por pontuação.
+    soltaAceita: (a, b) => !HIFEN_DE_FIM_DE_LINHA.test(texto.slice(a, b)),
+    cadeiaAceita: (a, b) => unidadeEm(b - 1).pagina - unidadeEm(a).pagina < MAXIMO_DE_PAGINAS_DA_SUPRESSAO,
+    normalizados: new Map(),
+  };
+}
+
+/** Janela antes da passagem onde se procura a aspa que a abre. */
+const JANELA_DAS_ASPAS = 3000;
+/** Janela curta antes da passagem onde se procura o marcador de transcrição. */
+const JANELA_DO_MARCADOR = 200;
+/** Marcadores fixos de transcrição: o que vem depois deles costuma ser texto de outro autor. */
+const MARCADORES = [
+  "in verbis",
+  "verbis",
+  "ipsis litteris",
+  "in litteris",
+  "litteris",
+  "ad litteram",
+  "confira-se",
+  "confiram-se",
+  "veja-se",
+  "vejam-se",
+  "nas palavras d[aoe]s?",
+  "transcrevo",
+  "transcreve-se",
+  "transcrevem-se",
+  "colaciono",
+  "colaciona-se",
+];
+const MARCADOR = new RegExp(`(?<![\\p{L}\\p{N}])(?:${MARCADORES.join("|")})(?![\\p{L}\\p{N}])`, "giu");
+
+/**
+ * Sinal de outro autor no inteiro teor: a passagem entre aspas, ou um marcador de transcrição ("in verbis",
+ * "confira-se"…) logo antes dela, copiado como está na fonte. É indício, não autoria; a falta dele não prova nada.
+ */
+function sinalNoInteiroTeor(texto: string, a: number, b: number): string | undefined {
+  const sinais: string[] = [];
+  if (entreAspas(texto, a, b, Math.max(0, a - JANELA_DAS_ASPAS))) {
+    sinais.push("a passagem está entre aspas no inteiro teor");
+  }
+  const marcadores = [...texto.slice(Math.max(0, a - JANELA_DO_MARCADOR), a).normalize("NFC").matchAll(MARCADOR)];
+  if (marcadores.length) {
+    sinais.push(`logo antes da passagem há o marcador de transcrição "${marcadores[marcadores.length - 1][0]}"`);
+  }
+  return sinais.length ? `pode ser de outro autor: ${sinais.join("; ")}` : undefined;
+}
+
+/**
+ * Passagem candidata: a citação procurada de novo numa variante do texto do PDF — sem o hífen de fim de linha (ou só
+ * sem a quebra depois dele), ou pulando até 3 linhas no fim de uma página e no começo da seguinte. Achar assim
+ * nunca confirma: o hífen pode ser da palavra e a linha pulada pode ser texto do acórdão.
+ */
+function passagemCandidata(fonte: FonteDoInteiroTeor, citacao: Citacao): PassagemCandidata | undefined {
+  for (const variante of variantes(fonte, citacao)) {
+    const achado = procurar(variante.fonte, citacao);
+    if (!achado) continue;
+    const achada = achado.ocorrencias[0];
+    const [a] = variante.origem(...achada[0]);
+    const [, b] = variante.origem(...achada[achada.length - 1]);
+    return {
+      texto: fonte.texto.slice(a, b),
+      ...(fonte.onde(a, b) as OndeNoInteiroTeor),
+      motivo: achado.literal ? variante.motivo : `${variante.motivo}; e ainda difere em maiúsculas/pontuação`,
+      aviso:
+        "Passagem candidata copiada do PDF: não confirmada. Confira no PDF se ela é mesmo o texto citado antes de " +
+        "citar.",
+    };
+  }
+  return undefined;
+}
+
+/** Hífen no fim de uma linha do PDF, entre letras: pode ser da palavra ou só de translineação. */
+const HIFEN_DE_FIM_DE_LINHA = /(?<=\p{L})-[ \t]*\n[ \t]*(?=\p{L})/u;
+
+/** Até quantas linhas, no fim de uma página e no começo da seguinte, podem ser cabeçalho ou rodapé. */
+const LINHAS_DE_CABECALHO = 3;
+
+const MOTIVO_SEM_HIFEN =
+  "a citação só fecha retirando o hífen de fim de linha do PDF, e o Garimpo nunca o retira: ele pode ser da palavra";
+const MOTIVO_COM_HIFEN =
+  "a citação só fecha juntando a palavra partida pelo hífen de fim de linha do PDF, e o Garimpo não junta: o hífen " +
+  "pode ser só de translineação";
+
+const emMinusculas = (texto: string) => texto.normalize("NFC").toLowerCase();
+
+/**
+ * As variantes do texto do PDF que podem fechar com esta citação, cada uma numa janela em volta dos hífens ou da
+ * quebra de página: só os hífens que partem uma palavra da citação e só os pulos de linha que colam duas palavras
+ * vizinhas na citação. Assim, um PDF longo não é refeito inteiro a cada variante.
+ */
+function* variantes(fonte: FonteDoInteiroTeor, citacao: Citacao): Generator<Variante> {
+  const { texto, unidades, inicios } = fonte;
+  const citado = emMinusculas(citacao.pedacos.join(" "));
+  const janela = 3 * citado.length + 1000;
+
+  // Só os hífens que partem uma palavra da citação; numa janela, todos os do mesmo jeito saem juntos.
+  const semHifen: Corte[] = [];
+  const comHifen: Corte[] = [];
+  for (const m of texto.matchAll(new RegExp(HIFEN_DE_FIM_DE_LINHA, "gu"))) {
+    const fim = m.index + m[0].length;
+    const antes = emMinusculas(/[\p{L}\p{M}]+$/u.exec(texto.slice(Math.max(0, m.index - 100), m.index))?.[0] ?? "");
+    const depois = emMinusculas(/^[\p{L}\p{M}]+/u.exec(texto.slice(fim, fim + 100))?.[0] ?? "");
+    if (citado.includes(antes + depois)) semHifen.push({ de: m.index, ate: fim, por: "" });
+    if (citado.includes(`${antes}-${depois}`)) comHifen.push({ de: m.index + 1, ate: fim, por: "" });
+  }
+  for (const [cortes, motivo] of [
+    [semHifen, MOTIVO_SEM_HIFEN],
+    [comHifen, MOTIVO_COM_HIFEN],
+  ] as const) {
+    // Hífens próximos vão na mesma janela: uma variante por grupo, não por hífen.
+    for (let k = 0; k < cortes.length; ) {
+      let j = k;
+      while (j + 1 < cortes.length && cortes[j + 1].de - cortes[j].ate < 2 * janela) j++;
+      const [de, ate] = [Math.max(0, cortes[k].de - janela), Math.min(texto.length, cortes[j].ate + janela)];
+      yield derivar(fonte, de, ate, cortes.slice(k, j + 1), motivo);
+      k = j + 1;
+    }
+  }
+
+  // Pulando linhas, a última palavra antes do pulo e a 1ª depois dele ficam coladas: precisam ser vizinhas na citação.
+  const vizinhas = new Set(
+    citacao.pedacos.flatMap((p) => palavras(p).flatMap((w, i, ps) => (i ? [`${ps[i - 1].palavra} ${w.palavra}`] : []))),
+  );
+  const ultimaPalavra = (fim: number) => palavras(texto.slice(Math.max(0, fim - 100), fim)).pop()?.palavra;
+  const primeiraPalavra = (inicio: number) => palavras(texto.slice(inicio, inicio + 100))[0]?.palavra;
+  const linhas = (n: number) => `${n} ${n === 1 ? "linha" : "linhas"}`;
+  for (let k = 1; k < unidades.length; k++) {
+    // Quebra de página entre duas páginas com texto: o "\n" que junta a última unidade de uma à 1ª da seguinte.
+    if (unidades[k].pagina === unidades[k - 1].pagina || !unidades[k].texto || !unidades[k - 1].texto) continue;
+    const juncao = inicios[k] - 1;
+    const comeco = inicios[unidades.findIndex((u) => u.pagina === unidades[k - 1].pagina)];
+    const final = finalDaPagina(unidades, inicios, k);
+    const [de, ate] = [Math.max(comeco, juncao - janela), Math.min(final, juncao + janela)];
+    for (let s = 0; s <= LINHAS_DE_CABECALHO; s++) {
+      for (let t = 0; t <= LINHAS_DE_CABECALHO; t++) {
+        if (!s && !t) continue;
+        let x = juncao;
+        for (let i = 0; i < s && x >= comeco; i++) x = texto.lastIndexOf("\n", x - 1);
+        let y = juncao;
+        for (let i = 0; i < t && y >= 0 && y < final; i++) y = texto.indexOf("\n", y + 1);
+        // A página toda pulada não é cabeçalho nem rodapé.
+        if (x < comeco || y < 0 || y >= final) continue;
+        if (!vizinhas.has(`${ultimaPalavra(x)} ${primeiraPalavra(y + 1)}`)) continue;
+        const pulado = [s ? `${linhas(s)} do fim da página` : "", t ? `${linhas(t)} do começo da seguinte` : ""];
+        yield derivar(
+          fonte,
+          Math.min(de, x),
+          Math.max(ate, y + 1),
+          [{ de: x, ate: y + 1, por: "\n" }],
+          `a citação só fecha pulando, na quebra de página, ${pulado.filter(Boolean).join(" e ")}, que ` +
+            `${s + t === 1 ? "pode" : "podem"} ser cabeçalho ou rodapé — ou texto do acórdão`,
+        );
+      }
+    }
+  }
+}
+
+/** Onde termina a página da unidade k (o "\n" antes da página seguinte, ou o fim do texto). */
+function finalDaPagina(unidades: UnidadeDoInteiroTeor[], inicios: number[], k: number): number {
+  let j = k;
+  while (j + 1 < unidades.length && unidades[j + 1].pagina === unidades[k].pagina) j++;
+  return j + 1 < unidades.length ? inicios[j + 1] - 1 : inicios[j] + unidades[j].texto.length;
+}
+
+interface Corte {
+  de: number;
+  ate: number;
+  por: string;
+}
+
+/**
+ * Variante do texto da fonte entre `inicio` e `fim`, com os cortes (em ordem, sem sobreposição) trocados, que sabe
+ * de onde veio cada caractere
+ * (posição no texto inteiro da fonte).
+ */
+function derivar(
+  fonte: Fonte,
+  inicio: number,
+  fim: number,
+  cortes: Corte[],
+  motivo: string,
+): Variante {
+  const de: number[] = [];
+  const ate: number[] = [];
+  const copiar = (a: number, b: number) => {
+    for (let i = a; i < b; i++) {
+      de.push(i);
+      ate.push(i + 1);
+    }
+    return fonte.texto.slice(a, b);
+  };
+  let texto = "";
+  let i = inicio;
+  for (const corte of cortes) {
+    texto += copiar(i, corte.de);
+    for (const ch of corte.por) {
+      texto += ch;
+      de.push(corte.de);
+      ate.push(corte.ate);
+    }
+    i = corte.ate;
+  }
+  texto += copiar(i, fim);
+  const origem = (a: number, b: number): [number, number] => [de[a], ate[b - 1]];
+  return {
+    motivo,
+    origem,
+    fonte: {
+      texto,
+      onde: (a, b) => fonte.onde(...origem(a, b)),
+      sinal: () => undefined,
+      cadeiaAceita: (a, b) => fonte.cadeiaAceita(...origem(a, b)),
+      normalizados: new Map(),
+    },
   };
 }
 
@@ -199,13 +617,13 @@ function abreAspas(texto: string, i: number): boolean {
 }
 
 /**
- * Sinal de outro autor na ementa (ADR-0006, só aspas): a passagem começa dentro de aspas abertas e não fechadas,
- * ou tem aspa de abertura dentro dela. Aspa reta depois de número (polegada) não conta. É indício, não autoria; a
- * falta dele não prova nada.
+ * Sinal de outro autor por aspas: a passagem começa dentro de aspas abertas (a partir de `desde`) e não fechadas, ou
+ * tem aspa de abertura dentro dela. Aspa reta depois de número (polegada) não conta. É indício, não autoria; a falta
+ * dele não prova nada.
  */
-function entreAspas(texto: string, inicio: number, fim: number): boolean {
+function entreAspas(texto: string, inicio: number, fim: number, desde = 0): boolean {
   let aberta = false;
-  for (let i = 0; i < inicio; i++) {
+  for (let i = desde; i < inicio; i++) {
     if (abreAspas(texto, i)) aberta = true;
     else if (texto[i] === "”" || texto[i] === "»") aberta = false;
     else if (texto[i] === '"' && !/\d/.test(texto[i - 1])) aberta = false;
@@ -214,7 +632,7 @@ function entreAspas(texto: string, inicio: number, fim: number): boolean {
   return aberta;
 }
 
-/** Teto de janelas comparadas em ordem na busca da passagem parecida: mantém a resposta rápida em ementa longa. */
+/** Teto de janelas comparadas em ordem na busca da passagem parecida: mantém a resposta rápida em fonte longa. */
 const MAXIMO_DE_JANELAS = 50;
 
 /** Palavras (letras e números) com a posição no texto original. */
@@ -230,9 +648,9 @@ function palavras(texto: string) {
  * Passagem parecida: a janela da fonte com mais palavras da citação na mesma ordem (maior subsequência comum de
  * palavras), aceita com 80% ou mais. Comparação fixa, sem IA; o texto devolvido é copiado da fonte.
  */
-function passagemParecida(fonte: string, citacao: string): PassagemParecida | undefined {
+function passagemParecida(fonte: Fonte, citacao: string): PassagemParecida | undefined {
   const cit = palavras(citacao).map((p) => p.palavra);
-  const src = palavras(fonte);
+  const src = palavras(fonte.texto);
   const n = cit.length;
   if (!n) return undefined;
   // Com 80% em comum, a 1ª palavra casada da citação está entre as primeiras 20%, e a janela tem, fora de ordem,
@@ -264,14 +682,17 @@ function passagemParecida(fonte: string, citacao: string): PassagemParecida | un
   for (const { s } of candidatas.sort((x, y) => y.emComum - x.emComum || x.s - y.s).slice(0, MAXIMO_DE_JANELAS)) {
     const janela = src.slice(s, s + largura).map((p) => p.palavra);
     const r = subsequenciaComum(cit, janela);
+    // Passagem que atravessa página sem texto extraível não é copiada da fonte: há um pedaço que não foi lido.
+    if (r.comum && fonte.texto.slice(src[s + r.de].inicio, src[s + r.ate].fim).includes(PAGINA_SEM_TEXTO)) continue;
     if (r.comum && (!melhor || r.comum > melhor.comum || (r.comum === melhor.comum && s + r.de < melhor.de))) {
       melhor = { comum: r.comum, de: s + r.de, ate: s + r.ate };
     }
   }
   if (!melhor || melhor.comum * 5 < n * 4) return undefined;
+  const [a, b] = [src[melhor.de].inicio, src[melhor.ate].fim];
   return {
-    texto: fonte.slice(src[melhor.de].inicio, src[melhor.ate].fim),
-    local: "na ementa",
+    texto: fonte.texto.slice(a, b),
+    ...fonte.onde(a, b),
     palavrasEmComum: `${melhor.comum} de ${n} palavras da citação, na mesma ordem`,
     aviso: "Passagem parecida copiada da fonte: não é o texto informado. Corrija a citação pela fonte antes de citar.",
   };
@@ -369,7 +790,7 @@ const LETRA_OU_NUMERO = /[\p{L}\p{N}]/u;
  * normalizado. A citação não pode começar nem terminar no meio de uma palavra da fonte.
  */
 function* ocorrencias(fonte: Normalizado, procurado: string, desde = 0): Generator<[number, number]> {
-  if (!procurado) return;
+  if (!procurado || procurado.includes(PAGINA_SEM_TEXTO)) return;
   const bordaInicio = LETRA_OU_NUMERO.test(procurado[0]);
   const bordaFim = LETRA_OU_NUMERO.test(procurado[procurado.length - 1]);
   for (let i = fonte.texto.indexOf(procurado, desde); i >= 0; i = fonte.texto.indexOf(procurado, i + 1)) {

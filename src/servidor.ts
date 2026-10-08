@@ -9,7 +9,7 @@ import { z } from "zod";
 import { Cliente, VERSAO } from "./cliente.js";
 import { acordaoNaMemoria, buscaDireta } from "./busca.js";
 import { buscaAmpla } from "./ampla.js";
-import { conferirNaEmenta, lerCitacao, naoVerificavel } from "./conferencia.js";
+import { conferirNaEmenta, conferirNoInteiroTeor, lerCitacao, naoVerificavel } from "./conferencia.js";
 import {
   type ClientePorTribunal,
   clientePadrao,
@@ -17,7 +17,13 @@ import {
   obterInteiroTeor,
   pastaPadrao,
 } from "./inteiroTeor.js";
-import { contarPaginas, LIMITE_CARACTERES_PARTE, lerInteiroTeor } from "./leitura.js";
+import {
+  contarPaginas,
+  type InteiroTeorParaConferir,
+  LIMITE_CARACTERES_PARTE,
+  lerInteiroTeor,
+  lerParaConferir,
+} from "./leitura.js";
 import { SIGLAS, TRIBUNAIS } from "./tribunais.js";
 
 // Tribunal e datas são conferidos dentro da ferramenta, não no esquema: o erro do esquema sai embrulhado em texto
@@ -302,16 +308,23 @@ export function criarServidor(
       title: "Conferir citação",
       description:
         "Confere, por regra fixa e sem IA, se cada citação está literalmente na ementa do acórdão (id que veio " +
-        "na busca; ementa guardada na memória do Garimpo). Até 20 citações por chamada; cada uma com 5 palavras ou mais e " +
+        "na busca; ementa guardada na memória do Garimpo) e/ou no inteiro teor (caminho do PDF, o do " +
+        "obter_inteiro_teor ou um trazido pelo usuário). Com id e caminho juntos, um veredito para cada fonte. Até 20 " +
+        "citações por chamada; cada uma com 5 palavras ou mais e " +
         "até 3 mil caracteres, mandada sem as aspas de abertura e fechamento. Vereditos: \"encontrado literalmente\" " +
         "(só diferença de espaço, quebra de linha, espaço não separável, forma Unicode dos acentos ou aspas e " +
         "apóstrofos tipográficos, avisadas em equivalencias); \"encontrado com supressão indicada\" (cortes marcados " +
-        "com (...) ou [...], pedaços de 5 palavras ou mais, na ordem); \"difere só em maiúsculas/pontuação\" (não é " +
-        "literal; vem o texto exato da fonte); \"não encontrado\" (com a passagem parecida da fonte, quando houver, " +
-        "que não é o texto informado); \"não verificável\" (acórdão fora da memória ou sem ementa). Hífen, meia-risca " +
-        "e travessão nunca são iguais. Reticências soltas são procuradas como texto, salvo reticenciasComoCorte. " +
-        "A posição vem como a frase da ementa que contém a citação; passagem entre aspas na ementa ganha o aviso de " +
-        "que pode ser de outro autor. Achar o texto não autentica a fonte. Só lê: não chama a rede e não grava.",
+        "com (...) ou [...], pedaços de 5 palavras ou mais, na ordem; no PDF, em até 3 páginas seguidas); \"difere só " +
+        "em maiúsculas/pontuação\" (não é literal; vem o texto exato da fonte); \"não encontrado\" (com a passagem " +
+        "parecida da fonte, quando houver, que não é o texto informado; no PDF, também a passagem candidata, nunca " +
+        "confirmada, quando a citação só fecha retirando hífen de fim de linha ou pulando linhas que podem ser " +
+        "cabeçalho/rodapé na quebra de página); \"não verificável\" (acórdão fora da memória, sem ementa, erro de leitura do PDF " +
+        "ou sem texto extraível). Hífen, meia-risca e travessão nunca são iguais. Reticências soltas são procuradas " +
+        "como texto, salvo reticenciasComoCorte. Na ementa, a posição vem como a frase que contém a citação; no " +
+        "inteiro teor, como página do PDF (nunca folha dos autos), parte do ler_inteiro_teor e segmento, com a origem " +
+        "do PDF (conferida ou não conferida). Passagem entre aspas, ou no PDF logo depois de \"in verbis\", " +
+        "\"confira-se\" e semelhantes, ganha o aviso de que pode ser de outro autor. Achar o texto não autentica a " +
+        "fonte. Só lê: não chama a rede e não grava.",
       annotations: { readOnlyHint: true, openWorldHint: false },
       inputSchema: {
         // Item malformado é conferido dentro da ferramenta: vira resultado próprio, com frase que ensina a corrigir,
@@ -322,11 +335,15 @@ export function criarServidor(
               z.object({
                 citacao: z.string().optional().describe("Texto a conferir, sem as aspas das pontas; cortes com (...) ou [...]"),
                 id: z.string().optional().describe("Id do acórdão, como veio na busca (tribunal:id): confere na ementa"),
+                caminho: z
+                  .string()
+                  .optional()
+                  .describe("Caminho do PDF do inteiro teor (não URL): confere no inteiro teor"),
               }),
               z.string(),
             ]),
           ),
-        ).describe("Citações a conferir (até 20), cada uma { citacao, id }"),
+        ).describe("Citações a conferir (até 20), cada uma { citacao, id } e/ou { citacao, caminho }"),
         reticenciasComoCorte: z
           .boolean()
           .optional()
@@ -337,37 +354,58 @@ export function criarServidor(
       if (!citacoes.length || citacoes.length > 20) {
         return erro(
           new Error(
-            `São ${citacoes.length} citações; mande de 1 a 20 por chamada, cada uma { citacao, id }. ` +
-              "Com mais de 20, divida-as em mais de uma chamada.",
+            `São ${citacoes.length} citações; mande de 1 a 20 por chamada, cada uma { citacao, id } e/ou ` +
+              "{ citacao, caminho }. Com mais de 20, divida-as em mais de uma chamada.",
           ),
         );
       }
-      const resultados = citacoes.map((item, i) => {
-        if (typeof item === "string" || item.citacao === undefined || item.id === undefined) {
-          return {
+      // Cada PDF é extraído uma vez por chamada, por mais citações que o usem.
+      const leituras = new Map<string, Promise<InteiroTeorParaConferir>>();
+      const resultados = [];
+      for (const [i, item] of citacoes.entries()) {
+        if (typeof item === "string" || item.citacao === undefined || (item.id === undefined && item.caminho === undefined)) {
+          resultados.push({
             citacao: i + 1,
             erro:
-              "Cada citação vai como { citacao, id }: o texto a conferir e o id do acórdão como veio na busca " +
-              '(ex.: { "citacao": "…", "id": "stj:12345" }).',
-          };
+              "Cada citação vai como { citacao, id } (confere na ementa) e/ou { citacao, caminho } (confere no " +
+              'inteiro teor): o texto a conferir e o id do acórdão como veio na busca, ou o caminho do PDF (ex.: { ' +
+              '"citacao": "…", "id": "stj:12345" }).',
+          });
+          continue;
         }
-        const { citacao, id } = item;
+        const { citacao, id, caminho } = item;
         let lida;
         try {
           lida = lerCitacao(citacao, { reticenciasComoCorte });
         } catch (e) {
-          return { citacao: i + 1, erro: (e as Error).message };
+          resultados.push({ citacao: i + 1, erro: (e as Error).message });
+          continue;
         }
-        const a = acordaoNaMemoria(id);
-        const conferida = a
-          ? conferirNaEmenta(a.ementa, lida)
-          : naoVerificavel(`O acórdão ${id} não está na memória do Garimpo. Refaça a busca que o trouxe e confira de novo.`);
-        return { citacao: i + 1, fontes: [{ fonte: "ementa", id, ...conferida }] };
-      });
+        const fontes = [];
+        if (id !== undefined) {
+          const a = acordaoNaMemoria(id);
+          const conferida = a
+            ? conferirNaEmenta(a.ementa, lida)
+            : naoVerificavel(`O acórdão ${id} não está na memória do Garimpo. Refaça a busca que o trouxe e confira de novo.`);
+          fontes.push({ fonte: "ementa", id, ...conferida });
+        }
+        if (caminho !== undefined) {
+          if (!leituras.has(caminho)) leituras.set(caminho, lerParaConferir(caminho));
+          try {
+            const leitura = await leituras.get(caminho)!;
+            fontes.push({ fonte: "inteiro teor", caminho, origem: leitura.origem, ...conferirNoInteiroTeor(leitura, lida) });
+          } catch (e) {
+            fontes.push({ fonte: "inteiro teor", caminho, ...naoVerificavel((e as Error).message) });
+          }
+        }
+        resultados.push({ citacao: i + 1, fontes });
+      }
       return comAvisoNaturezaJuridica({
         reticenciasComoCorte,
         resultados,
-        aviso: "Achar o texto não autentica a fonte: a ementa é a que o JurisprudênciaIA devolveu.",
+        aviso:
+          "Achar o texto não autentica a fonte: a ementa é a que o JurisprudênciaIA devolveu, e o PDF só tem origem " +
+          "conferida com o recibo de origem ao lado dele e o mesmo sha256.",
         notaSinalDeOutroAutor:
           "Sinal de outro autor é indício, não autoria: o Garimpo não diz de quem é a passagem nem se é a tese " +
           "vencedora, e a falta de sinal não prova que a passagem é do tribunal.",
