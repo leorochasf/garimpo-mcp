@@ -1,24 +1,26 @@
 import { describe, expect, it } from "vitest";
-import type { Qualificado } from "../src/busca.js";
+import type { ItemAmplo } from "../src/ampla.js";
+import { normalizar, type Qualificado } from "../src/busca.js";
+import { fixture } from "./apoio.js";
 import { juntarQualificados, reservarPorTribunal } from "../src/saida.js";
 
 /** Acórdão fictício já na ordem geral; `deCima` diz se está na faixa de aderência de cima. */
-interface Item {
+interface AcordaoFicticio {
   id: string;
   tribunal: string;
   deCima: boolean;
 }
 
-const naFaixaDeCima = (x: Item) => x.deCima;
+const naFaixaDeCima = (x: AcordaoFicticio) => x.deCima;
 
-function itens(tribunal: string, n: number, deCima = true): Item[] {
+function acordaos(tribunal: string, n: number, deCima = true): AcordaoFicticio[] {
   return Array.from({ length: n }, (_, i) => ({ id: `${tribunal}:${i}`, tribunal, deCima }));
 }
 
 describe("reserva mínima por tribunal", () => {
   it("STF com 4 achados por 1 formulação entra com até 3 vagas ao lado de um tribunal grande, sem sair da ordem geral", () => {
     // Ordem geral: os 100 do tribunal grande (achados por 3 formulações) vêm antes dos 4 do STF (achados por 1).
-    const ordenados = [...itens("tjxx", 100), ...itens("stf", 4)];
+    const ordenados = [...acordaos("tjxx", 100), ...acordaos("stf", 4)];
 
     const mostrados = reservarPorTribunal(ordenados, { maximo: 50, naFaixaDeCima });
 
@@ -32,7 +34,7 @@ describe("reserva mínima por tribunal", () => {
 
   it("tribunal pedido sem nenhum acórdão não reserva vaga: as vagas vão para os outros", () => {
     // TJYY e STF foram pedidos, mas o site não devolveu nada deles.
-    const ordenados = itens("tjxx", 100);
+    const ordenados = acordaos("tjxx", 100);
 
     const mostrados = reservarPorTribunal(ordenados, { maximo: 50, naFaixaDeCima });
 
@@ -40,7 +42,7 @@ describe("reserva mínima por tribunal", () => {
   });
 
   it("acórdão fora da faixa de aderência de cima não entra pela reserva", () => {
-    const ordenados = [...itens("tjxx", 100), ...itens("stf", 4, false)];
+    const ordenados = [...acordaos("tjxx", 100), ...acordaos("stf", 4, false)];
 
     const mostrados = reservarPorTribunal(ordenados, { maximo: 50, naFaixaDeCima });
 
@@ -49,7 +51,7 @@ describe("reserva mínima por tribunal", () => {
   });
 
   it("o tamanho da reserva é parâmetro", () => {
-    const ordenados = [...itens("tjxx", 100), ...itens("stf", 4)];
+    const ordenados = [...acordaos("tjxx", 100), ...acordaos("stf", 4)];
 
     const com1 = reservarPorTribunal(ordenados, { maximo: 50, vagasPorTribunal: 1, naFaixaDeCima });
     const com0 = reservarPorTribunal(ordenados, { maximo: 50, vagasPorTribunal: 0, naFaixaDeCima });
@@ -79,6 +81,19 @@ describe("seção de precedentes qualificados", () => {
     expect(secao[0].texto).toBe("Tese fictícia do tema 1.");
   });
 
+  it("lê os precedentes qualificados no formato devolvido pelo site (fixture fictícia do STF)", () => {
+    const { qualificados } = normalizar("stf", fixture("stf-juris.json"));
+
+    const secao = juntarQualificados([
+      { tribunal: "stf", formulacao: 0, qualificados },
+      { tribunal: "stf", formulacao: 1, qualificados },
+    ]);
+
+    expect(qualificados.length).toBeGreaterThan(0);
+    expect(secao).toHaveLength(qualificados.length);
+    expect(secao.every((q) => q.tribunal === "stf" && q.formulacoes === 2 && q.texto.length > 0)).toBe(true);
+  });
+
   it("tema de mesmo número em tribunais diferentes não se junta", () => {
     const secao = juntarQualificados([
       { tribunal: "stf", formulacao: 0, qualificados: [tema("10")] },
@@ -105,8 +120,8 @@ describe("seção de precedentes qualificados", () => {
 
   it("lista mostrada (50) + 10 qualificados com texto cortado cabem numa resposta", () => {
     // Mesmo item compacto que o teste de tamanho da busca ampla já usa (tests/ampla.test.ts), ementa cortada em 160.
-    // Com links e números de processo longos a lista de 50 sozinha já passa de 21 mil: ver comentário do ticket 08.
-    const acordaos = Array.from({ length: 50 }, (_, i) => ({
+    // Com links e números de processo longos, a lista de 50 sozinha já passa de 21 mil: ver comentário do ticket 08.
+    const mostrados: ItemAmplo[] = Array.from({ length: 50 }, (_, i) => ({
       id: `stj:a-${i}`,
       numero: `a-${i}/UF`,
       tribunal: "stj",
@@ -132,7 +147,7 @@ describe("seção de precedentes qualificados", () => {
     ]);
 
     // Mesmo formato da resposta das ferramentas (src/index.ts).
-    const resposta = JSON.stringify({ acordaos, qualificados }, null, 1);
+    const resposta = JSON.stringify({ acordaos: mostrados, qualificados }, null, 1);
 
     expect(qualificados).toHaveLength(10);
     expect(resposta.length).toBeLessThan(25_000);

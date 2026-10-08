@@ -31,13 +31,16 @@ export function reservarPorTribunal<T extends { tribunal: string }>(ordenados: T
       usadas.set(item.tribunal, ja + 1);
     }
   }
+  const mostrados: T[] = [];
   let livres = o.maximo - reservados.size;
-  return ordenados.filter((item) => {
-    if (reservados.has(item)) return true;
-    if (livres <= 0) return false;
-    livres--;
-    return true;
-  });
+  for (const item of ordenados) {
+    if (reservados.has(item)) mostrados.push(item);
+    else if (livres > 0) {
+      mostrados.push(item);
+      livres--;
+    }
+  }
+  return mostrados;
 }
 
 /** Precedentes qualificados devolvidos por uma busca direta da busca ampla. */
@@ -68,11 +71,11 @@ export interface OpcoesQualificados {
 export function juntarQualificados(buscas: QualificadosDaBusca[], o: OpcoesQualificados = {}): QualificadoAmplo[] {
   const tamanho = o.tamanhoTexto ?? 300;
   const juntos = new Map<string, { q: Qualificado; tribunal: string; formulacoes: Set<number> }>();
-  for (const b of buscas) {
-    for (const q of b.qualificados) {
-      const chave = [b.tribunal, q.tipo, q.numero ?? q.texto].join("|");
-      const atual = juntos.get(chave) ?? { q, tribunal: b.tribunal, formulacoes: new Set<number>() };
-      atual.formulacoes.add(b.formulacao);
+  for (const busca of buscas) {
+    for (const q of busca.qualificados) {
+      const chave = [busca.tribunal, q.tipo, q.numero ?? q.texto].join("|");
+      const atual = juntos.get(chave) ?? { q, tribunal: busca.tribunal, formulacoes: new Set<number>() };
+      atual.formulacoes.add(busca.formulacao);
       juntos.set(chave, atual);
     }
   }
