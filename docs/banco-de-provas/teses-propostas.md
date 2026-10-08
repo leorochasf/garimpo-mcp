@@ -26,14 +26,14 @@ Regras da lista:
 | 11 | Ambiental / civil | Obrigação ambiental *propter rem* do adquirente | STJ, TJs |
 | 12 | Coletivo | Dano moral coletivo presumido (*in re ipsa*) | STJ, TJs |
 | 13 | Consumidor / processo coletivo | Legitimidade do Ministério Público em direitos individuais homogêneos | STJ, STF, TJs |
-| 14 | Processo coletivo | Prescrição da multa de termo de ajustamento de conduta | STJ, TJs |
+| 14 | Processo coletivo | Prescrição da multa (e da execução) de termo de ajustamento de conduta | STJ, TJs |
 | 15 | Trabalho | Licitude da terceirização de atividade-fim | STF, TST, TRTs |
 | 16 | Penal | Tráfico privilegiado: o que pode afastar o redutor | STJ, STF, TJs |
 | 17 | Tributário | Base de cálculo do ITBI: valor da transação × valor de referência | STJ, STF, TJs |
 | 18 | Eleitoral | Fraude à cota de gênero por candidaturas fictícias | TSE |
 | 19 | Civil / família | Prisão civil do devedor de alimentos: só as três últimas prestações | STJ, TJs |
 | 20 | Consumidor | Negativação indevida: dano moral presumido e inscrição preexistente | STJ, TJs |
-| 21 | Previdenciário | Auxílio-acidente com perda mínima da capacidade de trabalho | STJ, TJs |
+| 21 | Previdenciário | Auxílio-acidente com perda mínima da capacidade de trabalho e termo inicial | STJ, TJs |
 
 ---
 
@@ -210,6 +210,9 @@ Regras da lista:
 - **Tese:** o Ministério Público tem legitimidade para propor ação civil pública em defesa de direitos
   difusos, coletivos e individuais homogêneos de consumidores, ainda que decorrentes de serviço
   público, desde que presente relevância social.
+- **Escopo do gabarito:** conta também a legitimidade do Ministério Público para direitos individuais
+  homogêneos **fora da relação de consumo** (saúde, educação, concursos e exames, entre outros), a favor
+  ou contra.
 - **Área:** direito do consumidor / processo coletivo.
 - **Tribunais:** STJ, STF, TJs.
 - **Formulações alternativas:**
@@ -225,6 +228,8 @@ Regras da lista:
 - **Tese:** a execução da multa prevista em termo de ajustamento de conduta (TAC) tem regime prescricional
   próprio, distinto do da multa diária fixada pelo juiz, discutindo-se se segue o prazo quinquenal
   ou a natureza da obrigação principal.
+- **Escopo do gabarito:** conta também a **prescrição da execução do TAC em geral** (obrigação de fazer,
+  reparação de dano difuso, termo de compromisso ambiental), mesmo quando a ementa não trata da multa.
 - **Área:** processo coletivo / execução.
 - **Tribunais:** STJ, TJs.
 - **Formulações alternativas:**
@@ -335,7 +340,9 @@ Regras da lista:
 ## 21. Auxílio-acidente com perda mínima da capacidade de trabalho
 
 - **Tese:** o auxílio-acidente é devido quando a sequela reduz a capacidade para o trabalho habitual,
-  ainda que em grau mínimo; o tamanho da lesão não interfere no direito ao benefício.
+  ainda que em grau mínimo; o tamanho da lesão não interfere no direito ao benefício. O **termo inicial**
+  do benefício (dia seguinte à cessação do auxílio-doença, requerimento administrativo ou citação) faz
+  parte da tese.
 - **Área:** direito previdenciário (acidentário).
 - **Tribunais:** STJ, TJs (a ação acidentária contra o INSS é da Justiça estadual; benefícios
   previdenciários comuns tramitam nos TRFs e na TNU, fora da cobertura atual).
@@ -343,7 +350,7 @@ Regras da lista:
   1. `auxílio-acidente lesão mínima redução da capacidade laborativa`
   2. `benefício acidentário sequela consolidada grau da incapacidade irrelevante`
   3. `auxílio-acidente termo inicial dia seguinte à cessação do auxílio-doença`
-- **Por que é um bom teste:** tese repetitiva do STJ (esperado: Tema 416 `[não verificado]`), tese vizinha
+- **Por que é um bom teste:** tese repetitiva do STJ (esperado: Tema 416 `[não verificado]`), outra
   sobre o termo inicial (esperado: Tema 862 `[não verificado]`) e súmula de competência (esperado:
   Súmula 15 do STJ). Mede se o Garimpo alcança o previdenciário pela porta que ele cobre (TJs) e se
   distingue "auxílio-acidente" de "auxílio-doença" e "aposentadoria por invalidez", termos que aparecem
