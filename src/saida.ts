@@ -4,6 +4,7 @@
  */
 
 import type { Qualificado } from "./busca.js";
+import { formaCurta } from "./enquadramento.js";
 
 export interface OpcoesReserva<T> {
   /** Tamanho da lista mostrada. */
@@ -52,10 +53,12 @@ export interface QualificadosDaBusca {
 }
 
 /**
- * Sem o enquadramento927: na busca ampla ele não cabe no teto de 25 mil caracteres (50 acórdãos + 10 qualificados de
- * tamanho real já ocupam ~24,5 mil; ver o teste de tamanho em tests/ampla.test.ts).
+ * Com o enquadramento927 na forma curta: o completo não cabe no teto de 25 mil caracteres da busca ampla (50 acórdãos
+ * + 10 qualificados de tamanho real; ver o teste de tamanho em tests/ampla.test.ts).
  */
 export interface QualificadoAmplo extends Omit<Qualificado, "enquadramento927"> {
+  /** Forma curta: rótulo e motivo abreviado ("não classificado: …") ou inciso e aviso de situação ("art. 927, II; …"). */
+  enquadramento927: string;
   tribunal: string;
   /** Quantas formulações trouxeram este precedente. */
   formulacoes: number;
@@ -86,9 +89,10 @@ export function juntarQualificados(buscas: QualificadosDaBusca[], o: OpcoesQuali
   return [...juntos.values()]
     .sort((a, b) => b.formulacoes.size - a.formulacoes.size)
     .slice(0, o.teto ?? 10)
-    .map(({ q: { enquadramento927: _, ...q }, tribunal, formulacoes }) => ({
+    .map(({ q, tribunal, formulacoes }) => ({
       ...q,
       texto: q.texto.length > tamanho ? `${q.texto.slice(0, tamanho)}…` : q.texto,
+      enquadramento927: formaCurta({ tribunal, tipo: q.tipo, numero: q.numero }, q.enquadramento927),
       tribunal,
       formulacoes: formulacoes.size,
     }));

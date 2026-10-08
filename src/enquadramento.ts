@@ -79,45 +79,90 @@ export interface QualificadoParaEnquadrar {
 }
 
 export function enquadrarQualificado(q: QualificadoParaEnquadrar): Enquadramento927 {
+  return regraDoQualificado({ ...q, temTese: Boolean(q.tese?.trim()) }).completo;
+}
+
+/**
+ * Forma curta do enquadramento de um precedente qualificado (rótulo, motivo abreviado ou aviso de situação), para a
+ * busca ampla caber no teto de 25 mil caracteres. Sai da mesma regra, refeita a partir do enquadramento completo: além
+ * do tribunal, do tipo e do número, a regra só lê se há tese, e só o tema e o IAC do STJ dependem disso (inciso III).
+ */
+export function formaCurta(q: Omit<QualificadoParaEnquadrar, "tese">, e: Enquadramento927): string {
+  return regraDoQualificado({ ...q, temTese: e.inciso === "III" }).curto;
+}
+
+type QualificadoDaRegra = Omit<QualificadoParaEnquadrar, "tese"> & { temTese: boolean };
+
+function regraDoQualificado(q: QualificadoDaRegra): { completo: Enquadramento927; curto: string } {
   // O tipo é o rótulo fixo que o próprio Garimpo dá a cada lista do site: casamento exato.
   const tipo = q.tipo;
   const numero = q.numero ? ` nº ${q.numero}` : "";
   if (tipo === "súmula vinculante") {
     if (q.tribunal !== "stf") {
-      return naoClassificado(`dados contraditórios: súmula vinculante na lista de tribunal que não o STF (${q.tribunal})`);
+      return curta(
+        naoClassificado(`dados contraditórios: súmula vinculante na lista de tribunal que não o STF (${q.tribunal})`),
+        "dados contraditórios (súmula vinculante fora do STF)",
+      );
     }
-    return classificado(
-      "II",
-      `lista de súmulas vinculantes do site (STF), súmula vinculante${numero}`,
-      "situação da súmula vinculante (revisão, cancelamento) não informada pelo site: conferir antes de citar",
+    return curta(
+      classificado(
+        "II",
+        `lista de súmulas vinculantes do site (STF), súmula vinculante${numero}`,
+        "situação da súmula vinculante (revisão, cancelamento) não informada pelo site: conferir antes de citar",
+      ),
+      "situação não informada pelo site: conferir antes de citar",
     );
   }
   if (tipo === "tema repetitivo" || tipo === "IAC") {
     const rotulo = tipo;
     if (q.tribunal !== "stj") {
-      return naoClassificado(`${rotulo} de tribunal que não o STJ: a regra fixa só prevê ${rotulo} do STJ`);
+      return curta(
+        naoClassificado(`${rotulo} de tribunal que não o STJ: a regra fixa só prevê ${rotulo} do STJ`),
+        `${rotulo} fora do STJ, sem regra fixa`,
+      );
     }
-    if (!q.tese?.trim()) return naoClassificado(`${rotulo} do STJ sem tese informada pelo site`);
-    return classificado(
-      "III",
-      `lista de ${rotulo} do site (STJ), ${rotulo}${numero}, com tese informada`,
-      `situação do ${rotulo} (julgamento concluído, revisão, superação) não verificada: conferir antes de citar`,
+    if (!q.temTese) {
+      return curta(naoClassificado(`${rotulo} do STJ sem tese informada pelo site`), `${rotulo} sem tese informada pelo site`);
+    }
+    return curta(
+      classificado(
+        "III",
+        `lista de ${rotulo} do site (STJ), ${rotulo}${numero}, com tese informada`,
+        `situação do ${rotulo} (julgamento concluído, revisão, superação) não verificada: conferir antes de citar`,
+      ),
+      "situação não verificada: conferir antes de citar",
     );
   }
-  if (tipo === "repercussão geral") return naoClassificado(MOTIVO_REPERCUSSAO_GERAL);
+  if (tipo === "repercussão geral") {
+    return curta(naoClassificado(MOTIVO_REPERCUSSAO_GERAL), "repercussão geral: enquadramento não verificado");
+  }
   if (tipo === "súmula" && q.tribunal === "stf") {
-    return naoClassificado("súmula do STF fora da lista de súmulas vinculantes: o inciso IV exige matéria constitucional, que os dados não informam");
+    return curta(
+      naoClassificado("súmula do STF fora da lista de súmulas vinculantes: o inciso IV exige matéria constitucional, que os dados não informam"),
+      "matéria constitucional da súmula do STF não informada",
+    );
   }
   if (tipo === "súmula" && q.tribunal === "stj") {
-    return naoClassificado("súmula do STJ: o inciso IV exige matéria infraconstitucional, que os dados não informam");
+    return curta(
+      naoClassificado("súmula do STJ: o inciso IV exige matéria infraconstitucional, que os dados não informam"),
+      "matéria infraconstitucional da súmula do STJ não informada",
+    );
   }
   const semFundamento: Record<string, string> = { súmula: `súmula do ${q.tribunal.toUpperCase()}`, PUIL: "PUIL", IRR: "IRR", OJ: "OJ" };
   if (semFundamento[tipo]) {
-    return naoClassificado(
-      `${semFundamento[tipo]}: fundamento no art. 927 não verificado nas fontes consultadas (pendência de fonte)`,
+    return curta(
+      naoClassificado(
+        `${semFundamento[tipo]}: fundamento no art. 927 não verificado nas fontes consultadas (pendência de fonte)`,
+      ),
+      `fundamento no art. 927 não verificado (${semFundamento[tipo]})`,
     );
   }
-  return naoClassificado(`tipo "${q.tipo}" não previsto no texto consultado`);
+  return curta(naoClassificado(`tipo "${q.tipo}" não previsto no texto consultado`), "tipo não previsto no texto consultado");
+}
+
+function curta(completo: Enquadramento927, abreviado: string): { completo: Enquadramento927; curto: string } {
+  const rotulo = completo.inciso === "não classificado" ? "não classificado:" : `art. 927, ${completo.inciso};`;
+  return { completo, curto: `${rotulo} ${abreviado}` };
 }
 
 const MOTIVO_REPERCUSSAO_GERAL =
@@ -200,7 +245,7 @@ function notasDoAcordao(a: AcordaoParaEnquadrar, paradigmas: readonly ParadigmaD
       if (p.tribunal !== a.tribunal || !p.processoParadigma) continue;
       if (espacosSimples(p.processoParadigma) !== espacosSimples(a.numero)) continue;
       notas.push(
-        `mesmo processo do paradigma do ${p.tipo}${p.numero ? ` nº ${p.numero}` : ""} informado pelo site; ` +
+        `mesmo processo do paradigma ${daOuDo(p.tipo)} ${p.tipo}${p.numero ? ` nº ${p.numero}` : ""} informado pelo site; ` +
           "o acórdão não herda o enquadramento nem a tese",
       );
     }
@@ -218,6 +263,13 @@ function notasDoAcordao(a: AcordaoParaEnquadrar, paradigmas: readonly ParadigmaD
     );
   }
   return notas;
+}
+
+/** Rótulos femininos das listas de precedentes qualificados ("da súmula", "da OJ"); os demais são masculinos ("do tema"). */
+const TIPOS_FEMININOS = ["súmula", "súmula vinculante", "repercussão geral", "OJ"];
+
+function daOuDo(tipo: string): string {
+  return TIPOS_FEMININOS.includes(tipo) ? "da" : "do";
 }
 
 function incidenteDaClasse(a: AcordaoParaEnquadrar): string | undefined {

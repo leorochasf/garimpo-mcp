@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ItemAmplo } from "../src/ampla.js";
 import { normalizar, type Qualificado } from "../src/busca.js";
+import { enquadrarQualificado } from "../src/enquadramento.js";
 import { fixture } from "./apoio.js";
 import { juntarQualificados, reservarPorTribunal } from "../src/saida.js";
 
@@ -65,6 +66,7 @@ const tema = (numero: string, texto = `Tese fictícia do tema ${numero}.`): Qual
   tipo: "repercussão geral",
   numero,
   texto,
+  enquadramento927: enquadrarQualificado({ tribunal: "stf", tipo: "repercussão geral", numero }),
 });
 
 describe("seção de precedentes qualificados", () => {
@@ -142,9 +144,11 @@ describe("seção de precedentes qualificados", () => {
           orgao: "Tribunal Pleno",
           processoParadigma: `RE ${1000 + i}`,
           link: `https://tribunal.exemplo.invalid/temas/tema-de-repercussao-geral?numero=${i}`,
+          enquadramento927: enquadrarQualificado({ tribunal: "stf", tipo: "repercussão geral", numero: String(i) }),
         })),
       },
-    ]);
+      // Texto do qualificado cortado em 120, como a busca ampla faz (src/ampla.ts).
+    ], { tamanhoTexto: 120 });
 
     // Mesmo formato da resposta das ferramentas (src/index.ts).
     const resposta = JSON.stringify({ acordaos: mostrados, qualificados }, null, 1);

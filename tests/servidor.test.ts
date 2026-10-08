@@ -1199,7 +1199,7 @@ describe("enquadramento no art. 927 nas respostas (pela porta)", () => {
     // RE 100001 é o processo do paradigma do tema 999 de repercussão geral, julgado pelo Tribunal Pleno.
     expect(porId["stf:101"].inciso).toBe("não classificado");
     expect(porId["stf:101"].notas).toEqual([
-      "mesmo processo do paradigma do repercussão geral nº 999 informado pelo site; o acórdão não herda o enquadramento nem a tese",
+      "mesmo processo do paradigma da repercussão geral nº 999 informado pelo site; o acórdão não herda o enquadramento nem a tese",
       'órgão informado: Tribunal Pleno; o nome do órgão não comprova "orientação" do plenário ou do órgão especial ' +
         "(art. 927, V) nem a quem ela vincula",
     ]);
@@ -1269,16 +1269,21 @@ describe("enquadramento no art. 927 nas respostas (pela porta)", () => {
     });
   });
 
-  it("busca ampla: a ressalva vem junto da lista de qualificados e diz onde está o enquadramento, que ela não traz", async () => {
+  it("busca ampla: só os qualificados trazem o enquadramento927, em forma curta; a ressalva diz onde está o resto", async () => {
     const mcp = await conectar(siteQueResponde(fixture("stj-sem-classe.json")));
     const r = await chamar(mcp, "busca_ampla", { formulacoes: ["exemplo"], tribunais: ["stj"] });
 
     expect(r.qualificados).toHaveLength(2);
+    expect(r.qualificados.map((q: { enquadramento927: string }) => q.enquadramento927)).toEqual([
+      "art. 927, III; situação não verificada: conferir antes de citar",
+      "não classificado: matéria infraconstitucional da súmula do STJ não informada",
+    ]);
+    expect(r.acordaos.some((a: object) => "enquadramento927" in a)).toBe(false);
     expect(r.ressalvaQualificados).toBe(
       '"Precedente qualificado" é o rótulo da lista do site: não comprova enquadramento, vigência nem aplicabilidade. ' +
-        "A busca ampla não traz o enquadramento927: veja-o no obter_ementa (acórdãos) e na busca_direta (qualificados).",
+        "Aqui o enquadramento927 vem curto (art. 927 conferido em 2026-10-08); completo na busca_direta; o dos " +
+        "acórdãos no obter_ementa.",
     );
-    expect(JSON.stringify(r)).not.toMatch(/"enquadramento927":/);
     // O enquadramento de um acórdão achado pela busca ampla sai no obter_ementa, sem nova busca.
     expect((await chamar(mcp, "obter_ementa", { id: "stj:202" })).enquadramento927.inciso).toBe("não classificado");
   });

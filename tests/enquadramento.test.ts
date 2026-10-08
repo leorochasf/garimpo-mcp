@@ -4,6 +4,7 @@ import {
   INCISOS_ART_927,
   enquadrarAcordao,
   enquadrarQualificado,
+  formaCurta,
   type AcordaoParaEnquadrar,
 } from "../src/enquadramento.js";
 
@@ -113,6 +114,40 @@ describe("enquadramento no art. 927 — precedente qualificado sem regra positiv
   });
 });
 
+describe("enquadramento no art. 927 — forma curta do precedente qualificado (busca ampla)", () => {
+  it.each([
+    [{ tribunal: "stf", tipo: "súmula vinculante", numero: "1" }, "art. 927, II; situação não informada pelo site: conferir antes de citar"],
+    [{ tribunal: "stj", tipo: "tema repetitivo", numero: "1001", tese: "Tese fictícia." }, "art. 927, III; situação não verificada: conferir antes de citar"],
+    [{ tribunal: "stf", tipo: "repercussão geral", numero: "999", tese: "Tese fictícia." }, "não classificado: repercussão geral: enquadramento não verificado"],
+    [{ tribunal: "stj", tipo: "tema repetitivo", numero: "1001" }, "não classificado: tema repetitivo sem tese informada pelo site"],
+    [{ tribunal: "stj", tipo: "súmula", numero: "7" }, "não classificado: matéria infraconstitucional da súmula do STJ não informada"],
+    [{ tribunal: "tst", tipo: "OJ", numero: "7" }, "não classificado: fundamento no art. 927 não verificado (OJ)"],
+  ])("%o → %s", (q, curta) => {
+    expect(formaCurta(q, enquadrarQualificado(q))).toBe(curta);
+  });
+
+  it("sai igual de um enquadramento relido do JSON (memória em disco), sem depender do objeto original", () => {
+    const q = { tribunal: "stj", tipo: "IAC", numero: "5", tese: "Tese fictícia." };
+    const relido = JSON.parse(JSON.stringify(enquadrarQualificado(q)));
+    expect(formaCurta({ tribunal: "stj", tipo: "IAC", numero: "5" }, relido)).toBe(
+      "art. 927, III; situação não verificada: conferir antes de citar",
+    );
+  });
+
+  it.each([
+    ["súmula vinculante do STJ", { tribunal: "stj", tipo: "súmula vinculante" }],
+    ["tema do TJGO", { tribunal: "tjgo", tipo: "tema repetitivo", tese: "Tese fictícia." }],
+    ["súmula do STF", { tribunal: "stf", tipo: "súmula" }],
+    ["súmula do TST", { tribunal: "tst", tipo: "súmula" }],
+    ["tipo desconhecido", { tribunal: "stj", tipo: "enunciado administrativo de exemplo" }],
+  ])("toda forma curta é curta: até 80 caracteres (%s)", (_caso, q) => {
+    const curta = formaCurta({ numero: "1", ...q }, enquadrarQualificado({ numero: "1", ...q }));
+    expect(curta).toMatch(/^não classificado: /);
+    expect(curta.length).toBeLessThanOrEqual(80);
+  });
+
+});
+
 describe("enquadramento no art. 927 — acórdão sem prova positiva, com notas informativas", () => {
   it.each([
     ["sigla IRDR", { tribunal: "tjgo", siglaClasse: "IRDR" }, /IRDR.*não confirmado o julgamento que fixou a tese/],
@@ -132,6 +167,18 @@ describe("enquadramento no art. 927 — acórdão sem prova positiva, com notas 
     );
     expect(e.inciso).toBe("não classificado");
     expect(e.notas.join(" | ")).toMatch(/mesmo processo do paradigma do tema repetitivo nº 1001.*não herda/);
+  });
+
+  it.each([
+    ["repercussão geral", "da repercussão geral nº 999"],
+    ["súmula vinculante", "da súmula vinculante nº 999"],
+    ["OJ", "da OJ nº 999"],
+    ["tema repetitivo", "do tema repetitivo nº 999"],
+    ["IAC", "do IAC nº 999"],
+  ])("a nota do paradigma concorda com o tipo do precedente (%s)", (tipo, trecho) => {
+    const paradigmas = [{ tribunal: "stf", tipo, numero: "999", processoParadigma: "RE 100001" }];
+    const e = enquadrarAcordao(acordao({ siglaClasse: "RE", numero: "RE 100001" }), { paradigmas });
+    expect(e.notas[0]).toBe(`mesmo processo do paradigma ${trecho} informado pelo site; o acórdão não herda o enquadramento nem a tese`);
   });
 
   it.each([

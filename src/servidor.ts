@@ -185,8 +185,9 @@ export function criarServidor(
         "máximo. Busca vazia não é busca com erro: tribunal em que nenhuma busca deu resposta aparece \"com erro\" " +
         "(ou \"não pesquisado\"), sem achados. Se nenhuma busca deu resposta, a ferramenta responde com erro e o " +
         "motivo de cada busca, nunca com lista vazia. Para ler a ementa inteira, use obter_ementa com o id. " +
-        "A busca ampla não traz o enquadramento927 (enquadramento no art. 927 do CPC): o de cada acórdão vem no " +
-        "obter_ementa, e o dos precedentes qualificados, na busca_direta. " +
+        "Cada precedente qualificado traz o enquadramento927 (enquadramento no art. 927 do CPC) em forma curta: " +
+        "inciso e aviso de situação, ou \"não classificado\" e o motivo abreviado; a forma completa vem na " +
+        "busca_direta. O dos acórdãos vem no obter_ementa. " +
         "Formulações boas variam sinônimos técnicos, dispositivo legal e nome do instituto.",
       annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: {

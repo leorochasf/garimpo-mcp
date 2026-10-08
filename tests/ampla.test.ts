@@ -136,7 +136,15 @@ describe("busca ampla", () => {
 
     expect(estado.chamadas).toBe(6); // 3 formulações × 2 tribunais, como antes
     expect(r.qualificados).toEqual([
-      { tipo: "repercussão geral", numero: "900", texto: tema.tese_firmada, link: tema.link, tribunal: "stf", formulacoes: 2 },
+      {
+        tipo: "repercussão geral",
+        numero: "900",
+        texto: tema.tese_firmada,
+        link: tema.link,
+        enquadramento927: "não classificado: repercussão geral: enquadramento não verificado",
+        tribunal: "stf",
+        formulacoes: 2,
+      },
     ]);
   });
 
@@ -178,6 +186,9 @@ describe("busca ampla", () => {
     expect(r.acordaos).toHaveLength(50);
     expect(r.qualificados).toHaveLength(10);
     expect(r.acordaos.every((a) => /^….*DANO MORAL COLETIVO RECONHECIDO\..*…$/.test(a.trecho))).toBe(true);
+    // Decisão do dono (2026-10-08): enquadramento927 curto só nos qualificados; texto deles cortado em 120.
+    expect(r.qualificados.every((q) => q.enquadramento927 === "não classificado: repercussão geral: enquadramento não verificado")).toBe(true);
+    expect(r.qualificados.every((q) => q.texto.length <= 121)).toBe(true);
     // Mesmo formato da resposta da ferramenta (src/index.ts: JSON sem recuo).
     expect(JSON.stringify(r).length).toBeLessThan(25_000);
   });
@@ -389,6 +400,8 @@ describe("cabeçalho de cobertura da busca ampla", () => {
     let chamadasTjgo = 0;
     const cliente = new Cliente({
       nome: "O site",
+      // Vagas em memória: a ordem de saída do teste não depende do tempo de disco da coordenação em arquivo.
+      vagas: new Vagas(2),
       esperar: async () => {},
       fetch: (async (url: string) => {
         if (String(url).includes("/stj/")) {

@@ -5,6 +5,7 @@
 
 import { Cliente, RecusaError } from "./cliente.js";
 import { type Acordao, buscaDireta, type FiltrosBusca, lembrar, RESSALVA_ROTULO } from "./busca.js";
+import { ART_927_CONFERIDO_EM } from "./enquadramento.js";
 import { juntarEquivalentes, type Ocorrencia } from "./equivalencia.js";
 import { ordenarPorAderencia, trecho } from "./pontuacao.js";
 import { juntarQualificados, type QualificadoAmplo, type QualificadosDaBusca, reservarPorTribunal } from "./saida.js";
@@ -64,7 +65,7 @@ export interface ResultadoAmplo {
   acordaos: ItemAmplo[];
   /** Precedentes qualificados que as buscas devolveram, sem repetidos. */
   qualificados: QualificadoAmplo[];
-  /** Vai junto da lista de precedentes qualificados: o rótulo é do site, e o enquadramento927 fica fora desta saída. */
+  /** Vai junto da lista de precedentes qualificados: o rótulo é do site; diz onde está o enquadramento927 completo. */
   ressalvaQualificados: string;
   avisos: string[];
 }
@@ -227,10 +228,11 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<
       };
       return item;
     }),
-    qualificados: juntarQualificados(qualificados, { tamanhoTexto: 200 }),
+    // Texto do qualificado em 120 caracteres para caber o enquadramento927 curto (decisão do dono, 2026-10-08).
+    qualificados: juntarQualificados(qualificados, { tamanhoTexto: 120 }),
     ressalvaQualificados:
-      `${RESSALVA_ROTULO}A busca ampla não traz o enquadramento927: veja-o no obter_ementa (acórdãos) e na busca_direta ` +
-      "(qualificados).",
+      `${RESSALVA_ROTULO}Aqui o enquadramento927 vem curto (art. 927 conferido em ${ART_927_CONFERIDO_EM}); completo na ` +
+      "busca_direta; o dos acórdãos no obter_ementa.",
     avisos,
   };
 }
