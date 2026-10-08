@@ -107,6 +107,38 @@ _Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 �
 Uma resposta do site ou do tribunal que nega a chamada (429, 403, 503, desafio anti-robô, captcha). O Garimpo nunca contorna uma recusa: espera e tenta uma vez, ou para e avisa.
 _Evitar_: erro (genérico demais), bloqueio contornável
 
+## Memória e freio
+
+**Memória**:
+As respostas do site (acórdãos e buscas) que o Garimpo guarda por até 24 h desde a obtenção, visíveis por todas as janelas do Garimpo do usuário, sujeitas a limpeza antecipada pelo teto de espaço. Não inclui o PDF do inteiro teor nem promete disponibilidade pelo período todo.
+_Evitar_: cache, memória da sessão
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
+**Busca guardada**:
+A resposta de uma busca direta tirada da memória: fotografia da busca feita no site em certa data e hora, não uma busca nova.
+_Evitar_: busca em cache, resultado atualizado
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
+**Vaga**:
+Uma das duas permissões para uma chamada em andamento, compartilhadas entre as janelas do Garimpo do mesmo usuário, somando site e tribunais; fica ocupada até a chamada terminar ou ser abortada.
+_Evitar_: slot, conexão, licença
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
+**Disjuntor**:
+O estado de um serviço, compartilhado por todas as janelas do Garimpo do usuário, que impede chamadas a ele depois de uma recusa final, por uma pausa que dobra a cada nova abertura.
+_Evitar_: bloqueio, ban
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
+**Chamada de prova**:
+A única chamada, um pedido real, que sai a um serviço quando a pausa do disjuntor vence. Não tem nova tentativa: aceita, as chamadas voltam; recusada, a pausa recomeça dobrada; erro sem recusa deixa o serviço aguardando outra prova.
+_Evitar_: teste, nova tentativa (essa é a da recusa inicial)
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
+**Rede parada**:
+Situação em que o Garimpo não chama um serviço enquanto o disjuntor dele está aberto, ou não chama nenhum serviço se o estado compartilhado estiver ilegível; a leitura local (memória válida e PDFs) continua.
+_Evitar_: Garimpo travado, fora do ar
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
 ## Conferência de citação
 
 **Citação**:
