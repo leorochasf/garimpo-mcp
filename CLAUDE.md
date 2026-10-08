@@ -20,7 +20,8 @@ ao JurisprudênciaIA nem à JAI. Licença MIT. Feito para qualquer pessoa usar.
 2. **Nada específico de usuário ou instituição.** Nenhum dado de processo real, nome de pessoa, órgão
    público, caminho de máquina ou fluxo de trabalho de alguém. Exemplos de busca são genéricos.
 3. **Uso responsável é requisito, não opção.** Toda chamada ao site passa pelo cliente único, com: no
-   máximo 2 chamadas simultâneas no total do processo (site e tribunais somados); em 429/503, espera e **uma** nova tentativa; recusa de novo = para e
+   máximo 2 chamadas simultâneas no total das janelas do Garimpo do usuário (site e tribunais somados; não protege
+   IP dividido com outras pessoas, máquinas ou programas); em 429/503, espera e **uma** nova tentativa; recusa de novo = para e
    avisa o usuário. Objetivo: o máximo de cobertura do inteiro teor sem que o usuário do Garimpo tenha o IP bloqueado ou banido — por isso esses freios ficam.
 4. **Publicação só com OK final do dono.** A JAI autorizou a publicação (informado pelo dono em 2026-10-08).
    O repositório no GitHub nasce **privado**; torná-lo público e rodar `npm publish` só com OK expresso do dono.

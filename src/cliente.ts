@@ -1,12 +1,16 @@
 /**
  * Cliente HTTP com as travas de uso responsável (CLAUDE.md, regra 3):
- * - no máximo 2 chamadas simultâneas NO TOTAL do processo (JurisprudênciaIA e tribunais somados);
+ * - no máximo 2 chamadas simultâneas NO TOTAL das janelas do Garimpo do usuário (JurisprudênciaIA e tribunais
+ *   somados), pelas vagas compartilhadas em arquivo (coordenacao.ts);
  * - em 429/503, espera o que o servidor pediu (Retry-After) e tenta UMA vez; pedido acima do teto ou
  *   nova recusa = para e avisa;
  * - 403 ou desafio anti-robô = recusa imediata, sem nova tentativa e sem contorno;
  * - User-Agent honesto identificando o Garimpo;
- * - intervalo mínimo opcional entre chamadas ao mesmo host (ex.: TSE).
+ * - intervalo mínimo opcional entre chamadas ao mesmo host (ex.: TSE), também entre janelas; a espera dessa
+ *   pausa não ocupa vaga.
  */
+
+import { type ContaDeEspera, type Coordenacao, coordenacaoPadrao, type Liberar } from "./coordenacao.js";
 
 export const VERSAO = "0.2.0";
 export const USER_AGENT = `Garimpo/${VERSAO} (cliente MCP local e nao oficial de pesquisa de jurisprudencia)`;
@@ -33,36 +37,41 @@ export class FormatoInesperadoError extends Error {
   }
 }
 
-/** Vagas de chamada simultânea, com fila de espera. */
-export class Vagas {
+/** Vagas em memória, só deste objeto, com fila de espera e pausa por host. Só testes do cliente usam. */
+export class Vagas implements Coordenacao {
   private ativas = 0;
   private fila: (() => void)[] = [];
+  private ultimaPorHost = new Map<string, number>();
 
   constructor(private readonly max: number) {}
 
-  async entrar(): Promise<void> {
-    if (this.ativas < this.max) {
-      this.ativas++;
-      return;
-    }
-    await new Promise<void>((r) => this.fila.push(r));
+  async ocupar(): Promise<Liberar> {
+    if (this.ativas < this.max) this.ativas++;
+    else await new Promise<void>((r) => this.fila.push(r));
+    let liberada = false;
+    return async () => {
+      if (liberada) return;
+      liberada = true;
+      const proximo = this.fila.shift();
+      if (proximo) proximo();
+      else this.ativas--;
+    };
   }
 
-  sair(): void {
-    const proximo = this.fila.shift();
-    if (proximo) proximo();
-    else this.ativas--;
+  async reservarSaida(host: string, intervaloMs: number, agora: () => number): Promise<number> {
+    const ultima = this.ultimaPorHost.get(host);
+    const falta = ultima === undefined || intervaloMs <= 0 ? 0 : ultima + intervaloMs - agora();
+    if (falta > 0) return falta;
+    if (intervaloMs > 0) this.ultimaPorHost.set(host, agora());
+    return 0;
   }
 }
-
-/** Limite único do processo: todos os clientes (site e tribunais) dividem estas 2 vagas. */
-export const vagasDoProcesso = new Vagas(2);
 
 export interface OpcoesCliente {
   /** Nome de quem responde, usado nas mensagens ("o JurisprudênciaIA", "o STJ"). */
   nome: string;
-  /** Vagas de concorrência; padrão: as do processo (2 no total). Só testes trocam. */
-  vagas?: Vagas;
+  /** Vagas de concorrência; padrão: as compartilhadas entre as janelas (2 no total). Só testes trocam. */
+  vagas?: Coordenacao;
   /** Espera antes da nova tentativa quando não há Retry-After (ms). */
   esperaPadraoMs?: number;
   /** Teto da espera, mesmo que o servidor peça mais (ms). */
@@ -199,17 +208,13 @@ export class Cliente {
   /** Numeração dos pedidos, para saber quais já estavam na fila quando veio uma recusa. */
   private pedidos = 0;
   private recusa?: { ate: number; erro: RecusaError };
-  /** Horário da última saída efetiva (fetch) por host. */
-  private ultimaPorHost = new Map<string, number>();
-  /** Fila de autorização de envio por host: uma saída por vez. */
-  private vezPorHost = new Map<string, Promise<void>>();
-  private readonly vagas: Vagas;
+  private readonly vagas: Coordenacao;
   private readonly fetchFn: typeof fetch;
   private readonly esperar: (ms: number) => Promise<void>;
   private readonly agora: () => number;
 
   constructor(private readonly opcoes: OpcoesCliente) {
-    this.vagas = opcoes.vagas ?? vagasDoProcesso;
+    this.vagas = opcoes.vagas ?? coordenacaoPadrao();
     this.fetchFn = opcoes.fetch ?? fetch;
     this.esperar = opcoes.esperar ?? dormir;
     this.agora = opcoes.agora ?? Date.now;
@@ -222,14 +227,18 @@ export class Cliente {
    */
   async requisitar(url: string, init: RequestInit = {}): Promise<Response> {
     const pedido = ++this.pedidos;
-    await this.vagas.entrar();
+    const host = new URL(url).host;
+    const conta: ContaDeEspera = { esperadoMs: 0 };
+    let vaga: Liberar | undefined;
     let ida: Ida | undefined;
     try {
+      vaga = await this.vagaParaSair(host, pedido, conta, init.signal);
       ida = await this.ir(url, init, pedido);
       if (pedeEspera(ida)) {
         const espera = this.tempoDeEspera(ida.resposta);
         ida.encerrar();
         await this.esperar(espera);
+        vaga = await this.vagaParaSair(host, pedido, conta, init.signal, vaga);
         ida = await this.ir(url, init, pedido);
         if (pedeEspera(ida)) {
           throw new RecusaError(
@@ -244,12 +253,42 @@ export class Cliente {
       if (!ok && !redirectManual) {
         throw new Error(`${this.opcoes.nome} respondeu com erro HTTP ${status} para ${url}.`);
       }
-      return ida.entregar(() => this.vagas.sair());
+      return ida.entregar(vaga);
     } catch (e) {
       if (e instanceof RecusaError && !(e instanceof RecusaPropagada)) this.recusa = { ate: this.pedidos, erro: e };
       ida?.encerrar();
-      this.vagas.sair();
+      void vaga?.();
       throw e;
+    }
+  }
+
+  /**
+   * Vaga ocupada e saída ao host autorizada agora. Se a pausa do host ainda não venceu, devolve a vaga e espera
+   * sem ocupar nada; ao voltar, confere de novo recusa, vaga e pausa.
+   */
+  private async vagaParaSair(
+    host: string,
+    pedido: number,
+    conta: ContaDeEspera,
+    sinal?: AbortSignal | null,
+    vaga?: Liberar,
+  ): Promise<Liberar> {
+    const intervalo = this.opcoes.intervaloMinimoPorHost?.[host] ?? 0;
+    for (;;) {
+      this.barrarSeJaRecusado(pedido);
+      vaga ??= await this.vagas.ocupar(conta, sinal ?? undefined);
+      let falta: number;
+      try {
+        this.barrarSeJaRecusado(pedido);
+        falta = await this.vagas.reservarSaida(host, intervalo, this.agora);
+      } catch (e) {
+        void vaga();
+        throw e;
+      }
+      if (falta <= 0) return vaga;
+      await vaga();
+      vaga = undefined;
+      await this.esperar(falta);
     }
   }
 
@@ -275,32 +314,11 @@ export class Cliente {
   }
 
   /**
-   * Faz um fetch. A recusa é conferida logo antes dele, depois de qualquer espera.
+   * Faz um fetch, com a vaga já ocupada. A recusa é conferida logo antes dele, depois de qualquer espera.
    * Bloqueio e 429/503 são decididos pelo status e cabeçalhos, antes de qualquer leitura do corpo;
    * só as demais respostas têm o começo do corpo lido em busca do aviso de excesso.
    */
   private async ir(url: string, init: RequestInit, pedido: number): Promise<Ida> {
-    this.barrarSeJaRecusado(pedido);
-    const host = new URL(url).host;
-    const intervalo = this.opcoes.intervaloMinimoPorHost?.[host];
-    if (intervalo) {
-      // Uma autorização de envio por vez neste host; a pausa conta da saída efetiva da chamada anterior,
-      // não de um horário reservado (timers vencidos que acordam juntos não saem juntos).
-      const anterior = this.vezPorHost.get(host) ?? Promise.resolve();
-      let passarAVez!: () => void;
-      const vez = new Promise<void>((r) => (passarAVez = r));
-      this.vezPorHost.set(host, anterior.then(() => vez));
-      try {
-        await anterior;
-        const ultima = this.ultimaPorHost.get(host);
-        const falta = ultima === undefined ? 0 : ultima + intervalo - this.agora();
-        if (falta > 0) await this.esperar(falta);
-        this.barrarSeJaRecusado(pedido);
-        this.ultimaPorHost.set(host, this.agora());
-      } finally {
-        passarAVez();
-      }
-    }
     this.barrarSeJaRecusado(pedido);
     const headers = new Headers(init.headers);
     headers.set("User-Agent", USER_AGENT);

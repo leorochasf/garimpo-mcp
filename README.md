@@ -37,13 +37,37 @@ o PDF no disco. Cabe a cada cliente decidir se usa essa marca para dispensar o p
 
 Toda chamada ao site passa por um cliente único que:
 
-- faz **no máximo 2 chamadas simultâneas no total** (JurisprudênciaIA e tribunais somados);
+- faz **no máximo 2 chamadas simultâneas no total das janelas do Garimpo do usuário** (JurisprudênciaIA e
+  tribunais somados): cada janela do Claude roda um Garimpo próprio, e todas dividem as mesmas 2 vagas pela pasta
+  de dados (abaixo);
 - em recusa temporária (HTTP 429 ou 503), **espera e tenta uma única vez**; se recusar de novo, **para** e avisa;
 - trata 403 e desafios anti-robô (Cloudflare, AWS WAF, reCAPTCHA) como recusa: **nunca contorna**, devolve o
   link para abrir no navegador;
 - identifica-se com um User-Agent honesto (`Garimpo/<versão> …`).
 
 Os termos de uso do site preveem limites por IP e bloqueio em caso de uso abusivo. Use com moderação.
+
+**Atualize e reinicie todas as janelas.** Janelas com versão do Garimpo anterior a esta não participam da divisão
+das vagas: com uma delas aberta, o total pode passar de 2. A proteção também não alcança outras pessoas, máquinas
+ou programas que usem o mesmo IP.
+
+### Pasta de dados e rede parada
+
+As vagas e a pausa do TSE ficam em arquivos comuns na subpasta `protecao` da pasta de dados do usuário:
+`%LOCALAPPDATA%\garimpo` (Windows), `~/Library/Caches/garimpo` (macOS) ou `$XDG_CACHE_HOME/garimpo`
+(`~/.cache/garimpo`) no Linux. A variável de ambiente `GARIMPO_DADOS` troca a pasta inteira. Janelas com valores
+diferentes **não dividem** o freio entre si: isso serve para separar instalações, não para escapar de uma recusa.
+
+- Uma vaga só é retomada de uma janela que comprovadamente fechou (processo inexistente); tempo decorrido nunca
+  libera vaga. Se a espera por vaga passar de 3 min, a chamada desiste sem liberar nada e diz que as vagas
+  continuam ocupadas ou não puderam ser verificadas.
+- **Rede parada:** se o arquivo de estado da proteção estiver ilegível, sem permissão ou gravado por uma versão
+  mais nova do Garimpo, nenhuma chamada ao site ou aos tribunais sai até você agir; a mensagem traz o caminho e o
+  que fazer. Ler PDF já baixado (`ler_inteiro_teor`) continua funcionando.
+- **Recuperação manual:** feche **todas** as instâncias do Garimpo (todas as janelas do Claude que o usam) antes
+  de mover ou apagar qualquer arquivo da pasta `protecao`; na dúvida, reinicie a máquina. Estado ilegível: mova só
+  o arquivo indicado (isso apaga o histórico de pausa). Sem permissão: corrija o acesso, sem apagar. Versão mais
+  nova: atualize o Garimpo da janela antiga, sem apagar nem mover.
 
 ## Instalação
 
@@ -132,7 +156,8 @@ civil do Estado por omissão."*
 - **Inteiro teor:** STF (proteção anti-robô), TJGO (reCAPTCHA) e os demais tribunais não são baixados
   automaticamente: o Garimpo devolve o link e explica como obter no navegador. Baixado o PDF, passe o caminho do
   arquivo ao `ler_inteiro_teor` para ler o texto (origem declarada, não conferida).
-- **TSE:** downloads seguidos esperam 10 s entre si (o portal recusa chamadas em sequência).
+- **TSE:** downloads seguidos esperam 10 s entre si, contados da última saída de qualquer janela do Garimpo (o
+  portal recusa chamadas em sequência).
 - Não há TRFs, TCU nem tribunais de contas.
 
 ## Desenvolvimento
@@ -140,3 +165,6 @@ civil do Estado por omissão."*
 ```bash
 npm test          # testes sem rede, sobre respostas gravadas
 ```
+
+Os testes não acessam a internet nem o site ou os tribunais. Os de disputa entre janelas abrem processos Node reais
+que chamam um servidor falso na própria máquina (`127.0.0.1`), com pasta de dados temporária.
