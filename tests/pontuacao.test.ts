@@ -6,7 +6,7 @@ function item(id: string, ementa: string, formulacoes: number, melhorPosicao = 0
   return { id, tribunal, ementa, formulacoes, melhorPosicao, relevancia };
 }
 
-const ids = (r: { item: { id: string } }[]) => r.map((p) => p.item.id);
+const ids = (r: { id: string }[]) => r.map((p) => p.id);
 
 describe("aderência e nova ordem", () => {
   it("acórdão de assunto largo, achado pelas 3 formulações, fica depois do achado por 1 que tem as palavras dela", () => {
@@ -36,6 +36,13 @@ describe("aderência e nova ordem", () => {
     expect(aderencia("Para a lei, com o art. 3 do CC, pelos.", [formulacao])).toBe(0);
   });
 
+  it("palavra curta (menos de 6 letras) só casa com ela mesma ou o plural, nunca como começo de outra", () => {
+    expect(aderencia("Danos morais.", ["dano"])).toBe(1);
+    expect(aderencia("Interesse de agir.", ["ter"])).toBe(0);
+    expect(aderencia("Remessa necessária.", ["rem"])).toBe(0);
+    expect(aderencia("Conduta danosa.", ["dano"])).toBe(0);
+  });
+
   // Aderência 0,8 (4 de 5 palavras) e 0,75 (3 de 4): mesma faixa nas padrão, faixas diferentes com corte em 0,8.
   const formulacoesFaixa = ["responsabilidade solidária adquirente imóvel degradado", "obrigação propter rem ambiental"];
   const quatroDeCinco = item("4-de-5", "EMENTA FICTÍCIA. Responsabilidade solidária do adquirente do imóvel.", 1);
@@ -43,7 +50,7 @@ describe("aderência e nova ordem", () => {
 
   it("diferença mínima de aderência dentro da mesma faixa não reordena: decide o nº de formulações", () => {
     const r = ordenarPorAderencia([quatroDeCinco, tresDeQuatro], formulacoesFaixa);
-    expect(r.map((p) => [p.item.id, p.aderencia])).toEqual([
+    expect(r.map((p) => [p.id, p.aderencia])).toEqual([
       ["3-de-4", 0.75],
       ["4-de-5", 0.8],
     ]);
@@ -51,7 +58,7 @@ describe("aderência e nova ordem", () => {
 
   it("as faixas são parâmetro: com corte em 0,8 os mesmos dois acórdãos trocam de lugar", () => {
     const r = ordenarPorAderencia([tresDeQuatro, quatroDeCinco], formulacoesFaixa, { faixas: [1, 0.8] });
-    expect(r.map((p) => [p.item.id, p.faixa])).toEqual([
+    expect(r.map((p) => [p.id, p.faixa])).toEqual([
       ["4-de-5", 1],
       ["3-de-4", 2],
     ]);

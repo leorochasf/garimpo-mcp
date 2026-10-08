@@ -16,12 +16,8 @@ export interface Candidato {
   relevancia?: number;
 }
 
-export interface Pontuado<T> {
-  item: T;
-  aderencia: number;
-  /** 0 = faixa de cima. */
-  faixa: number;
-}
+/** O acórdão de entrada com a aderência e a faixa dele (0 = faixa de cima). */
+export type Pontuado<T> = T & { aderencia: number; faixa: number };
 
 const TAMANHO_RADICAL = 6;
 
@@ -33,28 +29,34 @@ const VAZIAS = new Set(
 );
 
 /** Minúsculas e sem acento. */
-function normalizar(texto: string): string {
+function semAcento(texto: string): string {
   return texto.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 }
 
 /** Só letras e números; sem palavras vazias nem tokens de menos de 3 caracteres. */
 function palavras(texto: string): string[] {
-  return normalizar(texto)
+  return semAcento(texto)
     .split(/[^a-z0-9]+/)
     .filter((p) => p.length >= 3 && !VAZIAS.has(p));
 }
 
 /**
- * Cada palavra da formulação vira uma busca pelo radical dela (prefixo de 6 letras) no começo de uma palavra
- * da ementa, com ou sem "im"/"in" na frente; palavra longa que já começa com "im"/"in" também vale sem eles.
+ * Cada palavra da formulação vira uma busca na ementa pelo radical dela (prefixo de 6 letras) no começo de uma
+ * palavra, com ou sem "im"/"in" na frente; palavra longa que já começa com "im"/"in" também vale sem eles.
  * Assim "prescrição", "prescritível" e "imprescritível" casam entre si, nos dois sentidos.
- * Palavras de mesmo radical ("dano", "danos") contam uma vez só.
+ * Palavra de menos de 6 letras é o próprio radical: só casa com a palavra inteira ou o plural ("dano", "danos").
+ * Palavras de mesmo radical contam uma vez só.
  */
 function prepararFormulacao(formulacao: string): RegExp[] {
   const porRadical = new Map<string, RegExp>();
   for (const p of palavras(formulacao)) {
-    const radical = p.slice(0, TAMANHO_RADICAL);
+    const curta = p.length < TAMANHO_RADICAL;
+    const radical = curta ? p.length > 3 && p.endsWith("s") ? p.slice(0, -1) : p : p.slice(0, TAMANHO_RADICAL);
     if (porRadical.has(radical)) continue;
+    if (curta) {
+      porRadical.set(radical, new RegExp(`(?:^|[^a-z0-9])${radical}s?(?![a-z0-9])`));
+      continue;
+    }
     const alternativas = [radical];
     if (/^i[mn]/.test(p) && p.length >= TAMANHO_RADICAL + 2) alternativas.push(p.slice(2, 2 + TAMANHO_RADICAL));
     porRadical.set(radical, new RegExp(`(?:^|[^a-z0-9])(?:i[mn])?(?:${alternativas.join("|")})`));
@@ -63,7 +65,7 @@ function prepararFormulacao(formulacao: string): RegExp[] {
 }
 
 function aderenciaPreparada(ementa: string, formulacoes: RegExp[][]): number {
-  const texto = normalizar(ementa);
+  const texto = semAcento(ementa);
   let melhor = 0;
   for (const buscas of formulacoes) {
     if (buscas.length === 0) continue;
@@ -105,28 +107,33 @@ export function ordenarPorAderencia<T extends Candidato>(
   formulacoes: readonly string[],
   opcoes: OpcoesOrdem = {},
 ): Pontuado<T>[] {
-  const ordem = (a: Pontuado<T>, b: Pontuado<T>) =>
-    a.faixa - b.faixa || b.item.formulacoes - a.item.formulacoes || a.item.melhorPosicao - b.item.melhorPosicao;
-  // Sem nota, fica atrás de quem tem; dois sem nota empatam (0, nunca NaN).
-  const nota = (p: Pontuado<T>) => p.item.relevancia ?? Number.MIN_SAFE_INTEGER;
+  const comparar = (a: Pontuado<T>, b: Pontuado<T>) =>
+    a.faixa - b.faixa || b.formulacoes - a.formulacoes || a.melhorPosicao - b.melhorPosicao;
+  // Sem nota (ou nota não finita, como -Infinity) fica atrás de quem tem; dois assim empatam, nunca NaN.
+  const nota = (p: Pontuado<T>) =>
+    p.relevancia !== undefined && Number.isFinite(p.relevancia) ? p.relevancia : Number.MIN_SAFE_INTEGER;
   const preparadas = formulacoes.map(prepararFormulacao);
-  const r = itens
+  const pontuados = itens
     .map((item) => {
-      const a = aderenciaPreparada(item.ementa, preparadas);
-      return { item, aderencia: a, faixa: faixa(a, opcoes.faixas) };
+      const valor = aderenciaPreparada(item.ementa, preparadas);
+      return { ...item, aderencia: valor, faixa: faixa(valor, opcoes.faixas) };
     })
-    .sort(ordem);
+    .sort(comparar);
 
-  for (let inicio = 0; inicio < r.length; ) {
+  for (let inicio = 0; inicio < pontuados.length; ) {
     let fim = inicio + 1;
-    while (fim < r.length && ordem(r[inicio], r[fim]) === 0) fim++;
-    const lugares = new Map<string, number[]>();
-    for (let i = inicio; i < fim; i++) lugares.set(r[i].item.tribunal, [...(lugares.get(r[i].item.tribunal) ?? []), i]);
-    for (const posicoes of lugares.values()) {
-      const doTribunal = posicoes.map((i) => r[i]).sort((a, b) => nota(b) - nota(a));
-      posicoes.forEach((i, k) => (r[i] = doTribunal[k]));
+    while (fim < pontuados.length && comparar(pontuados[inicio], pontuados[fim]) === 0) fim++;
+    const lugaresPorTribunal = new Map<string, number[]>();
+    for (let i = inicio; i < fim; i++) {
+      const tribunal = pontuados[i].tribunal;
+      if (!lugaresPorTribunal.has(tribunal)) lugaresPorTribunal.set(tribunal, []);
+      lugaresPorTribunal.get(tribunal)!.push(i);
+    }
+    for (const lugares of lugaresPorTribunal.values()) {
+      const doTribunal = lugares.map((i) => pontuados[i]).sort((a, b) => nota(b) - nota(a));
+      for (let k = 0; k < lugares.length; k++) pontuados[lugares[k]] = doTribunal[k];
     }
     inicio = fim;
   }
-  return r;
+  return pontuados;
 }
