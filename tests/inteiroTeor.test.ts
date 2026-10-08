@@ -200,7 +200,7 @@ describe("inteiro teor — TJMG e TSE", () => {
     expect(new Set([a.arquivo, b.arquivo, b2.arquivo]).size).toBe(3);
     expect(b.arquivo).toMatch(/902/);
     expect(b3.arquivo).toBe(b2.arquivo);
-    expect((await readdir(pasta)).sort()).toHaveLength(3);
+    expect((await readdir(pasta)).filter((f) => f.endsWith(".pdf"))).toHaveLength(3);
     expect((await readFile(a.arquivo, "latin1"))).toMatch(/\nA\n/);
     expect((await readFile(b.arquivo, "latin1"))).toMatch(/\nB\n/);
     expect((await readFile(b2.arquivo, "latin1"))).toMatch(/\nB2\n/);

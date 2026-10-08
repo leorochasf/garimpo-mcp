@@ -4,11 +4,12 @@
  * nunca navegador automatizado, captcha ou contorno de proteção.
  */
 
-import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { constants } from "node:fs";
+import { copyFile, link as ligar, lstat, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
-import { Cliente } from "./cliente.js";
+import { basename, join, resolve } from "node:path";
+import { Cliente, VERSAO } from "./cliente.js";
 import { acordaoNaMemoria } from "./busca.js";
 import { infoTribunal } from "./tribunais.js";
 
@@ -23,7 +24,7 @@ export interface PedidoInteiroTeor {
 }
 
 export type ResultadoInteiroTeor =
-  | { baixado: true; arquivo: string; bytes: number; fonte: string }
+  | { baixado: true; arquivo: string; recibo: string; sha256: string; bytes: number; fonte: string }
   | { baixado: false; link?: string; explicacao: string };
 
 export type ClientePorTribunal = (sigla: string) => Cliente;
@@ -84,10 +85,10 @@ export async function obterInteiroTeor(
   }
 
   const cliente = clienteDe(tribunal);
-  let pdf: Uint8Array;
-  if (tribunal === "stj") pdf = await baixarStj(cliente, link);
-  else if (tribunal === "tjmg") pdf = await baixarDireto(cliente, link, "www5.tjmg.jus.br", "TJMG");
-  else if (tribunal === "tse") pdf = await baixarDireto(cliente, link, "sjur-servicos.tse.jus.br", "TSE");
+  let baixado: Baixado;
+  if (tribunal === "stj") baixado = await baixarStj(cliente, link);
+  else if (tribunal === "tjmg") baixado = await baixarDireto(cliente, link, "www5.tjmg.jus.br", "TJMG");
+  else if (tribunal === "tse") baixado = await baixarDireto(cliente, link, "sjur-servicos.tse.jus.br", "TSE");
   else throw new Error(`Download automático não implementado para ${tribunal.toUpperCase()}.`);
 
   const pasta = resolve(pedido.pasta ?? pastaPadrao());
@@ -96,21 +97,154 @@ export async function obterInteiroTeor(
   const idDocumento =
     (acordao?.id ?? pedido.id)?.split(":")[1] ?? createHash("sha1").update(link).digest("hex").slice(0, 10);
   const nome = [tribunal, acordao?.numero, idDocumento].filter(Boolean).join("-").replace(/[^\w.-]+/g, "_");
-  const arquivo = await salvarSemSobrescrever(pasta, nome, pdf);
-  return { baixado: true, arquivo, bytes: pdf.length, fonte: link };
+  const sha256 = createHash("sha256").update(baixado.pdf).digest("hex");
+  const recibo = (arquivo: string) =>
+    textoDoRecibo({
+      "Link oficial final": baixado.urlFinal,
+      "Link que veio na busca": link,
+      "Data e hora": dataHoraComFuso(new Date()),
+      Sha256: sha256,
+      "Tamanho em bytes": String(baixado.pdf.length),
+      Tribunal: tribunal.toUpperCase(),
+      "Número": acordao?.numero,
+      Id: acordao?.id ?? pedido.id,
+      "Nome do arquivo": basename(arquivo),
+    });
+  const salvo = await salvarComRecibo(pasta, nome, baixado.pdf, recibo);
+  return { baixado: true, ...salvo, sha256, bytes: baixado.pdf.length, fonte: link };
 }
 
-/** Grava sem nunca sobrescrever: mesmo conteúdo reaproveita o arquivo; conteúdo diferente ganha "-2", "-3"… */
-async function salvarSemSobrescrever(pasta: string, nome: string, pdf: Uint8Array): Promise<string> {
-  for (let n = 1; ; n++) {
-    const arquivo = join(pasta, n === 1 ? `${nome}.pdf` : `${nome}-${n}.pdf`);
+/** O PDF baixado e o endereço de onde ele veio de fato, depois dos redirecionamentos. */
+interface Baixado {
+  pdf: Uint8Array;
+  urlFinal: string;
+}
+
+/** Teto de uma resposta no download, contado nos bytes recebidos, com ou sem Content-Length. */
+const LIMITE_BYTES = 50 * 1024 * 1024;
+
+/** Lê o corpo até o fim, cortando acima de 50 MB; conexão que cai no meio vira erro claro. Nada é gravado aqui. */
+async function lerCorpo(r: Response, sigla: string): Promise<Uint8Array> {
+  const excesso = new Error(`A resposta do ${sigla} passa de 50 MB; o download foi interrompido e nada foi salvo.`);
+  if (Number(r.headers.get("content-length")) > LIMITE_BYTES) {
+    await r.body?.cancel();
+    throw excesso;
+  }
+  if (!r.body) return new Uint8Array();
+  const leitor = r.body.getReader();
+  const pedacos: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    let lido: ReadableStreamReadResult<Uint8Array>;
     try {
-      await writeFile(arquivo, pdf, { flag: "wx" });
-      return arquivo;
+      lido = await leitor.read();
     } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
-      if (Buffer.from(pdf).equals(await readFile(arquivo))) return arquivo;
+      throw new Error(
+        `O download do ${sigla} foi interrompido no meio (${(e as Error).message}); nada foi salvo. Tente de novo.`,
+      );
     }
+    if (lido.done) return Buffer.concat(pedacos);
+    total += lido.value.length;
+    if (total > LIMITE_BYTES) {
+      await leitor.cancel();
+      throw excesso;
+    }
+    pedacos.push(lido.value);
+  }
+}
+
+const NAO_INFORMADO = "não informado";
+
+/** Recibo de origem: linhas "Campo: valor", estáveis, para gente ler e para o Garimpo conferir depois. */
+function textoDoRecibo(campos: Record<string, string | undefined>): string {
+  const linhas = {
+    Formato: "recibo de origem do Garimpo, versão 1",
+    Origem: "download pelo Garimpo",
+    ...campos,
+    "Versão do Garimpo": VERSAO,
+    Natureza:
+      "declaração do Garimpo de onde, quando e com que sha256 este PDF foi obtido; não tem valor de certidão do " +
+      "tribunal nem de autenticação independente.",
+  };
+  return Object.entries(linhas)
+    .map(([campo, valor]) => `${campo}: ${valor?.replace(/\s+/g, " ").trim() || NAO_INFORMADO}`)
+    .join("\n")
+    .concat("\n");
+}
+
+/** Data e hora local com o fuso explícito (ex.: 2026-10-08T14:03:22.123-03:00). */
+function dataHoraComFuso(d: Date): string {
+  const fuso = -d.getTimezoneOffset();
+  const dois = (n: number) => String(Math.floor(Math.abs(n))).padStart(2, "0");
+  const local = new Date(d.getTime() + fuso * 60_000).toISOString().slice(0, -1);
+  return `${local}${fuso < 0 ? "-" : "+"}${dois(fuso / 60)}:${dois(fuso % 60)}`;
+}
+
+/** Existe algo com este nome (lstat: um atalho quebrado também conta, para nunca ser sobrescrito). */
+const existe = (caminho: string) =>
+  lstat(caminho).then(
+    () => true,
+    () => false,
+  );
+
+/**
+ * Dá ao temporário o nome final sem nunca substituir o que houver: um link, que falha se o nome existir. Pasta sem
+ * suporte a link (pendrive em exFAT, algumas pastas de rede): cópia que também falha se o nome existir.
+ */
+async function nomearSemSobrescrever(temporario: string, arquivo: string): Promise<void> {
+  try {
+    await ligar(temporario, arquivo);
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "EEXIST") throw e;
+    await copyFile(temporario, arquivo, constants.COPYFILE_EXCL);
+  }
+}
+
+/**
+ * Grava o PDF e o recibo sem nunca sobrescrever. O PDF vai primeiro para um temporário na mesma pasta e só ganha
+ * o nome final completo (um link que falha se o nome já existir, em vez de um rename que substituiria); o
+ * temporário é apagado em qualquer caso. Mesmos bytes de um PDF já salvo: reaproveita, preservando o recibo que
+ * houver (ou gravando um, se o PDF for de antes do recibo). Bytes diferentes, ou recibo sem PDF: "-2", "-3"…
+ */
+async function salvarComRecibo(
+  pasta: string,
+  nome: string,
+  pdf: Uint8Array,
+  recibo: (arquivo: string) => string,
+): Promise<{ arquivo: string; recibo: string }> {
+  const temporario = join(pasta, `.${nome}.${randomUUID()}.parcial`);
+  try {
+    await writeFile(temporario, pdf, { flag: "wx" });
+    for (let n = 1; ; n++) {
+      const base = join(pasta, n === 1 ? nome : `${nome}-${n}`);
+      const salvo = { arquivo: `${base}.pdf`, recibo: `${base}.recibo.txt` };
+      if (await existe(salvo.arquivo)) {
+        if (!Buffer.from(pdf).equals(await readFile(salvo.arquivo))) continue;
+      } else {
+        if (await existe(salvo.recibo)) continue;
+        try {
+          await nomearSemSobrescrever(temporario, salvo.arquivo);
+        } catch (e) {
+          if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+          n--; // Outra chamada gravou este nome agora: confere de novo o mesmo número.
+          continue;
+        }
+      }
+      await gravarSeNaoExiste(salvo.recibo, recibo(salvo.arquivo));
+      return salvo;
+    }
+  } finally {
+    // No Windows o antivírus pode segurar o arquivo recém-gravado: novas tentativas, e uma falha aqui não derruba
+    // um download já salvo.
+    await rm(temporario, { force: true, maxRetries: 3 }).catch(() => {});
+  }
+}
+
+async function gravarSeNaoExiste(caminho: string, texto: string): Promise<void> {
+  try {
+    await writeFile(caminho, texto, { flag: "wx" });
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
   }
 }
 
@@ -118,7 +252,7 @@ async function salvarSemSobrescrever(pasta: string, nome: string, pdf: Uint8Arra
  * TJMG e TSE: o link do site já aponta para o PDF oficial. Só https no host oficial; redirects seguidos
  * um a um, cada destino validado antes de sair, com teto de saltos.
  */
-async function baixarDireto(cliente: Cliente, link: string, host: string, sigla: string): Promise<Uint8Array> {
+async function baixarDireto(cliente: Cliente, link: string, host: string, sigla: string): Promise<Baixado> {
   const oficial = (endereco: string, contexto: string) => {
     const url = new URL(endereco);
     if (url.protocol !== "https:" || url.host !== host) {
@@ -130,7 +264,7 @@ async function baixarDireto(cliente: Cliente, link: string, host: string, sigla:
   for (let saltos = 0; ; saltos++) {
     const r = await cliente.requisitar(url.href, { redirect: "manual" });
     if (r.status < 300 || r.status >= 400) {
-      return exigirPdf(desembrulhar(new Uint8Array(await r.arrayBuffer())), sigla, link);
+      return { pdf: exigirPdf(desembrulhar(await lerCorpo(r, sigla)), sigla, link), urlFinal: url.href };
     }
     await r.body?.cancel();
     const destino = r.headers.get("location");
@@ -159,7 +293,7 @@ function desembrulhar(b: Uint8Array): Uint8Array {
  * 2. página "mediado" desse documento (traz o PDF num iframe);
  * 3. o PDF do iframe. Sem o cookie da sessão o passo 3 devolve um HTML curto.
  */
-async function baixarStj(cliente: Cliente, link: string): Promise<Uint8Array> {
+async function baixarStj(cliente: Cliente, link: string): Promise<Baixado> {
   const origem = urlDoStj(link, "Link do STJ");
   const registro = origem.searchParams.get("num_registro");
   const data = origem.searchParams.get("dt_publicacao");
@@ -179,17 +313,16 @@ async function baixarStj(cliente: Cliente, link: string): Promise<Uint8Array> {
   }
 
   const passo2 = urlDoStj(new URL(documento.replace(/&amp;/g, "&"), passo1).href, "O STJ apontou o documento").href;
-  const r2 = await sessao.get(passo2, passo1);
-  const corpo2 = new Uint8Array(await r2.arrayBuffer());
-  if (ehPdf(corpo2)) return corpo2;
+  const corpo2 = await lerCorpo(await sessao.get(passo2, passo1), "STJ");
+  if (ehPdf(corpo2)) return { pdf: corpo2, urlFinal: sessao.urlFinal };
   const iframe = latin1(corpo2).match(/<iframe[^>]*\ssrc=['"]([^'"]+)['"]/i)?.[1];
   const passo3 = urlDoStj(
     iframe ? new URL(iframe.replace(/&amp;/g, "&"), passo2).href : passo2.replace("/mediado/", "/"),
     "O STJ apontou o PDF",
   ).href;
 
-  const r3 = await sessao.get(passo3, passo2);
-  return exigirPdf(new Uint8Array(await r3.arrayBuffer()), "STJ", passo1);
+  const corpo3 = await lerCorpo(await sessao.get(passo3, passo2), "STJ");
+  return { pdf: exigirPdf(corpo3, "STJ", passo1), urlFinal: sessao.urlFinal };
 }
 
 /** Só o portal do STJ: HTTPS e host stj.jus.br ou subdomínio dele (nunca "falso-stj.jus.br"). */
@@ -207,6 +340,8 @@ const MAX_REDIRECTS = 5;
 /** Cookies de uma sessão de download no STJ (só vivem durante ela e só vão para o STJ). */
 class Sessao {
   private cookies = new Map<string, string>();
+  /** Endereço que respondeu à última chamada, depois dos redirecionamentos. */
+  urlFinal = "";
   constructor(private readonly cliente: Cliente) {}
 
   /** GET no STJ seguindo redirects um a um: o destino de cada salto é validado antes de levar os cookies. */
@@ -222,7 +357,10 @@ class Sessao {
         const i = par.indexOf("=");
         if (i > 0) this.cookies.set(par.slice(0, i).trim(), par.slice(i + 1).trim());
       }
-      if (r.status < 300 || r.status >= 400) return r;
+      if (r.status < 300 || r.status >= 400) {
+        this.urlFinal = url.href;
+        return r;
+      }
       await r.body?.cancel();
       const destino = r.headers.get("location");
       if (!destino || saltos >= MAX_REDIRECTS) {
@@ -233,7 +371,7 @@ class Sessao {
   }
 
   async texto(url: string, referer?: string): Promise<string> {
-    return latin1(new Uint8Array(await (await this.get(url, referer)).arrayBuffer()));
+    return latin1(await lerCorpo(await this.get(url, referer), "STJ"));
   }
 }
 

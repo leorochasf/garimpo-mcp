@@ -1,10 +1,11 @@
-import { mkdtemp, readdir, readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { describe, expect, it } from "vitest";
-import { Cliente } from "../src/cliente.js";
+import { describe, expect, it, vi } from "vitest";
+import { Cliente, VERSAO } from "../src/cliente.js";
 import { criarServidor, type OpcoesServidor } from "../src/servidor.js";
 import { clienteFalso, respostaJson } from "./apoio.js";
 
@@ -147,13 +148,194 @@ describe("obter inteiro teor pela porta (tribunal falso e pasta temporária)", (
       };
       expect(r.isError, tribunal).toBeFalsy();
       const dado = JSON.parse(r.content[0].text);
-      expect(Object.keys(dado).sort(), tribunal).toEqual(["arquivo", "baixado", "bytes", "fonte"]);
+      expect(Object.keys(dado).sort(), tribunal).toEqual(["arquivo", "baixado", "bytes", "fonte", "recibo", "sha256"]);
       expect(dado).toMatchObject({ baixado: true, bytes: PDF.length, fonte: link });
       expect(dirname(dado.arquivo), tribunal).toBe(pasta);
       expect(await readFile(dado.arquivo, "latin1"), tribunal).toBe(PDF);
     }
-    expect(await readdir(pasta)).toHaveLength(3);
+    expect((await readdir(pasta)).filter((f) => f.endsWith(".pdf"))).toHaveLength(3);
     expect(falsos.stj.chamadas).toHaveLength(3);
+  });
+});
+
+describe("download robusto e recibo de origem (pela porta)", () => {
+  const LINK_TJMG = "https://www5.tjmg.jus.br/jurisprudencia/relatorioEspelhoAcordao.do?inteiroTeor=true&numero=1";
+  const bytesPdf = (texto: string) => new TextEncoder().encode(`%PDF-1.7\n${texto}\n%%EOF`);
+  const sha256 = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
+
+  /** Servidor com um TJMG falso que entrega estas respostas, em ordem, e uma pasta temporária. */
+  async function montar(respostas: Parameters<typeof clienteFalso>[0], registros: unknown[] = []) {
+    const pasta = await mkdtemp(join(tmpdir(), "garimpo-recibo-"));
+    const tjmg = clienteFalso(respostas);
+    const mcp = await conectar(siteFalso(registros), { tribunais: () => tjmg.cliente, pasta });
+    const obter = async (args: Record<string, unknown>) => {
+      const r = (await mcp.callTool({ name: "obter_inteiro_teor", arguments: args })) as {
+        content: { text: string }[];
+        isError?: boolean;
+      };
+      return { isError: r.isError, texto: r.content[0].text };
+    };
+    return { pasta, mcp, obter };
+  }
+
+  /** Lê o recibo em linhas "Campo: valor". */
+  async function lerRecibo(caminho: string) {
+    const texto = await readFile(caminho, "utf8");
+    const campos = Object.fromEntries(
+      texto
+        .split("\n")
+        .filter((l) => l.includes(": "))
+        .map((l) => [l.slice(0, l.indexOf(": ")), l.slice(l.indexOf(": ") + 2)]),
+    );
+    return { texto, campos };
+  }
+
+  it("grava ao lado do PDF o recibo com todos os campos; a resposta traz o caminho do recibo e o sha256", async () => {
+    const pdf = bytesPdf("conteudo ficticio");
+    const acordao = {
+      id: "501",
+      texto_ementa: "EMENTA FICTÍCIA.",
+      numero_processo: "1.0000.00.000001-0/001",
+      data_julgamento: "2024-01-02T00:00:00.000Z",
+      link_pdf: LINK_TJMG,
+    };
+    const final = "https://www5.tjmg.jus.br/jurisprudencia/pdf/inteiro-teor-1.pdf";
+    const { mcp, obter } = await montar(
+      [new Response(null, { status: 302, headers: { location: final } }), new Response(pdf)],
+      [acordao],
+    );
+    await mcp.callTool({ name: "busca_direta", arguments: { tribunal: "tjmg", texto: "exemplo" } });
+
+    const r = await obter({ id: "tjmg:501" });
+    expect(r.isError).toBeFalsy();
+    const dado = JSON.parse(r.texto);
+    expect(dado).toMatchObject({ baixado: true, bytes: pdf.length, sha256: sha256(pdf) });
+    expect(dado.recibo).toBe(dado.arquivo.replace(/\.pdf$/, ".recibo.txt"));
+
+    const { texto, campos } = await lerRecibo(dado.recibo);
+    expect(campos).toMatchObject({
+      Formato: "recibo de origem do Garimpo, versão 1",
+      Origem: "download pelo Garimpo",
+      "Link oficial final": final,
+      "Link que veio na busca": LINK_TJMG,
+      Sha256: sha256(pdf),
+      "Tamanho em bytes": String(pdf.length),
+      Tribunal: "TJMG",
+      "Número": "1.0000.00.000001-0/001",
+      Id: "tjmg:501",
+      "Nome do arquivo": basename(dado.arquivo),
+      "Versão do Garimpo": VERSAO,
+    });
+    expect(campos["Data e hora"]).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?[+-]\d{2}:\d{2}$/);
+    expect(texto).toMatch(/declaração do Garimpo.*não tem valor de certidão.*nem de autenticação independente/);
+  });
+
+  it("o que faltar no recibo aparece como \"não informado\"", async () => {
+    const { obter } = await montar([new Response(bytesPdf("sem busca"))]);
+    const dado = JSON.parse((await obter({ tribunal: "tjmg", link: LINK_TJMG })).texto);
+    const { campos } = await lerRecibo(dado.recibo);
+    expect(campos["Número"]).toBe("não informado");
+    expect(campos.Id).toBe("não informado");
+    expect(campos["Link oficial final"]).toBe(LINK_TJMG);
+  });
+
+  it("conexão que cai no meio: erro claro, e nenhum PDF nem temporário na pasta", async () => {
+    const corpo = new ReadableStream<Uint8Array>({
+      start(c) {
+        c.enqueue(bytesPdf("comeco do arquivo").subarray(0, 12));
+      },
+      pull(c) {
+        c.error(new Error("socket hang up"));
+      },
+    });
+    const { pasta, obter } = await montar([new Response(corpo, { headers: { "content-type": "application/pdf" } })]);
+    const r = await obter({ tribunal: "tjmg", link: LINK_TJMG });
+    expect(r.isError).toBe(true);
+    expect(r.texto).toMatch(/download do TJMG foi interrompido no meio .*nada foi salvo/);
+    expect(await readdir(pasta)).toEqual([]);
+  });
+
+  it("PDF acima de 50 MB sem Content-Length: download interrompido, nada salvo, aviso claro", async () => {
+    let pedacos = 0;
+    const mega = new Uint8Array(1024 * 1024);
+    mega.set(bytesPdf("").subarray(0, 4));
+    // Corpo sem fim e sem Content-Length: só o corte pelos bytes recebidos faz o download parar.
+    const corpo = new ReadableStream<Uint8Array>({
+      pull(c) {
+        pedacos++;
+        c.enqueue(mega);
+      },
+    });
+    const { pasta, obter } = await montar([new Response(corpo, { headers: { "content-type": "application/pdf" } })]);
+    const r = await obter({ tribunal: "tjmg", link: LINK_TJMG });
+    expect(r.isError).toBe(true);
+    expect(r.texto).toMatch(/passa de 50 MB; o download foi interrompido e nada foi salvo/);
+    expect(pedacos).toBeLessThanOrEqual(52);
+    expect(await readdir(pasta)).toEqual([]);
+  });
+
+  it("mesmos bytes de novo: o PDF e o recibo original são preservados", async () => {
+    const pdf = bytesPdf("igual");
+    const { pasta, obter } = await montar([new Response(pdf), new Response(pdf)]);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-01-05T10:00:00Z"));
+      const primeiro = JSON.parse((await obter({ tribunal: "tjmg", link: LINK_TJMG })).texto);
+      const original = await readFile(primeiro.recibo, "utf8");
+      vi.setSystemTime(new Date("2026-02-05T10:00:00Z"));
+      const segundo = JSON.parse((await obter({ tribunal: "tjmg", link: LINK_TJMG })).texto);
+
+      expect(segundo).toMatchObject({ arquivo: primeiro.arquivo, recibo: primeiro.recibo, sha256: sha256(pdf) });
+      expect(await readFile(primeiro.recibo, "utf8")).toBe(original);
+      expect((await readdir(pasta)).sort()).toEqual([basename(primeiro.arquivo), basename(primeiro.recibo)].sort());
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("mesmos bytes de um PDF sem recibo (baixado antes do recibo existir): o recibo é gravado agora", async () => {
+    const pdf = bytesPdf("antigo");
+    const { pasta, obter } = await montar([new Response(pdf), new Response(pdf)]);
+    const primeiro = JSON.parse((await obter({ tribunal: "tjmg", link: LINK_TJMG })).texto);
+    await rm(primeiro.recibo);
+
+    const segundo = JSON.parse((await obter({ tribunal: "tjmg", link: LINK_TJMG })).texto);
+    expect(segundo).toMatchObject({ arquivo: primeiro.arquivo, recibo: primeiro.recibo });
+    expect((await lerRecibo(segundo.recibo)).campos.Sha256).toBe(sha256(pdf));
+    expect(await readdir(pasta)).toHaveLength(2);
+  });
+
+  it("recibo que ficou sem o PDF não é sobrescrito: o PDF novo ganha outro nome", async () => {
+    const pdf = bytesPdf("orfao");
+    const { pasta, obter } = await montar([new Response(pdf), new Response(pdf)]);
+    const primeiro = JSON.parse((await obter({ tribunal: "tjmg", link: LINK_TJMG })).texto);
+    const reciboOrfao = await readFile(primeiro.recibo, "utf8");
+    await rm(primeiro.arquivo);
+
+    const segundo = JSON.parse((await obter({ tribunal: "tjmg", link: LINK_TJMG })).texto);
+    expect(segundo.arquivo).toBe(primeiro.arquivo.replace(/\.pdf$/, "-2.pdf"));
+    expect(await readFile(primeiro.recibo, "utf8")).toBe(reciboOrfao);
+    expect((await lerRecibo(segundo.recibo)).campos["Nome do arquivo"]).toBe(basename(segundo.arquivo));
+  });
+
+  it("bytes diferentes: arquivo novo e recibo novo, nada sobrescrito", async () => {
+    const a = bytesPdf("versao A");
+    const b = bytesPdf("versao B");
+    const { pasta, obter } = await montar([new Response(a), new Response(b)]);
+    const primeiro = JSON.parse((await obter({ tribunal: "tjmg", link: LINK_TJMG })).texto);
+    const reciboA = await readFile(primeiro.recibo, "utf8");
+    const segundo = JSON.parse((await obter({ tribunal: "tjmg", link: LINK_TJMG })).texto);
+
+    expect(segundo.arquivo).not.toBe(primeiro.arquivo);
+    expect(segundo.recibo).not.toBe(primeiro.recibo);
+    expect(await readFile(primeiro.arquivo)).toEqual(Buffer.from(a));
+    expect(await readFile(primeiro.recibo, "utf8")).toBe(reciboA);
+    expect(await readFile(segundo.arquivo)).toEqual(Buffer.from(b));
+    expect((await lerRecibo(segundo.recibo)).campos).toMatchObject({
+      Sha256: sha256(b),
+      "Nome do arquivo": basename(segundo.arquivo),
+    });
+    expect(await readdir(pasta)).toHaveLength(4);
   });
 });
 
