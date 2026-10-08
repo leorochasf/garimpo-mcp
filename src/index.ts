@@ -30,8 +30,9 @@ const filtros = {
   classe: z.string().optional().describe("Classe processual"),
 };
 
+/** JSON sem recuo: o recuo não leva informação e custa ~10% da resposta da busca ampla. */
 function json(dado: unknown) {
-  return { content: [{ type: "text" as const, text: JSON.stringify(dado, null, 1) }] };
+  return { content: [{ type: "text" as const, text: JSON.stringify(dado) }] };
 }
 
 function erro(e: unknown) {

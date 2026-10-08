@@ -140,6 +140,43 @@ describe("busca ampla", () => {
     ]);
   });
 
+  it("com campos de tamanho realista, 50 acórdãos + 10 qualificados cabem numa resposta (< 25 mil caracteres)", async () => {
+    // Tudo fictício, mas com o tamanho dos campos reais: id longo, número CNJ com sigla, órgão por extenso, link de
+    // ~95 caracteres, ementa longa; qualificados com tese longa, paradigma e link longo.
+    const link = (i: number) => `https://jurisprudencia.tribunal-exemplo.invalid/consulta/inteiro-teor/documento?id=${String(i).padStart(10, "0")}`;
+    const realista = (texto: string, i: number) => ({
+      id: `${texto}${String(i).padStart(9, "0")}`,
+      texto_ementa: `EMENTA: APELAÇÃO CÍVEL. EXEMPLO FICTÍCIO ${texto}-${i}. ${"Texto fictício de ementa. ".repeat(150)}`,
+      sigla_classe: "ApCiv",
+      numero_processo: `50${String(i).padStart(5, "0")}-${texto.length}1.2024.8.21.0001`,
+      orgao_julgador: "Décima Segunda Câmara Cível",
+      data_julgamento: "2024-01-02T00:00:00.000Z",
+      link_pdf: link(i),
+    });
+    const tema = (i: number) => ({
+      numero: 1000 + i,
+      tese_firmada: "Tese fictícia de repercussão geral, longa como as reais. ".repeat(80),
+      orgao_julgador: "Tribunal Pleno",
+      numero_processo_paradigma: `RE ${1_000_000 + i}`,
+      link: link(900 + i),
+    });
+    const { cliente } = siteFalso((tribunal, texto) =>
+      respostaJson({
+        results: Array.from({ length: 100 }, (_, i) => realista(`${tribunal}${texto}`, i)),
+        rg: Array.from({ length: 30 }, (_, i) => tema(i)),
+      }),
+    );
+
+    const r = await buscaAmpla(cliente, { formulacoes: ["a", "bb", "ccc"], tribunais: ["tjrs", "stj"] });
+
+    expect(r.acordaos).toHaveLength(50);
+    expect(r.qualificados).toHaveLength(10);
+    // O rótulo "EMENTA:" do começo não gasta o trecho.
+    expect(r.acordaos[0].trecho).toMatch(/^APELAÇÃO CÍVEL\. EXEMPLO FICTÍCIO/);
+    // Mesmo formato da resposta da ferramenta (src/index.ts: JSON sem recuo).
+    expect(JSON.stringify(r).length).toBeLessThan(25_000);
+  });
+
   it("cópias do mesmo acórdão achadas por formulações diferentes viram um só, com as formulações somadas", async () => {
     const ementa = "EMENTA FICTÍCIA DO MESMO ACÓRDÃO EM DOIS REGISTROS.";
     const { cliente } = siteFalso((_t, texto) =>

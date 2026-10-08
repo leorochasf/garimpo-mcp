@@ -16,8 +16,10 @@ export interface ParametrosAmpla extends FiltrosBusca {
   limitePorBusca?: number;
   /** Máximo de itens na saída compacta (padrão 50). */
   maximo?: number;
-  /** Caracteres do começo da ementa na saída compacta. */
+  /** Caracteres do começo da ementa na saída compacta (padrão 100, sem o rótulo "Ementa:"). */
   tamanhoTrecho?: number;
+  /** Caracteres do começo do texto de cada precedente qualificado (padrão 200). */
+  tamanhoQualificado?: number;
 }
 
 export interface ItemAmplo {
@@ -112,7 +114,9 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<
   const maximo = p.maximo ?? 50;
   // Cada tribunal com acórdão na faixa de aderência de cima tem vagas garantidas (regra do ticket 08).
   const mostrados = reservarPorTribunal(ordenados, { maximo, naFaixaDeCima: (x) => x.faixa === 0 });
-  const tamanho = p.tamanhoTrecho ?? 160;
+  // Tamanhos escolhidos para 50 acórdãos + 10 qualificados caberem numa resposta (< 25 mil caracteres) com campos
+  // de tamanho real (número CNJ, links longos): ver o teste de tamanho em tests/ampla.test.ts e o ticket 09.
+  const tamanho = p.tamanhoTrecho ?? 100;
   return {
     buscasFeitas: feitas,
     buscasPlanejadas: tarefas.length,
@@ -120,19 +124,20 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla): Promise<
     totalAcordaos: ordenados.length,
     mostrados: mostrados.length,
     acordaos: mostrados.map(({ acordao: a, formulacoes }) => {
+      const ementa = a.ementa.replace(/^\s*ementa\s*[:.\-–—]?\s*/i, "");
       const item: ItemAmplo = {
         id: a.id,
         numero: a.numero,
         tribunal: a.tribunal,
         data: a.dataJulgamento,
         orgao: a.orgao,
-        trecho: a.ementa.length > tamanho ? `${a.ementa.slice(0, tamanho)}…` : a.ementa,
+        trecho: ementa.length > tamanho ? `${ementa.slice(0, tamanho)}…` : ementa,
         link: a.link ?? a.linkConsulta,
         formulacoes,
       };
       return item;
     }),
-    qualificados: juntarQualificados(qualificados),
+    qualificados: juntarQualificados(qualificados, { tamanhoTexto: p.tamanhoQualificado ?? 200 }),
     avisos,
   };
 }
