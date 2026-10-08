@@ -184,7 +184,7 @@ export interface OpcoesOrdem {
 /**
  * Ordem: faixa de aderência → nº de formulações → melhor posição. Entre acórdãos empatados nesses três, a nota
  * de relevância do site só desempata dentro do mesmo tribunal: cada tribunal mantém as posições que ocupa no
- * empate e reordena nelas os seus acórdãos pela nota; entre tribunais fica a ordem de chegada.
+ * empate e reordena nelas os seus acórdãos pela nota; entre tribunais fica a ordem da lista recebida.
  */
 export function ordenarPorAderencia<T extends Candidato>(
   itens: readonly T[],

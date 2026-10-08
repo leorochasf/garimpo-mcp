@@ -53,6 +53,14 @@ respostas das duas filas chegam, que varia. O protótipo fixa a chegada em séri
 reproduz a ordem do commit base a menos desses empates em 11 de 11 teses. Afeta qualquer "a mesma gravação reproduz
 o resultado" dos tickets seguintes; o desempate final fixo (ex.: pelo id) virou ticket próprio, que vem antes do P3.
 
+**Resolvido no ticket 07 (2026-10-08):** as respostas (guardadas e do site) passam a ser juntadas na ordem das
+tarefas (tribunal → formulação), nunca na de chegada; o critério principal não mudou, só os empates exatos ficaram
+fixos, na mesma ordem em série do protótipo. Refeito sem rede sobre a mesma gravação (264 respostas, nenhuma sobra),
+com pasta de dados temporária: 1 ordem e 1 conjunto por tese em 6 execuções nas 11 teses (antes: 2 a 6 ordens e até
+2 conjuntos); a lista real do servidor é a do protótipo em 11 de 11 teses (antes: 2 de 11). Gabarito com a marca do
+dono, por tese e na média, igual ao da ordem atual: precisão nos 10 97,3% | 97,3%, nos 50 94,2% | 94,4%, cobertura
+(7 teses) 46,4% | 46,5%; nenhuma tese mudou. Maior resposta: 21.819 caracteres (< 25 mil).
+
 ## Limites
 
 - Precisão perto do teto em 10 das 11 teses: o banco mede bem perda, mal ganho.

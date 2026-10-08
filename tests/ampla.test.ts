@@ -22,7 +22,11 @@ function bruto(id: string, rerank: number, ementa = `EMENTA FICTÍCIA ${id}.`) {
 }
 
 /** Site falso: responde conforme tribunal e texto da busca; conta concorrência e chamadas. */
-function siteFalso(responder: (tribunal: string, texto: string, n: number) => Response) {
+function siteFalso(
+  responder: (tribunal: string, texto: string, n: number) => Response,
+  /** Espera da n-ª chamada antes de responder (padrão 2 ms). */
+  espera = (_n: number): Promise<unknown> => new Promise((r) => setTimeout(r, 2)),
+) {
   const estado = { chamadas: 0, ativas: 0, pico: 0 };
   const cliente = new Cliente({
     nome: "O site",
@@ -31,7 +35,7 @@ function siteFalso(responder: (tribunal: string, texto: string, n: number) => Re
       const n = estado.chamadas++;
       estado.ativas++;
       estado.pico = Math.max(estado.pico, estado.ativas);
-      await new Promise((r) => setTimeout(r, 2));
+      await espera(n);
       estado.ativas--;
       const tribunal = String(url).match(/tribunais\/(\w+)\/search/)![1];
       return responder(tribunal, JSON.parse(String(init.body)).query, n);
@@ -241,6 +245,60 @@ describe("busca ampla", () => {
     expect(r.totalAcordaos).toBe(1);
     expect(r.acordaos.map((a) => [a.id, a.numero, a.formulacoes])).toEqual([["stj:copia-b", "copia-b/UF", 2]]);
     expect((await memoria.obter("stj:copia-a"))?.acordao.numero).toBe("copia-b/UF");
+  });
+
+  it("a mesma gravação dá a mesma resposta em qualquer ordem de chegada, empates exatos inclusive", async () => {
+    // Todos empatam em aderência, nº de formulações e melhor posição: só o desempate final decide.
+    const formulacoes = ["tese exemplo", "exemplo tese"];
+    const responder = (tribunal: string, texto: string) => {
+      const f = formulacoes.indexOf(texto);
+      return respostaJson({
+        results: [
+          bruto(`${tribunal}-${f}`, 0.5, `TESE EXEMPLO FICTÍCIA ${tribunal}-${f}.`),
+          // Cópia do mesmo acórdão nas duas formulações (mesmo número, data e ementa), igualmente completas.
+          { ...bruto(`${tribunal}-copia-${f}`, 0.5, `TESE EXEMPLO FICTÍCIA ${tribunal} COPIADA.`), numero_processo: "0001/UF" },
+        ],
+        // Um precedente qualificado por tribunal, cada um trazido por uma formulação só.
+        rg: (tribunal === "stj") === (f === 1) ? [{ numero: tribunal === "stj" ? 1 : 2, tese_firmada: "Tese fictícia." }] : [],
+      });
+    };
+    /** As chamadas (numeradas na ordem em que saem) respondem na ordem pedida, sem relógio: cada uma libera a próxima. */
+    const rodar = async (ordem: number[]) => {
+      const chegada: number[] = [];
+      const liberar: (() => void)[] = [];
+      const portoes = ordem.map((_, n) => new Promise<void>((r) => (liberar[n] = r)));
+      const { cliente } = siteFalso(
+        (tribunal, texto, n) => {
+          chegada.push(n);
+          liberar[ordem[chegada.length]]?.();
+          return responder(tribunal, texto);
+        },
+        (n) => portoes[n],
+      );
+      liberar[ordem[0]]();
+      return { r: await buscaAmpla(cliente, { formulacoes, tribunais: ["stj", "tjgo"] }), chegada };
+    };
+
+    const { r: naOrdem } = await rodar([0, 1, 2, 3]);
+    // Duas filas: a primeira chamada responde por último; depois, a segunda responde depois da terceira.
+    const primeira = await rodar([1, 2, 3, 0]);
+    const segunda = await rodar([0, 2, 1, 3]);
+
+    expect([primeira.chegada, segunda.chegada]).toEqual([
+      [1, 2, 3, 0],
+      [0, 2, 1, 3],
+    ]);
+    expect(naOrdem.acordaos.map((a) => a.id)).toEqual([
+      "stj:stj-copia-0",
+      "tjgo:tjgo-copia-0",
+      "stj:stj-0",
+      "stj:stj-1",
+      "tjgo:tjgo-0",
+      "tjgo:tjgo-1",
+    ]);
+    expect(naOrdem.qualificados.map((q) => q.tribunal)).toEqual(["stj", "tjgo"]);
+    expect(primeira.r).toEqual(naOrdem);
+    expect(segunda.r).toEqual(naOrdem);
   });
 
   it("recusa no meio: devolve o que já juntou, avisa que ficou incompleta e não faz novas buscas", async () => {

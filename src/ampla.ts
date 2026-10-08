@@ -99,6 +99,10 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla, memoria?:
       rotulo: `${t.toUpperCase()} / formulação ${f + 1}`,
       /** Por que a busca não deu resposta: vai na resposta de erro da falha total. */
       motivo: undefined as string | undefined,
+      /** Resposta (guardada ou do site), juntada depois que as duas filas terminam. */
+      resposta: undefined as ResultadoBusca | undefined,
+      /** Instante em que a busca guardada foi feita no site. */
+      guardadaEm: undefined as number | undefined,
     })),
   );
   const juntos = new Map<string, Ocorrencia<Acordao>>();
@@ -161,16 +165,15 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla, memoria?:
 
   // Primeiro a memória, sem nenhuma chamada: repetir ou ampliar a busca só leva ao site as combinações novas, e a
   // busca guardada responde mesmo com o serviço pausado.
-  // Juntadas na ordem das tarefas, não na de leitura dos arquivos: a ordem de chegada desempata na lista.
   const guardadas =
     memoria && !p.renovar
       ? await Promise.all(tarefas.map((t) => lerBuscaGuardada(memoria, parametros(t)).catch(() => undefined)))
       : [];
   tarefas.forEach((t, i) => {
     const g = guardadas[i];
-    if (g) registrar(t, g.resultado, g.obtidoEm);
+    if (g) [t.resposta, t.guardadaEm] = [g.resultado, g.obtidoEm];
   });
-  const noSite = tarefas.filter((_, i) => !guardadas[i]);
+  const noSite = tarefas.filter((t) => !t.resposta);
 
   // Duas filas de trabalho, como o cliente: depois de uma recusa ninguém pega tarefa nova.
   let proxima = 0;
@@ -179,7 +182,7 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla, memoria?:
       const t = noSite[proxima++];
       try {
         // A memória já foi consultada: aqui só vai ao site; os acórdãos são guardados depois de juntar as cópias.
-        registrar(t, await buscaDireta(cliente, parametros(t), memoria, { renovar: true, guardarAcordaos: false }));
+        t.resposta = await buscaDireta(cliente, parametros(t), memoria, { renovar: true, guardarAcordaos: false });
       } catch (e) {
         porTribunal.get(t.tribunal)!.comErro++;
         if (e instanceof RecusaError) {
@@ -194,6 +197,10 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla, memoria?:
   };
   // Se o serviço estiver aguardando a chamada de prova, a busca ampla inteira faz no máximo uma.
   await umaProvaPorFerramenta(() => Promise.all([trabalhar(), trabalhar()]));
+  // Guardadas e do site juntadas na ordem das tarefas (tribunal → formulação), nunca na de chegada ou de leitura dos
+  // arquivos, que varia de uma execução para outra: é o desempate final da lista, depois de aderência, nº de
+  // formulações e melhor posição.
+  for (const t of tarefas) if (t.resposta) registrar(t, t.resposta, t.guardadaEm);
 
   // Nenhuma busca deu resposta: é erro, nunca lista vazia, que se leria como "os tribunais nunca decidiram a
   // tese" (ADR-0001). A mensagem de recusa vai junto, com o "espere e tente de novo".
