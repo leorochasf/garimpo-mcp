@@ -197,11 +197,14 @@ describe("memória de acórdãos entre janelas", () => {
     const alheios = await semearAlheios();
     const a = await janela(siteFalso([acordao("m6")]).cliente);
     await chamar(a, "busca_direta", { tribunal: "stj", texto: "responsabilidade civil" });
-    await esperarAte(async () => (await guardadosNoDisco()).length === 1);
+    const buscasNoDisco = async () => (await arquivos(dados)).filter((f) => f.startsWith(join("memoria", "buscas-1")));
+    await esperarAte(async () => (await guardadosNoDisco()).length === 1 && (await buscasNoDisco()).length === 1);
     const [primeiro] = await guardadosNoDisco();
-    const tamanho = (await stat(join(dados, primeiro))).size;
+    const [busca] = await buscasNoDisco();
+    // O teto vale para a memória inteira: cada busca direta ocupa o acórdão e a busca guardada.
+    const tamanho = (await stat(join(dados, primeiro))).size + (await stat(join(dados, busca))).size;
 
-    // Cabem dois acórdãos guardados; o terceiro estoura o teto.
+    // Cabem duas buscas com o acórdão de cada uma; a terceira estoura o teto.
     const site = siteFalso([acordao("m7")], [acordao("m8")]);
     const b = await janela(site.cliente, { tetoDaMemoria: Math.floor(2.5 * tamanho) });
     agora += HORA;

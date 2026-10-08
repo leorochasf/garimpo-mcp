@@ -12,11 +12,13 @@ import { pdfSintetico, type TextoPosicionado } from "./pdfSintetico.js";
 
 /**
  * O Garimpo inteiro, chamado como o Claude chama: cliente MCP em memória e site falso por trás, sem rede.
- * Opcionalmente, tribunais falsos e a pasta de gravação.
+ * Opcionalmente, tribunais falsos e a pasta de gravação. Cada conexão tem memória própria (pasta de dados nova, dentro
+ * da temporária dos testes): uma busca guardada por um teste nunca responde no lugar do site falso de outro.
  */
 async function conectar(site: Cliente, opcoes?: OpcoesServidor) {
   const [ladoCliente, ladoServidor] = InMemoryTransport.createLinkedPair();
-  await criarServidor(site, opcoes).connect(ladoServidor);
+  const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "janela-"));
+  await criarServidor(site, { dados, ...opcoes }).connect(ladoServidor);
   const mcp = new Client({ name: "teste", version: "0" });
   await mcp.connect(ladoCliente);
   return mcp;

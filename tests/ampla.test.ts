@@ -1,3 +1,6 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buscaAmpla } from "../src/ampla.js";
 import { buscaDireta } from "../src/busca.js";
@@ -35,6 +38,43 @@ function siteFalso(responder: (tribunal: string, texto: string, n: number) => Re
     }) as typeof fetch,
   });
   return { cliente, estado };
+}
+
+// A tese no meio da ementa: o trecho sai do meio, com "…" nas duas pontas (o caso mais longo).
+const FORMULACOES_REALISTAS = ["dano moral coletivo", "dano moral difuso", "dano moral transindividual"];
+
+/**
+ * Site falso com campos de tamanho realista: tudo fictício, mas com o tamanho dos campos reais: id longo, número CNJ
+ * com sigla, órgão por extenso, link de ~95 caracteres, ementa longa; qualificados com tese longa, paradigma e link longo.
+ */
+function siteRealista() {
+  const link = (i: number) => `https://jurisprudencia.tribunal-exemplo.invalid/consulta/inteiro-teor/documento?id=${String(i).padStart(10, "0")}`;
+  const realista = (texto: string, i: number) => ({
+    id: `${texto}${String(i).padStart(9, "0")}`,
+    texto_ementa:
+      `EMENTA: APELAÇÃO CÍVEL. EXEMPLO FICTÍCIO ${texto}-${i}. ${"Texto fictício de ementa. ".repeat(75)}` +
+      `DANO MORAL COLETIVO RECONHECIDO. ${"Texto fictício de ementa. ".repeat(75)}`,
+    sigla_classe: "ApCiv",
+    numero_processo: `50${String(i).padStart(5, "0")}-${texto.length}1.2024.8.21.0001`,
+    orgao_julgador: "Décima Segunda Câmara Cível",
+    data_julgamento: "2024-01-02T00:00:00.000Z",
+    link_pdf: link(i),
+  });
+  const tema = (i: number) => ({
+    numero: 1000 + i,
+    tese_firmada: "Tese fictícia de repercussão geral, longa como as reais. ".repeat(80),
+    orgao_julgador: "Tribunal Pleno",
+    numero_processo_paradigma: `RE ${1_000_000 + i}`,
+    link: link(900 + i),
+  });
+  // Chaves curtas, como antes, para o id e o número não crescerem com o texto da formulação.
+  const chave = (texto: string) => ["a", "bb", "ccc"][FORMULACOES_REALISTAS.indexOf(texto)];
+  return siteFalso((tribunal, texto) =>
+    respostaJson({
+      results: Array.from({ length: 100 }, (_, i) => realista(`${tribunal}${chave(texto)}`, i)),
+      rg: Array.from({ length: 30 }, (_, i) => tema(i)),
+    }),
+  );
 }
 
 describe("busca ampla", () => {
@@ -150,39 +190,9 @@ describe("busca ampla", () => {
   });
 
   it("com campos de tamanho realista, 50 acórdãos + 10 qualificados cabem numa resposta (< 25 mil caracteres)", async () => {
-    // Tudo fictício, mas com o tamanho dos campos reais: id longo, número CNJ com sigla, órgão por extenso, link de
-    // ~95 caracteres, ementa longa; qualificados com tese longa, paradigma e link longo.
-    const link = (i: number) => `https://jurisprudencia.tribunal-exemplo.invalid/consulta/inteiro-teor/documento?id=${String(i).padStart(10, "0")}`;
-    const realista = (texto: string, i: number) => ({
-      id: `${texto}${String(i).padStart(9, "0")}`,
-      texto_ementa:
-        `EMENTA: APELAÇÃO CÍVEL. EXEMPLO FICTÍCIO ${texto}-${i}. ${"Texto fictício de ementa. ".repeat(75)}` +
-        `DANO MORAL COLETIVO RECONHECIDO. ${"Texto fictício de ementa. ".repeat(75)}`,
-      sigla_classe: "ApCiv",
-      numero_processo: `50${String(i).padStart(5, "0")}-${texto.length}1.2024.8.21.0001`,
-      orgao_julgador: "Décima Segunda Câmara Cível",
-      data_julgamento: "2024-01-02T00:00:00.000Z",
-      link_pdf: link(i),
-    });
-    const tema = (i: number) => ({
-      numero: 1000 + i,
-      tese_firmada: "Tese fictícia de repercussão geral, longa como as reais. ".repeat(80),
-      orgao_julgador: "Tribunal Pleno",
-      numero_processo_paradigma: `RE ${1_000_000 + i}`,
-      link: link(900 + i),
-    });
-    // A tese no meio da ementa: o trecho sai do meio, com "…" nas duas pontas (o caso mais longo).
-    const formulacoes = ["dano moral coletivo", "dano moral difuso", "dano moral transindividual"];
-    // Chaves curtas, como antes, para o id e o número não crescerem com o texto da formulação.
-    const chave = (texto: string) => ["a", "bb", "ccc"][formulacoes.indexOf(texto)];
-    const { cliente } = siteFalso((tribunal, texto) =>
-      respostaJson({
-        results: Array.from({ length: 100 }, (_, i) => realista(`${tribunal}${chave(texto)}`, i)),
-        rg: Array.from({ length: 30 }, (_, i) => tema(i)),
-      }),
-    );
+    const { cliente } = siteRealista();
 
-    const r = await buscaAmpla(cliente, { formulacoes, tribunais: ["tjrs", "stj"] });
+    const r = await buscaAmpla(cliente, { formulacoes: FORMULACOES_REALISTAS, tribunais: ["tjrs", "stj"] });
 
     expect(r.acordaos).toHaveLength(50);
     expect(r.qualificados).toHaveLength(10);
@@ -192,6 +202,27 @@ describe("busca ampla", () => {
     expect(r.qualificados.every((q) => q.texto.length <= 121)).toBe(true);
     // Mesmo formato da resposta da ferramenta (src/index.ts: JSON sem recuo).
     expect(JSON.stringify(r).length).toBeLessThan(25_000);
+  });
+
+  it("repetida da memória, com a marca de busca guardada em cada tribunal, continua < 25 mil caracteres", async () => {
+    const dados = await mkdtemp(join(tmpdir(), "garimpo-ampla-"));
+    try {
+      const memoria = new Memoria({ dados });
+      const { cliente, estado } = siteRealista();
+      const pedido = { formulacoes: FORMULACOES_REALISTAS, tribunais: ["tjrs", "stj"] };
+      await buscaAmpla(cliente, pedido, memoria);
+      const chamadas = estado.chamadas;
+
+      const r = await buscaAmpla(cliente, pedido, memoria);
+
+      expect(estado.chamadas).toBe(chamadas);
+      expect(r.cabecalhoDeCobertura.porTribunal.every((t) => t.guardadas === 3 && t.maisAntiga)).toBe(true);
+      expect(r.acordaos).toHaveLength(50);
+      expect(r.qualificados).toHaveLength(10);
+      expect(JSON.stringify(r).length).toBeLessThan(25_000);
+    } finally {
+      await rm(dados, { recursive: true, force: true, maxRetries: 10 });
+    }
   });
 
   it("cópias do mesmo acórdão achadas por formulações diferentes viram um só, com as formulações somadas", async () => {

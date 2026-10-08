@@ -49,6 +49,16 @@ const filtros = {
   classe: z.string().optional().describe("Classe processual"),
 };
 
+const renovar = z
+  .boolean()
+  .optional()
+  .describe("true ignora a busca guardada e busca de novo no site; se falhar, é busca com erro (padrão false)");
+
+/** Como a memória entra nas buscas: vai na descrição das duas. */
+const SOBRE_A_BUSCA_GUARDADA =
+  "Busca repetida dentro de 24 h volta da memória do Garimpo, sem chamada ao site, como busca guardada: fotografia " +
+  "da busca feita no site na data e hora informadas, não uma busca nova. Para dado novo, use renovar.";
+
 /**
  * Lista mandada como texto (ADR-0002): modelos que não são o Claude costumam mandar listas assim. Texto de lista
  * JSON vira a lista; qualquer outro texto vale como um item só. Nunca parte por vírgula ("art. 37, § 6º").
@@ -163,20 +173,22 @@ export function criarServidor(
         "Cada acórdão e cada precedente qualificado traz enquadramento927: o inciso do art. 927 do CPC com a " +
         "evidência tirada dos dados do site, ou \"não classificado\" com o motivo; o rótulo da lista de qualificados " +
         "não prova enquadramento, vigência nem aplicabilidade. " +
-        "Ementas são longas: prefira limite baixo aqui e busca_ampla para volume.",
+        "Ementas são longas: prefira limite baixo aqui e busca_ampla para volume. " +
+        `${SOBRE_A_BUSCA_GUARDADA} A busca guardada traz o campo buscaGuardada com essa data.`,
       annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: {
         tribunal,
         texto: z.string().min(2).describe("Texto da busca (palavras da tese, dispositivo legal, instituto)"),
         limite: z.number().int().min(1).max(100).optional().describe("Máximo de acórdãos (1 a 100; padrão 10)"),
         ...filtros,
+        renovar,
       },
     },
-    async (args) => {
+    async ({ renovar, ...args }) => {
       try {
         conferirTribunais(args.tribunal);
         conferirDatas(args);
-        return comAvisoNaturezaJuridica(await buscaDireta(site, args, memoria));
+        return comAvisoNaturezaJuridica(await buscaDireta(site, args, memoria, { renovar }));
       } catch (e) {
         return erro(e);
       }
@@ -202,7 +214,12 @@ export function criarServidor(
         "Cada precedente qualificado traz o enquadramento927 (enquadramento no art. 927 do CPC) em forma curta: " +
         "inciso e aviso de situação, ou \"não classificado\" e o motivo abreviado; a forma completa vem na " +
         "busca_direta. O dos acórdãos vem no obter_ementa. " +
-        "Formulações boas variam sinônimos técnicos, dispositivo legal e nome do instituto.",
+        "Formulações boas variam sinônimos técnicos, dispositivo legal e nome do instituto. " +
+        `Cada busca (formulação × tribunal) passa pela memória: ${SOBRE_A_BUSCA_GUARDADA} Ampliar a busca com ` +
+        "formulações novas só busca no site as novas. No cabecalhoDeCobertura, o tribunal com busca guardada traz " +
+        "guardadas (quantas das buscasFeitas vieram da memória), feitasAgora (quantas foram feitas no site agora) e " +
+        "maisAntiga (data e hora local em que foi feita no site a busca guardada mais antiga); os acórdãos dessas " +
+        "buscas são da data delas, não de hoje.",
       annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: {
         formulacoes: listaOuTexto(z.array(z.string().min(2)).min(1).max(20)).describe("Formulações da mesma tese (até 20)"),
@@ -210,6 +227,7 @@ export function criarServidor(
         limitePorBusca: z.number().int().min(1).max(100).optional().describe("Acórdãos por busca (padrão 100)"),
         maximo: z.number().int().min(1).max(200).optional().describe("Máximo de acórdãos na resposta (padrão 50)"),
         ...filtros,
+        renovar,
       },
     },
     async (args) => {
