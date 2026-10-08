@@ -283,7 +283,7 @@ describe("cliente — travas de uso responsável", () => {
     const fetchContado = (async () => {
       ativas++;
       pico = Math.max(pico, ativas);
-      await new Promise((r) => setTimeout(r, 5));
+      await new Promise((r) => setTimeout(r, 50));
       ativas--;
       return respostaJson({});
     }) as typeof fetch;

@@ -28,6 +28,11 @@ afterEach(() => rm(pasta, { recursive: true, force: true }));
 
 const tique = (ms = 30) => new Promise((r) => setTimeout(r, ms));
 const vagasNaPasta = async () => (await readdir(protecao)).filter((n) => /^vaga-\d+\.json$/.test(n)).sort();
+/** A liberação da vaga termina em segundo plano: espera os arquivos de vaga sumirem, por até 5 s. */
+async function vagasDepoisDaLiberacao() {
+  for (let i = 0; i < 250 && (await vagasNaPasta()).length; i++) await tique(20);
+  return vagasNaPasta();
+}
 
 /** Cliente com a coordenação real na pasta temporária; o relógio da coordenação pode ser falso. */
 function clienteNaPasta(
@@ -78,12 +83,10 @@ describe("vagas em arquivo", () => {
     expect(await vagasNaPasta()).toEqual(["vaga-1.json", "vaga-2.json"]);
     await a.json();
     await b.body!.cancel();
-    await tique();
-    expect(await vagasNaPasta()).toEqual([]);
+    expect(await vagasDepoisDaLiberacao()).toEqual([]);
 
     await (await cliente.requisitar("https://exemplo.test/c")).arrayBuffer();
-    await tique();
-    expect(await vagasNaPasta()).toEqual([]);
+    expect(await vagasDepoisDaLiberacao()).toEqual([]);
   });
 
   it("espera da pausa do host não ocupa vaga", async () => {
@@ -188,8 +191,7 @@ describe("rede parada", () => {
     expect(e.message).toMatch(/apaga o histórico de pausa/);
     expect(chamadas).toEqual([]);
     expect(await readFile(estado(), "utf8")).toBe("{ isto não é o estado");
-    await tique();
-    expect(await vagasNaPasta()).toEqual([]);
+    expect(await vagasDepoisDaLiberacao()).toEqual([]);
 
     const lido = await lerPdfLocal();
     expect(lido.isError, lido.content[0].text).toBeFalsy();
