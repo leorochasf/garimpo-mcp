@@ -7,6 +7,7 @@ function registro(id: string, extra: Partial<Registro> = {}): Registro {
     id: `tjxx:${id}`,
     tribunal: "tjxx",
     numero: `${id}`,
+    semNumero: false,
     dataJulgamento: "2024-03-05",
     ementa: "APELAÇÃO. CONTRATO FICTÍCIO. CLÁUSULA EXEMPLO. RECURSO PROVIDO.",
     ...extra,
@@ -14,7 +15,7 @@ function registro(id: string, extra: Partial<Registro> = {}): Registro {
 }
 
 /** Número de processo fictício compartilhado pelas cópias do mesmo acórdão. */
-const MESMO = "0006000-00.2024.8.99.0001";
+const NUMERO_COMPARTILHADO = "0006000-00.2024.8.99.0001";
 
 function ocorrencia(r: Registro, formulacoes: number[], melhorPosicao = 0): Ocorrencia<Registro> {
   return { registro: r, formulacoes: new Set(formulacoes), melhorPosicao };
@@ -42,14 +43,23 @@ describe("equivalência de registros", () => {
   });
 
   it("mesmo número de processo com datas e ementas diferentes (recurso × embargos) continuam dois acórdãos", () => {
-    const recurso = registro("701", { numero: MESMO });
+    const recurso = registro("701", { numero: NUMERO_COMPARTILHADO });
     const embargos = registro("702", {
-      numero: MESMO,
+      numero: NUMERO_COMPARTILHADO,
       dataJulgamento: "2024-06-10",
       ementa: "EMBARGOS DE DECLARAÇÃO NA APELAÇÃO. OMISSÃO FICTÍCIA. EMBARGOS REJEITADOS.",
     });
 
     expect(juntarEquivalentes([ocorrencia(recurso, [0]), ocorrencia(embargos, [0])]).acordaos).toHaveLength(2);
+  });
+
+  it("o mesmo número escrito com e sem a sigla da classe não é contradição", () => {
+    const { acordaos } = juntarEquivalentes([
+      ocorrencia(registro("731", { numero: "ApCiv 0007333-00.2024.8.99.0001" }), [0]),
+      ocorrencia(registro("732", { numero: "0007333-00.2024.8.99.0001" }), [1]),
+    ]);
+
+    expect(acordaos).toHaveLength(1);
   });
 
   it("registro sem número não se junta quando a mesma ementa tem dois números de verdade (não há a qual juntar)", () => {
@@ -66,27 +76,25 @@ describe("equivalência de registros", () => {
     // Os dois "números" são ids do site, diferentes entre si; o sinal diz que não são números de verdade.
     const sinalizados = [registro("721", { semNumero: true }), registro("722", { semNumero: true })];
     // Os mesmos textos sem o sinal são tratados como números de verdade, que se contradizem.
-    const semSinal = [registro("721"), registro("722")];
+    const semSinal = [registro("721", { semNumero: false }), registro("722", { semNumero: false })];
 
     expect(juntarEquivalentes(sinalizados.map((r) => ocorrencia(r, [0]))).acordaos).toHaveLength(1);
     expect(juntarEquivalentes(semSinal.map((r) => ocorrencia(r, [0]))).acordaos).toHaveLength(2);
   });
 
-  it("junta 1.000 registros em tempo desprezível", () => {
-    const ocorrencias = Array.from({ length: 1000 }, (_, i) => {
-      const par = Math.floor(i / 2);
-      return ocorrencia(
-        registro(`${9000 + i}`, { semNumero: i % 2 === 1, numero: `${par}/UF`, ementa: `EMENTA FICTÍCIA NÚMERO ${par}.` }),
-        [i % 2],
-      );
-    });
+  it("junta 1.000 registros em tempo desprezível, mesmo no pior caso (todos com a mesma ementa e data)", () => {
+    // 500 acórdãos fictícios de ementa idêntica, cada um em duas cópias com o mesmo número.
+    const ocorrencias = Array.from({ length: 1000 }, (_, i) =>
+      ocorrencia(registro(`${9000 + i}`, { numero: `${Math.floor(i / 2)}/UF` }), [i % 2]),
+    );
 
     const inicio = performance.now();
     const { acordaos } = juntarEquivalentes(ocorrencias);
     const decorrido = performance.now() - inicio;
 
     expect(acordaos).toHaveLength(500);
-    expect(decorrido).toBeLessThan(100);
+    expect(acordaos.every((a) => a.formulacoes.size === 2)).toBe(true);
+    expect(decorrido).toBeLessThan(250);
   });
 
   it("ementa vazia nunca junta", () => {
@@ -104,18 +112,18 @@ describe("equivalência de registros", () => {
   it.each([
     {
       caso: "órgão julgador vence a falta dele",
-      fica: registro("601", { numero: MESMO, orgao: "Câmara Exemplo" }),
-      sai: registro("602", { numero: MESMO }),
+      fica: registro("601", { numero: NUMERO_COMPARTILHADO, orgao: "Câmara Exemplo" }),
+      sai: registro("602", { numero: NUMERO_COMPARTILHADO }),
     },
     {
       caso: "link do inteiro teor vence a falta dele",
-      fica: registro("611", { numero: MESMO, orgao: "Câmara Exemplo", link: "https://exemplo.test/611" }),
-      sai: registro("612", { numero: MESMO, orgao: "Câmara Exemplo" }),
+      fica: registro("611", { numero: NUMERO_COMPARTILHADO, orgao: "Câmara Exemplo", link: "https://exemplo.test/611" }),
+      sai: registro("612", { numero: NUMERO_COMPARTILHADO, orgao: "Câmara Exemplo" }),
     },
     {
       caso: "página de consulta oficial também conta como link",
-      fica: registro("621", { numero: MESMO, linkConsulta: "https://exemplo.test/consulta/621" }),
-      sai: registro("622", { numero: MESMO }),
+      fica: registro("621", { numero: NUMERO_COMPARTILHADO, linkConsulta: "https://exemplo.test/consulta/621" }),
+      sai: registro("622", { numero: NUMERO_COMPARTILHADO }),
     },
   ])("fica o registro mais completo: $caso", ({ fica, sai }) => {
     const { acordaos } = juntarEquivalentes([ocorrencia(sai, [0], 0), ocorrencia(fica, [1], 5)]);
@@ -126,8 +134,8 @@ describe("equivalência de registros", () => {
   });
 
   it("empatados no resto, fica o registro na melhor posição", () => {
-    const pior = registro("631", { numero: MESMO });
-    const melhor = registro("632", { numero: MESMO });
+    const pior = registro("631", { numero: NUMERO_COMPARTILHADO });
+    const melhor = registro("632", { numero: NUMERO_COMPARTILHADO });
 
     const { acordaos } = juntarEquivalentes([ocorrencia(pior, [0], 7), ocorrencia(melhor, [1], 2)]);
 

@@ -10,8 +10,11 @@ export interface Registro {
   id: string;
   tribunal: string;
   numero: string;
-  /** Sinal explícito: o site não trouxe número de processo de verdade (o `numero` é só o id do site). */
-  semNumero?: boolean;
+  /**
+   * Sinal explícito: o site não trouxe número de processo de verdade (o `numero` é só o id do site).
+   * Obrigatório de propósito: quem monta o registro tem de dizer, e a regra nunca adivinha pelo texto.
+   */
+  semNumero: boolean;
   dataJulgamento?: string;
   ementa: string;
   orgao?: string;
@@ -58,7 +61,7 @@ export function juntarEquivalentes<R extends Registro>(ocorrencias: Ocorrencia<R
   // ...depois separa, dentro do grupo, os números de processo que se contradizem.
   const acordaos: AcordaoJuntado<R>[] = [];
   for (const grupo of grupos.values()) {
-    const numeros = new Set(grupo.filter((o) => !o.registro.semNumero).map((o) => o.registro.numero));
+    const numeros = new Set(grupo.filter((o) => !o.registro.semNumero).map((o) => digitos(o.registro.numero)));
     if (numeros.size <= 1) {
       acordaos.push(juntar(grupo));
       continue;
@@ -67,7 +70,7 @@ export function juntarEquivalentes<R extends Registro>(ocorrencias: Ocorrencia<R
     const porNumero = new Map<string, Ocorrencia<R>[]>();
     for (const o of grupo) {
       if (o.registro.semNumero) acordaos.push(juntar([o]));
-      else porNumero.set(o.registro.numero, [...(porNumero.get(o.registro.numero) ?? []), o]);
+      else porNumero.set(digitos(o.registro.numero), [...(porNumero.get(digitos(o.registro.numero)) ?? []), o]);
     }
     for (const copias of porNumero.values()) acordaos.push(juntar(copias));
   }
@@ -100,6 +103,11 @@ function maisCompleta<R extends Registro>(a: Ocorrencia<R>, b: Ocorrencia<R>): O
     if (tem(a.registro) !== tem(b.registro)) return tem(a.registro) ? a : b;
   }
   return b.melhorPosicao < a.melhorPosicao ? b : a;
+}
+
+/** Números de processo comparados só pelos dígitos: a sigla da classe e a pontuação não os contradizem. */
+function digitos(numero: string): string {
+  return numero.replace(/\D/g, "");
 }
 
 /** Sem o "Ementa:" do começo, sem espaços repetidos e sem diferença de maiúsculas. */
