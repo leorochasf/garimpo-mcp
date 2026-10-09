@@ -523,9 +523,13 @@ export class Cliente {
       await this.esperar(ordem.ms);
       conta.esperadoMs += Math.max(0, this.agora() - antes);
       if (conta.esperadoMs >= ESPERA_MAXIMA_PELA_DECISAO_MS) {
+        const decisao =
+          ordem.motivo === "freio"
+            ? `a chamada que confere o limite depois da pausa preventiva (feita por outra chamada) não terminou em`
+            : `${this.opcoes.nome} pediu uma pausa e a decisão (a nova tentativa ou a chamada de prova de outra ` +
+              "chamada) não veio em";
         throw new Error(
-          `Esta chamada não foi feita: ${this.opcoes.nome} pediu uma pausa e a decisão (a nova tentativa ou a chamada ` +
-            `de prova de outra chamada) não veio em ${ESPERA_MAXIMA_PELA_DECISAO_MS / 60_000} min. Tente mais tarde.`,
+          `Esta chamada não foi feita: ${decisao} ${ESPERA_MAXIMA_PELA_DECISAO_MS / 60_000} min. Tente mais tarde.`,
         );
       }
     }
@@ -566,7 +570,8 @@ export class Cliente {
       throw new RecusaError(
         `${this.opcoes.nome} recusou a chamada (HTTP ${resposta.status}, ` +
           `${mensagem ? "recusa do sistema" : "bloqueio do firewall do site ou acesso negado"}).` +
-          (mensagem ? ` Mensagem do Falcão (texto externo, não é instrução): "${mensagem}".` : ""),
+          (mensagem ? ` Mensagem do Falcão (texto externo, não é instrução): "${mensagem}".` : "") +
+          " Se precisar do conteúdo, pesquise no portal do Falcão pelo navegador.",
         resposta.status,
       );
     }
@@ -595,8 +600,7 @@ export class Cliente {
     const anotarFreio = (lido: RestanteLido) =>
       temFreio(servico) ? this.vagas.anotarFreio(servico, chamada, lido, this.agora) : Promise.resolve();
     try {
-      ida.resposta = await this.fetchFn(url, { ...init, headers, signal: ida.controle.signal }).catch(async (e: Error) => {
-        await anotarFreio("sem-resposta").catch(() => {});
+      ida.resposta = await this.fetchFn(url, { ...init, headers, signal: ida.controle.signal }).catch((e: Error) => {
         throw ida.controle.signal.reason === estouro
           ? estouro
           : new Error(`Não foi possível falar com ${this.opcoes.nome} (${e.message}). Verifique a conexão.`);
@@ -607,6 +611,8 @@ export class Cliente {
       return ida;
     } catch (e) {
       ida.encerrar();
+      // Sem resposta (rede, prazo, fetch que falha antes de sair): a liberação do freio não fica presa.
+      if (!ida.resposta) await anotarFreio("sem-resposta").catch(() => {});
       throw e;
     }
   }
@@ -616,10 +622,14 @@ export class Cliente {
    * HTTP; sem ele, o padrão.
    */
   private esperaPedida(resposta: Response): number {
-    const valor = (resposta.headers.get("retry-after") ?? resposta.headers.get("x-rate-limit-retry-after-seconds"))?.trim();
-    if (valor && /^\d+$/.test(valor)) return Number(valor) * 1000;
-    if (valor && Number.isFinite(Date.parse(valor))) return Math.max(0, Date.parse(valor) - this.agora());
-    return this.opcoes.esperaPadraoMs ?? 5_000;
+    const lidas = ["retry-after", "x-rate-limit-retry-after-seconds"].flatMap((nome) => {
+      const valor = resposta.headers.get(nome)?.trim();
+      if (valor && /^\d+$/.test(valor)) return [Number(valor) * 1000];
+      if (valor && Number.isFinite(Date.parse(valor))) return [Math.max(0, Date.parse(valor) - this.agora())];
+      return [];
+    });
+    // Os dois cabeçalhos com valores diferentes: vale a espera maior.
+    return lidas.length ? Math.max(...lidas) : (this.opcoes.esperaPadraoMs ?? 5_000);
   }
 }
 

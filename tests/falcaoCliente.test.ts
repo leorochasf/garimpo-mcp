@@ -67,6 +67,17 @@ describe("cliente — recusas do Falcão", () => {
     expect(chamadas).toHaveLength(1);
   });
 
+  it("Retry-After e x-rate-limit-retry-after-seconds diferentes: vale a espera maior", async () => {
+    const { cliente, chamadas } = clienteFalso([
+      new Response("", { status: 429, headers: { "retry-after": "5", "x-rate-limit-retry-after-seconds": "600" } }),
+      respostaJson({}),
+    ]);
+    const e = await cliente.requisitar(FALCAO).catch((x) => x);
+    expect(e).toBeInstanceOf(RecusaError);
+    expect(e.message).toMatch(/600 s/);
+    expect(chamadas).toHaveLength(1);
+  });
+
   it("403 do firewall (HTML) é recusa final: nenhuma nova tentativa e o serviço pausa", async () => {
     const { cliente, chamadas } = clienteFalso([
       new Response("<html><body>403 ERROR. Request blocked. CloudFront</body></html>", {

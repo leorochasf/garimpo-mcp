@@ -514,7 +514,7 @@ export class CoordenacaoEmArquivo implements Coordenacao {
 /** A ordem do freio na linguagem do cliente; "sai" mantém a ordem do disjuntor. */
 export function ordemDoFreio(f: ReturnType<typeof decidirFreio>["ordem"], ordem: Ordem): Ordem {
   if (f.tipo === "freio") return f;
-  if (f.tipo === "espera") return { tipo: "espera", ms: f.ms, motivo: "disjuntor" };
+  if (f.tipo === "espera") return { tipo: "espera", ms: f.ms, motivo: "freio" };
   return ordem;
 }
 

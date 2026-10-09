@@ -108,6 +108,43 @@ describe("freio preventivo do Falcão, entre janelas", () => {
     await Promise.all([pa, pb]);
   });
 
+  it("o restante que chega numa resposta ainda desconta a reserva da chamada em voo da outra janela", async () => {
+    const relogio = { agora: INICIO };
+    const f = falcao();
+    const [a, b] = [janela(relogio, f.fetchFalso), janela(relogio, f.fetchFalso)];
+    f.fila.push(comRestante("13"));
+    await ler(a);
+    const soltarA = f.pendente();
+    const soltarB = f.pendente();
+    const pa = ler(a);
+    while (f.chegadas.length < 2) await tique();
+    const pb = ler(b);
+    while (f.chegadas.length < 3) await tique();
+    // A resposta de A diz 11, mas a chamada de B ainda está em voo: sobram 10, a reserva.
+    soltarA(comRestante("11"));
+    await pa;
+    expect(await erroDe(a.requisitar(FALCAO))).toBeInstanceOf(PausaPreventivaError);
+    soltarB(comRestante("10"));
+    await pb;
+    expect(f.chegadas).toHaveLength(3);
+  });
+
+  it("chamada de liberação que falha antes de sair não prende as outras janelas", async () => {
+    const relogio = { agora: INICIO };
+    const f = falcao();
+    const a = janela(relogio, f.fetchFalso);
+    f.fila.push(comRestante("2"));
+    await ler(a);
+    relogio.agora = INICIO + 15 * MIN;
+    const quebrada = janela(relogio, (() => {
+      throw new Error("fetch quebrado");
+    }) as unknown as typeof fetch);
+    expect(await erroDe(quebrada.requisitar(FALCAO))).not.toBeInstanceOf(PausaPreventivaError);
+    f.fila.push(comRestante("35"));
+    await ler(janela(relogio, f.fetchFalso));
+    expect(f.chegadas).toHaveLength(2);
+  });
+
   it("vencida a pausa, o pedido do usuário libera UMA chamada entre todas as janelas; restante acima da reserva retoma", async () => {
     const relogio = { agora: INICIO };
     const f = falcao();

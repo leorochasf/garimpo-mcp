@@ -59,7 +59,7 @@ export interface Saida {
 export type Ordem =
   | { tipo: "sai"; saida: Saida }
   /** Esperar sem vaga e perguntar de novo: pela decisão do disjuntor ou pela pausa do host. */
-  | { tipo: "espera"; ms: number; motivo: "disjuntor" | "host" }
+  | { tipo: "espera"; ms: number; motivo: "disjuntor" | "host" | "freio" }
   | { tipo: "pausado"; ate: number; aviso: string }
   /** O serviço pediu para esperar até `ate` (não é recusa). */
   | { tipo: "adiado"; ate: number }

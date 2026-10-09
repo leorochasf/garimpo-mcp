@@ -432,10 +432,11 @@ export async function buscaAmpla(
     ressalvaQualificados:
       `${RESSALVA_ROTULO}Aqui o enquadramento927 vem curto (art. 927 conferido em ${ART_927_CONFERIDO_EM}); completo na ` +
       "busca_direta; o dos acórdãos no obter_ementa.",
+    // Só as fontes dos tribunais pedidos.
     ...(comTrt && {
       fontes: {
         "Falcão (CSJT)": ROTULO_FALCAO,
-        JurisprudênciaIA: "busca direta do JurisprudênciaIA (base não oficial)",
+        ...(!p.tribunais.every(ehDoFalcao) && { JurisprudênciaIA: "busca direta do JurisprudênciaIA (base não oficial)" }),
       },
     }),
     avisos,

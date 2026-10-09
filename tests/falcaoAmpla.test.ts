@@ -110,6 +110,9 @@ describe("TRTs na busca ampla", () => {
     const { mcp } = await conectar(siteFalso().cliente, falcao.cliente);
     const r = await chamar(mcp, "busca_ampla", { formulacoes: ["adicional noturno"], tribunais: ["trt3"] });
     expect(r.dado.acordaos.map((a: { id: string }) => a.id)).toEqual(["trt3:50000002", "trt3:50000001"]);
+    // Só TRT: só a fonte usada aparece, e o aviso é só o do Falcão.
+    expect(Object.keys(r.dado.fontes)).toEqual(["Falcão (CSJT)"]);
+    expect(r.dado.avisoNaturezaJuridica).toMatch(/^Resultado obtido do repositório oficial/);
     const filtrada = await chamar(mcp, "busca_ampla", { formulacoes: ["adicional noturno"], tribunais: ["trt3"], deveConter: "noturno" });
     expect(filtrada.dado.acordaos.map((a: { id: string }) => a.id)).toEqual(["trt3:50000002"]);
     expect(linha(filtrada, "trt3")).toMatchObject({ excluidos: 1 });

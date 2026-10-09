@@ -4,7 +4,8 @@
  * coordenação guarda o freio de cada serviço no estado compartilhado (todas as janelas) e aplica estas duas funções
  * sob a trava: `decidirFreio` antes de cada saída e `anotarRestante` depois de cada resposta (ou da falta dela).
  *
- * - Cada chamada reserva uma unidade do restante conhecido antes de sair: duas janelas não gastam a mesma folga.
+ * - Cada chamada reserva uma unidade do restante conhecido antes de sair: duas janelas não gastam a mesma folga. O
+ *   número que chega numa resposta ainda desconta as reservas das chamadas em voo.
  * - Restante na reserva (10) ou abaixo = pausa preventiva de 15 min em todas as janelas. Não é recusa: não abre o
  *   disjuntor nem dobra.
  * - Vencida a pausa, o próximo pedido do usuário libera UMA chamada entre todas as janelas: restante acima da reserva
@@ -25,6 +26,8 @@ const CONFERENCIA_MS = 250;
 export interface Freio {
   /** Último restante conhecido, menos as chamadas que saíram depois dele. */
   restante?: number;
+  /** Chamadas que reservaram uma unidade e ainda não tiveram resposta (de processo que morreu, ficam até a liberação). */
+  emVoo?: number;
   /** Pausa preventiva até este instante; vencida, continua até a chamada de liberação decidir. */
   pausaAte?: number;
   /** A única chamada liberada depois de a pausa vencer. */
@@ -63,15 +66,15 @@ export function decidirFreio(
     if (f.liberacao && f.liberacao.id !== chamada.id && !morto(f.liberacao)) {
       return { ordem: { tipo: "espera", ms: CONFERENCIA_MS }, novo: f };
     }
-    return { ordem: { tipo: "sai" }, novo: { ...f, liberacao: chamada } };
+    return { ordem: { tipo: "sai" }, novo: { ...f, liberacao: chamada, emVoo: (f.emVoo ?? 0) + 1 } };
   }
-  if (f?.restante === undefined) return { ordem: { tipo: "sai" }, novo: f };
+  if (f?.restante === undefined) return { ordem: { tipo: "sai" }, novo: { ...f, emVoo: (f?.emVoo ?? 0) + 1 } };
   // A folga conhecida acabou, reservada por chamadas que já saíram: a pausa começa agora, sem gastar mais nada.
   if (f.restante <= RESERVA_DO_FREIO) {
     const ate = agora + PAUSA_PREVENTIVA_MS;
-    return { ordem: { tipo: "freio", ate }, novo: { restante: f.restante, pausaAte: ate } };
+    return { ordem: { tipo: "freio", ate }, novo: { ...f, restante: f.restante, pausaAte: ate } };
   }
-  return { ordem: { tipo: "sai" }, novo: { ...f, restante: f.restante - 1 } };
+  return { ordem: { tipo: "sai" }, novo: { ...f, restante: f.restante - 1, emVoo: (f.emVoo ?? 0) + 1 } };
 }
 
 /** Depois da resposta (ou da falta dela): o novo estado do freio; o mesmo objeto se nada muda. */
@@ -82,22 +85,30 @@ export function anotarRestante(
   agora: number,
 ): Freio | undefined {
   const minhaLiberacao = f?.liberacao?.id === chamada.id;
+  // Esta chamada saiu da conta das em voo; o número lido ainda desconta as reservas das outras.
+  const emVoo = Math.max(0, (f?.emVoo ?? 0) - 1);
+  const base: Freio = { ...f, emVoo };
+  if (!emVoo) delete base.emVoo;
+  const descontado = lido === undefined || lido === "sem-resposta" ? undefined : Math.max(0, lido - emVoo);
   if (lido === "sem-resposta") {
-    if (!minhaLiberacao) return f;
     // Sem resposta, a liberação não decidiu nada: o próximo pedido do usuário pode ser a nova liberação.
-    const novo = { ...f };
-    delete novo.liberacao;
-    return novo;
+    if (minhaLiberacao) delete base.liberacao;
+    return base;
   }
   if (minhaLiberacao) {
-    if (lido !== undefined && lido > RESERVA_DO_FREIO) return { restante: lido };
-    return { ...(lido !== undefined && { restante: lido }), pausaAte: agora + PAUSA_PREVENTIVA_MS };
+    // Durante a pausa só a liberação sai: a conta das em voo recomeça (a de processo que morreu não fica para sempre).
+    const novo: Freio = { ...base, ...(lido !== undefined && { restante: lido }) };
+    delete novo.liberacao;
+    delete novo.emVoo;
+    if (lido !== undefined && lido > RESERVA_DO_FREIO) delete novo.pausaAte;
+    else novo.pausaAte = agora + PAUSA_PREVENTIVA_MS;
+    return novo;
   }
-  if (lido === undefined) return f;
+  if (descontado === undefined) return base;
   // Resposta atrasada de chamada que saiu antes da pausa: só atualiza o número, nunca encerra a pausa.
-  if (f?.pausaAte !== undefined) return { ...f, restante: lido };
-  if (lido <= RESERVA_DO_FREIO) return { restante: lido, pausaAte: agora + PAUSA_PREVENTIVA_MS };
-  return { ...f, restante: lido };
+  if (base.pausaAte !== undefined) return { ...base, restante: descontado };
+  if (descontado <= RESERVA_DO_FREIO) return { ...base, restante: descontado, pausaAte: agora + PAUSA_PREVENTIVA_MS };
+  return { ...base, restante: descontado };
 }
 
 /** Confere o formato de um freio lido do estado compartilhado. */
@@ -108,6 +119,7 @@ export function freioValido(f: unknown): f is Freio {
     typeof x === "object" &&
     x !== null &&
     inteiro(x.restante) &&
+    inteiro(x.emVoo) &&
     (x.pausaAte === undefined || Number.isFinite(x.pausaAte)) &&
     (x.liberacao === undefined ||
       (typeof x.liberacao === "object" &&

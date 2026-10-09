@@ -197,13 +197,13 @@ export function conferirNoTextoIntegral(texto: string, citacao: Citacao): Result
   return conferirNoTextoCorrido(texto, citacao, "no texto integral");
 }
 
-function conferirNoTextoCorrido(ementa: string, citacao: Citacao, local: OndeNaEmenta["local"]): ResultadoDaFonte {
+function conferirNoTextoCorrido(texto: string, citacao: Citacao, local: OndeNaEmenta["local"]): ResultadoDaFonte {
   const fonte: Fonte = {
-    texto: ementa,
+    texto,
     onde: () => ({ local }),
-    frase: (a, b) => fraseEm(ementa, a, b),
+    frase: (a, b) => fraseEm(texto, a, b),
     sinal: (a, b) =>
-      entreAspas(ementa, a, b) ? `pode ser de outro autor: a passagem está entre aspas ${local}` : undefined,
+      entreAspas(texto, a, b) ? `pode ser de outro autor: a passagem está entre aspas ${local}` : undefined,
     cadeiaAceita: () => true,
     normalizados: new Map(),
   };
