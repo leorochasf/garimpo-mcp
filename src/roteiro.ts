@@ -4,7 +4,7 @@
  * Mudar o texto exige reler: o teste de padrões é trava parcial.
  */
 
-/** Texto aprovado na Q21 da entrevista do B6, sem mudar uma vírgula. */
+/** Texto aprovado das instructions (ADR-0014), sem mudar uma vírgula. */
 export const INSTRUCTIONS =
   "O Garimpo pesquisa jurisprudência brasileira em base não oficial e baixa o inteiro teor oficial quando " +
   "disponível; use busca_ampla com 3 a 6 formulações, obter_ementa dos acórdãos que apresentar (até 10), " +
@@ -44,7 +44,8 @@ export function roteiroDePesquisa(tese: string, tribunais?: string): string {
       "jurídico + expressão alternativa; efeito pretendido + situação de fato). Não invente dispositivo de lei, número " +
       "de precedente nem entendimento de tribunal para enriquecer a busca.",
     "2. Rode a busca_ampla com as formulações (lista) e os tribunais (lista).",
-    "3. Separe o resultado pelo enquadramento no art. 927 (campo enquadramento927). \"Não classificado\" quer dizer " +
+    "3. Separe o resultado pelo enquadramento no art. 927 (campo enquadramento927: nos precedentes qualificados já " +
+      "vem na busca_ampla; nos acórdãos, vem no obter_ementa do passo seguinte). \"Não classificado\" quer dizer " +
       "que os dados não provam inciso; nunca diga que o precedente é fraco, persuasivo ou fora do rol por isso. O " +
       "rótulo da lista de qualificados não cria escala de autoridade.",
     "4. Leia pelo obter_ementa a ementa dos acórdãos que for apresentar, até 10 ementas.",

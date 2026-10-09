@@ -1981,7 +1981,7 @@ describe("página de tribunais (recurso garimpo://tribunais)", () => {
 });
 
 describe("roteiro de pesquisa (prompt pesquisar_tese e instructions do servidor)", () => {
-  // Texto aprovado na Q21 (spec do B6), copiado à parte: o teste não lê a constante do servidor.
+  // Texto aprovado (ADR-0014), copiado à parte: o teste não lê a constante do servidor.
   const INSTRUCTIONS_APROVADAS =
     "O Garimpo pesquisa jurisprudência brasileira em base não oficial e baixa o inteiro teor oficial quando " +
     "disponível; use busca_ampla com 3 a 6 formulações, obter_ementa dos acórdãos que apresentar (até 10), " +
@@ -2064,6 +2064,8 @@ describe("roteiro de pesquisa (prompt pesquisar_tese e instructions do servidor)
     expect(texto).toMatch(/até 10 ementas/);
     expect(texto).toMatch(/até 3 inteiros teores/);
     expect(texto).toMatch(/os dados não provam inciso/);
+    // Na busca ampla só os precedentes qualificados trazem o enquadramento; o dos acórdãos vem no obter_ementa.
+    expect(texto).toMatch(/nos acórdãos, vem no obter_ementa/);
     expect(texto).not.toMatch(/separar por força/i);
     expect(texto).toMatch(/não verificado/);
     expect(texto).toMatch(/não informado/);
