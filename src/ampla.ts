@@ -18,6 +18,7 @@ import { juntarEquivalentes, type Ocorrencia } from "./equivalencia.js";
 import { filtroLocal, type FiltrosLocais } from "./filtroLocal.js";
 import { diaEHora, FalhaNaMemoriaError, type Memoria } from "./memoria.js";
 import { ordenarPorAderencia, trecho } from "./pontuacao.js";
+import type { TabelaDePrecedentes } from "./tabelaDePrecedentes.js";
 import { juntarQualificados, type QualificadoAmplo, type QualificadosDaBusca, reservarPorTribunal } from "./saida.js";
 
 export interface ParametrosAmpla extends FiltrosBusca, FiltrosLocais {
@@ -103,7 +104,12 @@ export interface ResultadoAmplo {
 /** O campo semEmenta só vai quando há acórdão sem ementa para conferir (a resposta beira o teto de 25 mil caracteres). */
 const semEmentaDoTribunal = (n: number) => (n ? { semEmenta: n } : {});
 
-export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla, memoria?: Memoria): Promise<ResultadoAmplo> {
+export async function buscaAmpla(
+  cliente: Cliente,
+  p: ParametrosAmpla,
+  memoria?: Memoria,
+  { tabela }: { tabela?: TabelaDePrecedentes } = {},
+): Promise<ResultadoAmplo> {
   const tarefas = p.tribunais.flatMap((t) =>
     p.formulacoes.map((texto, f) => ({
       tribunal: t.toLowerCase(),
@@ -204,7 +210,7 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla, memoria?:
       const t = noSite[proxima++];
       try {
         // A memória já foi consultada: aqui só vai ao site; os acórdãos são guardados depois de juntar as cópias.
-        t.resposta = await buscaDireta(cliente, parametros(t), memoria, { renovar: true, guardarAcordaos: false });
+        t.resposta = await buscaDireta(cliente, parametros(t), memoria, { renovar: true, guardarAcordaos: false, tabela });
       } catch (e) {
         porTribunal.get(t.tribunal)!.comErro++;
         if (e instanceof RecusaError) {
@@ -354,7 +360,7 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla, memoria?:
       return item;
     }),
     // Texto do qualificado em 120 caracteres para caber o enquadramento927 curto (decisão do dono, 2026-10-08).
-    qualificados: juntarQualificados(qualificados, { tamanhoTexto: 120 }),
+    qualificados: juntarQualificados(qualificados, { tamanhoTexto: 120, tabela }),
     ressalvaQualificados:
       `${RESSALVA_ROTULO}Aqui o enquadramento927 vem curto (art. 927 conferido em ${ART_927_CONFERIDO_EM}); completo na ` +
       "busca_direta; o dos acórdãos no obter_ementa.",

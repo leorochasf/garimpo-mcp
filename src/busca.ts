@@ -6,6 +6,7 @@
 import { createHash } from "node:crypto";
 import { Cliente, FormatoInesperadoError } from "./cliente.js";
 import { type Enquadramento927, enquadrarAcordao, enquadrarQualificado, type ParadigmaDoSite } from "./enquadramento.js";
+import { reforcoDaTabela, type TabelaDePrecedentes } from "./tabelaDePrecedentes.js";
 import { juntarEquivalentes } from "./equivalencia.js";
 import { FalhaNaMemoriaError, fotografiaDaBusca, type Memoria } from "./memoria.js";
 import { infoTribunal } from "./tribunais.js";
@@ -103,6 +104,8 @@ export interface OpcoesBuscaDireta {
   renovar?: boolean;
   /** Falso na busca ampla, que guarda os acórdãos depois de juntar as cópias de todas as buscas. */
   guardarAcordaos?: boolean;
+  /** Tabela de precedentes do STJ que reforça o enquadramento dos temas e IAC do STJ; sem ela, a regra sem a tabela. */
+  tabela?: TabelaDePrecedentes;
 }
 
 /** O pedido ao site: tudo o que afeta a resposta, na mesma ordem sempre (a chave da busca guardada sai daqui). */
@@ -163,7 +166,7 @@ export async function buscaDireta(
   cliente: Cliente,
   p: ParametrosBusca,
   memoria?: Memoria,
-  { renovar = false, guardarAcordaos = true }: OpcoesBuscaDireta = {},
+  { renovar = false, guardarAcordaos = true, tabela }: OpcoesBuscaDireta = {},
 ): Promise<ResultadoBusca> {
   const { tribunal, corpo, chave, cobertura } = pedido(p);
   // Falha ao ler a memória vira busca normal no site, com aviso; sem rede permitida, o erro da rede, como sempre.
@@ -192,7 +195,7 @@ export async function buscaDireta(
   } catch {
     throw new FormatoInesperadoError(`O JurisprudênciaIA devolveu algo que não é JSON na busca do ${tribunal.toUpperCase()}.`);
   }
-  const resultado = normalizar(tribunal, json);
+  const resultado = normalizar(tribunal, json, tabela);
   // Conta os registros que o site devolveu, antes de juntar cópias: a junção não diz nada sobre haver mais na base.
   const registrosDoSite = resultado.acordaos.length;
   // Cópias do mesmo acórdão na base do site viram um acórdão só (mesmo tribunal, data e ementa,
@@ -254,7 +257,7 @@ function linhaDeCobertura(vieram: number, pedidos: number, tetoDoSite: number, f
 
 type Bruto = Record<string, unknown>;
 
-export function normalizar(tribunal: string, json: unknown): ResultadoBusca {
+export function normalizar(tribunal: string, json: unknown, tabela?: TabelaDePrecedentes): ResultadoBusca {
   if (!json || typeof json !== "object") {
     throw new FormatoInesperadoError("O JurisprudênciaIA devolveu uma resposta vazia ou em formato inesperado.");
   }
@@ -288,7 +291,7 @@ export function normalizar(tribunal: string, json: unknown): ResultadoBusca {
   const qualificados: Qualificado[] = [];
   for (const [lista, tipo] of Object.entries(LISTAS_QUALIFICADOS)) {
     if (!Array.isArray(r[lista])) continue;
-    for (const q of r[lista] as Bruto[]) qualificados.push(paraQualificado(tribunal, tipo, q));
+    for (const q of r[lista] as Bruto[]) qualificados.push(paraQualificado(tribunal, tipo, q, tabela));
   }
 
   const avisos: string[] = [];
@@ -339,7 +342,7 @@ function paraAcordao(tribunal: string, x: Bruto, paradigmas: readonly ParadigmaD
   return { ...acordao, enquadramento927 };
 }
 
-function paraQualificado(tribunal: string, tipo: string, q: Bruto): Qualificado {
+function paraQualificado(tribunal: string, tipo: string, q: Bruto, tabela?: TabelaDePrecedentes): Qualificado {
   const sigla = texto(q.sigla_classe);
   const proc = texto(q.numero_processo_paradigma) ?? (texto(q.numero_processo) && `${sigla ?? ""} ${q.numero_processo}`.trim());
   const numero = texto(q.numero) ?? texto(q.numero_tema);
@@ -351,7 +354,10 @@ function paraQualificado(tribunal: string, tipo: string, q: Bruto): Qualificado 
     processoParadigma: proc || undefined,
     link: texto(q.link) ?? texto(q.url_tema) ?? texto(q.link_pdf) ?? texto(q.link_acordao),
     // Tese só a firmada: descrição da questão submetida não é tese.
-    enquadramento927: enquadrarQualificado({ tribunal, tipo, numero, tese: texto(q.tese_firmada) }),
+    enquadramento927: enquadrarQualificado(
+      { tribunal, tipo, numero, tese: texto(q.tese_firmada) },
+      reforcoDaTabela(tabela, tribunal, tipo, numero),
+    ),
   });
 }
 

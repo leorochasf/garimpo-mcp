@@ -5,7 +5,7 @@
  */
 
 import { readFileSync } from "node:fs";
-import { enquadrarQualificado } from "./enquadramento.js";
+import { enquadrarQualificado, type ReforcoDaTabela } from "./enquadramento.js";
 
 /** Rótulos que o Garimpo dá às listas do site; os mesmos aqui, para Tema N e IAC N nunca se trocarem. */
 export type TipoNaTabela = "tema repetitivo" | "IAC";
@@ -78,8 +78,11 @@ function instanteDaAtualizacao(texto: string): number | undefined {
   return Date.UTC(Number(m[3]), mes, Number(m[2]), Number(m[4]), Number(m[5]));
 }
 
-/** O que acompanha toda resposta que usa a tabela: atribuição, licença, datas e, se for o caso, o aviso de idade. */
-export function sobreATabela(t: TabelaDePrecedentes, agora: number) {
+/**
+ * O que acompanha toda resposta que usa a tabela: atribuição, licença, datas e, se for o caso, o aviso de idade.
+ * A forma curta (busca ampla, teto de 25 mil caracteres) deixa de fora a página, a data da geração e a idade.
+ */
+export function sobreATabela(t: TabelaDePrecedentes, agora: number, { curta = false } = {}) {
   const atualizada = instanteDaAtualizacao(t.atualizacaoDaFonte.texto);
   const coleta = Date.parse(t.arquivos.find((a) => a.url.endsWith("/temas.csv"))?.coletadoEm ?? t.geradaEm);
   const base = atualizada ?? coleta;
@@ -90,11 +93,11 @@ export function sobreATabela(t: TabelaDePrecedentes, agora: number) {
   return {
     atribuicao: t.atribuicao,
     licencaDosDados: `${t.licenca.declarada} (distinta da licença MIT do código do Garimpo)`,
-    paginaDaFonte: t.fonte.pagina,
     dataDaColeta: dataDaTabela(t),
     atualizacaoInformadaPelaFonte: t.atualizacaoDaFonte.texto,
-    tabelaGeradaEm: t.geradaEm,
-    idadeDaTabela: `${dias} dias, ${contada}`,
+    ...(curta
+      ? {}
+      : { paginaDaFonte: t.fonte.pagina, tabelaGeradaEm: t.geradaEm, idadeDaTabela: `${dias} dias, ${contada}` }),
     ...(dias > DIAS_PARA_AVISO
       ? {
           avisoDeIdade:
@@ -153,4 +156,19 @@ export function consultarPrecedente(t: TabelaDePrecedentes, tipo: TipoNaTabela, 
     ),
     tabela: sobre,
   };
+}
+
+/**
+ * O reforço da tabela para um item das listas de qualificados do site (ADR-0007, emenda): só tema repetitivo e IAC do
+ * STJ com número inteiro; casamento por tipo e valor numérico. Sem tabela ou fora disso, nenhum reforço.
+ */
+export function reforcoDaTabela(
+  t: TabelaDePrecedentes | undefined,
+  tribunal: string,
+  tipo: string,
+  numero: string | undefined,
+): ReforcoDaTabela | undefined {
+  const doTipo = TIPOS_NA_TABELA.find((x) => x === tipo);
+  if (!t || tribunal !== "stj" || !doTipo || !numero || !/^\d+$/.test(numero.trim())) return undefined;
+  return { data: dataDaTabela(t), linha: acharNaTabela(t, doTipo, Number(numero)) };
 }

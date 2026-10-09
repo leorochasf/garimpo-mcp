@@ -29,7 +29,13 @@ import {
 import { Memoria, obtidoDoSite } from "./memoria.js";
 import { INSTRUCTIONS, roteiroDePesquisa } from "./roteiro.js";
 import { paginaDeTribunais, SIGLAS, TRIBUNAIS } from "./tribunais.js";
-import { consultarPrecedente, type TabelaDePrecedentes, tabelaEmpacotada, TIPOS_NA_TABELA } from "./tabelaDePrecedentes.js";
+import {
+  consultarPrecedente,
+  reforcoDaTabela,
+  sobreATabela,
+  type TabelaDePrecedentes,
+  TIPOS_NA_TABELA,
+} from "./tabelaDePrecedentes.js";
 
 // Tribunal e datas são conferidos dentro da ferramenta, não no esquema: o erro do esquema sai embrulhado em texto
 // técnico de validação, e a chamada errada precisa de uma frase que diga como corrigir.
@@ -56,6 +62,14 @@ const renovar = z
   .boolean()
   .optional()
   .describe("true ignora a busca guardada e busca de novo no site; se falhar, é busca com erro (padrão false)");
+
+/** Como a tabela de precedentes entra nas listas de qualificados: vai na descrição das duas buscas. */
+const SOBRE_A_TABELA_NAS_LISTAS =
+  "Tema repetitivo e IAC do STJ da lista de qualificados são conferidos, sem rede, na tabela de precedentes do STJ " +
+  "(fotografia datada do Portal de Dados Abertos do STJ): a situação na fonte vem literal, com a data da tabela, e é " +
+  "situação processual, nunca vigência; o tema sem tese no site e com tese firmada na tabela vai ao inciso III com " +
+  "essa evidência; Cancelado ou Revisado ganham nota sem mudar o inciso; tese do site diferente da tabela é avisada; " +
+  "o que não consta na tabela diz isso. Quando a tabela é usada, o campo tabelaDePrecedentes traz atribuição e datas.";
 
 /** Como a memória entra nas buscas: vai na descrição das duas. */
 const SOBRE_A_BUSCA_GUARDADA =
@@ -150,7 +164,10 @@ export interface OpcoesServidor {
   agora?: () => number;
   /** Teto de espaço da memória em disco (padrão: 200 MB). */
   tetoDaMemoria?: number;
-  /** Tabela de precedentes do STJ (padrão: a empacotada em dados/). */
+  /**
+   * Tabela de precedentes do STJ (index.ts passa a empacotada em dados/). Sem ela, o consultar_precedente responde
+   * com erro e as listas de qualificados seguem a regra sem a tabela.
+   */
   tabela?: TabelaDePrecedentes;
 }
 
@@ -165,6 +182,12 @@ export function criarServidor(
     agora,
     tetoBytes: tetoDaMemoria,
   });
+
+  /** Atribuição e datas da tabela, quando ela reforçou algum tema ou IAC do STJ da lista de qualificados. */
+  const comATabela = (qualificados: { tribunal: string; tipo: string; numero?: string }[], { curta = false } = {}) =>
+    tabela && qualificados.some((q) => reforcoDaTabela(tabela, q.tribunal, q.tipo, q.numero))
+      ? { tabelaDePrecedentes: sobreATabela(tabela, (agora ?? Date.now)(), { curta }) }
+      : {};
 
   servidor.registerTool(
     "busca_direta",
@@ -181,6 +204,7 @@ export function criarServidor(
         "evidência tirada dos dados do site, ou \"não classificado\" com o motivo; o rótulo da lista de qualificados " +
         "não prova enquadramento, vigência nem aplicabilidade. " +
         "Ementas são longas: prefira limite baixo aqui e busca_ampla para volume. " +
+        `${SOBRE_A_TABELA_NAS_LISTAS} ` +
         `${SOBRE_A_BUSCA_GUARDADA} A busca guardada traz o campo buscaGuardada com essa data.`,
       annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: {
@@ -195,7 +219,8 @@ export function criarServidor(
       try {
         conferirTribunais(args.tribunal);
         conferirDatas(args);
-        return comAvisoNaturezaJuridica(await buscaDireta(site, args, memoria, { renovar }));
+        const r = await buscaDireta(site, args, memoria, { renovar, tabela });
+        return comAvisoNaturezaJuridica({ ...r, ...comATabela(r.qualificados.map((q) => ({ ...q, tribunal: r.tribunal }))) });
       } catch (e) {
         return erro(e);
       }
@@ -221,6 +246,7 @@ export function criarServidor(
         "Cada precedente qualificado traz o enquadramento927 (enquadramento no art. 927 do CPC) em forma curta: " +
         "inciso e aviso de situação, ou \"não classificado\" e o motivo abreviado; a forma completa vem na " +
         "busca_direta. O dos acórdãos vem no obter_ementa. " +
+        `${SOBRE_A_TABELA_NAS_LISTAS} ` +
         "Formulações boas variam sinônimos técnicos, dispositivo legal e nome do instituto. " +
         `Cada busca (formulação × tribunal) passa pela memória: ${SOBRE_A_BUSCA_GUARDADA} Ampliar a busca com ` +
         "formulações novas só busca no site as novas. No cabecalhoDeCobertura, o tribunal com busca guardada traz " +
@@ -263,7 +289,8 @@ export function criarServidor(
         conferirTribunais(...args.tribunais);
         conferirDatas(args);
         const filtrosLocais = lerFiltrosLocais({ deveConter, naoPodeConter });
-        return comAvisoNaturezaJuridica(await buscaAmpla(site, { ...args, ...filtrosLocais }, memoria));
+        const r = await buscaAmpla(site, { ...args, ...filtrosLocais }, memoria, { tabela });
+        return comAvisoNaturezaJuridica({ ...r, ...comATabela(r.qualificados, { curta: true }) });
       } catch (e) {
         return erro(e);
       }
@@ -553,7 +580,8 @@ export function criarServidor(
               "têm numeração separada: o Tema 1 e o IAC 1 são precedentes diferentes.",
           );
         }
-        const resposta = consultarPrecedente(tabela ?? tabelaEmpacotada(), doTipo, numero, (agora ?? Date.now)());
+        if (!tabela) throw new Error("A tabela de precedentes não foi carregada neste servidor.");
+        const resposta = consultarPrecedente(tabela, doTipo, numero, (agora ?? Date.now)());
         return json({ ...resposta, avisoNaturezaJuridica: AVISO_DA_TABELA });
       } catch (e) {
         return erro(e);

@@ -7,7 +7,8 @@
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { Cliente } from "./cliente.js";
 import { criarServidor } from "./servidor.js";
+import { tabelaEmpacotada } from "./tabelaDePrecedentes.js";
 
 const site = new Cliente({ nome: "O JurisprudênciaIA" });
 
-await criarServidor(site).connect(new StdioServerTransport());
+await criarServidor(site, { tabela: tabelaEmpacotada() }).connect(new StdioServerTransport());

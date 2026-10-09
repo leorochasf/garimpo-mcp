@@ -5,6 +5,7 @@
 
 import type { Qualificado } from "./busca.js";
 import { formaCurta } from "./enquadramento.js";
+import { reforcoDaTabela, type TabelaDePrecedentes } from "./tabelaDePrecedentes.js";
 
 export interface OpcoesReserva<T> {
   /** Tamanho da lista mostrada. */
@@ -69,6 +70,8 @@ export interface OpcoesQualificados {
   teto?: number;
   /** Caracteres do começo do texto de cada precedente (padrão 300). */
   tamanhoTexto?: number;
+  /** Tabela de precedentes do STJ: a forma curta do tema/IAC do STJ casado leva a situação na fonte curta. */
+  tabela?: TabelaDePrecedentes;
 }
 
 /**
@@ -92,7 +95,11 @@ export function juntarQualificados(buscas: QualificadosDaBusca[], o: OpcoesQuali
     .map(({ q, tribunal, formulacoes }) => ({
       ...q,
       texto: q.texto.length > tamanho ? `${q.texto.slice(0, tamanho)}…` : q.texto,
-      enquadramento927: formaCurta({ tribunal, tipo: q.tipo, numero: q.numero }, q.enquadramento927),
+      enquadramento927: formaCurta(
+        { tribunal, tipo: q.tipo, numero: q.numero },
+        q.enquadramento927,
+        reforcoDaTabela(o.tabela, tribunal, q.tipo, q.numero),
+      ),
       tribunal,
       formulacoes: formulacoes.size,
     }));
