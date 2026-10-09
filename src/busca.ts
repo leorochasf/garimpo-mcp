@@ -28,8 +28,10 @@ export interface Acordao {
   ementa: string;
   /** Link do PDF do inteiro teor (link_pdf). */
   link?: string;
-  /** Página oficial de consulta do processo/acórdão (STF: link_consulta ou url_acordao), quando há. */
+  /** Página oficial de consulta do processo/acórdão (link_consulta, url_acordao ou, no TJPA, link_processo), quando há. */
   linkConsulta?: string;
+  /** Link oficial que o Garimpo pediu à rota de link do site, porque a busca não trouxe nenhum (obter_inteiro_teor). */
+  linkDaRota?: string;
   relevancia?: number;
   /** Inciso do art. 927 do CPC em que o acórdão se encaixa, com a prova nos dados; ou "não classificado", com o motivo. */
   enquadramento927: Enquadramento927;
@@ -324,7 +326,7 @@ function paraAcordao(tribunal: string, x: Bruto, paradigmas: readonly ParadigmaD
     dataPublicacao: data(x.data_publicacao_extraida),
     ementa: texto(x.texto_ementa) ?? "",
     link: texto(x.link_pdf),
-    linkConsulta: texto(x.link_consulta) ?? texto(x.url_acordao),
+    linkConsulta: texto(x.link_consulta) ?? texto(x.url_acordao) ?? texto(x.link_processo),
     relevancia: numeroOuNada(x.rerank_score) ?? numeroOuNada(x.score),
   });
   const enquadramento927 = enquadrarAcordao(

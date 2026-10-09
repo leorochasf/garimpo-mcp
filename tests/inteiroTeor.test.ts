@@ -216,6 +216,81 @@ describe("inteiro teor — acórdão sem link", () => {
   });
 });
 
+describe("inteiro teor — link pedido à rota de link do site", () => {
+  const ROTA = "https://www.jurisprudenciaia.com.br/api/jurisprudencia-link";
+
+  async function semLink(tribunal: string, id: string) {
+    const busca = clienteFalso([
+      respostaJson({ results: [{ id, texto_ementa: "EMENTA FICTÍCIA.", numero_processo_cnj: "0000009-99.2024.8.05.0001" }] }),
+    ]);
+    const memoria = new Memoria();
+    await buscaDireta(busca.cliente, { tribunal, texto: "exemplo" }, memoria);
+    return memoria;
+  }
+
+  it("TJPA: o link_processo da busca vira o link de consulta, sem chamada nenhuma à rota", async () => {
+    const busca = clienteFalso([
+      respostaJson({
+        results: [{ id: 501, texto_ementa: "EMENTA FICTÍCIA.", link_processo: "https://jurisprudencia.tjpa.jus.br/#/documento/1" }],
+      }),
+    ]);
+    const memoria = new Memoria();
+    const r = await buscaDireta(busca.cliente, { tribunal: "tjpa", texto: "exemplo" }, memoria);
+    expect(r.acordaos[0].linkConsulta).toBe("https://jurisprudencia.tjpa.jus.br/#/documento/1");
+
+    const site = clienteFalso([]);
+    const t = await obterInteiroTeor({ id: "tjpa:501", pasta }, () => clienteFalso([]).cliente, memoria, site.cliente);
+    expect(t).toMatchObject({ baixado: false, link: "https://jurisprudencia.tjpa.jus.br/#/documento/1" });
+    if (!t.baixado) expect(t.explicacao).not.toMatch(/rota de link/);
+    expect(site.chamadas).toHaveLength(0);
+  });
+
+  it("sem link na busca: 1 chamada à rota, link devolvido com a origem dita; de novo, 0 chamadas (memória)", async () => {
+    const memoria = await semLink("tjba", "801");
+    const link = "https://jurisprudencia.tjba.jus.br/#/documento/801";
+    const site = clienteFalso([respostaJson({ link })]);
+    const tribunal = clienteFalso([]);
+    const r = await obterInteiroTeor({ id: "tjba:801", pasta }, () => tribunal.cliente, memoria, site.cliente);
+    expect(r).toMatchObject({ baixado: false, link });
+    if (!r.baixado) {
+      expect(r.explicacao).toMatch(/pedido à rota de link do JurisprudênciaIA/);
+      expect(r.explicacao).toMatch(/abra o link no navegador/i);
+    }
+    expect(site.chamadas.map((c) => c.url)).toEqual([`${ROTA}?tribunal=tjba&id=801`]);
+
+    const deNovo = await obterInteiroTeor({ id: "tjba:801", pasta }, () => tribunal.cliente, memoria, site.cliente);
+    expect(deNovo).toMatchObject({ baixado: false, link });
+    if (!deNovo.baixado) expect(deNovo.explicacao).toMatch(/pedido à rota de link/);
+    expect(site.chamadas).toHaveLength(1);
+    expect(tribunal.chamadas).toHaveLength(0);
+  });
+
+  it.each([
+    ["HTTP 400", () => respostaJson({ error: "bad request" }, 400)],
+    ["corpo sem link", () => respostaJson({})],
+    ["link que não é https", () => respostaJson({ link: "javascript:alert(1)" })],
+  ])("rota falhou (%s): resposta sem link do ticket 02, sem erro e sem link inventado", async (_caso, resposta) => {
+    const memoria = await semLink("tjba", "802");
+    const site = clienteFalso([resposta()]);
+    const r = await obterInteiroTeor({ id: "tjba:802", pasta }, () => clienteFalso([]).cliente, memoria, site.cliente);
+    expect(r.baixado).toBe(false);
+    if (r.baixado) return;
+    expect(r.link).toBeUndefined();
+    expect(r.explicacao).toMatch(/não trouxe link/);
+    expect(r.explicacao).toContain("0000009-99.2024.8.05.0001");
+    expect(r.explicacao).not.toMatch(/abr(a|ir) o link/i);
+    expect(site.chamadas).toHaveLength(1);
+  });
+
+  it("TST (rota responde 400 por documentação): nenhuma chamada", async () => {
+    const memoria = await semLink("tst", "803");
+    const site = clienteFalso([]);
+    const r = await obterInteiroTeor({ id: "tst:803", pasta }, () => clienteFalso([]).cliente, memoria, site.cliente);
+    expect(r).toMatchObject({ baixado: false });
+    expect(site.chamadas).toHaveLength(0);
+  });
+});
+
 describe("inteiro teor — TJMG e TSE", () => {
   it("TJMG baixa o PDF direto", async () => {
     const { cliente } = clienteFalso([pdf()]);

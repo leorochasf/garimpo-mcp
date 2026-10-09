@@ -64,6 +64,11 @@ STF, campos próprios do acórdão: `sigla_classe` ("RE"), `numero_processo` só
 `link_consulta`, e, quando ligado a tema, `numero_tema`, `rg_descricao_tese`, `url_tema`, `url_acordao`.
 Item de `rg`: `numero_tema`, `descricao_tese`, `sigla_classe`, `numero_processo`, `url_tema`.
 
+TJPA, campo próprio do acórdão: `link_processo`, o link oficial de consulta no portal do tribunal
+(`https://jurisprudencia.tjpa.jus.br/#/documento/<n>`, página de aplicativo JavaScript, sem PDF direto); veio em 23 de
+23 registros na consulta de 2026-10-09, sem `link_pdf`. O Garimpo o lê como link de consulta. Não verificado em
+outros tribunais.
+
 Campos de um acórdão: `id`, `texto_ementa` (ementa inteira, 3–5 mil caracteres típicos), `numero_processo`,
 `numero_processo_cnj`, `classe_processual`, `relator`, `orgao_julgador`, `data_julgamento`,
 `data_publicacao_extraida`, `link_pdf`, `score`, `rerank_score`, `__kind`.

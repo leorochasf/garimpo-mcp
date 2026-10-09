@@ -109,10 +109,10 @@ export class Memoria {
 
   /**
    * Guarda cada acórdão sob o id de cada cópia, para que qualquer um deles leia a ementa e peça o inteiro teor. Na
-   * janela vale na hora; no disco, assim que a gravação por trás terminar.
+   * janela vale na hora; no disco, assim que a gravação por trás terminar. Com `obtidoEm`, regrava um acórdão já
+   * guardado sem lhe dar 24 h a mais.
    */
-  lembrar(acordaos: readonly { ids: readonly string[]; registro: Acordao }[]): void {
-    const obtidoEm = this.agora();
+  lembrar(acordaos: readonly { ids: readonly string[]; registro: Acordao }[], obtidoEm = this.agora()): void {
     const guardados = acordaos.flatMap(({ ids, registro }) => ids.map((id) => ({ id, acordao: registro, obtidoEm })));
     for (const { id, ...guardado } of guardados) this.sessao.set(id, guardado);
     if (!this.pasta || !guardados.length) return;

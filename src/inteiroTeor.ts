@@ -9,8 +9,9 @@ import { constants } from "node:fs";
 import { copyFile, link as ligar, lstat, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
-import type { Acordao } from "./busca.js";
-import { Cliente, VERSAO } from "./cliente.js";
+import { type Acordao, SITE } from "./busca.js";
+import { Cliente, RecusaError, VERSAO } from "./cliente.js";
+import { RedeParadaError } from "./coordenacao.js";
 import {
   avisoJaNaPasta,
   camposDoRecibo,
@@ -20,7 +21,7 @@ import {
   NAO_INFORMADO,
   ORIGEM_DOWNLOAD,
 } from "./leitura.js";
-import type { Memoria } from "./memoria.js";
+import type { Guardado, Memoria } from "./memoria.js";
 import { infoTribunal } from "./tribunais.js";
 
 export interface PedidoInteiroTeor {
@@ -99,12 +100,45 @@ export function pastaPadrao(): string {
   return process.env.GARIMPO_PASTA ?? join(homedir(), "Garimpo", "inteiro-teor");
 }
 
+/**
+ * Acórdão da memória sem link nenhum na busca: pede o link oficial à rota de link do site, uma vez, pelo Cliente do
+ * site (freios de sempre), e o guarda no acórdão sem estender as 24 h. Nada no TST (a rota responde 400). Recusa do
+ * site ou rede parada sobe como erro; outra falha, resposta sem link ou link que não é https = sem link.
+ */
+async function comLinkDaRota(
+  guardado: Guardado | undefined,
+  site: Cliente | undefined,
+  memoria: Memoria | undefined,
+): Promise<Acordao | undefined> {
+  const acordao = guardado?.acordao;
+  if (!guardado || !acordao || !site || !memoria) return acordao;
+  if (acordao.link || acordao.linkConsulta || acordao.linkDaRota || acordao.tribunal === "tst") return acordao;
+  const id = acordao.id.slice(acordao.id.indexOf(":") + 1);
+  let link: string | undefined;
+  try {
+    const consulta = new URLSearchParams({ tribunal: acordao.tribunal, id });
+    const r = await site.requisitar(`${SITE}/api/jurisprudencia-link?${consulta}`, {
+      headers: { Origin: SITE, Referer: `${SITE}/` },
+    });
+    const valor = ((await r.json()) as { link?: unknown } | null)?.link;
+    if (typeof valor === "string" && new URL(valor.trim()).protocol === "https:") link = valor.trim();
+  } catch (e) {
+    if (e instanceof RecusaError || e instanceof RedeParadaError) throw e;
+  }
+  if (!link) return acordao;
+  const comLink = { ...acordao, linkDaRota: link };
+  memoria.lembrar([{ ids: [acordao.id], registro: comLink }], guardado.obtidoEm);
+  return comLink;
+}
+
 export async function obterInteiroTeor(
   pedido: PedidoInteiroTeor,
   clienteDe: ClientePorTribunal = clientePadrao,
   memoria?: Memoria,
+  site?: Cliente,
 ): Promise<ResultadoInteiroTeor> {
-  const acordao = pedido.id ? (await memoria?.obter(pedido.id))?.acordao : undefined;
+  const guardado = pedido.id ? await memoria?.obter(pedido.id) : undefined;
+  let acordao = guardado?.acordao;
   const tribunal = (acordao?.tribunal ?? pedido.tribunal ?? pedido.id?.split(":")[0] ?? "").toLowerCase();
   const link = pedido.link ?? acordao?.link;
   const pasta = resolve(pedido.pasta ?? pastaPadrao());
@@ -119,21 +153,27 @@ export async function obterInteiroTeor(
   }
   const info = infoTribunal(tribunal);
   if (!info) throw new Error("Informe o id do acórdão (como veio na busca) ou o tribunal e o link.");
+  // Sem link nem link de consulta na busca: o link pedido à rota de link do site, quando ela tem.
+  if (!pedido.link) acordao = await comLinkDaRota(guardado, site, memoria);
+  const linkDaRota = link || acordao?.linkConsulta ? undefined : acordao?.linkDaRota;
+  const origemDaRota = " Link pedido à rota de link do JurisprudênciaIA: não veio na busca.";
 
   if (info.inteiroTeor === "link") {
     // Sem link do PDF (comum no STF), o link oficial de consulta serve para o usuário abrir no navegador.
-    const linkOficial = link ?? acordao?.linkConsulta;
+    const linkOficial = link ?? acordao?.linkConsulta ?? linkDaRota;
     const motivo = info.motivoLink ?? "";
     if (!linkOficial) {
       const explicacao = `${motivo} O JurisprudênciaIA não trouxe link para este acórdão. ${caminhoSemLink(info.nome, acordao)}`;
       return { baixado: false, explicacao: explicacao.trim() };
     }
     let explicacao = motivo;
+    if (linkDaRota) explicacao += origemDaRota;
     if (tribunal === "tjgo" && acordao?.numeroCnj) explicacao += ` Número CNJ para pesquisar: ${acordao.numeroCnj}.`;
     explicacao += ` ${PONTE}`;
     return { baixado: false, link: linkOficial, explicacao: explicacao.trim() };
   }
-  if (!link) {
+  const linkPdf = link ?? linkDaRota;
+  if (!linkPdf) {
     return {
       baixado: false,
       explicacao:
@@ -144,21 +184,22 @@ export async function obterInteiroTeor(
 
   const cliente = clienteDe(tribunal);
   let baixado: Baixado;
-  if (tribunal === "stj") baixado = await baixarStj(cliente, link);
-  else if (tribunal === "tjmg") baixado = await baixarDireto(cliente, link, "www5.tjmg.jus.br", "TJMG");
-  else if (tribunal === "tse") baixado = await baixarDireto(cliente, link, "sjur-servicos.tse.jus.br", "TSE");
+  if (tribunal === "stj") baixado = await baixarStj(cliente, linkPdf);
+  else if (tribunal === "tjmg") baixado = await baixarDireto(cliente, linkPdf, "www5.tjmg.jus.br", "TJMG");
+  else if (tribunal === "tse") baixado = await baixarDireto(cliente, linkPdf, "sjur-servicos.tse.jus.br", "TSE");
   else throw new Error(`Download automático não implementado para ${tribunal.toUpperCase()}.`);
 
   await mkdir(pasta, { recursive: true });
   // O número do processo não é único (dois acórdãos podem ter o mesmo): o id do documento entra no nome.
   const idDocumento =
-    (acordao?.id ?? pedido.id)?.split(":")[1] ?? createHash("sha1").update(link).digest("hex").slice(0, 10);
+    (acordao?.id ?? pedido.id)?.split(":")[1] ?? createHash("sha1").update(linkPdf).digest("hex").slice(0, 10);
   const nome = [tribunal, acordao?.numero, idDocumento].filter(Boolean).join("-").replace(/[^\w.-]+/g, "_");
   const sha256 = createHash("sha256").update(baixado.pdf).digest("hex");
   const recibo = (arquivo: string) =>
     textoDoRecibo({
       "Link oficial final": baixado.urlFinal,
       "Link que veio na busca": link,
+      ...(linkDaRota ? { "Link pedido à rota de link do site": linkDaRota } : {}),
       "Data e hora": dataHoraComFuso(new Date()),
       Sha256: sha256,
       "Tamanho em bytes": String(baixado.pdf.length),
@@ -169,7 +210,7 @@ export async function obterInteiroTeor(
       "Nome do arquivo": basename(arquivo),
     });
   const salvo = await salvarComRecibo(pasta, nome, baixado.pdf, recibo);
-  return { baixado: true, ...salvo, sha256, bytes: baixado.pdf.length, fonte: link };
+  return { baixado: true, ...salvo, sha256, bytes: baixado.pdf.length, fonte: linkPdf };
 }
 
 const SUFIXO_RECIBO = ".recibo.txt";
