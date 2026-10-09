@@ -1929,3 +1929,53 @@ describe("filtros locais da busca ampla (pela porta)", () => {
     expect(JSON.parse(r.texto).cabecalhoDeCobertura.porTribunal[0]).toMatchObject({ guardadas: 1, excluidos: 2, mostrados: 1 });
   });
 });
+
+describe("página de tribunais (recurso garimpo://tribunais)", () => {
+  it("aparece na lista de recursos, em Markdown, com o título da página", async () => {
+    const mcp = await conectar(siteFalso([]));
+    const { resources } = await mcp.listResources();
+
+    expect(resources).toContainEqual(
+      expect.objectContaining({ uri: "garimpo://tribunais", title: "Tribunais cobertos pelo Garimpo", mimeType: "text/markdown" }),
+    );
+  });
+
+  it("sai da mesma tabela do listar tribunais: mesmas siglas, mesmo baixado ou linkado, e o motivo de quem só dá link", async () => {
+    const mcp = await conectar(siteFalso([]));
+    const lista = (await mcp.callTool({ name: "listar_tribunais", arguments: {} })) as { content: { text: string }[] };
+    const tribunais = JSON.parse(lista.content[0].text) as { tribunal: string; inteiroTeor: string; motivo?: string; tetoResultados: number }[];
+
+    const { contents } = await mcp.readResource({ uri: "garimpo://tribunais" });
+    const pagina = (contents[0] as { text: string }).text;
+    // Uma linha de tabela por tribunal, começando pela sigla em maiúsculas.
+    const linhas = pagina.split("\n").filter((l) => /^\| [A-Z]+ \|/.test(l));
+
+    expect(linhas.map((l) => l.split("|")[1].trim().toLowerCase())).toEqual(tribunais.map((t) => t.tribunal));
+    for (const [i, t] of tribunais.entries()) {
+      expect(linhas[i]).toContain(t.inteiroTeor === "baixa" ? "baixado pelo Garimpo" : "só link");
+      expect(linhas[i]).toContain(`| ${t.tetoResultados} |`);
+      if (t.motivo) expect(linhas[i]).toContain(t.motivo);
+    }
+    expect(linhas.find((l) => l.startsWith("| STJ |"))).toContain("tema repetitivo");
+  });
+
+  it("descreve o registrado sem afirmar que o tribunal está funcionando agora, e não chama o site", async () => {
+    let chamadas = 0;
+    const mcp = await conectar(
+      new Cliente({
+        nome: "O site",
+        esperar: async () => {},
+        fetch: (async () => {
+          chamadas++;
+          throw new Error("sem rede");
+        }) as typeof fetch,
+      }),
+    );
+    const { contents } = await mcp.readResource({ uri: "garimpo://tribunais" });
+    const pagina = (contents[0] as { text: string }).text;
+
+    expect(pagina).toMatch(/não diz se o portal do tribunal está funcionando agora/);
+    expect(pagina).not.toMatch(/está (no ar|funcionando)(?! agora)|disponível agora|online/i);
+    expect(chamadas).toBe(0);
+  });
+});

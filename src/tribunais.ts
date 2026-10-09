@@ -139,3 +139,30 @@ export const SIGLAS = TRIBUNAIS.map((t) => t.sigla);
 export function infoTribunal(sigla: string): InfoTribunal | undefined {
   return TRIBUNAIS.find((t) => t.sigla === sigla.toLowerCase());
 }
+
+/**
+ * Página "Tribunais cobertos pelo Garimpo" (recurso garimpo://tribunais), em Markdown, gerada desta tabela, sem rede:
+ * descreve a cobertura e os limites registrados, nunca o estado atual do portal do tribunal.
+ */
+export function paginaDeTribunais(): string {
+  const linhas = TRIBUNAIS.map((t) => {
+    const qualificados = t.qualificados.length ? t.qualificados.join(", ") : "nenhum";
+    const inteiroTeor = t.inteiroTeor === "baixa" ? "baixado pelo Garimpo" : `só link: ${t.motivoLink}`;
+    return `| ${t.sigla.toUpperCase()} | ${t.nome} | ${qualificados} | ${t.tetoResultados} | ${inteiroTeor} |`;
+  });
+  return [
+    "# Tribunais cobertos pelo Garimpo",
+    "",
+    "Cobertura e limites registrados no Garimpo, os mesmos da ferramenta listar_tribunais. A página não diz se o " +
+      "portal do tribunal está funcionando agora: o registro pode ter mudado desde a última conferência.",
+    "",
+    "- **Qualificados:** listas de precedentes qualificados que o site devolve em separado na busca.",
+    "- **Teto por busca:** máximo de acórdãos observado por busca; só informa, não limita a busca.",
+    "- **Inteiro teor:** se o Garimpo baixa o PDF oficial ou só devolve o link, e por quê.",
+    "",
+    "| Sigla | Tribunal | Qualificados | Teto por busca | Inteiro teor |",
+    "| --- | --- | --- | --- | --- |",
+    ...linhas,
+    "",
+  ].join("\n");
+}

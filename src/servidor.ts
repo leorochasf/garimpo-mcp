@@ -27,7 +27,7 @@ import {
   lerParaConferir,
 } from "./leitura.js";
 import { Memoria, obtidoDoSite } from "./memoria.js";
-import { SIGLAS, TRIBUNAIS } from "./tribunais.js";
+import { paginaDeTribunais, SIGLAS, TRIBUNAIS } from "./tribunais.js";
 
 // Tribunal e datas são conferidos dentro da ferramenta, não no esquema: o erro do esquema sai embrulhado em texto
 // técnico de validação, e a chamada errada precisa de uma frase que diga como corrigir.
@@ -531,6 +531,19 @@ export function criarServidor(
           ...(t.motivoLink ? { motivo: t.motivoLink } : {}),
         })),
       ),
+  );
+
+  servidor.registerResource(
+    "tribunais",
+    "garimpo://tribunais",
+    {
+      title: "Tribunais cobertos pelo Garimpo",
+      description:
+        "Por tribunal: sigla, nome, precedentes qualificados, teto por busca e se o inteiro teor é baixado ou só " +
+        "linkado (e por quê). Mesma tabela do listar_tribunais, sem rede.",
+      mimeType: "text/markdown",
+    },
+    async (uri) => ({ contents: [{ uri: uri.href, mimeType: "text/markdown", text: paginaDeTribunais() }] }),
   );
 
   return servidor;
