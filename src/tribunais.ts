@@ -20,7 +20,7 @@ export interface InfoTribunal {
   tetoResultados: number;
   /** "baixa" = o Garimpo baixa o PDF oficial; "link" = devolve link + explicação. */
   inteiroTeor: InteiroTeorModo;
-  /** Explicação curta de por que não baixa sozinho (quando inteiroTeor = "link"). */
+  /** Explicação curta de por que não baixa sozinho (quando inteiroTeor = "link"); o caminho, com ou sem link, vem à parte. */
   motivoLink?: string;
   /** Campos extras que o site envia no corpo da busca para este tribunal. */
   extrasBusca?: Record<string, unknown>;
@@ -28,15 +28,14 @@ export interface InfoTribunal {
 
 const EXPLICA_STF =
   "O portal do STF protege o download com um desafio anti-robô (AWS WAF) que exige JavaScript. " +
-  "O Garimpo não contorna proteções: abra o link no navegador para obter o PDF.";
+  "O Garimpo não contorna proteções.";
 
 const EXPLICA_TJGO =
   "O portal do TJGO (Projudi) exige resolver um reCAPTCHA na pesquisa e o download só vale dentro " +
   "dessa sessão. O Garimpo não contorna captchas: pesquise pelo número CNJ no portal e baixe lá.";
 
 const EXPLICA_GENERICO =
-  "O portal deste tribunal exige login, JavaScript ou outra etapa que não sai por HTTP comum. " +
-  "Abra o link no navegador para obter o inteiro teor.";
+  "O portal deste tribunal exige login, JavaScript ou outra etapa que não sai por HTTP comum.";
 
 function tj(sigla: string, nome: string): InfoTribunal {
   return {

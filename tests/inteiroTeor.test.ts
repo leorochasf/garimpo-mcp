@@ -167,6 +167,55 @@ describe("inteiro teor — link + explicação", () => {
   });
 });
 
+describe("inteiro teor — acórdão sem link", () => {
+  const CNJ = "0000009-99.2024.8.05.0001";
+  /** Busca de um acórdão sem link_pdf nem link de consulta, guardado na memória. */
+  async function semLink(tribunal: string, id: string) {
+    const busca = clienteFalso([
+      respostaJson({
+        results: [{ id, texto_ementa: "EMENTA FICTÍCIA.", numero_processo: CNJ, numero_processo_cnj: CNJ, link_pdf: null }],
+      }),
+    ]);
+    const memoria = new Memoria();
+    await buscaDireta(busca.cliente, { tribunal, texto: "exemplo" }, memoria);
+    return memoria;
+  }
+
+  it("tribunal de link sem link: não manda abrir link nenhum e dá o número CNJ e o portal", async () => {
+    const memoria = await semLink("tjba", "701");
+    const { cliente } = clienteFalso([]);
+    const r = await obterInteiroTeor({ id: "tjba:701", pasta }, () => cliente, memoria);
+    expect(r.baixado).toBe(false);
+    if (r.baixado) return;
+    expect(r.link).toBeUndefined();
+    expect(r.explicacao).not.toMatch(/abr(a|ir) o link/i);
+    expect(r.explicacao).toMatch(/não trouxe link/);
+    expect(r.explicacao).toContain(CNJ);
+    expect(r.explicacao).toMatch(/portal de jurisprudência do TJ da Bahia/);
+    expect(r.explicacao).toMatch(/ler_inteiro_teor/);
+  });
+
+  it("tribunal de link com link: mantém o texto de abrir o link", async () => {
+    const { cliente } = clienteFalso([]);
+    const link = "https://exemplo.tjba.jus.br/acordao/1";
+    const r = await obterInteiroTeor({ tribunal: "tjba", link, pasta }, () => cliente);
+    expect(r).toMatchObject({ baixado: false, link });
+    if (!r.baixado) expect(r.explicacao).toMatch(/abra o link no navegador/i);
+  });
+
+  it("tribunal que baixa, sem link: dá o caminho alternativo (número CNJ no portal)", async () => {
+    const memoria = await semLink("tjmg", "702");
+    const { cliente, chamadas } = clienteFalso([]);
+    const r = await obterInteiroTeor({ id: "tjmg:702", pasta }, () => cliente, memoria);
+    expect(r.baixado).toBe(false);
+    if (r.baixado) return;
+    expect(r.explicacao).toContain(CNJ);
+    expect(r.explicacao).toMatch(/portal de jurisprudência do TJ de Minas Gerais/);
+    expect(r.explicacao).not.toMatch(/abr(a|ir) o link/i);
+    expect(chamadas).toHaveLength(0);
+  });
+});
+
 describe("inteiro teor — TJMG e TSE", () => {
   it("TJMG baixa o PDF direto", async () => {
     const { cliente } = clienteFalso([pdf()]);

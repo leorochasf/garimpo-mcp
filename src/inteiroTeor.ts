@@ -9,6 +9,7 @@ import { constants } from "node:fs";
 import { copyFile, link as ligar, lstat, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
+import type { Acordao } from "./busca.js";
 import { Cliente, VERSAO } from "./cliente.js";
 import {
   avisoJaNaPasta,
@@ -68,12 +69,31 @@ export const clientePadrao: ClientePorTribunal = (sigla) => {
   return c;
 };
 
-/** O caminho para ler um acórdão sem download automático, a partir do link: a leitura local não contorna nada. */
-const PONTE =
-  "Para ler pelo Garimpo: abra o link no navegador, baixe o PDF e passe o caminho do arquivo ao ler_inteiro_teor " +
+/** Fim comum dos caminhos sem download automático: a leitura local do PDF que o usuário baixou não contorna nada. */
+const LEITURA_PELO_USUARIO =
+  "passe o caminho do arquivo ao ler_inteiro_teor " +
   "(com o id que veio na busca, ou tribunal + número, se quiser o cabeçalho preenchido como vínculo declarado). " +
   "Ele sai como inteiro teor " +
   "trazido pelo usuário, de origem declarada e não conferida.";
+
+/** O caminho para ler um acórdão sem download automático, a partir do link. */
+const PONTE = `Para ler pelo Garimpo: abra o link no navegador, baixe o PDF e ${LEITURA_PELO_USUARIO}`;
+
+/**
+ * O caminho quando não há link nenhum: o número do processo e o portal de jurisprudência do tribunal. Sem endereço
+ * do portal: o projeto não tem fonte para ele, e link inventado é pior que nenhum.
+ */
+function caminhoSemLink(nomeTribunal: string, acordao: Acordao | undefined): string {
+  const numero = acordao?.numeroCnj
+    ? `o número CNJ ${acordao.numeroCnj}`
+    : acordao && !acordao.semNumero
+      ? `o número ${acordao.numero}`
+      : "o acórdão";
+  return (
+    `Pesquise ${numero} no portal de jurisprudência do ${nomeTribunal}, baixe lá o PDF e, para ler pelo Garimpo, ` +
+    LEITURA_PELO_USUARIO
+  );
+}
 
 export function pastaPadrao(): string {
   return process.env.GARIMPO_PASTA ?? join(homedir(), "Garimpo", "inteiro-teor");
@@ -103,16 +123,22 @@ export async function obterInteiroTeor(
   if (info.inteiroTeor === "link") {
     // Sem link do PDF (comum no STF), o link oficial de consulta serve para o usuário abrir no navegador.
     const linkOficial = link ?? acordao?.linkConsulta;
-    let explicacao = info.motivoLink ?? "";
+    const motivo = info.motivoLink ?? "";
+    if (!linkOficial) {
+      const explicacao = `${motivo} O JurisprudênciaIA não trouxe link para este acórdão. ${caminhoSemLink(info.nome, acordao)}`;
+      return { baixado: false, explicacao: explicacao.trim() };
+    }
+    let explicacao = motivo;
     if (tribunal === "tjgo" && acordao?.numeroCnj) explicacao += ` Número CNJ para pesquisar: ${acordao.numeroCnj}.`;
-    if (!linkOficial) explicacao += " O JurisprudênciaIA não trouxe link para este acórdão.";
     explicacao += ` ${PONTE}`;
-    return { baixado: false, link: linkOficial, explicacao };
+    return { baixado: false, link: linkOficial, explicacao: explicacao.trim() };
   }
   if (!link) {
     return {
       baixado: false,
-      explicacao: "O JurisprudênciaIA não trouxe link do inteiro teor para este acórdão; não há de onde baixar.",
+      explicacao:
+        "O JurisprudênciaIA não trouxe link do inteiro teor para este acórdão; não há de onde baixar. " +
+        caminhoSemLink(info.nome, acordao),
     };
   }
 

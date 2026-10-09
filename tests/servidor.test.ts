@@ -52,7 +52,7 @@ describe("servidor MCP", () => {
 
   describe("aviso de natureza jurídica", () => {
     const AVISO =
-      "Resultado de busca em base não oficial. Confira o acórdão no link oficial do tribunal antes de citar; " +
+      "Resultado de busca em base não oficial. Confira o acórdão na fonte oficial do tribunal antes de citar; " +
       "a ementa não substitui o inteiro teor.";
     const acordao = {
       id: "aviso1",
@@ -67,6 +67,10 @@ describe("servidor MCP", () => {
       const r = (await mcp.callTool({ name, arguments: args })) as { content: { text: string }[]; isError?: boolean };
       return { isError: r.isError, texto: r.content[0].text };
     }
+
+    it("não fala em link oficial: vale também para o acórdão que veio sem link", () => {
+      expect(AVISO).not.toMatch(/link oficial/);
+    });
 
     it("vem, com o texto exato e em campo próprio, na busca direta, na busca ampla e no obter ementa", async () => {
       const mcp = await conectar(siteFalso([acordao]));

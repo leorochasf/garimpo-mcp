@@ -85,7 +85,7 @@ function json(dado: unknown) {
 
 /** Aviso de natureza jurídica: vai, em campo próprio, em toda resposta que traz jurisprudência (nunca em erro). */
 const AVISO_NATUREZA_JURIDICA =
-  "Resultado de busca em base não oficial. Confira o acórdão no link oficial do tribunal antes de citar; " +
+  "Resultado de busca em base não oficial. Confira o acórdão na fonte oficial do tribunal antes de citar; " +
   "a ementa não substitui o inteiro teor.";
 
 function comAvisoNaturezaJuridica<T extends object>(dado: T) {
