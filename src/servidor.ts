@@ -324,7 +324,13 @@ export function criarServidor(
         "sem ementa para conferir, que saem com qualquer filtro ativo); \"mostrando X de Y\" conta só os que " +
         "passaram. Se o filtro local tirar todos, a lista vem vazia com o motivo no campo filtroLocal. Os precedentes " +
         "qualificados não passam pelos filtros locais. Repetir a busca mudando só o filtro não chama o site (buscas " +
-        `guardadas). ${SOBRE_O_RECORRIDO}`,
+        "guardadas). TRTs (trt1 a trt24) vêm do Falcão e contam como tribunal (até 5): 1 página (10 acórdãos) por " +
+        "formulação × TRT, com teto de 5 páginas do Falcão por chamada, usadas primeiro na 1ª formulação de cada TRT " +
+        "pedido, na ordem dada, depois nas seguintes; o que não couber (ou parar na pausa preventiva) sai no " +
+        "cabecalhoDeCobertura como foraDoTeto ou pausaPreventiva, nunca como busca vazia, e repetir a mesma chamada " +
+        "executa as que faltam. Com TRT, cada acórdão traz a fonte (rótulos em fontes) e o aviso cita as duas fontes; " +
+        "os filtros de, ate, relator, orgao e classe não valem com TRT (erro que ensina). " +
+        `${SOBRE_O_RECORRIDO}`,
       annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: {
         formulacoes: listaOuTexto(z.array(z.string().min(2)).min(1).max(20)).describe("Formulações da mesma tese (até 20)"),
@@ -352,8 +358,8 @@ export function criarServidor(
         conferirTribunais(...args.tribunais);
         conferirDatas(args);
         const filtrosLocais = lerFiltrosLocais({ deveConter, naoPodeConter });
-        const r = await buscaAmpla(site, { ...args, ...filtrosLocais }, memoria, { tabela });
-        return comAvisoNaturezaJuridica({ ...r, ...comATabela(r.qualificados, { curta: true }) });
+        const r = await buscaAmpla(site, { ...args, ...filtrosLocais }, memoria, { tabela, falcao });
+        return comAvisoNaturezaJuridica({ ...r, ...comATabela(r.qualificados, { curta: true }) }, args.tribunais);
       } catch (e) {
         return erro(e);
       }

@@ -1,9 +1,10 @@
 /**
  * Busca ampla: várias formulações × um ou mais tribunais, juntadas sem acórdão repetido (registros equivalentes
- * viram um acórdão só) e ordenadas pela aderência → nº de formulações → melhor posição na busca de origem.
+ * viram um acórdão só) e ordenadas pela aderência → nº de formulações → melhor posição na busca de origem. Os TRTs vão
+ * ao Falcão, 1 página por formulação × TRT, com teto de páginas por chamada (ADR-0018).
  */
 
-import { Cliente, RecusaError, umaProvaPorFerramenta } from "./cliente.js";
+import { Cliente, PausaPreventivaError, RecusaError, umaProvaPorFerramenta } from "./cliente.js";
 import {
   type Acordao,
   buscaDireta,
@@ -14,6 +15,8 @@ import {
   type ResultadoBusca,
 } from "./busca.js";
 import { ART_927_CONFERIDO_EM } from "./enquadramento.js";
+import { conferirPedidoAoFalcao } from "./falcao.js";
+import { ehDoFalcao, infoTribunal, ROTULO_FALCAO } from "./tribunais.js";
 import { juntarEquivalentes, type Ocorrencia } from "./equivalencia.js";
 import { filtroLocal, type FiltrosLocais } from "./filtroLocal.js";
 import { diaEHora, FalhaNaMemoriaError, type Memoria } from "./memoria.js";
@@ -44,6 +47,8 @@ export interface ItemAmplo {
   trecho: string;
   link?: string;
   formulacoes: number;
+  /** Só quando a busca inclui TRT: a fonte do acórdão ("Falcão (CSJT)" ou "JurisprudênciaIA"); o rótulo vem em fontes. */
+  fonte?: string;
 }
 
 /** Linha do cabeçalho de cobertura de um tribunal. Busca vazia e busca com erro nunca se confundem. */
@@ -54,6 +59,10 @@ export interface CoberturaTribunal {
   comErro: number;
   /** Só quando uma recusa parou a busca ampla antes de rodar todas as formulações neste tribunal. */
   naoFeitas?: number;
+  /** Só em TRT: formulações não executadas pelo teto de páginas do Falcão por chamada (nunca busca vazia). */
+  foraDoTeto?: number;
+  /** Só em TRT: formulações não executadas pela pausa preventiva do Falcão (nunca busca vazia). */
+  pausaPreventiva?: number;
   /**
    * Só quando alguma busca veio da memória (nomes e data curtos: com 2 tribunais, a resposta já beira o teto de 25 mil
    * caracteres): quantas das buscasFeitas são buscas guardadas...
@@ -85,6 +94,8 @@ export interface CabecalhoDeCobertura {
   listaCortada?: string;
   /** Só quando o filtro local tirou todos os acórdãos achados: o motivo da lista vazia. */
   filtroLocal?: string;
+  /** Só quando o teto de páginas do Falcão deixou combinações formulação × TRT sem executar. */
+  tetoDoFalcao?: string;
 }
 
 export interface ResultadoAmplo {
@@ -99,8 +110,15 @@ export interface ResultadoAmplo {
   qualificados: QualificadoAmplo[];
   /** Vai junto da lista de precedentes qualificados: o rótulo é do site; diz onde está o enquadramento927 completo. */
   ressalvaQualificados: string;
+  /** Só quando a busca inclui TRT: o rótulo de cada fonte usada. */
+  fontes?: Record<string, string>;
   avisos: string[];
 }
+
+/** Teto de páginas do Falcão por chamada da busca ampla (1 página = 1 formulação × TRT). */
+export const PAGINAS_DO_FALCAO_POR_CHAMADA = 5;
+/** Acórdãos por busca num TRT na busca ampla: 1 página do Falcão. */
+const LIMITE_TRT_NA_AMPLA = 10;
 
 /** O campo semEmenta só vai quando há acórdão sem ementa para conferir (a resposta beira o teto de 25 mil caracteres). */
 const semEmentaDoTribunal = (n: number) => (n ? { semEmenta: n } : {});
@@ -109,8 +127,11 @@ export async function buscaAmpla(
   cliente: Cliente,
   p: ParametrosAmpla,
   memoria?: Memoria,
-  { tabela }: { tabela?: TabelaDePrecedentes } = {},
+  { tabela, falcao }: { tabela?: TabelaDePrecedentes; falcao?: Cliente } = {},
 ): Promise<ResultadoAmplo> {
+  const comTrt = p.tribunais.some(ehDoFalcao);
+  // Antes de gastar chamada: filtro ainda não verificado num TRT é erro que ensina.
+  for (const t of p.tribunais.filter(ehDoFalcao)) conferirPedidoAoFalcao({ ...p, tribunal: t, texto: "" }, { limite: false });
   const tarefas = p.tribunais.flatMap((t) =>
     p.formulacoes.map((texto, f) => ({
       tribunal: t.toLowerCase(),
@@ -123,6 +144,8 @@ export async function buscaAmpla(
       resposta: undefined as ResultadoBusca | undefined,
       /** Instante em que a busca guardada foi feita no site. */
       guardadaEm: undefined as number | undefined,
+      /** Só em TRT: por que não foi executada (teto de páginas do Falcão ou pausa preventiva). */
+      naoExecutada: undefined as "teto" | "pausa" | undefined,
     })),
   );
   const juntos = new Map<string, Ocorrencia<Acordao>>();
@@ -130,6 +153,7 @@ export async function buscaAmpla(
   const avisos: string[] = [];
   let feitas = 0;
   let recusa: RecusaError | undefined;
+  let pausaDoFalcao: PausaPreventivaError | undefined;
   const porTribunal = new Map<
     string,
     { planejadas: number; buscasFeitas: number; vazias: number; comErro: number; guardadas: number; maisAntiga: number }
@@ -153,7 +177,7 @@ export async function buscaAmpla(
   const parametros = (t: (typeof tarefas)[number]): ParametrosBusca => ({
     tribunal: t.tribunal,
     texto: t.texto,
-    limite: p.limitePorBusca ?? 100,
+    limite: ehDoFalcao(t.tribunal) ? LIMITE_TRT_NA_AMPLA : (p.limitePorBusca ?? 100),
     de: p.de,
     ate: p.ate,
     relator: p.relator,
@@ -202,17 +226,38 @@ export async function buscaAmpla(
     const g = guardadas[i];
     if (g) [t.resposta, t.guardadaEm] = [g.resultado, g.obtidoEm];
   });
-  const noSite = tarefas.filter((t) => !t.resposta);
+  // Teto de páginas do Falcão: primeiro a 1ª formulação em cada TRT pedido, na ordem dada, depois as seguintes.
+  const ordemDoTribunal = (t: (typeof tarefas)[number]) => p.tribunais.findIndex((x) => x.toLowerCase() === t.tribunal);
+  const doFalcao = tarefas
+    .filter((t) => !t.resposta && ehDoFalcao(t.tribunal))
+    .sort((a, b) => a.f - b.f || ordemDoTribunal(a) - ordemDoTribunal(b));
+  for (const t of doFalcao.slice(PAGINAS_DO_FALCAO_POR_CHAMADA)) t.naoExecutada = "teto";
+  const noSite = tarefas.filter((t) => !t.resposta && !t.naoExecutada);
 
   // Duas filas de trabalho, como o cliente: depois de uma recusa ninguém pega tarefa nova.
   let proxima = 0;
   const trabalhar = async () => {
     while (!recusa && proxima < noSite.length) {
       const t = noSite[proxima++];
+      // Depois da pausa preventiva, as buscas no Falcão que faltam não saem: não executadas, nunca vazias.
+      if (pausaDoFalcao && ehDoFalcao(t.tribunal)) {
+        t.naoExecutada = "pausa";
+        continue;
+      }
       try {
         // A memória já foi consultada: aqui só vai ao site; os acórdãos são guardados depois de juntar as cópias.
-        t.resposta = await buscaDireta(cliente, parametros(t), memoria, { renovar: true, guardarAcordaos: false, tabela });
+        t.resposta = await buscaDireta(cliente, parametros(t), memoria, {
+          renovar: true,
+          guardarAcordaos: false,
+          tabela,
+          falcao,
+        });
       } catch (e) {
+        if (e instanceof PausaPreventivaError) {
+          pausaDoFalcao ??= e;
+          t.naoExecutada = "pausa";
+          continue;
+        }
         porTribunal.get(t.tribunal)!.comErro++;
         if (e instanceof RecusaError) {
           recusa ??= e;
@@ -239,8 +284,9 @@ export async function buscaAmpla(
         `Nenhuma das ${tarefas.length} buscas deu resposta, por isso não há lista de acórdãos ` +
           "(o erro não significa que os tribunais nunca decidiram a tese).",
         ...(recusa ? [recusa.message] : []),
+        ...(pausaDoFalcao ? [pausaDoFalcao.message] : []),
         "Motivo de cada busca:",
-        ...tarefas.map((t) => t.motivo ?? `${t.rotulo}: não feita (a busca parou na recusa)`),
+        ...tarefas.map((t) => t.motivo ?? `${t.rotulo}: ${motivoDaNaoFeita(t.naoExecutada)}`),
       ].join("\n"),
     );
   }
@@ -251,6 +297,7 @@ export async function buscaAmpla(
         `A lista abaixo é só o que já tinha sido juntado. ${recusa.message}`,
     );
   }
+  if (pausaDoFalcao) avisos.unshift(`BUSCA INCOMPLETA NOS TRTs: ${pausaDoFalcao.message}`);
   if (p.tribunais.some((t) => t.toLowerCase() === "stf")) {
     avisos.push("O site costuma devolver poucos acórdãos do STF por busca (de 2 a 7 na medição de out/2026); " +
         "a cobertura dele depende do número de formulações.");
@@ -305,11 +352,16 @@ export async function buscaAmpla(
   const tamanho = p.tamanhoTrecho ?? 120;
   const cabecalho: CabecalhoDeCobertura = {
     porTribunal: [...porTribunal].map(([tribunal, { planejadas, guardadas, maisAntiga, ...contas }]) => {
-      const naoFeitas = planejadas - contas.buscasFeitas - contas.comErro;
+      const doTribunal = tarefas.filter((t) => t.tribunal === tribunal);
+      const foraDoTeto = doTribunal.filter((t) => t.naoExecutada === "teto").length;
+      const pausaPreventiva = doTribunal.filter((t) => t.naoExecutada === "pausa").length;
+      const naoFeitas = planejadas - contas.buscasFeitas - contas.comErro - foraDoTeto - pausaPreventiva;
       const linha: CoberturaTribunal = {
         tribunal,
         ...contas,
         ...(naoFeitas ? { naoFeitas } : {}),
+        ...(foraDoTeto ? { foraDoTeto } : {}),
+        ...(pausaPreventiva ? { pausaPreventiva } : {}),
         ...(guardadas && { guardadas, feitasAgora: contas.buscasFeitas - guardadas, maisAntiga: diaEHora(maisAntiga) }),
       };
       if (contas.buscasFeitas === 0) return { ...linha, situacao: contas.comErro ? "com erro" : "não pesquisado" };
@@ -326,6 +378,13 @@ export async function buscaAmpla(
       (_, f) => porFormulacao[f].respostas === p.tribunais.length && porFormulacao[f].acordaos === 0,
     ),
   };
+  const foraDoTeto = tarefas.filter((t) => t.naoExecutada === "teto").length;
+  if (foraDoTeto) {
+    cabecalho.tetoDoFalcao =
+      `${foraDoTeto} de ${tarefas.filter((t) => ehDoFalcao(t.tribunal)).length} buscas (formulação × TRT) não ` +
+      `executadas pelo teto de ${PAGINAS_DO_FALCAO_POR_CHAMADA} páginas do Falcão por chamada (não são buscas vazias); ` +
+      "repita a mesma busca_ampla para executá-las (as já feitas voltam da memória) ou use menos formulações ou TRTs.";
+  }
   // Lista vazia por causa do filtro diz isso com todas as letras: não se lê como "os tribunais nunca decidiram".
   if (ordenados.length && !sobreviventes.length) {
     cabecalho.filtroLocal =
@@ -348,7 +407,7 @@ export async function buscaAmpla(
   return {
     buscasFeitas: feitas,
     buscasPlanejadas: tarefas.length,
-    completa: !recusa && feitas === tarefas.length,
+    completa: !recusa && !pausaDoFalcao && feitas === tarefas.length,
     totalAcordaos: ordenados.length,
     mostrados: mostrados.length,
     cabecalhoDeCobertura: cabecalho,
@@ -363,7 +422,9 @@ export async function buscaAmpla(
         trecho: trecho(ementa, p.formulacoes, tamanho),
         link: a.link ?? a.linkConsulta,
         formulacoes,
+        ...(comTrt && { fonte: infoTribunal(a.tribunal)?.fonte }),
       };
+      if (!ementa.trim() && ehDoFalcao(a.tribunal)) item.trecho = "sem ementa no Falcão";
       return item;
     }),
     // Texto do qualificado em 120 caracteres para caber o enquadramento927 curto (decisão do dono, 2026-10-08).
@@ -371,6 +432,19 @@ export async function buscaAmpla(
     ressalvaQualificados:
       `${RESSALVA_ROTULO}Aqui o enquadramento927 vem curto (art. 927 conferido em ${ART_927_CONFERIDO_EM}); completo na ` +
       "busca_direta; o dos acórdãos no obter_ementa.",
+    ...(comTrt && {
+      fontes: {
+        "Falcão (CSJT)": ROTULO_FALCAO,
+        JurisprudênciaIA: "busca direta do JurisprudênciaIA (base não oficial)",
+      },
+    }),
     avisos,
   };
+}
+
+/** Por que a busca não saiu, na resposta de erro da falha total. */
+function motivoDaNaoFeita(naoExecutada: "teto" | "pausa" | undefined): string {
+  if (naoExecutada === "teto") return `não executada (teto de ${PAGINAS_DO_FALCAO_POR_CHAMADA} páginas do Falcão por chamada)`;
+  if (naoExecutada === "pausa") return "não executada (pausa preventiva do Falcão)";
+  return "não feita (a busca parou na recusa)";
 }
