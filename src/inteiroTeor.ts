@@ -170,7 +170,9 @@ export async function obterInteiroTeor(
     const linkOficial = link ?? acordao?.linkConsulta ?? linkDaRota;
     const motivo = info.motivoLink ?? "";
     if (!linkOficial) {
-      const explicacao = `${motivo} O JurisprudênciaIA não trouxe link para este acórdão. ${caminhoSemLink(info.nome, acordao)}`;
+      // Sem link, o "abra o link no navegador" do texto de tribunal não testado não tem o que abrir.
+      const semLink = motivo.replace(/; abra o link no navegador\.$/, ".");
+      const explicacao = `${semLink} O JurisprudênciaIA não trouxe link para este acórdão. ${caminhoSemLink(info.nome, acordao)}`;
       return { baixado: false, explicacao: explicacao.trim() };
     }
     let explicacao = motivo;

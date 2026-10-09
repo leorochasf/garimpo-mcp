@@ -1034,6 +1034,58 @@ describe("ponte: resposta \"só link\" ensina a ler o PDF baixado no navegador (
   });
 });
 
+describe("textos honestos por tribunal: o observado, com data, ou \"ainda não testado\" (pela porta)", () => {
+  const NAO_TESTADO =
+    "O Garimpo ainda não testou o download automático do portal deste tribunal; abra o link no navegador.";
+
+  async function motivos() {
+    const mcp = await conectar(siteFalso([]));
+    const lista = (await mcp.callTool({ name: "listar_tribunais", arguments: {} })) as { content: { text: string }[] };
+    const tribunais = JSON.parse(lista.content[0].text) as { tribunal: string; inteiroTeor: string; motivo?: string }[];
+    return new Map(tribunais.filter((t) => t.inteiroTeor === "link").map((t) => [t.tribunal, t.motivo ?? ""]));
+  }
+
+  it("STM e TJs fora da prova dizem \"ainda não testou\", sem afirmar login nem JavaScript", async () => {
+    const m = await motivos();
+    for (const sigla of ["stm", "tjac", "tjba", "tjrs", "tjpr"]) expect(m.get(sigla), sigla).toBe(NAO_TESTADO);
+    for (const [sigla, motivo] of m) {
+      if (sigla === "stf" || sigla === "tjgo") continue; // barreiras registradas antes do B11, com evidência
+      expect(motivo, sigla).not.toMatch(/login|JavaScript|captcha/i);
+    }
+  });
+
+  it("os testados na prova de 2026-10-09 trazem o resultado datado e o motivo observado", async () => {
+    const m = await motivos();
+    expect(m.get("tjrn")).toMatch(/^Testado em 2026-10-09 sem conclusão; o download automático não está disponível\./);
+    expect(m.get("tjrn")).toMatch(/HTTP 504/);
+    expect(m.get("tjrn")).toMatch(/JAI/);
+    expect(m.get("tst")).toMatch(/^Testado em 2026-10-09 sem conclusão; o download automático não está disponível\./);
+    expect(m.get("tst")).toMatch(/endereço encurtado da Justiça do Trabalho, fora do portal do TST/);
+    expect(m.get("tjdft")).toMatch(/^Testado em 2026-10-09 sem conclusão; o download automático não está disponível\./);
+    expect(m.get("tjdft")).toMatch(/página de aplicação no lugar do PDF/);
+    expect(m.get("tjsp")).toBe(
+      "Testado em 2026-10-09: o PDF sai por HTTP comum, mas o download automático ainda não foi implementado.",
+    );
+    expect(m.get("tjto")).toMatch(/^Testado em 2026-10-09: o portal respondeu HTTP 403 \(acesso negado\)\./);
+  });
+
+  it("a explicação do obter_inteiro_teor traz o mesmo motivo datado, com a ponte para o ler_inteiro_teor", async () => {
+    const mcp = await conectar(siteFalso([]), {
+      tribunais: () => {
+        throw new Error("só link não chama tribunal");
+      },
+      pasta: await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-textos-")),
+    });
+    const r = (await mcp.callTool({
+      name: "obter_inteiro_teor",
+      arguments: { tribunal: "tjdft", link: "https://exemplo.test/tjdft/acordao" },
+    })) as { content: { text: string }[] };
+    const dado = JSON.parse(r.content[0].text);
+    expect(dado.explicacao).toMatch(/^Testado em 2026-10-09 sem conclusão/);
+    expect(dado.explicacao).toMatch(/abra o link no navegador, baixe o PDF e passe o caminho do arquivo ao ler_inteiro_teor/);
+  });
+});
+
 describe("ordem de leitura do texto do PDF (pela porta)", () => {
   /** Texto da página 1 lido pelo ler_inteiro_teor, sem o marcador de página: PDF numa pasta qualquer, sem rede. */
   async function lido(posicionados: TextoPosicionado[]) {

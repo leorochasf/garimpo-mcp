@@ -35,7 +35,29 @@ const EXPLICA_TJGO =
   "dessa sessão. O Garimpo não contorna captchas: pesquise pelo número CNJ no portal e baixe lá.";
 
 const EXPLICA_GENERICO =
-  "O portal deste tribunal exige login, JavaScript ou outra etapa que não sai por HTTP comum.";
+  "O Garimpo ainda não testou o download automático do portal deste tribunal; abra o link no navegador.";
+
+/**
+ * Resultado da prova ao vivo do B11 (docs/banco-de-provas/b11-prova-ao-vivo.md): só o que foi observado, com a data.
+ * Uma amostra prova aquele caminho naquela data, não o tribunal inteiro.
+ */
+const INCONCLUSIVO_B11 = "Testado em 2026-10-09 sem conclusão; o download automático não está disponível.";
+
+const EXPLICA_TJRN =
+  `${INCONCLUSIVO_B11} A busca do site no TJRN não respondeu (HTTP 504), e a rota de íntegra do ` +
+  "JurisprudênciaIA não chegou a ser testada; o uso contínuo dessa rota ainda depende de confirmar o combinado " +
+  "com a JAI.";
+
+const EXPLICA_TJSP =
+  "Testado em 2026-10-09: o PDF sai por HTTP comum, mas o download automático ainda não foi implementado.";
+
+const EXPLICA_TST =
+  `${INCONCLUSIVO_B11} O link do PDF veio como endereço encurtado da Justiça do Trabalho, fora do portal do TST.`;
+
+const EXPLICA_TJDFT =
+  `${INCONCLUSIVO_B11} O portal devolveu uma página de aplicação no lugar do PDF, sem link para o PDF.`;
+
+const EXPLICA_TJTO = "Testado em 2026-10-09: o portal respondeu HTTP 403 (acesso negado).";
 
 function tj(sigla: string, nome: string): InfoTribunal {
   return {
@@ -86,7 +108,7 @@ export const TRIBUNAIS: InfoTribunal[] = [
     qualificados: ["súmula", "IRR", "OJ"],
     tetoResultados: 100,
     inteiroTeor: "link",
-    motivoLink: EXPLICA_GENERICO,
+    motivoLink: EXPLICA_TST,
     extrasBusca: {
       include_sumulas: true,
       sumulas_limit: 5,
@@ -111,7 +133,7 @@ export const TRIBUNAIS: InfoTribunal[] = [
   { ...tj("tjap", "TJ do Amapá") },
   { ...tj("tjba", "TJ da Bahia") },
   { ...tj("tjce", "TJ do Ceará") },
-  { ...tj("tjdft", "TJ do Distrito Federal e Territórios") },
+  { ...tj("tjdft", "TJ do Distrito Federal e Territórios"), motivoLink: EXPLICA_TJDFT },
   { ...tj("tjes", "TJ do Espírito Santo") },
   { ...tj("tjgo", "TJ de Goiás"), motivoLink: EXPLICA_TJGO },
   { ...tj("tjma", "TJ do Maranhão") },
@@ -124,14 +146,14 @@ export const TRIBUNAIS: InfoTribunal[] = [
   { ...tj("tjpi", "TJ do Piauí") },
   { ...tj("tjpr", "TJ do Paraná") },
   { ...tj("tjrj", "TJ do Rio de Janeiro") },
-  { ...tj("tjrn", "TJ do Rio Grande do Norte") },
+  { ...tj("tjrn", "TJ do Rio Grande do Norte"), motivoLink: EXPLICA_TJRN },
   { ...tj("tjro", "TJ de Rondônia") },
   { ...tj("tjrr", "TJ de Roraima") },
   { ...tj("tjrs", "TJ do Rio Grande do Sul") },
   { ...tj("tjsc", "TJ de Santa Catarina") },
   { ...tj("tjse", "TJ de Sergipe") },
-  { ...tj("tjsp", "TJ de São Paulo") },
-  { ...tj("tjto", "TJ do Tocantins") },
+  { ...tj("tjsp", "TJ de São Paulo"), motivoLink: EXPLICA_TJSP },
+  { ...tj("tjto", "TJ do Tocantins"), motivoLink: EXPLICA_TJTO },
 ];
 
 export const SIGLAS = TRIBUNAIS.map((t) => t.sigla);
