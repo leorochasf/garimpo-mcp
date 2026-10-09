@@ -34,7 +34,7 @@ import {
   servicoDe,
 } from "./disjuntor.js";
 
-export const VERSAO = "0.3.1";
+export const VERSAO = "0.3.2";
 export const USER_AGENT = `Garimpo/${VERSAO} (cliente MCP local e nao oficial de pesquisa de jurisprudencia)`;
 
 /** O site ou o tribunal negou a chamada. Nunca é contornada. */
