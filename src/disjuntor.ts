@@ -10,6 +10,9 @@
  *   prevalece se for maior). Recusas da mesma pausa contam como uma abertura.
  * - Vencida a pausa, uma só chamada de prova; só ela fecha o disjuntor e zera a dobra. Resposta de chamada que
  *   saiu antes de uma abertura (ou de um fechamento) nunca altera o estado atual.
+ * - Adiamento (só o DJEN): o serviço pediu para esperar mais que o teto, e o Garimpo respeita sem tratar como recusa:
+ *   as chamadas falham na hora até o instante pedido, sem abrir nem dobrar o disjuntor; vencido, a primeira chamada
+ *   é a única nova tentativa (recusada, abre o disjuntor).
  */
 
 import { randomUUID } from "node:crypto";
@@ -41,6 +44,8 @@ export interface Disjuntor {
   prova?: Chamada;
   /** Depois de uma prova com erro sem recusa, a próxima prova só sai a partir deste instante. */
   proximaProvaEm?: number;
+  /** Adiado pelo serviço (não é recusa): chamadas falham na hora até `ate`; depois, a primeira é a nova tentativa. */
+  adiada?: Pausa;
 }
 
 type Papel = "normal" | "tentativa" | "prova";
@@ -56,6 +61,8 @@ export type Ordem =
   /** Esperar sem vaga e perguntar de novo: pela decisão do disjuntor ou pela pausa do host. */
   | { tipo: "espera"; ms: number; motivo: "disjuntor" | "host" }
   | { tipo: "pausado"; ate: number; aviso: string }
+  /** O serviço pediu para esperar até `ate` (não é recusa). */
+  | { tipo: "adiado"; ate: number }
   /** A pausa venceu, mas esta ferramenta já fez a sua chamada de prova. */
   | { tipo: "sem-prova" };
 
@@ -68,7 +75,9 @@ export type Resultado =
   /** A chamada que levou o 429/503 desistiu antes da nova tentativa (cancelada, sem vaga, rede parada). */
   | { tipo: "desistiu" }
   /** A nova tentativa recusada, 403, desafio anti-robô, pedido acima do teto ou a prova recusada. */
-  | { tipo: "recusa-final"; pausaPedidaMs: number; aviso: string };
+  | { tipo: "recusa-final"; pausaPedidaMs: number; aviso: string }
+  /** Pedido de espera acima do teto, num serviço que adia em vez de recusar (DJEN): adiamento até `ate`. */
+  | { tipo: "adia"; ate: number; aviso: string };
 
 const PAUSA_INICIAL_MS = 60_000;
 /** Teto da parte que dobra; o pedido do serviço (Retry-After) pode passar dele. */
@@ -77,7 +86,7 @@ const PAUSA_MAXIMA_DOBRADA_MS = 60 * 60_000;
 const CONFERENCIA_MS = 250;
 
 /**
- * O serviço de uma URL, por regra central (nunca por rota nem por janela): o JurisprudênciaIA, o DataJud, cada
+ * O serviço de uma URL, por regra central (nunca por rota nem por janela): o JurisprudênciaIA, o DataJud, o DJEN, cada
  * tribunal pelo domínio `<sigla>.jus.br`; qualquer outro endereço é o próprio host (com a porta).
  */
 export function servicoDe(url: string): string {
@@ -85,13 +94,19 @@ export function servicoDe(url: string): string {
   if (/(^|\.)jurisprudenciaia\.com\.br$/i.test(nome)) return "jurisprudenciaia";
   // A API e a wiki do DataJud são um serviço só, com nome próprio (o domínio daria "cnj").
   if (/^(api-publica\.datajud|datajud-wiki)\.cnj\.jus\.br$/i.test(nome)) return "datajud";
+  // O DJEN tem limite próprio por IP: nome próprio (o domínio daria "pje").
+  if (/^comunicaapi\.pje\.jus\.br$/i.test(nome)) return "djen";
   const tribunal = nome.toLowerCase().match(/(?:^|\.)([a-z0-9-]+)\.jus\.br$/);
   return tribunal ? tribunal[1] : host.toLowerCase();
 }
 
-/** Espera mínima antes da nova tentativa: o TSE recusa chamadas com menos de 10 s de intervalo. */
+/**
+ * Espera mínima antes da nova tentativa: o TSE recusa chamadas com menos de 10 s de intervalo; o DJEN orienta
+ * "aguardar 1 minuto" depois de um 429.
+ */
 export function esperaMinimaDe(servico: string): number {
-  return servico === "tse" ? 10_000 : 0;
+  if (servico === "tse") return 10_000;
+  return servico === "djen" ? 60_000 : 0;
 }
 
 /** Espera depois de uma prova com erro sem recusa, antes de permitir outra prova. */
@@ -122,6 +137,13 @@ export function decidirSaida(
     const novo: Disjuntor = { ...d, prova: chamada };
     delete novo.proximaProvaEm;
     return { ordem: { tipo: "sai", saida: { papel: "prova", geracao } }, novo };
+  }
+  if (d.adiada) {
+    if (agora < d.adiada.ate) return { ordem: { tipo: "adiado", ate: d.adiada.ate } };
+    // Vencido o adiamento, esta chamada é a única nova tentativa: as outras esperam a decisão dela.
+    const novo: Disjuntor = { ...d, espera: { ate: agora, dono: chamada } };
+    delete novo.adiada;
+    return { ordem: { tipo: "sai", saida: { papel: "tentativa", geracao } }, novo };
   }
   if (d.espera) {
     if (d.espera.dono.id === chamada.id) return { ordem: { tipo: "sai", saida: { papel: "tentativa", geracao } } };
@@ -168,6 +190,12 @@ export function aplicarResultado(
       // Já há espera de outra chamada (ou pausa): esta só espera a decisão; a nova tentativa é da outra.
       if (saida.geracao !== base.geracao || base.pausa || base.espera) return d;
       return { ...base, espera: { ate: agora + r.ms, dono: chamada } };
+    case "adia": {
+      if (saida.geracao !== base.geracao || base.pausa) return d;
+      const novo: Disjuntor = { ...base, adiada: { ate: r.ate, aviso: r.aviso } };
+      delete novo.espera;
+      return novo;
+    }
     case "desistiu":
       // A nova tentativa não vai sair: as outras chamadas não esperam por ela.
       return base.espera?.dono.id === chamada.id ? semEspera(base) : d;
@@ -201,6 +229,7 @@ export function disjuntorValido(d: unknown): d is Disjuntor {
     Number.isInteger(x.aberturas) &&
     (x.espera === undefined || (numero(x.espera.ate) && chamada(x.espera.dono))) &&
     (x.pausa === undefined || (numero(x.pausa.ate) && typeof x.pausa.aviso === "string")) &&
+    (x.adiada === undefined || (numero(x.adiada.ate) && typeof x.adiada.aviso === "string")) &&
     (x.prova === undefined || chamada(x.prova)) &&
     (x.proximaProvaEm === undefined || numero(x.proximaProvaEm))
   );

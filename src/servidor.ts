@@ -28,6 +28,7 @@ import {
 } from "./leitura.js";
 import { Memoria, obtidoDoSite } from "./memoria.js";
 import { ChaveDoDataJud, clienteDoDataJud, TERMO_DE_USO_DATAJUD } from "./datajud.js";
+import { clienteDoDjen, FonteDjen } from "./djen.js";
 import { julgamentosDoProcesso } from "./julgamentos.js";
 import { avisoRecorridoDoAcordao } from "./recorrido.js";
 import { INSTRUCTIONS, roteiroDePesquisa } from "./roteiro.js";
@@ -179,11 +180,13 @@ export interface OpcoesServidor {
   tabela?: TabelaDePrecedentes;
   /** Cliente do DataJud (padrão: o real, com os freios dele). */
   datajud?: Cliente;
+  /** Cliente do DJEN (padrão: o real, com os freios dele). */
+  djen?: Cliente;
 }
 
 export function criarServidor(
   site: Cliente,
-  { tribunais = clientePadrao, pasta, dados, agora, tetoDaMemoria, tabela, datajud = clienteDoDataJud() }: OpcoesServidor = {},
+  { tribunais = clientePadrao, pasta, dados, agora, tetoDaMemoria, tabela, datajud = clienteDoDataJud(), djen = clienteDoDjen() }: OpcoesServidor = {},
 ): McpServer {
   const servidor = new McpServer({ name: "garimpo", version: VERSAO }, { instructions: INSTRUCTIONS });
   // GARIMPO_SEM_MEMORIA=1 desliga só a memória em disco (a janela guarda enquanto está aberta), nunca o freio.
@@ -195,6 +198,7 @@ export function criarServidor(
 
   /** A chave do DataJud desta janela: a renovada pela wiki vale para as chamadas seguintes. */
   const chaveDoDataJud = new ChaveDoDataJud();
+  const fonteDjen = new FonteDjen(djen);
 
   /** Atribuição e datas da tabela, quando ela reforçou algum tema ou IAC do STJ da lista de qualificados. */
   const comATabela = (qualificados: { tribunal: string; tipo: string; numero?: string }[], { curta = false } = {}) =>
@@ -628,6 +632,10 @@ export function criarServidor(
         "tribunal (o movimento de tipo não verificado, ou a diferença de embargos). Nunca afirma que um acórdão falta. " +
         "Cada fonte vem com o seu estado (ok, vazia, erro, recusa, não consultada); \"o DataJud não devolveu este " +
         "processo\" não prova que ele não exista. " +
+        "Com incluir_djen (padrão), também as comunicações do processo no DJEN (uma página, até 100): data de " +
+        "disponibilização, tipo de comunicação e de documento, órgão, classe e link; nunca o texto nem nome de parte ou " +
+        "advogado; são comunicações do processo, não um inventário de acórdãos. Se o DJEN pedir para esperar, vem o " +
+        "que as outras fontes trouxeram e o instante em que se pode tentar de novo (estado pausa). " +
         "Consulta repetida em 24 h volta da memória do Garimpo, sem nova chamada. Não busca por nome de parte. " +
         `Uso sob o termo de uso da API Pública do CNJ (${TERMO_DE_USO_DATAJUD}).`,
       annotations: { readOnlyHint: true, openWorldHint: true },
@@ -637,11 +645,17 @@ export function criarServidor(
           .string()
           .optional()
           .describe("Opcional: sigla do tribunal onde consultar (ex.: stj, tst); padrão: o tribunal do número"),
+        incluir_djen: z
+          .boolean()
+          .optional()
+          .describe("Consultar também as comunicações do processo no DJEN (padrão: true; false responde mais rápido)"),
       },
     },
     async (args) => {
       try {
-        return json(await julgamentosDoProcesso(args, { site, datajud, chave: chaveDoDataJud, memoria, agora, tabela }));
+        const { incluir_djen: incluirDjen, ...pedido } = args;
+        const fontes = { site, datajud, djen: fonteDjen, chave: chaveDoDataJud, memoria, agora, tabela };
+        return json(await julgamentosDoProcesso({ ...pedido, incluirDjen }, fontes));
       } catch (e) {
         return erro(e);
       }

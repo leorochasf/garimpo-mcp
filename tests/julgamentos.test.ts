@@ -41,10 +41,26 @@ const siteQueNuncaResponde = () =>
     }) as typeof fetch,
   });
 
+/** DJEN falso: responde com este corpo (ou esta resposta) e registra as chamadas. */
+function djenFalso(resposta: object | (() => Response) = { status: "success", count: 0, items: [] }) {
+  const chamadas: string[] = [];
+  const cliente = new Cliente({
+    nome: "O DJEN",
+    vagas: new Vagas(2),
+    esperar: async () => {},
+    fetch: (async (url: string) => {
+      chamadas.push(url);
+      return typeof resposta === "function" ? resposta() : respostaJson(resposta);
+    }) as typeof fetch,
+  });
+  return { cliente, chamadas };
+}
+
+/** Sem DJEN informado, um falso vazio: nenhum teste chama o DJEN de verdade. */
 async function conectar(opcoes: OpcoesServidor, site = siteQueNuncaResponde()) {
   const [ladoCliente, ladoServidor] = InMemoryTransport.createLinkedPair();
   const dados = opcoes.dados ?? (await mkdtemp(join(process.env.GARIMPO_DADOS!, "julgamentos-")));
-  await criarServidor(site, { dados, ...opcoes }).connect(ladoServidor);
+  await criarServidor(site, { dados, djen: djenFalso().cliente, ...opcoes }).connect(ladoServidor);
   const mcp = new Client({ name: "teste", version: "0" });
   await mcp.connect(ladoCliente);
   return mcp;
@@ -152,7 +168,7 @@ describe("julgamentos_do_processo: DataJud (gravação real reduzida)", () => {
   it("a memória guarda só a resposta reduzida, sem o número em claro no nome do arquivo", async () => {
     const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "julgamentos-"));
     const { cliente } = dataJudFalso(() => respostaJson(fixture("datajud-tjto.json")));
-    await chamar(await conectar({ datajud: cliente, dados }), { numero: TJTO });
+    await chamar(await conectar({ datajud: cliente, dados }, siteQueNuncaResponde()), { numero: TJTO, incluir_djen: false });
     const pasta = join(dados, "memoria", "consultas-1");
     let nomes: string[] = [];
     for (const prazo = Date.now() + 5_000; !nomes.length && Date.now() < prazo; await new Promise((r) => setTimeout(r, 20))) {
@@ -313,6 +329,136 @@ describe("freios do DataJud", () => {
   });
 });
 
+
+describe("julgamentos_do_processo: DJEN", () => {
+  /** Comunicação no formato do DJEN, com texto, partes e advogados fictícios que nunca podem sair. */
+  const comunicacao = (k: number, link = `https://eproc.tribunal-exemplo.invalid/doc=${k}`) => ({
+    id: 900000 + k,
+    data_disponibilizacao: `2020-05-0${k}`,
+    siglaTribunal: "TJTO",
+    tipoComunicacao: "Intimação",
+    nomeOrgao: "GAB. DO RELATOR 1",
+    texto: `<p>INTIMA&Ccedil;&Atilde;O FICT&Iacute;CIA ${k}. PARTE A x PARTE B. ADVOGADO A (OAB/TO 00000).</p>`,
+    numero_processo: "00001237020208270001",
+    link,
+    tipoDocumento: "Acórdão",
+    nomeClasse: "APELAÇÃO CÍVEL",
+    codigoClasse: 198,
+    hash: `hashficticio${k}`,
+    destinatarios: [
+      { nome: "PARTE A", polo: "A" },
+      { nome: "PARTE B", polo: "P" },
+    ],
+    destinatarioadvogados: [{ advogado: { nome: "ADVOGADO A", numero_oab: "00000", uf_oab: "TO" } }],
+  });
+  const NOMES = ["PARTE A", "PARTE B", "ADVOGADO A", "00000", "OAB", "INTIMA", "hashficticio"];
+  const semDataJud = () => dataJudFalso(() => hits()).cliente;
+
+  it("mostra só os metadados e o link https; nada de texto, partes ou advogados na saída nem na memória", async () => {
+    const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "julgamentos-"));
+    const djen = djenFalso({ status: "success", count: 2, items: [comunicacao(1), comunicacao(2, "http://inseguro.invalid/2")] });
+    const r = await chamar(await conectar({ datajud: semDataJud(), djen: djen.cliente, dados }), { numero: TJTO });
+
+    expect(djen.chamadas).toEqual([
+      "https://comunicaapi.pje.jus.br/api/v1/comunicacao?numeroProcesso=00001237020208270001&itensPorPagina=100&pagina=1",
+    ]);
+    expect(r.json.djen).toMatchObject({
+      fonte: "DJEN (comunicações processuais do CNJ)",
+      estado: "ok",
+      total: 2,
+      sobreALista: "Comunicações do processo no DJEN, não um inventário de acórdãos.",
+    });
+    expect(r.json.djen.comunicacoes).toEqual([
+      {
+        dataDisponibilizacao: "2020-05-01",
+        tipoComunicacao: "Intimação",
+        tipoDocumento: "Acórdão",
+        orgao: "GAB. DO RELATOR 1",
+        classe: "APELAÇÃO CÍVEL",
+        link: "https://eproc.tribunal-exemplo.invalid/doc=1",
+      },
+      {
+        dataDisponibilizacao: "2020-05-02",
+        tipoComunicacao: "Intimação",
+        tipoDocumento: "Acórdão",
+        orgao: "GAB. DO RELATOR 1",
+        classe: "APELAÇÃO CÍVEL",
+      },
+    ]);
+    expect(r.json.djen).not.toHaveProperty("listaCortada");
+    for (const nome of NOMES) expect(r.texto).not.toContain(nome);
+
+    const pasta = join(dados, "memoria", "consultas-1");
+    let djenGuardado: string | undefined;
+    for (const prazo = Date.now() + 5_000; !djenGuardado && Date.now() < prazo; await new Promise((ok) => setTimeout(ok, 20))) {
+      const nomes = (await readdir(pasta).catch(() => [] as string[])).filter((n) => n.endsWith(".json"));
+      const textos = await Promise.all(nomes.map((n) => readFile(join(pasta, n), "utf8")));
+      djenGuardado = textos.find((t) => t.includes('"fonte":"djen"'));
+    }
+    expect(djenGuardado).toContain("GAB. DO RELATOR 1");
+    for (const nome of [...NOMES, "00001237020208270001"]) expect(djenGuardado).not.toContain(nome);
+  });
+
+  it("mais de 100: uma página só e o aviso de lista cortada, com a resposta limitada", async () => {
+    const itens = Array.from({ length: 100 }, (_, i) => comunicacao((i % 9) + 1));
+    const djen = djenFalso({ status: "success", count: 250, items: itens });
+    const r = await chamar(await conectar({ datajud: semDataJud(), djen: djen.cliente }), { numero: TJTO });
+    expect(djen.chamadas).toHaveLength(1);
+    expect(r.json.djen.comunicacoes).toHaveLength(100);
+    expect(r.json.djen.listaCortada).toBe("lista cortada: o DJEN tem 250 comunicações, mostradas 100");
+    expect(r.texto.length).toBeLessThan(25_000);
+  });
+
+  it("vazio: estado vazia, com a frase do que a lista é", async () => {
+    const r = await chamar(await conectar({ datajud: semDataJud() }), { numero: TJTO });
+    expect(r.json.djen).toMatchObject({ estado: "vazia", total: 0, comunicacoes: [] });
+    expect(r.json.djen.sobreALista).toMatch(/não um inventário de acórdãos/);
+  });
+
+  it("erro do DJEN aparece como estado, sem apagar o DataJud nem o site", async () => {
+    const djen = djenFalso(() => new Response("falha", { status: 500 }));
+    const site = new Cliente({
+      nome: "O JurisprudênciaIA",
+      vagas: new Vagas(2),
+      esperar: async () => {},
+      fetch: (async () => respostaJson({ results: [] })) as typeof fetch,
+    });
+    const datajud = dataJudFalso(() => respostaJson(fixture("datajud-tjto.json"))).cliente;
+    const r = await chamar(await conectar({ datajud, djen: djen.cliente }, site), { numero: TJTO });
+    expect(r.json.djen).toMatchObject({ estado: "erro", mensagem: expect.stringMatching(/HTTP 500/) });
+    expect(r.json.datajud.estado).toBe("ok");
+    expect(r.json.jurisprudenciaia.estado).toBe("vazia");
+  });
+
+  it("incluir_djen false: nenhuma chamada ao DJEN", async () => {
+    const djen = djenFalso();
+    const r = await chamar(await conectar({ datajud: semDataJud(), djen: djen.cliente }), { numero: TJTO, incluir_djen: false });
+    expect(djen.chamadas).toHaveLength(0);
+    expect(r.json.djen).toMatchObject({ estado: "não consultada" });
+  });
+
+  it("o DJEN pede mais de 60 s: vem na hora o que as outras fontes trouxeram e o instante permitido (pausa)", async () => {
+    let chamadas = 0;
+    const djen = new Cliente({
+      nome: "O DJEN",
+      vagas: new Vagas(2),
+      esperar: async () => {},
+      esperaMaximaMs: 60_000,
+      adiaAcimaDoTeto: true,
+      fetch: (async () => {
+        chamadas++;
+        return new Response("", { status: 429, headers: { "retry-after": "300" } });
+      }) as typeof fetch,
+    });
+    const datajud = dataJudFalso(() => respostaJson(fixture("datajud-tjto.json"))).cliente;
+    const r = await chamar(await conectar({ datajud, djen }), { numero: TJTO });
+    expect(chamadas).toBe(1);
+    expect(r.json.djen.estado).toBe("pausa");
+    expect(r.json.djen.mensagem).toMatch(/pediu para esperar até \d{2}\/\d{2}\/\d{4} \d{2}:\d{2} \(hora local, UTC[+-]\d{2}:\d{2}\)/);
+    expect(r.json.djen.mensagem).toMatch(/Não é recusa/);
+    expect(r.json.datajud.estado).toBe("ok");
+  });
+});
 
 describe("julgamentos_do_processo: lado a lado com o JurisprudênciaIA", () => {
   const TRF1 = "0000131-91.2020.4.01.3400";

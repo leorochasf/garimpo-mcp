@@ -1,13 +1,13 @@
 /**
- * julgamentos_do_processo: dado um número CNJ, lado a lado, os julgamentos registrados do processo no DataJud e os
- * acórdãos que uma busca pelo número no JurisprudênciaIA devolve. Cada fonte vem no seu bloco, rotulada e com o seu
+ * julgamentos_do_processo: dado um número CNJ, lado a lado, os julgamentos registrados do processo no DataJud, os
+ * acórdãos que uma busca pelo número no JurisprudênciaIA devolve e as comunicações do processo no DJEN. Cada fonte vem no seu bloco, rotulada e com o seu
  * estado; falha de uma fonte aparece como estado, nunca como lista vazia (ADR-0001). Nunca conclui que um acórdão
  * falta: mostra os dois lados e aponta o que conferir no portal do tribunal.
  */
 
 import { createHash } from "node:crypto";
 import { buscaDireta } from "./busca.js";
-import { type Cliente, RecusaError, umaProvaPorFerramenta } from "./cliente.js";
+import { AdiadaError, type Cliente, RecusaError, umaProvaPorFerramenta } from "./cliente.js";
 import {
   type ChaveDoDataJud,
   type ConsultaDataJud,
@@ -18,6 +18,7 @@ import {
   rotaPedida,
   TERMO_DE_USO_DATAJUD,
 } from "./datajud.js";
+import type { ConsultaDjen, FonteDjen } from "./djen.js";
 import { comparavel } from "./enquadramento.js";
 import { dataEHora, type Memoria } from "./memoria.js";
 import { ehEmbargosDeDeclaracao } from "./recorrido.js";
@@ -28,19 +29,23 @@ export interface PedidoJulgamentos {
   numero: string;
   /** Sigla do tribunal: troca a rota que o número daria (ex.: o processo que subiu ao STJ). */
   tribunal?: string;
+  /** Falso: nenhuma chamada ao DJEN (padrão: verdadeiro). */
+  incluirDjen?: boolean;
 }
 
 export interface FontesJulgamentos {
   /** O cliente do JurisprudênciaIA (o mesmo das buscas). */
   site: Cliente;
   datajud: Cliente;
+  djen: FonteDjen;
   tabela?: TabelaDePrecedentes;
   chave: ChaveDoDataJud;
   memoria?: Memoria;
   agora?: () => number;
 }
 
-export type EstadoDaFonte = "ok" | "vazia" | "erro" | "recusa" | "não consultada";
+/** "pausa": a fonte pediu para esperar (não é recusa); a mensagem diz até quando. */
+export type EstadoDaFonte = "ok" | "vazia" | "erro" | "recusa" | "pausa" | "não consultada";
 
 export interface BlocoDataJud extends Partial<ConsultaDataJud> {
   fonte: "DataJud (API Pública do CNJ)";
@@ -73,6 +78,17 @@ export interface BlocoDoSite {
   mensagem?: string;
 }
 
+export interface BlocoDjen extends Partial<ConsultaDjen> {
+  fonte: "DJEN (comunicações processuais do CNJ)";
+  estado: EstadoDaFonte;
+  obtido?: string;
+  /** Sempre que há resposta: o que a lista é e o que não é. */
+  sobreALista?: string;
+  /** Só quando o DJEN tem mais de 100: a lista mostrada foi cortada. */
+  listaCortada?: string;
+  mensagem?: string;
+}
+
 /** Totais das duas fontes, a comparação (só embargos de declaração × embargos de declaração) e o que conferir. */
 export interface LadoALado {
   datajud: string;
@@ -87,6 +103,7 @@ export interface RespostaJulgamentos {
   datajud: BlocoDataJud;
   jurisprudenciaia: BlocoDoSite;
   ladoALado: LadoALado;
+  djen: BlocoDjen;
   termoDeUso: string;
 }
 
@@ -109,8 +126,12 @@ export function rotaDoPedido(p: PedidoJulgamentos): { numero: string; digitos: s
 export async function julgamentosDoProcesso(p: PedidoJulgamentos, fontes: FontesJulgamentos): Promise<RespostaJulgamentos> {
   const { numero, digitos, rota } = rotaDoPedido(p);
   // Se um serviço estiver aguardando a chamada de prova, a ferramenta inteira faz no máximo uma.
-  const [datajud, jurisprudenciaia] = await umaProvaPorFerramenta(() =>
-    Promise.all([blocoDataJud(fontes, rota, digitos), blocoDoSite(fontes, rota, numero, digitos)]),
+  const [datajud, jurisprudenciaia, djen] = await umaProvaPorFerramenta(() =>
+    Promise.all([
+      blocoDataJud(fontes, rota, digitos),
+      blocoDoSite(fontes, rota, numero, digitos),
+      blocoDjen(fontes, digitos, p.incluirDjen ?? true),
+    ]),
   );
   return {
     numero,
@@ -118,6 +139,7 @@ export async function julgamentosDoProcesso(p: PedidoJulgamentos, fontes: Fontes
     datajud,
     jurisprudenciaia,
     ladoALado: ladoALado(datajud, jurisprudenciaia, rota.toUpperCase()),
+    djen,
     termoDeUso:
       `Dados do DataJud sob o termo de uso da API Pública do CNJ, v1.2 (${TERMO_DE_USO_DATAJUD}): fins legais e não ` +
       "comerciais; o CNJ não garante a precisão, integridade ou atualidade dos dados.",
@@ -160,6 +182,45 @@ async function blocoDataJud({ datajud, chave, memoria, agora = Date.now }: Fonte
     sobreAsDatas: SOBRE_AS_DATAS,
     ...consulta,
     ...(notas.length && { notas }),
+  };
+}
+
+async function blocoDjen(
+  { djen, memoria, agora = Date.now }: FontesJulgamentos,
+  digitos: string,
+  incluir: boolean,
+): Promise<BlocoDjen> {
+  const fonte = "DJEN (comunicações processuais do CNJ)" as const;
+  if (!incluir) return { fonte, estado: "não consultada", mensagem: "Desligado neste pedido (incluir_djen: false)." };
+  // sha256 do número: ele nunca vai em claro para o nome do arquivo.
+  const chave = createHash("sha256").update(JSON.stringify(["djen", digitos])).digest("hex");
+  const guardada = await memoria?.obterConsulta(chave);
+  let consulta: ConsultaDjen;
+  let obtido: string;
+  if (guardada) {
+    consulta = guardada.dado as ConsultaDjen;
+    obtido =
+      `consulta guardada: fotografia da consulta feita no DJEN em ${dataEHora(guardada.obtidoEm)}, devolvida pela ` +
+      "memória do Garimpo sem nova chamada";
+  } else {
+    try {
+      consulta = await djen.consultar(digitos);
+    } catch (e) {
+      const estado = e instanceof AdiadaError ? "pausa" : e instanceof RecusaError ? "recusa" : "erro";
+      return { fonte, estado, mensagem: (e as Error).message };
+    }
+    memoria?.guardarConsulta(chave, "djen", consulta);
+    obtido = `consultado no DJEN em ${dataEHora(agora())}`;
+  }
+  return {
+    fonte,
+    estado: consulta.comunicacoes.length ? "ok" : "vazia",
+    obtido,
+    sobreALista: "Comunicações do processo no DJEN, não um inventário de acórdãos.",
+    ...(consulta.total > consulta.comunicacoes.length && {
+      listaCortada: `lista cortada: o DJEN tem ${consulta.total} comunicações, mostradas ${consulta.comunicacoes.length}`,
+    }),
+    ...consulta,
   };
 }
 

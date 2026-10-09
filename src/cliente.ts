@@ -9,7 +9,9 @@
  *   (disjuntor.ts);
  * - User-Agent honesto identificando o Garimpo;
  * - intervalo mínimo opcional entre chamadas ao mesmo host (ex.: TSE), também entre janelas; a espera dessa
- *   pausa não ocupa vaga.
+ *   pausa não ocupa vaga;
+ * - opcional (DJEN): pedido de espera acima do teto vira adiamento, não recusa: a chamada volta na hora com o
+ *   instante permitido e o serviço fica adiado para todas as janelas, sem abrir nem dobrar o disjuntor.
  */
 
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -33,6 +35,7 @@ import {
   type Saida,
   servicoDe,
 } from "./disjuntor.js";
+import { dataEHora } from "./memoria.js";
 
 export const VERSAO = "0.3.2";
 export const USER_AGENT = `Garimpo/${VERSAO} (cliente MCP local e nao oficial de pesquisa de jurisprudencia)`;
@@ -56,6 +59,17 @@ export class ErroHttp extends Error {
   ) {
     super(message);
     this.name = "ErroHttp";
+  }
+}
+
+/** O serviço pediu para esperar até `ate` (não é recusa): a chamada não foi feita. */
+export class AdiadaError extends Error {
+  constructor(
+    message: string,
+    readonly ate: number,
+  ) {
+    super(message);
+    this.name = "AdiadaError";
   }
 }
 
@@ -130,6 +144,8 @@ export interface OpcoesCliente {
   esperaPadraoMs?: number;
   /** Teto da espera, mesmo que o servidor peça mais (ms). */
   esperaMaximaMs?: number;
+  /** Pedido acima do teto adia o serviço (não é recusa) em vez de abrir o disjuntor (DJEN). */
+  adiaAcimaDoTeto?: boolean;
   /** Intervalo mínimo entre chamadas ao mesmo host (ms), por host. */
   intervaloMinimoPorHost?: Record<string, number>;
   /** Prazo máximo de cada chamada, do envio ao fim da leitura do corpo (ms). */
@@ -321,6 +337,14 @@ export class Cliente {
         ida.encerrar();
         await vaga();
         const teto = this.opcoes.esperaMaximaMs ?? 30_000;
+        if (pedidaMs > teto && this.opcoes.adiaAcimaDoTeto && saida.papel === "normal" && !recusada) {
+          const ate = this.agora() + pedidaMs;
+          const aviso =
+            `${this.opcoes.nome} pediu para esperar até ${dataEHora(ate)} (HTTP ${status}); o Garimpo não insiste antes ` +
+            "disso. Não é recusa: depois desse instante, a primeira chamada é a nova tentativa.";
+          await this.vagas.anotar(servico, chamada, saida, { tipo: "adia", ate, aviso }, this.agora);
+          throw new AdiadaError(aviso, ate);
+        }
         if (pedidaMs > teto) {
           const erro = new RecusaError(
             `${this.opcoes.nome} pediu para esperar ${Math.ceil(pedidaMs / 1000)} s antes de nova chamada (HTTP ${status}), ` +
@@ -330,7 +354,8 @@ export class Cliente {
           );
           throw await this.abrir(servico, chamada, saida, erro, pedidaMs);
         }
-        if (saida.papel === "prova" || recusada) {
+        // A tentativa que vem depois de um adiamento não tem a recusa anterior nesta chamada, mas é a segunda.
+        if (saida.papel === "prova" || saida.papel === "tentativa" || recusada) {
           const erro = new RecusaError(
             saida.papel === "prova"
               ? `${this.opcoes.nome} recusou a chamada de prova (HTTP ${status}), feita depois de uma pausa por recusa.`
@@ -401,6 +426,13 @@ export class Cliente {
         throw new RecusaError(
           `Esta chamada não foi feita: as chamadas ${ao(this.opcoes.nome)} estão pausadas em todas as janelas do ` +
             `Garimpo até ${horaDeRetorno(ordem.ate, this.agora())}, por causa de uma recusa. ${ordem.aviso}`,
+        );
+      }
+      if (ordem.tipo === "adiado") {
+        throw new AdiadaError(
+          `Esta chamada não foi feita: ${this.opcoes.nome} pediu para esperar até ${dataEHora(ordem.ate)}, para todas ` +
+            "as janelas do Garimpo. Não é recusa: depois desse instante, a primeira chamada é a nova tentativa.",
+          ordem.ate,
         );
       }
       if (ordem.tipo === "sem-prova") {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Cliente } from "../src/cliente.js";
 import { ChaveDoDataJud, clienteDoDataJud } from "../src/datajud.js";
+import { clienteDoDjen, FonteDjen } from "../src/djen.js";
 import { julgamentosDoProcesso } from "../src/julgamentos.js";
 
 // Teste ao vivo opcional: 2 chamadas ao DataJud (TJTO), 0,5 s entre elas, e 1 busca no site. Só com GARIMPO_VIVO=1. O número vem da
@@ -17,7 +18,8 @@ describe.skipIf(process.env.GARIMPO_VIVO !== "1")("julgamentos_do_processo — a
     const numero: string = (await r.json()).hits.hits[0]._source.numeroProcesso;
 
     const site = new Cliente({ nome: "O JurisprudênciaIA" });
-    const resposta = await julgamentosDoProcesso({ numero }, { site, datajud, chave: new ChaveDoDataJud() });
+    const djen = new FonteDjen(clienteDoDjen());
+    const resposta = await julgamentosDoProcesso({ numero, incluirDjen: false }, { site, datajud, djen, chave: new ChaveDoDataJud() });
 
     expect(resposta.datajud.estado).toBe("ok");
     const codigos = resposta.datajud.registros!.flatMap((x) => x.resultadosDeJulgamento.map((m) => m.codigo));
