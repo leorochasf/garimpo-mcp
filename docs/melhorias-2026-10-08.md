@@ -340,6 +340,8 @@ Estes blocos não se abrem sem uma decisão do dono ou sem prova. Cada um começ
 
 ### D3 — Fontes além do JurisprudênciaIA
 
+> **Decidido pelo dono em 2026-10-09:** sim, o Garimpo busca em outras fontes. Ver seção 6 e ADR-0017.
+
 - **Eixo(s):** precisão, entrega.
 - **Itens:** P7 (busca oficial do STF), seção 2 caminho 2 (STF por `inteiro_teor_url`, com a mesma chamada de teste de P7), P8 (busca de 2º grau do eSAJ), E8 (DataJud por número CNJ), E10 (texto pelo Diário de Justiça Eletrônico Nacional), E11 (LexML para TRFs e TCU, só levantamento).
 - **Objetivo:** decidir se o Garimpo passa a consultar fontes além do JurisprudênciaIA, o que muda a natureza do projeto, e o que cada fonte realmente entrega. Itens P8, E8 e E10 têm candidata Python (juscraper): ver D1.
@@ -355,3 +357,34 @@ Estes blocos não se abrem sem uma decisão do dono ou sem prova. Cada um começ
 - **Depende de:** decisão do dono. Todos os usuários sairiam de **um IP só**, o que concentra o limite do site e contraria o desenho; **não verificado** se a autorização da JAI cobre isso.
 - **Pronto quando:** o dono decidiu "sim" ou "não" por escrito; no "sim", a JAI confirmou que a autorização cobre o uso remoto e o desenho define como o limite do site é dividido entre usuários.
 - **Para abrir a sessão:** "Rode /mattpocock-skills:grill-with-docs sobre o Bloco D4 da seção 5 de docs/melhorias-2026-10-08.md: item E12 (versão remota). Comece me perguntando se a autorização da JAI cobre o uso remoto e se aceito concentrar o limite do site em um único IP. Após o grilling: se alguma dúvida só se resolve medindo, desviar por /handoff → /prototype (medido em docs/banco-de-provas/) → /handoff de volta; depois /to-spec e /to-tickets; implementação com /implement, um ticket por sessão, /clear entre eles."
+
+---
+
+## 6. Várias fontes: decisão do dono e blocos novos (2026-10-09)
+
+**D3 decidido.** O dono decidiu em 2026-10-09: "sim, o garimpo vai passar a buscar em outras fontes". Registro em
+[ADR-0017](adr/0017-garimpo-busca-em-varias-fontes.md): toda fonte nova passa pelo Cliente único e pelos freios da
+regra 3, somados entre fontes e janelas; termos de uso lidos e registrados antes de entrar; sem nome de parte do
+DataJud e do DJEN (LGPD); rótulo de origem em toda resposta; o JurisprudênciaIA continua a fonte principal dos
+tribunais que cobre. Base: `TICKETS/perguntas/alem-do-jurisprudenciaia.md` (seções "Riscos e condições que valem
+para tudo" e "Como isso viraria blocos no plano"); os códigos C1–C8 são os de lá.
+
+| Bloco | Itens | Depende de | Pronto quando |
+|---|---|---|---|
+| **B11 ampliado — testes baratos** | `consulta.php` do TJTO; busca do TJGO; TREs; reCAPTCHA do CJF | — | Uma chamada por item, resultado e data registrados em `docs/api-jurisprudenciaia.md` |
+| **B12 — Justiça do Trabalho (CSJT)** | C1 (TST + 24 TRTs) | D3 (decidido); B3 (V1/V3) | Termos lidos e registrados; 1 chamada de teste registrada em `docs/`; `busca_direta`/`busca_ampla` aceitam TST/TRT por essa fonte, com texto integral; testes sem rede sobre resposta gravada; teto de páginas por busca |
+| **B13 — Acórdão que falta** | C4 (DataJud), C5 (DJEN); absorve E8, E10 e o aviso de embargos (`TICKETS/avisos/01`) | B1; D3 (decidido) | Dado um CNJ, o Garimpo lista os julgamentos (data, órgão) do DataJud e marca "não veio na busca do JurisprudênciaIA"; o texto do DJEN sai rotulado "texto da intimação"; sem nome de parte; testes sem rede |
+| **B14 — TCU** | C2 (e a rota C2-bis, se oficial) | D3 (decidido) | Dicionário de dados lido; planilha baixada uma vez e indexada no computador do usuário; busca local por número e por texto; data da base informada em toda resposta |
+| **D2 revisto — STF oficial** | C3 (opção A com cookie de ~4 dias e alternativa de cookie colado) | B3 (V3), B11 | 1 navegador comum a cada ~4 dias, sem disfarce; buscas STF com mais de 7 resultados medidas no banco de provas; parada no primeiro 202 |
+| **D1 (P8) — TJs via juscraper ou equivalente** | C6 | D1, D3 (decidido) | Prova comparativa: cobertura de ementa inteira e de acórdão faltante em 3 TJs (TJTO, TJPA, TJGO), contra o JurisprudênciaIA |
+| **TRFs** | C8 | resultado do teste do CJF (B11 ampliado) | Sem bloco até haver caminho sem captcha |
+
+**Ordem decidida pelo dono:**
+
+1. B11 ampliado (testes rápidos: TJTO `consulta.php`, TJGO, TREs, CJF).
+2. B12 (CSJT) e B13 (DataJud + DJEN) em paralelo — arquivos diferentes, chamadas ao vivo uma por vez.
+3. B14 (TCU).
+4. D2 revisto (STF oficial, navegador comum 1× a cada ~4 dias).
+5. Por último, D1/P8 (portais dos TJs via juscraper ou equivalente).
+
+TRFs seguem sem bloco até o teste do CJF.

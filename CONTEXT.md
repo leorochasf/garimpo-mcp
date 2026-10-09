@@ -18,6 +18,16 @@ _Evitar_: processo (um processo pode ter vários acórdãos), decisão (genéric
 Uma entrada na base do JurisprudênciaIA. Normalmente um registro é um acórdão, mas a base pode ter o mesmo acórdão em dois registros; para o Garimpo, os dois são um acórdão só.
 _Evitar_: resultado, item, documento
 
+**Fonte**:
+Um serviço público de onde o Garimpo tira jurisprudência ou dados de processo (JurisprudênciaIA, CSJT, DataJud, DJEN, TCU, STF, portal de um tribunal), com termos de uso lidos antes de entrar. Toda resposta diz de que fonte veio cada acórdão ou texto.
+_Evitar_: base (sozinho), API, site (sozinho, é o JurisprudênciaIA)
+_Decidido pelo dono em 2026-10-09._
+
+**Fonte principal**:
+O JurisprudênciaIA, para os tribunais que ele cobre. As outras fontes entram onde ele não chega; não o substituem nesses tribunais.
+_Evitar_: fonte padrão, fonte oficial (o JurisprudênciaIA não é oficial)
+_Decidido pelo dono em 2026-10-09._
+
 **Busca direta**:
 Uma consulta à base do JurisprudênciaIA, num tribunal, que devolve ementas inteiras, metadados e link do portal oficial, sem passar pelo chat de IA do site.
 _Evitar_: pesquisa IA, chat, scraping

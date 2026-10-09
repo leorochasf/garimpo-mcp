@@ -1,8 +1,10 @@
 # CLAUDE.md — Garimpo
 
-Servidor MCP local (stdio), em Node/TypeScript, que pesquisa jurisprudência brasileira pela busca direta
-do JurisprudênciaIA e baixa o inteiro teor oficial dos tribunais. **Cliente não oficial**: não é afiliado
-ao JurisprudênciaIA nem à JAI. Licença MIT. Feito para qualquer pessoa usar.
+Servidor MCP local (stdio), em Node/TypeScript, que pesquisa jurisprudência brasileira em várias fontes
+públicas — a principal é a busca direta do JurisprudênciaIA; outras entram onde ela não chega
+([ADR-0017](docs/adr/0017-garimpo-busca-em-varias-fontes.md)) — e baixa o inteiro teor oficial dos tribunais.
+**Cliente não oficial**: não é afiliado ao JurisprudênciaIA, à JAI nem a nenhuma outra fonte. Licença MIT.
+Feito para qualquer pessoa usar.
 
 > **Vocabulário:** [`CONTEXT.md`](CONTEXT.md). Use os termos de lá.
 
@@ -17,6 +19,8 @@ ao JurisprudênciaIA nem à JAI. Licença MIT. Feito para qualquer pessoa usar.
 1. **Código escrito do zero.** Existe um MCP de terceiros sem licença para a mesma API
    (e eventuais cópias locais dele na máquina). Não copie, não adapte, não abra
    esse código como base. O conhecimento da API vem de `docs/api-jurisprudenciaia.md`, mapeada de forma independente.
+   Repositórios **com licença** (ex.: juscraper, MIT) podem ser lidos como referência de técnica para outras
+   fontes, sem copiar nem adaptar código, com a licença registrada no documento que os cita.
 2. **Nada específico de usuário ou instituição.** Nenhum dado de processo real, nome de pessoa, órgão
    público, caminho de máquina ou fluxo de trabalho de alguém. Exemplos de busca são genéricos.
 3. **Uso responsável é requisito, não opção.** Toda chamada ao site passa pelo cliente único, com freios que
