@@ -95,11 +95,16 @@ Toda chamada ao site passa por um cliente único que:
   no TSE, no mínimo 10 s; no DJEN, no mínimo 60 s, e pedido acima de 60 s **adia** o DJEN em todas as janelas até o
   instante pedido, sem contar como recusa); enquanto isso, as outras chamadas ao mesmo serviço, em todas as janelas, esperam essa
   nova tentativa sem ocupar vaga;
-- trata 403 e desafios anti-robô (Cloudflare, AWS WAF, reCAPTCHA) como recusa: **nunca contorna**, devolve o
-  link para abrir no navegador;
+- trata 403 e desafios anti-robô (Cloudflare, AWS WAF, reCAPTCHA) como recusa: devolve o link para abrir no
+  navegador; no Falcão, a recusa do sistema traz a mensagem dele como texto externo (curta, sem HTML, sem dados
+  pessoais);
 - depois de uma **recusa final** (a nova tentativa recusada de novo, 403, desafio anti-robô ou pedido de espera
   acima de 30 s), **pausa o serviço** em todas as janelas (abaixo);
-- identifica-se com um User-Agent honesto (`Garimpo/<versão> …`).
+- identifica-se com um User-Agent honesto (`Garimpo/<versão> …`). **Exceção: o Falcão (CSJT)**, fonte dos TRTs,
+  recusa programas que não se apresentam como navegador (HTTP 403); por isso o Garimpo usa ali, **e só ali**, um
+  User-Agent de navegador fixo por versão, com `Origin`/`Referer` do próprio site, sempre dentro destes freios e com
+  1 s entre chamadas ao Falcão em todas as janelas. Termos do Falcão lidos e registrados em
+  [`docs/fonte-falcao.md`](docs/fonte-falcao.md).
 
 Os termos de uso do site preveem limites por IP e bloqueio em caso de uso abusivo. Use com moderação.
 

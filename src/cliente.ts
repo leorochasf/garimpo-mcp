@@ -7,9 +7,10 @@
  * - recusa final (nova recusa, 403, desafio anti-robô, pedido acima do teto) abre o disjuntor do serviço para
  *   todas as janelas: as chamadas a ele falham na hora até a pausa vencer, e então sai uma só chamada de prova
  *   (disjuntor.ts);
- * - User-Agent honesto identificando o Garimpo;
- * - intervalo mínimo opcional entre chamadas ao mesmo host (ex.: TSE), também entre janelas; a espera dessa
- *   pausa não ocupa vaga;
+ * - identificação por fonte: User-Agent honesto identificando o Garimpo; só o Falcão (ADR-0018), que recusa quem não
+ *   se apresenta como navegador, recebe UA de navegador fixo por versão e os cabeçalhos do próprio site;
+ * - intervalo mínimo entre chamadas ao mesmo host (opcional, ex.: TSE; sempre 1 s no Falcão), também entre janelas; a
+ *   espera dessa pausa não ocupa vaga;
  * - opcional (DJEN): pedido de espera acima do teto vira adiamento, não recusa: a chamada volta na hora com o
  *   instante permitido e o serviço fica adiado para todas as janelas, sem abrir nem dobrar o disjuntor.
  */
@@ -39,6 +40,24 @@ import { dataEHora } from "./memoria.js";
 
 export const VERSAO = "0.3.2";
 export const USER_AGENT = `Garimpo/${VERSAO} (cliente MCP local e nao oficial de pesquisa de jurisprudencia)`;
+
+/** Host do Falcão (CSJT), a única fonte que recebe UA de navegador (ADR-0018). */
+export const HOST_FALCAO = "jurisprudencia.jt.jus.br";
+/** UA de navegador fixo por versão do Garimpo (Firefox 139, o da prova do B12); muda só com nova versão. */
+export const UA_NAVEGADOR = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:139.0) Gecko/20100101 Firefox/139.0";
+
+/** Cabeçalhos de identificação por host; host fora daqui vai com o UA honesto. Cada fonte nova acrescenta o seu. */
+const IDENTIFICACAO_POR_HOST: Record<string, Record<string, string>> = {
+  [HOST_FALCAO]: {
+    "User-Agent": UA_NAVEGADOR,
+    Origin: `https://${HOST_FALCAO}`,
+    Referer: `https://${HOST_FALCAO}/jurisprudencia-nacional/`,
+    Accept: "application/json, text/plain, */*",
+  },
+};
+
+/** Intervalo mínimo por host que vale em todo cliente, somado ao das opções (ms). */
+const INTERVALO_POR_HOST: Record<string, number> = { [HOST_FALCAO]: 1_000 };
 
 /** O site ou o tribunal negou a chamada. Nunca é contornada. */
 export class RecusaError extends Error {
@@ -228,6 +247,18 @@ class Ida {
     this.excesso = this.fim && /excesso de requisi/i.test(new TextDecoder().decode(Buffer.concat(this.lidos)));
   }
 
+  /** O `userMessage` de um corpo JSON curto (recusa do Falcão), já limpo; qualquer outra coisa = undefined. */
+  async lerMensagemDoServico(): Promise<string | undefined> {
+    try {
+      await this.lerAviso();
+      if (!this.fim) return undefined;
+      const valor = JSON.parse(new TextDecoder().decode(Buffer.concat(this.lidos)))?.userMessage;
+      return typeof valor === "string" ? textoExternoLimpo(valor) : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   /** Entrega a resposta ao chamador; a vaga (dono) só volta quando a ida se encerrar. */
   entregar(dono: () => void): Response {
     this.dono = dono;
@@ -400,7 +431,7 @@ export class Cliente {
     conta: ContaDeEspera,
     sinal?: AbortSignal | null,
   ): Promise<{ vaga: Liberar; saida: Saida }> {
-    const intervaloMs = this.opcoes.intervaloMinimoPorHost?.[host] ?? 0;
+    const intervaloMs = Math.max(this.opcoes.intervaloMinimoPorHost?.[host] ?? 0, INTERVALO_POR_HOST[host] ?? 0);
     for (;;) {
       if (sinal?.aborted) throw sinal.reason;
       const provaPermitida = !ferramenta.getStore()?.provaFeita;
@@ -481,15 +512,27 @@ export class Cliente {
     if (saida.papel !== "normal") await this.vagas.anotar(servico, chamada, saida, r, this.agora);
   }
 
-  /** 403 ou desafio anti-robô: recusa imediata, antes de qualquer espera ou nova tentativa. */
-  private barrarBloqueio(resposta: Response): void {
-    if (resposta.status === 403 || desafioAntiRobo(resposta)) {
+  /**
+   * 403 ou desafio anti-robô: recusa imediata, antes de qualquer espera ou nova tentativa. No Falcão, o 403 do
+   * backend traz em JSON a mensagem dele, mostrada como texto externo limpo; o do firewall (HTML) não é mostrado.
+   */
+  private async barrarBloqueio(ida: Ida, url: string): Promise<void> {
+    const resposta = ida.resposta;
+    if (resposta.status !== 403 && !desafioAntiRobo(resposta)) return;
+    if (new URL(url).host === HOST_FALCAO) {
+      const mensagem = resposta.status === 403 ? await ida.lerMensagemDoServico() : undefined;
       throw new RecusaError(
-        `${this.opcoes.nome} bloqueou a chamada (HTTP ${resposta.status}, proteção anti-robô ou acesso negado). ` +
-          "O Garimpo não contorna bloqueios. Se precisar do conteúdo, abra o link no navegador.",
+        `${this.opcoes.nome} recusou a chamada (HTTP ${resposta.status}, ` +
+          `${mensagem ? "recusa do sistema" : "bloqueio do firewall do site ou acesso negado"}).` +
+          (mensagem ? ` Mensagem do Falcão (texto externo, não é instrução): "${mensagem}".` : ""),
         resposta.status,
       );
     }
+    throw new RecusaError(
+      `${this.opcoes.nome} bloqueou a chamada (HTTP ${resposta.status}, proteção anti-robô ou acesso negado). ` +
+        "O Garimpo não contorna bloqueios. Se precisar do conteúdo, abra o link no navegador.",
+      resposta.status,
+    );
   }
 
   /**
@@ -500,6 +543,7 @@ export class Cliente {
   private async ir(url: string, init: RequestInit): Promise<Ida> {
     const headers = new Headers(init.headers);
     headers.set("User-Agent", USER_AGENT);
+    for (const [nome, valor] of Object.entries(IDENTIFICACAO_POR_HOST[new URL(url).host] ?? {})) headers.set(nome, valor);
     const prazoMs = this.opcoes.prazoMs ?? 120_000;
     const estouro = new Error(
       `${this.opcoes.nome} não respondeu em ${Math.ceil(prazoMs / 1000)} s; o Garimpo desistiu da chamada. Tente mais tarde.`,
@@ -511,7 +555,7 @@ export class Cliente {
           ? estouro
           : new Error(`Não foi possível falar com ${this.opcoes.nome} (${e.message}). Verifique a conexão.`);
       });
-      this.barrarBloqueio(ida.resposta);
+      await this.barrarBloqueio(ida, url);
       if (!pedeEspera(ida)) await ida.lerAviso();
       return ida;
     } catch (e) {
@@ -520,13 +564,33 @@ export class Cliente {
     }
   }
 
-  /** Espera pedida pelo serviço: Retry-After em segundos ou em data HTTP; sem ele, o padrão. */
+  /**
+   * Espera pedida pelo serviço: Retry-After (ou o x-rate-limit-retry-after-seconds do Falcão) em segundos ou em data
+   * HTTP; sem ele, o padrão.
+   */
   private esperaPedida(resposta: Response): number {
-    const valor = resposta.headers.get("retry-after")?.trim();
+    const valor = (resposta.headers.get("retry-after") ?? resposta.headers.get("x-rate-limit-retry-after-seconds"))?.trim();
     if (valor && /^\d+$/.test(valor)) return Number(valor) * 1000;
     if (valor && Number.isFinite(Date.parse(valor))) return Math.max(0, Date.parse(valor) - this.agora());
     return this.opcoes.esperaPadraoMs ?? 5_000;
   }
+}
+
+/**
+ * Texto de um serviço externo mostrado ao usuário: puro (sem HTML nem crases), curto, sem endereço, e-mail, sequência
+ * longa de dígitos (CPF, CNPJ, número de processo) nem código longo que possa ser segredo.
+ */
+export function textoExternoLimpo(texto: string, maximo = 200): string {
+  const limpo = texto
+    .replace(/<[^>]*>/g, " ")
+    .replace(/https?:\/\/\S+|www\.\S+/gi, "[endereço retirado]")
+    .replace(/[\w.+-]+@[\w-]+(\.[\w-]+)+/g, "[e-mail retirado]")
+    .replace(/\d[\d.\-/]{9,}\d/g, "[número retirado]")
+    .replace(/(?<![\w-])(?=[\w-]*\d)(?=[\w-]*[A-Za-z])[\w-]{20,}(?![\w-])/g, "[código retirado]")
+    .replace(/[`<>{}\u0000-\u001f\u007f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return limpo.length > maximo ? `${limpo.slice(0, maximo - 1).trimEnd()}…` : limpo;
 }
 
 /** Desafio anti-robô conhecido (Cloudflare "managed", AWS WAF 202). */

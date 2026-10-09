@@ -71,6 +71,17 @@ transcrição da lei, não regra do sistema.)
 - Nada nos termos sobre licença de reuso do conteúdo; o texto das decisões é ato oficial público. Sem afirmação além
   disso (**não verificado**).
 
+## Como o Garimpo se identifica no Falcão
+
+O Falcão recusa programas que não se apresentam como navegador (HTTP 403 ao User-Agent honesto do Garimpo, 2026-10-09).
+Pela política do dono (ADR-0018), o Garimpo usa ali, **e só ali**, um User-Agent de navegador fixo por versão
+(`UA_NAVEGADOR` em `src/cliente.ts`), com `Origin`/`Referer` do próprio site e `Accept` JSON; o JurisprudênciaIA e
+os portais dos tribunais continuam recebendo o User-Agent honesto (`Garimpo/<versão> …`). Tudo passa pelo Cliente
+único, com os freios da regra 3, mais: 1 s entre chamadas ao Falcão em todas as janelas; espera pedida em
+`x-rate-limit-retry-after-seconds` acima de 30 s = recusa final, sem nova tentativa, com pausa de pelo menos o prazo
+pedido; 403 do firewall (HTML) e 403 do sistema (JSON com `userMessage`) = recusa final, e a `userMessage` vai ao
+usuário como texto externo limpo (sem HTML, endereços, e-mails, números longos nem códigos que possam ser segredo).
+
 ## Regras de acesso observadas (2026-10-09)
 
 - Sem User-Agent de navegador: HTTP 403 (WAF/CloudFront), já na página inicial e na API.
