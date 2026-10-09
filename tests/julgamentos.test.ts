@@ -35,6 +35,7 @@ function dataJudFalso(api: Rota, wiki: Rota = () => new Response("", { status: 4
 const siteQueNuncaResponde = () =>
   new Cliente({
     nome: "O site",
+    vagas: new Vagas(2),
     esperar: async () => {},
     fetch: (async () => {
       throw new Error("o site não devia ser chamado");
@@ -291,6 +292,20 @@ describe("julgamentos_do_processo: chave do DataJud", () => {
     expect(r.texto).not.toContain(chave);
   });
 
+  it("401 e a wiki recusa (403): erro com o link da wiki, e a API não fica pausada", async () => {
+    const { cliente, chamadas } = dataJudFalso(
+      (_url, init) => (autorizacao(init) === "APIKey nao-usada" ? hits() : new Response("", { status: 401 })),
+      () => new Response("negado", { status: 403 }),
+    );
+    const mcp = await conectar({ datajud: cliente });
+    const r = await chamar(mcp, { numero: TJTO });
+    expect(r.json.datajud.estado).toBe("recusa");
+    expect(chamadas).toHaveLength(2);
+    // Outro número: a API é chamada de novo (não ficou pausada pela recusa da wiki).
+    await chamar(mcp, { numero: TJTO_2 });
+    expect(chamadas.map((c) => new URL(c.url).host)[2]).toBe("api-publica.datajud.cnj.jus.br");
+  });
+
   it("401 com a chave da variável de ambiente: nunca troca nem lê a wiki; explica e aponta a wiki", async () => {
     vi.stubEnv("GARIMPO_DATAJUD_CHAVE", "minha-chave-de-teste-1234567890");
     const { cliente, chamadas } = dataJudFalso(() => new Response("", { status: 401 }), () => paginaDaWiki(CHAVE_NOVA));
@@ -305,9 +320,9 @@ describe("julgamentos_do_processo: chave do DataJud", () => {
 });
 
 describe("freios do DataJud", () => {
-  it("API e wiki são o serviço datajud no disjuntor", () => {
+  it("a API é o serviço datajud no disjuntor; a wiki, à parte (uma recusa dela não pausa a API)", () => {
     expect(servicoDe("https://api-publica.datajud.cnj.jus.br/api_publica_tjto/_search")).toBe("datajud");
-    expect(servicoDe("https://datajud-wiki.cnj.jus.br/api-publica/acesso/")).toBe("datajud");
+    expect(servicoDe("https://datajud-wiki.cnj.jus.br/api-publica/acesso/")).toBe("datajud-wiki");
   });
 
   it("intervalo mínimo de 0,5 s entre chamadas ao mesmo host", async () => {

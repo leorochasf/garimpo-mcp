@@ -63,9 +63,10 @@ export interface BuscaGuardada {
  * A resposta reduzida de uma fonte além do site (DataJud, DJEN), como a ferramenta a mostra: nunca a resposta bruta.
  * Guardada sob o sha256 do pedido, sem o número do processo em claro no nome.
  */
+export type FonteDaConsulta = "datajud" | "djen";
+
 export interface ConsultaGuardada {
-  /** A fonte da consulta ("datajud", "djen"). */
-  fonte: string;
+  fonte: FonteDaConsulta;
   dado: unknown;
   /** Instante em que a consulta foi feita na fonte (ms desde 1970, UTC). */
   obtidoEm: number;
@@ -202,7 +203,7 @@ export class Memoria {
   }
 
   /** Guarda a consulta reduzida a uma fonte sob a chave (sha256 do pedido). Sem pasta de dados, não guarda. */
-  guardarConsulta(chave: string, fonte: string, dado: unknown): void {
+  guardarConsulta(chave: string, fonte: FonteDaConsulta, dado: unknown): void {
     if (!this.pastaDeConsultas) return;
     const guardada: ConsultaGuardada = { fonte, dado, obtidoEm: this.agora() };
     this.consultasDaSessao.set(chave, guardada);
@@ -210,8 +211,15 @@ export class Memoria {
     this.agendar(this.pastaDeConsultas, [{ nome: `${chave}.json`, texto }]);
   }
 
-  /** A consulta guardada e válida, de qualquer janela (a mais recente); falha de leitura = ausente (é descartável). */
-  async obterConsulta(chave: string): Promise<ConsultaGuardada | undefined> {
+  /**
+   * A consulta guardada e válida, de qualquer janela (a mais recente), da fonte pedida e no formato que `valida`
+   * reconhece; falha de leitura ou outro formato = ausente (é descartável).
+   */
+  async obterConsulta(
+    chave: string,
+    fonte: FonteDaConsulta,
+    valida: (dado: unknown) => boolean,
+  ): Promise<ConsultaGuardada | undefined> {
     if (!this.pastaDeConsultas) return undefined;
     const arquivo = join(this.pastaDeConsultas, `${chave}.json`);
     let lida = await lerConsulta(arquivo).catch(() => undefined);
@@ -220,7 +228,7 @@ export class Memoria {
       lida = await lerConsulta(arquivo).catch(() => undefined);
     }
     const guardada = [lida?.consulta, this.consultasDaSessao.get(chave)]
-      .filter((c): c is ConsultaGuardada => c !== undefined && this.valido(c.obtidoEm))
+      .filter((c): c is ConsultaGuardada => c !== undefined && this.valido(c.obtidoEm) && c.fonte === fonte && valida(c.dado))
       .sort((x, y) => y.obtidoEm - x.obtidoEm)[0];
     return guardada;
   }
@@ -394,7 +402,7 @@ async function lerConsulta(arquivo: string) {
   const lido = await lerRegistro(arquivo, FORMATO_CONSULTA);
   const r = lido?.r;
   if (!lido || typeof r.fonte !== "string" || r.dado === undefined) return undefined;
-  const consulta: ConsultaGuardada = { fonte: r.fonte, dado: r.dado, obtidoEm: lido.obtidoEm };
+  const consulta: ConsultaGuardada = { fonte: r.fonte as FonteDaConsulta, dado: r.dado, obtidoEm: lido.obtidoEm };
   return { consulta, obtidoEm: lido.obtidoEm, bytes: lido.bytes };
 }
 

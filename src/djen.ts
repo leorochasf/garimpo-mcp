@@ -42,6 +42,12 @@ export interface ConsultaDjen {
   comunicacoes: Comunicacao[];
 }
 
+/** A consulta guardada tem o formato desta versão? (memória de outra versão ou estragada = ausente). */
+export function ehConsultaDjen(d: unknown): d is ConsultaDjen {
+  const c = d as ConsultaDjen;
+  return typeof c === "object" && c !== null && Number.isInteger(c.total) && Array.isArray(c.comunicacoes);
+}
+
 type Bruto = Record<string, unknown>;
 const texto = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
 

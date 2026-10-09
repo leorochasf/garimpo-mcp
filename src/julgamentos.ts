@@ -12,15 +12,16 @@ import {
   type ChaveDoDataJud,
   type ConsultaDataJud,
   consultarDataJud,
+  ehConsultaDataJud,
   lerNumeroCnj,
   type Movimento,
   rotaDoNumero,
   rotaPedida,
   TERMO_DE_USO_DATAJUD,
 } from "./datajud.js";
-import type { ConsultaDjen, FonteDjen } from "./djen.js";
+import { type ConsultaDjen, ehConsultaDjen, type FonteDjen } from "./djen.js";
 import { comparavel } from "./enquadramento.js";
-import { dataEHora, type Memoria } from "./memoria.js";
+import { dataEHora, type FonteDaConsulta, type Memoria } from "./memoria.js";
 import { ehEmbargosDeDeclaracao } from "./recorrido.js";
 import type { TabelaDePrecedentes } from "./tabelaDePrecedentes.js";
 import { SIGLAS } from "./tribunais.js";
@@ -146,26 +147,47 @@ export async function julgamentosDoProcesso(p: PedidoJulgamentos, fontes: Fontes
   };
 }
 
-async function blocoDataJud({ datajud, chave, memoria, agora = Date.now }: FontesJulgamentos, rota: string, digitos: string): Promise<BlocoDataJud> {
+/** O estado de uma fonte que falhou: adiada (pausa, só o DJEN), recusa ou erro. */
+const estadoDoErro = (e: unknown): EstadoDaFonte =>
+  e instanceof AdiadaError ? "pausa" : e instanceof RecusaError ? "recusa" : "erro";
+
+/**
+ * A consulta a uma fonte pela memória (válida e no formato desta versão) ou, sem ela, na fonte, guardando a resposta
+ * reduzida. A chave é o sha256 do pedido: o número do processo nunca vai em claro para o nome do arquivo.
+ */
+async function consultaComMemoria<T>(
+  { memoria, agora = Date.now }: FontesJulgamentos,
+  fonte: FonteDaConsulta,
+  nome: string,
+  pedido: unknown[],
+  valida: (dado: unknown) => dado is T,
+  consultar: () => Promise<T>,
+): Promise<{ consulta: T; obtido: string }> {
+  const chave = createHash("sha256").update(JSON.stringify([fonte, ...pedido])).digest("hex");
+  const guardada = await memoria?.obterConsulta(chave, fonte, valida);
+  if (guardada) {
+    return {
+      consulta: guardada.dado as T,
+      obtido:
+        `consulta guardada: fotografia da consulta feita no ${nome} em ${dataEHora(guardada.obtidoEm)}, devolvida ` +
+        "pela memória do Garimpo sem nova chamada",
+    };
+  }
+  const consulta = await consultar();
+  memoria?.guardarConsulta(chave, fonte, consulta);
+  return { consulta, obtido: `consultado no ${nome} em ${dataEHora(agora())}` };
+}
+
+async function blocoDataJud(fontes: FontesJulgamentos, rota: string, digitos: string): Promise<BlocoDataJud> {
   const fonte = "DataJud (API Pública do CNJ)" as const;
-  // sha256 da rota e do número: o número do processo nunca vai em claro para o nome do arquivo.
-  const chaveDaMemoria = createHash("sha256").update(JSON.stringify(["datajud", rota, digitos])).digest("hex");
-  const guardada = await memoria?.obterConsulta(chaveDaMemoria);
   let consulta: ConsultaDataJud;
   let obtido: string;
-  if (guardada) {
-    consulta = guardada.dado as ConsultaDataJud;
-    obtido =
-      `consulta guardada: fotografia da consulta feita no DataJud em ${dataEHora(guardada.obtidoEm)}, devolvida pela ` +
-      "memória do Garimpo sem nova chamada";
-  } else {
-    try {
-      consulta = await consultarDataJud(datajud, rota, digitos, chave);
-    } catch (e) {
-      return { fonte, estado: e instanceof RecusaError ? "recusa" : "erro", mensagem: (e as Error).message };
-    }
-    memoria?.guardarConsulta(chaveDaMemoria, "datajud", consulta);
-    obtido = `consultado no DataJud em ${dataEHora(agora())}`;
+  try {
+    ({ consulta, obtido } = await consultaComMemoria(fontes, "datajud", "DataJud", [rota, digitos], ehConsultaDataJud, () =>
+      consultarDataJud(fontes.datajud, rota, digitos, fontes.chave),
+    ));
+  } catch (e) {
+    return { fonte, estado: estadoDoErro(e), mensagem: (e as Error).message };
   }
   const notas: string[] = [];
   if (consulta.total === 0) {
@@ -185,32 +207,17 @@ async function blocoDataJud({ datajud, chave, memoria, agora = Date.now }: Fonte
   };
 }
 
-async function blocoDjen(
-  { djen, memoria, agora = Date.now }: FontesJulgamentos,
-  digitos: string,
-  incluir: boolean,
-): Promise<BlocoDjen> {
+async function blocoDjen(fontes: FontesJulgamentos, digitos: string, incluir: boolean): Promise<BlocoDjen> {
   const fonte = "DJEN (comunicações processuais do CNJ)" as const;
   if (!incluir) return { fonte, estado: "não consultada", mensagem: "Desligado neste pedido (incluir_djen: false)." };
-  // sha256 do número: ele nunca vai em claro para o nome do arquivo.
-  const chave = createHash("sha256").update(JSON.stringify(["djen", digitos])).digest("hex");
-  const guardada = await memoria?.obterConsulta(chave);
   let consulta: ConsultaDjen;
   let obtido: string;
-  if (guardada) {
-    consulta = guardada.dado as ConsultaDjen;
-    obtido =
-      `consulta guardada: fotografia da consulta feita no DJEN em ${dataEHora(guardada.obtidoEm)}, devolvida pela ` +
-      "memória do Garimpo sem nova chamada";
-  } else {
-    try {
-      consulta = await djen.consultar(digitos);
-    } catch (e) {
-      const estado = e instanceof AdiadaError ? "pausa" : e instanceof RecusaError ? "recusa" : "erro";
-      return { fonte, estado, mensagem: (e as Error).message };
-    }
-    memoria?.guardarConsulta(chave, "djen", consulta);
-    obtido = `consultado no DJEN em ${dataEHora(agora())}`;
+  try {
+    ({ consulta, obtido } = await consultaComMemoria(fontes, "djen", "DJEN", [digitos], ehConsultaDjen, () =>
+      fontes.djen.consultar(digitos),
+    ));
+  } catch (e) {
+    return { fonte, estado: estadoDoErro(e), mensagem: (e as Error).message };
   }
   return {
     fonte,
@@ -238,7 +245,7 @@ async function blocoDoSite(
   try {
     r = await buscaDireta(site, { tribunal: rota, texto: numero, limite: LIMITE_NO_SITE }, memoria, { tabela });
   } catch (e) {
-    return { fonte, estado: e instanceof RecusaError ? "recusa" : "erro", mensagem: (e as Error).message };
+    return { fonte, estado: estadoDoErro(e), mensagem: (e as Error).message };
   }
   // A busca é por texto: só os registros do mesmo número contam.
   const doNumero = r.acordaos.filter((a) => a.numeroCnj?.replace(/\D/g, "") === digitos);

@@ -83,7 +83,7 @@ const SOBRE_A_BUSCA_GUARDADA =
 /** O aviso de recorrido ausente: vai na descrição das duas buscas. */
 const SOBRE_O_RECORRIDO =
   "Embargos de declaração, agravo interno e similares sem o acórdão recorrido do mesmo número na resposta ganham um " +
-  "aviso (uma vez, até 10 números): o recorrido não veio nesta busca e pode não estar na base.";
+  "aviso (uma vez, até 10 números; na busca ampla, até 3): o recorrido não veio nesta busca e pode não estar na base.";
 
 /**
  * Lista mandada como texto (ADR-0002): modelos que não são o Claude costumam mandar listas assim. Texto de lista
@@ -630,7 +630,7 @@ export function criarServidor(
         "(busca guardada, se houver). ladoALado traz os totais das duas fontes; só com as duas respostas utilizáveis e " +
         "sem corte, compara embargos de declaração com embargos de declaração e diz o que conferir no portal do " +
         "tribunal (o movimento de tipo não verificado, ou a diferença de embargos). Nunca afirma que um acórdão falta. " +
-        "Cada fonte vem com o seu estado (ok, vazia, erro, recusa, não consultada); \"o DataJud não devolveu este " +
+        "Cada fonte vem com o seu estado (ok, vazia, erro, recusa, pausa, não consultada); \"o DataJud não devolveu este " +
         "processo\" não prova que ele não exista. " +
         "Com incluir_djen (padrão), também as comunicações do processo no DJEN (uma página, até 100): data de " +
         "disponibilização, tipo de comunicação e de documento, órgão, classe e link; nunca o texto nem nome de parte ou " +

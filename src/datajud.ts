@@ -107,7 +107,11 @@ export function rotaDoNumero({ j, tr }: Pick<NumeroCnj, "j" | "tr">): { rota: st
 
 /** A rota pedida pelo usuário (sigla, sem acento nem maiúscula); STF e sigla sem rota = a explicação. */
 export function rotaPedida(tribunal: string): { rota: string } | { erro: string } {
-  const sigla = tribunal.trim().toLowerCase().replace(/^tre(?=[a-z]{2,3}$)/, "tre-").replace(/^tjdf$/, "tjdft");
+  const sigla = tribunal
+    .trim()
+    .toLowerCase()
+    .replace(/^tre-?(?=[a-z]{2,3}$)/, "tre-")
+    .replace(/^(tj|tre-)df$/, "$1dft");
   if (sigla === "stf") return { erro: NAO_COBRE_STF };
   if (ROTAS.includes(sigla)) return { rota: sigla };
   return {
@@ -176,12 +180,25 @@ export interface ConsultaDataJud {
   registrosDePrimeiroGrauNaoMostrados: number;
 }
 
+/** A consulta guardada tem o formato desta versão? (memória de outra versão ou estragada = ausente). */
+export function ehConsultaDataJud(d: unknown): d is ConsultaDataJud {
+  const c = d as ConsultaDataJud;
+  return (
+    typeof c === "object" &&
+    c !== null &&
+    Number.isInteger(c.total) &&
+    Number.isInteger(c.registrosDePrimeiroGrauNaoMostrados) &&
+    Array.isArray(c.registros) &&
+    c.registros.every((r) => Array.isArray(r?.resultadosDeJulgamento) && Array.isArray(r.juntadasComComplementoAcordao))
+  );
+}
+
 type Bruto = Record<string, unknown>;
 const texto = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
 const nomeDe = (v: unknown) => texto((v as Bruto | undefined)?.nome);
 
 /** Reduz a resposta do DataJud ao que a ferramenta mostra. */
-export function reduzir(json: unknown): ConsultaDataJud {
+export function reduzirDataJud(json: unknown): ConsultaDataJud {
   const hits = (json as { hits?: { total?: { value?: unknown }; hits?: unknown } })?.hits;
   if (!hits || !Array.isArray(hits.hits)) {
     throw new FormatoInesperadoError("O DataJud devolveu uma resposta sem a lista de processos (hits): o formato pode ter mudado.");
@@ -218,7 +235,8 @@ function registro(f: Bruto): RegistroDataJud {
       Array.isArray(m.complementosTabelados) &&
       (m.complementosTabelados as Bruto[]).some((c) => comparavel(String(c?.nome ?? "")) === "acordao");
     if (!RESULTADO_DE_JULGAMENTO.has(codigo) && !ehJuntada) continue;
-    if (vistos.has(chave)) continue;
+    // Sem o instante, não há prova de repetição.
+    if (lancadoEm !== "não informada" && vistos.has(chave)) continue;
     vistos.add(chave);
     const linha: Movimento = { lancadoEm, codigo, nome, ...(nomeDe(m.orgaoJulgador) && { orgao: nomeDe(m.orgaoJulgador) }) };
     (ehJuntada ? juntadas : resultados).push(linha);
@@ -315,5 +333,5 @@ export async function consultarDataJud(
   } catch {
     throw new FormatoInesperadoError("O DataJud devolveu algo que não é JSON.");
   }
-  return reduzir(json);
+  return reduzirDataJud(json);
 }

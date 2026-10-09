@@ -16,12 +16,14 @@ const CLASSES = [
   "embargos de divergencia",
 ];
 /** As mesmas classes pela sigla, no começo do número, quando o site não traz a classe (caso do STJ). */
-const SIGLAS = ["ed", "edcl", "agint", "agrg", "ei", "eresp", "earesp", "ere", "eag"];
+const SIGLAS_DE_RECURSO = ["ed", "edcl", "agint", "agrg", "ei", "eresp", "earesp", "ere", "eag"];
+/** Embargos de declaração: a primeira classe e as duas primeiras siglas. */
+const EMBARGOS_DE_DECLARACAO = { classe: CLASSES[0], siglas: SIGLAS_DE_RECURSO.slice(0, 2) };
 
 /** Embargos de declaração, pela classe ou, sem ela, pela sigla no começo do número (a primeira linha das tabelas). */
 export function ehEmbargosDeDeclaracao(a: Pick<Acordao, "classe" | "numero">): boolean {
-  if (a.classe) return comparavel(a.classe).startsWith(CLASSES[0]);
-  return ["ed", "edcl"].includes(comparavel(a.numero.split(/\s+/)[0] ?? ""));
+  if (a.classe) return comparavel(a.classe).startsWith(EMBARGOS_DE_DECLARACAO.classe);
+  return EMBARGOS_DE_DECLARACAO.siglas.includes(siglaDoNumero(a.numero));
 }
 
 export function ehRecursoContraAcordao(a: Pick<Acordao, "classe" | "numero">): boolean {
@@ -29,8 +31,11 @@ export function ehRecursoContraAcordao(a: Pick<Acordao, "classe" | "numero">): b
     const classe = comparavel(a.classe);
     return CLASSES.some((c) => classe.startsWith(c));
   }
-  return SIGLAS.includes(comparavel(a.numero.split(/\s+/)[0] ?? ""));
+  return SIGLAS_DE_RECURSO.includes(siglaDoNumero(a.numero));
 }
+
+/** "AgRg no REsp 1.234.567/SP" → "agrg". */
+const siglaDoNumero = (numero: string) => comparavel(numero.split(/\s+/)[0] ?? "");
 
 const digitos = (cnj: string) => cnj.replace(/\D/g, "");
 

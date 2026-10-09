@@ -92,8 +92,9 @@ const CONFERENCIA_MS = 250;
 export function servicoDe(url: string): string {
   const { host, hostname: nome } = new URL(url);
   if (/(^|\.)jurisprudenciaia\.com\.br$/i.test(nome)) return "jurisprudenciaia";
-  // A API e a wiki do DataJud são um serviço só, com nome próprio (o domínio daria "cnj").
-  if (/^(api-publica\.datajud|datajud-wiki)\.cnj\.jus\.br$/i.test(nome)) return "datajud";
+  // Nomes próprios (o domínio daria "cnj"). A wiki fica à parte: uma recusa dela não pausa a API.
+  if (/^api-publica\.datajud\.cnj\.jus\.br$/i.test(nome)) return "datajud";
+  if (/^datajud-wiki\.cnj\.jus\.br$/i.test(nome)) return "datajud-wiki";
   // O DJEN tem limite próprio por IP: nome próprio (o domínio daria "pje").
   if (/^comunicaapi\.pje\.jus\.br$/i.test(nome)) return "djen";
   const tribunal = nome.toLowerCase().match(/(?:^|\.)([a-z0-9-]+)\.jus\.br$/);

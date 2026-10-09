@@ -51,9 +51,9 @@ de decisão e sem nome de parte.
 - **Datas:** a data do movimento é a do **lançamento no DataJud**, não a da sessão (no caso medido, 7 e 1 dia depois
   das sessões); `dataHoraUltimaAtualizacao` diz quando o registro foi atualizado. O CNJ "não garante a precisão,
   integridade ou atualidade dos dados" (termo, 3.6).
-- **Freios:** serviço `datajud` (API e wiki) no disjuntor; intervalo mínimo de 0,5 s entre chamadas ao mesmo host, para
-  todas as janelas (termo, 3.13: até 120 por minuto); 429/503 pela regra geral (espera e uma nova tentativa). A API
-  respondeu em 19 s na medição de 2026-10-09, sem cabeçalho de limite de taxa.
+- **Freios:** serviços `datajud` (a API) e `datajud-wiki` (a página de acesso) no disjuntor, separados para que
+  uma recusa da wiki não pause a API; intervalo mínimo de 0,5 s entre chamadas ao mesmo host, para todas as janelas
+  (termo, 3.13: até 120 por minuto); 429/503 pela regra geral (espera e uma nova tentativa). A API respondeu em 19 s na medição de 2026-10-09, sem cabeçalho de limite de taxa.
 - **O que o Garimpo guarda:** por até 24 h, na memória do Garimpo, só a resposta reduzida que a ferramenta mostra
   (códigos, nomes, datas e órgãos dos movimentos de julgamento), com a fonte e o momento da obtenção; nunca a resposta
   bruta. A ferramenta não busca por nome de parte.
