@@ -57,10 +57,14 @@ export function tabelaEmpacotada(): TabelaDePrecedentes {
   ) as TabelaDePrecedentes);
 }
 
-/** Data da tabela: o dia (UTC) da coleta do temas.csv, de onde saem as linhas. */
+/** Instante (ISO) da coleta do temas.csv, de onde saem as linhas; sem ele, o da geração da tabela. */
+function coletaDosTemas(t: TabelaDePrecedentes): string {
+  return t.arquivos.find((a) => a.url.endsWith("/temas.csv"))?.coletadoEm ?? t.geradaEm;
+}
+
+/** Data da tabela: o dia (UTC) da coleta do temas.csv. */
 export function dataDaTabela(t: TabelaDePrecedentes): string {
-  const temas = t.arquivos.find((a) => a.url.endsWith("/temas.csv")) ?? t.arquivos[0];
-  return temas.coletadoEm.slice(0, 10);
+  return coletaDosTemas(t).slice(0, 10);
 }
 
 export const DIAS_PARA_AVISO = 90;
@@ -84,7 +88,7 @@ function instanteDaAtualizacao(texto: string): number | undefined {
  */
 export function sobreATabela(t: TabelaDePrecedentes, agora: number, { curta = false } = {}) {
   const atualizada = instanteDaAtualizacao(t.atualizacaoDaFonte.texto);
-  const coleta = Date.parse(t.arquivos.find((a) => a.url.endsWith("/temas.csv"))?.coletadoEm ?? t.geradaEm);
+  const coleta = Date.parse(coletaDosTemas(t));
   const base = atualizada ?? coleta;
   const dias = Math.max(0, Math.floor((agora - base) / 86_400_000));
   const contada = atualizada !== undefined

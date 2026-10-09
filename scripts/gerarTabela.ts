@@ -4,7 +4,9 @@
  * único do Garimpo e grava a fotografia datada dos temas repetitivos e IAC em dados/.
  *
  * Rede: só as três URLs abaixo (nunca /api/, nunca processo.stj.jus.br, que o robots.txt proíbem), 10 s entre
- * chamadas (Crawl-Delay do robots.txt), uma nova tentativa em 429/503 e parada em recusa, 403 ou desafio anti-robô.
+ * chamadas (Crawl-Delay do robots.txt), uma nova tentativa em 429/503 e parada em recusa, 403 ou desafio anti-robô
+ * que o cliente reconhece (cf-mitigated, AWS WAF). Uma página de desafio desconhecida com HTTP 200 para o gerador
+ * porque não traz a licença (página) nem o cabeçalho esperado (CSV).
  * Qualquer parada acontece antes da gravação: a tabela anterior só é trocada no fim, de uma vez.
  *
  * Uso: npm run gerar-tabela (scripts/rodarGerador.ts)

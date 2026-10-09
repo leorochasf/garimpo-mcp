@@ -573,7 +573,7 @@ export function criarServidor(
               'Use tribunal "stj", ou busque o precedente com busca_direta.',
           );
         }
-        const doTipo = TIPOS_NA_TABELA.find((t) => t.toLowerCase() === tipo?.trim().toLowerCase());
+        const doTipo = TIPOS_NA_TABELA.find((t) => t === tipo?.trim());
         if (!doTipo) {
           throw new Error(
             `Diga o tipo: "tema repetitivo" ou "IAC"${tipo ? ` ("${tipo}" não é um deles)` : ""}. Tema e IAC do STJ ` +

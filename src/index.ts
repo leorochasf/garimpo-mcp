@@ -11,4 +11,12 @@ import { tabelaEmpacotada } from "./tabelaDePrecedentes.js";
 
 const site = new Cliente({ nome: "O JurisprudênciaIA" });
 
-await criarServidor(site, { tabela: tabelaEmpacotada() }).connect(new StdioServerTransport());
+// Tabela ilegível não derruba o servidor: só o consultar_precedente responde com erro e as listas seguem sem ela.
+let tabela;
+try {
+  tabela = tabelaEmpacotada();
+} catch (e) {
+  console.error(`Garimpo: a tabela de precedentes não pôde ser lida (${(e as Error).message}).`);
+}
+
+await criarServidor(site, { tabela }).connect(new StdioServerTransport());
