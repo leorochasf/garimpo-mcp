@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
 import { mkdtemp, readdir, readFile, rm, truncate, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -146,7 +145,7 @@ describe("obter inteiro teor pela porta (tribunal falso e pasta temporária)", (
 
   /** Servidor com STJ, TJMG e TSE falsos e uma pasta temporária; o TJMG pode entregar outras respostas. */
   async function montar(tjmg: Parameters<typeof clienteFalso>[0] = [pdf()], registros: unknown[] = []) {
-    const pasta = await mkdtemp(join(tmpdir(), "garimpo-porta-"));
+    const pasta = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-porta-"));
     const falsos = { stj: stjFalso(), tjmg: clienteFalso(tjmg), tse: tseFalso() };
     const mcp = await conectar(siteFalso(registros), {
       tribunais: (sigla) => falsos[sigla as keyof typeof falsos].cliente,
@@ -258,7 +257,7 @@ describe("download robusto e recibo de origem (pela porta)", () => {
 
   /** Servidor com um TJMG falso que entrega estas respostas, em ordem, e uma pasta temporária. */
   async function montar(respostas: Parameters<typeof clienteFalso>[0], registros: unknown[] = []) {
-    const pasta = await mkdtemp(join(tmpdir(), "garimpo-recibo-"));
+    const pasta = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-recibo-"));
     const tjmg = clienteFalso(respostas);
     const mcp = await conectar(siteFalso(registros), { tribunais: () => tjmg.cliente, pasta });
     const obter = async (args: Record<string, unknown>) => {
@@ -617,7 +616,7 @@ describe("ler inteiro teor em partes (pela porta)", () => {
 
   /** Servidor com um TJMG falso que entrega este PDF, uma pasta temporária e o PDF já baixado pelo Garimpo. */
   async function baixado(pdf: Uint8Array<ArrayBuffer>, registros: unknown[] = []) {
-    const pasta = await mkdtemp(join(tmpdir(), "garimpo-leitura-"));
+    const pasta = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-leitura-"));
     const tjmg = clienteFalso([new Response(pdf)]);
     const mcp = await conectar(siteFalso(registros), { tribunais: () => tjmg.cliente, pasta });
     const chamar = async (name: string, args: Record<string, unknown>): Promise<Resposta> => {
@@ -835,8 +834,8 @@ describe("inteiro teor trazido pelo usuário (pela porta)", () => {
 
   /** Servidor sem tribunal nenhum (a leitura não chama a rede) e uma pasta qualquer, fora da pasta do Garimpo. */
   async function montar(registros: unknown[] = []) {
-    const pastaDoUsuario = await mkdtemp(join(tmpdir(), "garimpo-usuario-"));
-    const pasta = await mkdtemp(join(tmpdir(), "garimpo-pasta-"));
+    const pastaDoUsuario = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-usuario-"));
+    const pasta = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-pasta-"));
     const mcp = await conectar(siteFalso(registros), {
       tribunais: () => {
         throw new Error("a leitura não pode chamar tribunal");
@@ -1013,7 +1012,7 @@ describe("ponte: resposta \"só link\" ensina a ler o PDF baixado no navegador (
         chamadas.push(sigla);
         throw new Error("só link não chama tribunal");
       },
-      pasta: await mkdtemp(join(tmpdir(), "garimpo-ponte-")),
+      pasta: await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-ponte-")),
     });
     for (const tribunal of ["stf", "tjgo", "tjrs"]) {
       const r = (await mcp.callTool({
@@ -1034,7 +1033,7 @@ describe("ponte: resposta \"só link\" ensina a ler o PDF baixado no navegador (
 describe("ordem de leitura do texto do PDF (pela porta)", () => {
   /** Texto da página 1 lido pelo ler_inteiro_teor, sem o marcador de página: PDF numa pasta qualquer, sem rede. */
   async function lido(posicionados: TextoPosicionado[]) {
-    const pasta = await mkdtemp(join(tmpdir(), "garimpo-ordem-"));
+    const pasta = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-ordem-"));
     const caminho = join(pasta, "ordem.pdf");
     await writeFile(caminho, pdfSintetico([posicionados]));
     const mcp = await conectar(siteFalso([]), { tribunais: () => { throw new Error("a leitura não chama tribunal"); }, pasta });
@@ -1463,7 +1462,7 @@ describe("conferir citação no inteiro teor (pela porta)", () => {
 
   /** Grava o PDF sintético numa pasta temporária, sem recibo (inteiro teor trazido pelo usuário). */
   async function pdfTrazido(paginas: Parameters<typeof pdfSintetico>[0]) {
-    const pasta = await mkdtemp(join(tmpdir(), "garimpo-conferir-"));
+    const pasta = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-conferir-"));
     const caminho = join(pasta, "acordao-ficticio.pdf");
     await writeFile(caminho, pdfSintetico(paginas));
     return caminho;
@@ -1638,7 +1637,7 @@ describe("conferir citação no inteiro teor (pela porta)", () => {
   });
 
   it("origem: não conferida no PDF trazido e conferida no PDF baixado pelo Garimpo com o recibo", async () => {
-    const pasta = await mkdtemp(join(tmpdir(), "garimpo-conferir-baixado-"));
+    const pasta = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-conferir-baixado-"));
     const pdf = pdfSintetico([comCitacao(1, `Para ${CITACAO}.`)]);
     const tjmg = clienteFalso([new Response(pdf)]);
     const mcp = await conectar(siteFalso([]), { tribunais: () => tjmg.cliente, pasta });
@@ -1724,7 +1723,7 @@ describe("PDF trazido pelo usuário e seção do acórdão na conferência (pela
 
   /** PDF sintético numa pasta qualquer, sem recibo: inteiro teor trazido pelo usuário. */
   async function pdfTrazido(paginas: string[][]) {
-    const pasta = await mkdtemp(join(tmpdir(), "garimpo-secao-"));
+    const pasta = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-secao-"));
     const caminho = join(pasta, "baixado-a-mao.pdf");
     await writeFile(caminho, pdfSintetico(paginas));
     return { pasta, caminho };

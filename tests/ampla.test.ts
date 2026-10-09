@@ -1,5 +1,4 @@
 import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buscaAmpla } from "../src/ampla.js";
@@ -209,7 +208,7 @@ describe("busca ampla", () => {
   });
 
   it("repetida da memória, com a marca de busca guardada em cada tribunal, continua < 25 mil caracteres", async () => {
-    const dados = await mkdtemp(join(tmpdir(), "garimpo-ampla-"));
+    const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-ampla-"));
     try {
       const memoria = new Memoria({ dados });
       const { cliente, estado } = siteRealista();
@@ -230,7 +229,7 @@ describe("busca ampla", () => {
   });
 
   it("com a memória falhando ao ler e ao gravar, os dois avisos cabem: continua < 25 mil caracteres", async () => {
-    const dados = await mkdtemp(join(tmpdir(), "garimpo-ampla-"));
+    const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-ampla-"));
     /** A gravação corre por trás: espera a condição, com prazo. */
     const esperar = async (pronto: () => Promise<boolean> | boolean) => {
       for (const prazo = Date.now() + 5_000; !(await pronto()); await new Promise((r) => setTimeout(r, 20))) {
@@ -266,7 +265,7 @@ describe("busca ampla", () => {
   });
 
   it("com filtro local, repetida da memória e campos de tamanho realista, continua < 25 mil caracteres", async () => {
-    const dados = await mkdtemp(join(tmpdir(), "garimpo-ampla-"));
+    const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-ampla-"));
     try {
       const memoria = new Memoria({ dados });
       const { cliente } = siteRealista();

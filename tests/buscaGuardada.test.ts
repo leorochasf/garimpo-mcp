@@ -1,5 +1,4 @@
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -24,7 +23,7 @@ let agora: number;
 const relogio = () => agora;
 
 beforeEach(async () => {
-  dados = await mkdtemp(join(tmpdir(), "garimpo-busca-guardada-"));
+  dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-busca-guardada-"));
   agora = OBTENCAO;
   vi.stubEnv("TZ", "America/Sao_Paulo");
 });

@@ -1,7 +1,7 @@
-import { mkdtemp, readdir, readFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buscaDireta } from "../src/busca.js";
 import { Cliente } from "../src/cliente.js";
 import { obterInteiroTeor, PAUSA_TSE_MS } from "../src/inteiroTeor.js";
@@ -30,6 +30,7 @@ let pasta: string;
 beforeEach(async () => {
   pasta = await mkdtemp(join(tmpdir(), "garimpo-teste-"));
 });
+afterEach(() => rm(pasta, { recursive: true, force: true, maxRetries: 10 }));
 
 describe("inteiro teor — STJ em 3 passos", () => {
   it("com a sessão: segue página → mediado → iframe e salva um PDF oficial", async () => {

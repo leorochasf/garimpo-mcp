@@ -1,5 +1,4 @@
 import { mkdtemp, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -57,8 +56,8 @@ let pasta: string;
 let agora: number;
 
 beforeEach(async () => {
-  dados = await mkdtemp(join(tmpdir(), "garimpo-reuso-dados-"));
-  pasta = await mkdtemp(join(tmpdir(), "garimpo-reuso-pdfs-"));
+  dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-reuso-dados-"));
+  pasta = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-reuso-pdfs-"));
   agora = Date.UTC(2026, 9, 8, 17, 3);
 });
 afterEach(async () => {
