@@ -11,7 +11,7 @@ import { buscaDireta, ementaAparentementeIncompleta } from "./busca.js";
 import { buscaAmpla } from "./ampla.js";
 import { pastaDeDados } from "./coordenacao.js";
 import { lerFiltrosLocais, listaJson } from "./filtroLocal.js";
-import { conferirNaEmenta, conferirNoInteiroTeor, lerCitacao, naoVerificavel } from "./conferencia.js";
+import { conferirNaEmenta, conferirNoInteiroTeor, conferirNoTextoIntegral, lerCitacao, naoVerificavel } from "./conferencia.js";
 import {
   type ClientePorTribunal,
   clientePadrao,
@@ -20,11 +20,15 @@ import {
   pastaPadrao,
 } from "./inteiroTeor.js";
 import {
+  AVISO_DE_CORTE,
   contarPaginas,
   type InteiroTeorParaConferir,
   LIMITE_CARACTERES_PARTE,
   lerInteiroTeor,
   lerParaConferir,
+  lerTextoIntegral,
+  NATUREZA_DO_TEXTO_INTEGRAL,
+  textoForaDaMemoria,
 } from "./leitura.js";
 import { Memoria, obtidoDoSite } from "./memoria.js";
 import { ChaveDoDataJud, clienteDoDataJud, TERMO_DE_USO_DATAJUD } from "./datajud.js";
@@ -413,7 +417,8 @@ export function criarServidor(
         "fora da pasta de destino. " +
         "Acórdão que veio da busca sem link nenhum: pede o link oficial, uma vez, à rota de link do JurisprudênciaIA " +
         "(exceto TST) e diz que ele veio de lá; sem link também ali, diz como achar o acórdão pelo número CNJ. " +
-        "Baixa do STJ, TJMG, TJSP e TSE. Para STF, TJGO e demais devolve o link e explica como obter no navegador " +
+        "Baixa do STJ, TJMG, TJSP e TSE. TRT (Falcão): não há PDF a baixar; explica e aponta o ler_inteiro_teor pelo " +
+        "id. Para STF, TJGO e demais devolve o link e explica como obter no navegador " +
         "(o Garimpo não contorna captcha nem proteção anti-robô) e como ler o PDF baixado: passar o caminho do " +
         "arquivo ao ler_inteiro_teor. Informe o id que veio na busca ou tribunal + link.",
       // Só grava arquivo novo, nunca sobrescreve: sem a marca, o MCP presume "destrutiva".
@@ -456,15 +461,25 @@ export function criarServidor(
         "cabeçalho vem como vínculo declarado (da memória do Garimpo, sem rede) e diz se o número aparece no texto " +
         "(encontrado / não encontrado / não verificável; só informativo). Página sem texto extraível é avisada " +
         "(não faz OCR). Só lê: não grava, não copia e não chama a rede. Comece pela parte 1; a resposta traz a " +
-        "chamada para a parte seguinte.",
+        "chamada para a parte seguinte. TRT (Falcão): informe só o id que veio na busca, sem caminho: devolve o " +
+        "texto integral do repositório oficial, convertido de HTML (não é PDF, sem recibo de origem), em partes por " +
+        "tamanho (não são páginas de PDF), com cabeçalho de fonte, julgado em e juntado em; o texto fica na memória " +
+        "por 24 h desde a busca, e texto com indício de corte vem marcado como incompleto.",
       annotations: { readOnlyHint: true, openWorldHint: false },
       inputSchema: {
         caminho: z
           .string()
           .min(1)
-          .describe("Caminho do PDF: o campo arquivo do obter_inteiro_teor ou o de um PDF que você baixou (não URL)"),
+          .optional()
+          .describe(
+            "Caminho do PDF: o campo arquivo do obter_inteiro_teor ou o de um PDF que você baixou (não URL); sem " +
+              "caminho, só para TRT, pelo id",
+          ),
         parte: z.number().int().optional().describe("Número da parte (padrão 1)"),
-        id: z.string().optional().describe("Opcional, PDF trazido: id do acórdão que ele seria, como veio na busca"),
+        id: z
+          .string()
+          .optional()
+          .describe("TRT: id do acórdão (lê o texto integral do Falcão). PDF trazido, opcional: id do acórdão que ele seria"),
         tribunal: tribunal.optional().describe("Opcional, PDF trazido: tribunal do acórdão que ele seria"),
         numero: z.string().optional().describe("Opcional, PDF trazido: número do processo do acórdão que ele seria"),
       },
@@ -472,6 +487,13 @@ export function criarServidor(
     async ({ caminho, parte, ...vinculo }) => {
       try {
         conferirTribunais(vinculo.tribunal);
+        if (caminho === undefined) {
+          if (vinculo.id && ehDoFalcao(vinculo.id.split(":")[0])) return json(await lerTextoIntegral(vinculo.id, parte, memoria));
+          throw new Error(
+            "Informe o caminho do PDF (o campo arquivo do obter_inteiro_teor ou o de um PDF que você baixou). Sem " +
+              "caminho, só o id de um acórdão de TRT (Falcão), cujo texto integral fica na memória do Garimpo.",
+          );
+        }
         return json(await lerInteiroTeor(caminho, parte, vinculo, memoria));
       } catch (e) {
         return erro(e);
@@ -488,6 +510,8 @@ export function criarServidor(
         "na busca; ementa guardada na memória do Garimpo) e/ou no inteiro teor (caminho do PDF, o do " +
         "obter_inteiro_teor ou um trazido pelo usuário). Com id e caminho juntos, um veredito para cada fonte. Até 20 " +
         "citações por chamada; cada uma com 5 palavras ou mais e " +
+        "(TRT, Falcão: com o id, confere na ementa e no texto integral do repositório oficial, convertido de HTML, " +
+        "dizendo em qual achou; texto fora da memória = \"não verificável\" no texto integral) " +
         "até 3 mil caracteres, mandada sem as aspas de abertura e fechamento. Vereditos: \"encontrado literalmente\" " +
         "(só diferença de espaço, quebra de linha, espaço não separável, forma Unicode dos acentos ou aspas e " +
         "apóstrofos tipográficos, avisadas em equivalencias); \"encontrado com supressão indicada\" (cortes marcados " +
@@ -565,14 +589,24 @@ export function criarServidor(
         const fontes = [];
         if (id !== undefined) {
           const a = (await memoria.obter(id))?.acordao;
+          const doFalcao = ehDoFalcao(id.split(":")[0]);
           const conferida = a
-            ? conferirNaEmenta(a.ementa, lida)
+            ? conferirNaEmenta(a.ementa, lida, doFalcao ? "Sem ementa no Falcão: não há ementa para conferir." : undefined)
             : naoVerificavel(`O acórdão ${id} não está na memória do Garimpo. Refaça a busca que o trouxe e confira de novo.`);
           const cortada =
-            a && conferida.veredito === "não encontrado" && ementaAparentementeIncompleta(a.ementa)
+            a && !doFalcao && conferida.veredito === "não encontrado" && ementaAparentementeIncompleta(a.ementa)
               ? { aviso: AVISO_CITACAO_NA_EMENTA_CORTADA }
               : {};
           fontes.push({ fonte: "ementa", id, ...conferida, ...cortada });
+          if (doFalcao) {
+            const t = await memoria.obterTexto(id);
+            const noTexto = t ? conferirNoTextoIntegral(t.texto, lida) : naoVerificavel(textoForaDaMemoria(id));
+            const corte =
+              t?.indicioDeCorte && noTexto.veredito !== "não verificável"
+                ? { aviso: `${AVISO_DE_CORTE} Uma citação "não encontrada" pode estar no trecho que faltou.` }
+                : {};
+            fontes.push({ fonte: "texto integral", id, origem: NATUREZA_DO_TEXTO_INTEGRAL, ...noTexto, ...corte });
+          }
         }
         if (caminho !== undefined) {
           if (!leituras.has(caminho)) leituras.set(caminho, lerParaConferir(caminho));
@@ -600,18 +634,24 @@ export function criarServidor(
         }
         resultados.push({ citacao: i + 1, fontes });
       }
+      const ids = citacoes.flatMap((c) => (typeof c === "object" && c.id ? [c.id.split(":")[0]] : []));
+      const doFalcao = ids.some(ehDoFalcao);
       return comAvisoNaturezaJuridica({
         reticenciasComoCorte,
         resultados,
         aviso:
           "Achar o texto não autentica a fonte: a ementa é a que o JurisprudênciaIA devolveu, e o PDF só tem origem " +
-          "conferida com o recibo de origem ao lado dele e o mesmo sha256.",
+          "conferida com o recibo de origem ao lado dele e o mesmo sha256." +
+          (doFalcao
+            ? " Nos TRTs, a ementa e o texto integral são os que o Falcão devolveu, convertidos de HTML pelo Garimpo: " +
+              "achar a citação também não autentica o texto nem confere a origem (não há PDF nem recibo)."
+            : ""),
         notaSinalDeOutroAutor:
           "Sinal de outro autor é indício, não autoria: o Garimpo não diz de quem é a passagem nem se é a tese " +
           "vencedora, e a falta de sinal não prova que a passagem é do tribunal. No inteiro teor, a seção vem do último " +
           "título de seção antes da passagem (EMENTA, ACÓRDÃO, RELATÓRIO, VOTO, VOTO-VISTA, VOTO VENCIDO, VOTO VOGAL, " +
           'CERTIDÃO, sozinho na linha); sem título assim, seção "não identificada".',
-      });
+      }, ids);
     },
   );
 

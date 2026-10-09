@@ -22,7 +22,7 @@ import {
   ORIGEM_DOWNLOAD,
 } from "./leitura.js";
 import type { Guardado, Memoria } from "./memoria.js";
-import { infoTribunal } from "./tribunais.js";
+import { ehDoFalcao, infoTribunal } from "./tribunais.js";
 
 export interface PedidoInteiroTeor {
   /** Id composto devolvido pela busca ("stj:12345"). */
@@ -147,6 +147,17 @@ export async function obterInteiroTeor(
   const guardado = pedido.id ? await memoria?.obter(pedido.id) : undefined;
   let acordao = guardado?.acordao;
   const tribunal = (acordao?.tribunal ?? pedido.tribunal ?? pedido.id?.split(":")[0] ?? "").toLowerCase();
+  // TRT: o Falcão entrega texto, não PDF; nada a baixar, nenhuma chamada.
+  if (ehDoFalcao(tribunal)) {
+    const comId = pedido.id ? `ler_inteiro_teor com o id ${pedido.id}` : "ler_inteiro_teor com o id que veio na busca";
+    return {
+      baixado: false,
+      explicacao:
+        "Nos TRTs, o Garimpo usa o Falcão, que entrega o texto integral do repositório oficial em texto (HTML " +
+        `convertido), não PDF: não há o que baixar nem recibo de origem. Leia o texto com o ${comId} (fica na ` +
+        "memória do Garimpo por 24 h desde a busca); confira citações com o conferir_citacao pelo mesmo id.",
+    };
+  }
   const link = pedido.link ?? acordao?.link;
   const pasta = resolve(pedido.pasta ?? pastaPadrao());
   // Antes de qualquer chamada, e sem depender da memória: o PDF que o Garimpo já baixou nesta pasta, pelo recibo.

@@ -1,6 +1,7 @@
 /**
  * Leitura do inteiro teor como texto, pelo caminho do PDF, em partes de tamanho controlado. Só lê: não grava, não
  * copia e não chama a rede (ADR-0005). A origem é conferida pelo recibo de origem ao lado do PDF; sem OCR (ADR-0004).
+ * Nos TRTs (ADR-0018), o texto integral do repositório oficial que a busca no Falcão deixou na memória, pelo id.
  */
 
 import { createHash } from "node:crypto";
@@ -9,6 +10,7 @@ import { basename, resolve } from "node:path";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import type { Acordao } from "./busca.js";
 import type { Memoria } from "./memoria.js";
+import { ROTULO_FALCAO } from "./tribunais.js";
 
 /**
  * Teto de uma resposta, cabeçalho incluído: cerca de 8 mil tokens estimados, a 3 caracteres por token (estimativa
@@ -100,6 +102,73 @@ export async function lerInteiroTeor(
   return {
     ...base(paginasDoPdf, parte < total ? parte + 1 : undefined),
     texto: escolhida.map((u) => u.texto).join(SEPARADOR),
+  };
+}
+
+/** O que o texto integral do Falcão é (vai no cabeçalho de cada parte e na conferência). */
+export const NATUREZA_DO_TEXTO_INTEGRAL =
+  "texto integral do repositório oficial (Falcão), convertido de HTML pelo Garimpo: não é PDF e não tem recibo de origem";
+
+export const AVISO_DE_CORTE =
+  "Texto com indício de corte: o HTML do Falcão parecia terminar no meio; o texto pode estar incompleto.";
+
+/** O erro que ensina quando o texto integral já saiu da memória: não há como pedir ao Falcão um acórdão pelo id. */
+export function textoForaDaMemoria(id: string): string {
+  return (
+    `O texto integral do acórdão ${id} não está na memória do Garimpo, que o guarda por 24 h desde a busca; o Falcão ` +
+    "não oferece busca pelo id. Refaça a busca que o trouxe (uma busca nova pode não trazer o mesmo acórdão)."
+  );
+}
+
+export interface ParteDoTextoIntegral {
+  cabecalho: {
+    tribunal: string;
+    numero: string;
+    julgadoEm: string;
+    juntadoEm: string;
+    id: string;
+    fonte: string;
+    natureza: string;
+    /** Partes por tamanho do texto, nunca páginas do PDF. */
+    partes: string;
+    /** Só com indício de corte: o texto nunca é apresentado como completo. */
+    completo?: string;
+  };
+  avisos: string[];
+  texto: string;
+  proximaParte?: { ferramenta: "ler_inteiro_teor"; argumentos: { id: string; parte: number } };
+}
+
+/** O texto integral de um acórdão de TRT, da memória, em partes por tamanho. Só lê: sem rede e sem disco novo. */
+export async function lerTextoIntegral(id: string, parte = 1, memoria?: Memoria): Promise<ParteDoTextoIntegral> {
+  const guardado = await memoria?.obterTexto(id);
+  if (!guardado) throw new Error(textoForaDaMemoria(id));
+  const a = (await memoria?.obter(id))?.acordao;
+  const base = (partes: string, proxima?: number): ParteDoTextoIntegral => ({
+    cabecalho: {
+      tribunal: (a?.tribunal ?? id.split(":")[0]).toUpperCase(),
+      numero: a && !a.semNumero ? a.numero : NAO_INFORMADO,
+      julgadoEm: a?.dataJulgamento ?? NAO_INFORMADO,
+      juntadoEm: a?.dataJuntada ?? NAO_INFORMADO,
+      id,
+      fonte: ROTULO_FALCAO,
+      natureza: NATUREZA_DO_TEXTO_INTEGRAL,
+      partes,
+      ...(guardado.indicioDeCorte ? { completo: "não: há indício de corte" } : {}),
+    },
+    avisos: guardado.indicioDeCorte ? [AVISO_DE_CORTE] : [],
+    texto: "",
+    ...(proxima ? { proximaParte: { ferramenta: "ler_inteiro_teor", argumentos: { id, parte: proxima } } } : {}),
+  });
+  const reserva = JSON.stringify(base("parte 999999 de 999999 (por tamanho do texto; não são páginas de PDF)", 999_999)).length;
+  const partes = guardado.texto ? cortar(guardado.texto, LIMITE_CARACTERES_PARTE - reserva) : [""];
+  const total = partes.length;
+  if (!Number.isInteger(parte) || parte < 1 || parte > total) {
+    throw new Error(`A parte ${parte} não existe: este texto tem ${total} ${total === 1 ? "parte" : "partes"} (de 1 a ${total}).`);
+  }
+  return {
+    ...base(`parte ${parte} de ${total} (por tamanho do texto; não são páginas de PDF)`, parte < total ? parte + 1 : undefined),
+    texto: partes[parte - 1],
   };
 }
 

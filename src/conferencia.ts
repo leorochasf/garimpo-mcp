@@ -24,9 +24,9 @@ export interface OpcoesCitacao {
   reticenciasComoCorte: boolean;
 }
 
-/** Onde fica uma passagem na ementa. */
+/** Onde fica uma passagem na ementa ou no texto integral do Falcão (texto corrido, sem páginas). */
 interface OndeNaEmenta {
-  local: "na ementa";
+  local: "na ementa" | "no texto integral";
 }
 
 /** Onde fica uma passagem no inteiro teor: página do PDF (nunca "fl."), parte do ler_inteiro_teor e segmento. */
@@ -179,14 +179,31 @@ function normalizado(fonte: Fonte, regras: Set<Regra>): Normalizado {
   return n;
 }
 
-export function conferirNaEmenta(ementa: string, citacao: Citacao): ResultadoDaFonte {
-  if (!ementa.trim()) return naoVerificavel("O acórdão veio sem ementa do JurisprudênciaIA: não há texto para conferir.");
+export function conferirNaEmenta(
+  ementa: string,
+  citacao: Citacao,
+  semEmenta = "O acórdão veio sem ementa do JurisprudênciaIA: não há texto para conferir.",
+): ResultadoDaFonte {
+  if (!ementa.trim()) return naoVerificavel(semEmenta);
+  return conferirNoTextoCorrido(ementa, citacao, "na ementa");
+}
+
+/**
+ * Conferência no texto integral do repositório oficial (Falcão), convertido do HTML: texto corrido, como a ementa, com
+ * a posição como a frase que contém a passagem (não há página de PDF).
+ */
+export function conferirNoTextoIntegral(texto: string, citacao: Citacao): ResultadoDaFonte {
+  if (!texto.trim()) return naoVerificavel("O texto integral veio vazio do Falcão: não há texto para conferir.");
+  return conferirNoTextoCorrido(texto, citacao, "no texto integral");
+}
+
+function conferirNoTextoCorrido(ementa: string, citacao: Citacao, local: OndeNaEmenta["local"]): ResultadoDaFonte {
   const fonte: Fonte = {
     texto: ementa,
-    onde: () => ({ local: "na ementa" }),
+    onde: () => ({ local }),
     frase: (a, b) => fraseEm(ementa, a, b),
     sinal: (a, b) =>
-      entreAspas(ementa, a, b) ? "pode ser de outro autor: a passagem está entre aspas na ementa" : undefined,
+      entreAspas(ementa, a, b) ? `pode ser de outro autor: a passagem está entre aspas ${local}` : undefined,
     cadeiaAceita: () => true,
     normalizados: new Map(),
   };
