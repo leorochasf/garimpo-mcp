@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buscaDireta, normalizar } from "../src/busca.js";
+import { buscaDireta, ementaAparentementeIncompleta, normalizar } from "../src/busca.js";
 import { FormatoInesperadoError } from "../src/cliente.js";
 import { Memoria } from "../src/memoria.js";
 import { infoTribunal, SIGLAS } from "../src/tribunais.js";
@@ -153,5 +153,35 @@ describe("cabeçalho de cobertura da busca direta", () => {
     const r = await buscaDireta(cliente, { tribunal: "stj", texto: "exemplo", limite: 2 });
     expect(r.acordaos).toHaveLength(1);
     expect(r.cabecalhoDeCobertura).toMatch(/^O site devolveu os 2 registros pedidos; pode haver mais/);
+  });
+});
+
+describe("ementa aparentemente incompleta (o site corta algumas)", () => {
+  it("TJPA: a ementa cortada em \"IV.\" ganha o aviso; a terminada em ponto final, não; o texto vem idêntico ao do site", async () => {
+    const gravada = fixture("tjpa.json") as { results: { texto_ementa: string }[] };
+    const { cliente } = clienteFalso([respostaJson(gravada)]);
+    const r = await buscaDireta(cliente, { tribunal: "tjpa", texto: "exemplo" });
+    const [cortada, inteira] = r.acordaos;
+    expect(cortada.avisoDeEmenta).toMatch(/aparentemente incompleta/);
+    expect(cortada.avisoDeEmenta).toMatch(/heurística/);
+    expect(inteira.avisoDeEmenta).toBeUndefined();
+    expect(r.acordaos.map((a) => a.ementa)).toEqual(gravada.results.map((x) => x.texto_ementa));
+  });
+
+  it.each([
+    ["…pela Reclamante. IV.", true],
+    ["…ressalvado o direito ao cancelamento.” O", true],
+    ["…(Num. 4606785). É o", true],
+    ["…grau revisor. 7. Posto isto,", true],
+    ["…recurso conhecido e desprovido.", false],
+    ["…nos termos da Súmula 7.", false],
+    ["…sentença mantida.\n\nDesembargador Relator", false],
+    ["…sentença mantida.\n\nRelatora", false],
+    ["…sentença mantida. FULANO DE TAL NETO\n\nRELATOR", false],
+    ["…é o voto.\n\n(TJPA – Apelação – Nº 0000003-33.2020.8.14.0001 – Relator(a): EXEMPLO – 1ª Turma)", false],
+    ["…Posto isto,\n\n(TJPA – Apelação – Nº 0000003-33.2020.8.14.0001 – Relator(a): EXEMPLO – 1ª Turma)", true],
+    ["", false],
+  ])("%j → incompleta: %s", (ementa, esperado) => {
+    expect(ementaAparentementeIncompleta(ementa)).toBe(esperado);
   });
 });

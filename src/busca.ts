@@ -30,6 +30,8 @@ export interface Acordao {
   link?: string;
   /** Página oficial de consulta do processo/acórdão (link_consulta, url_acordao ou, no TJPA, link_processo), quando há. */
   linkConsulta?: string;
+  /** Só quando a ementa parece ter vindo cortada do site (heurística): o aviso. O texto da ementa nunca é mexido. */
+  avisoDeEmenta?: string;
   /** Link oficial que o Garimpo pediu à rota de link do site, porque a busca não trouxe nenhum (obter_inteiro_teor). */
   linkDaRota?: string;
   relevancia?: number;
@@ -325,6 +327,7 @@ function paraAcordao(tribunal: string, x: Bruto, paradigmas: readonly ParadigmaD
     dataJulgamento: data(x.data_julgamento),
     dataPublicacao: data(x.data_publicacao_extraida),
     ementa: texto(x.texto_ementa) ?? "",
+    avisoDeEmenta: ementaAparentementeIncompleta(texto(x.texto_ementa) ?? "") ? AVISO_EMENTA_INCOMPLETA : undefined,
     link: texto(x.link_pdf),
     linkConsulta: texto(x.link_consulta) ?? texto(x.url_acordao) ?? texto(x.link_processo),
     relevancia: numeroOuNada(x.rerank_score) ?? numeroOuNada(x.score),
@@ -350,6 +353,29 @@ function paraQualificado(tribunal: string, tipo: string, q: Bruto): Qualificado 
     // Tese só a firmada: descrição da questão submetida não é tese.
     enquadramento927: enquadrarQualificado({ tribunal, tipo, numero, tese: texto(q.tese_firmada) }),
   });
+}
+
+const AVISO_EMENTA_INCOMPLETA =
+  "Ementa aparentemente incompleta: termina no meio da frase, como veio do JurisprudênciaIA (heurística do Garimpo; " +
+  "o texto não foi alterado). Confira no inteiro teor.";
+
+/** Rodapé que o site acrescenta à ementa (TJPA), depois de uma linha em branco: "(TJPA – classe – Nº … – …)". */
+const RODAPE_DO_SITE = /\n\s*\n\s*\([^\n]*\)\s*$/;
+/** Numeral de item solto depois do fim de uma frase ("… pela Reclamante. IV."): o item seguinte foi cortado. */
+const ITEM_SOLTO = /[.;:!?]\s+(?:[IVXLC]+|\d{1,3})[.)]$/;
+const FIM_DE_FRASE = /[.!?…"”»)\]]$/;
+/** Ementa inteira que fecha na assinatura, sem ponto final, numa linha própria ("…\n\nDesembargador Relator"). */
+const FECHO_DE_ASSINATURA = /\n[^\n]{0,60}\b(?:relatora?|desembargadora?|juiz|juíza|ministr[oa])\s*$/i;
+
+/**
+ * Heurística: a ementa termina no meio da frase (o site corta algumas), olhando o texto antes do rodapé do site.
+ * Fecho de assinatura é fim normal. Só avisa; nunca completa nem conserta o texto.
+ */
+export function ementaAparentementeIncompleta(ementa: string): boolean {
+  const corpo = ementa.replace(RODAPE_DO_SITE, "").trim();
+  if (!corpo) return false;
+  if (ITEM_SOLTO.test(corpo)) return true;
+  return !FIM_DE_FRASE.test(corpo) && !FECHO_DE_ASSINATURA.test(corpo);
 }
 
 function texto(v: unknown): string | undefined {

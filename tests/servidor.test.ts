@@ -1384,6 +1384,33 @@ describe("conferir citação na ementa (pela porta)", () => {
     expect(comCorte.fontes[0].veredito).toBe("encontrado com supressão indicada");
   });
 
+  it("ementa que veio cortada do site: \"não encontrado\" avisa que a frase pode estar no trecho que faltou; na inteira, não", async () => {
+    const { results } = fixture("tjpa.json") as { results: unknown[] };
+    const mcp = await conectar(siteFalso(results));
+    await mcp.callTool({ name: "busca_direta", arguments: { tribunal: "tjpa", texto: "exemplo" } });
+    const ementa = JSON.parse(
+      ((await mcp.callTool({ name: "obter_ementa", arguments: { id: "tjpa:501" } })) as { content: { text: string }[] })
+        .content[0].text,
+    );
+    expect(ementa.avisoDeEmenta).toMatch(/aparentemente incompleta/);
+
+    const ausente = "a indenização deve ser fixada em valor proporcional ao dano";
+    const r = await chamar(mcp, {
+      citacoes: [
+        { citacao: ausente, id: "tjpa:501" },
+        { citacao: ausente, id: "tjpa:502" },
+        { citacao: "Segundo item da ementa, proporcional aos danos experimentados", id: "tjpa:501" },
+      ],
+    });
+    const [cortada, inteira, achada] = JSON.parse(r.texto).resultados;
+    expect(cortada.fontes[0].veredito).toBe("não encontrado");
+    expect(cortada.fontes[0].aviso).toMatch(/trecho que faltou.*inteiro teor/);
+    expect(inteira.fontes[0].veredito).toBe("não encontrado");
+    expect(inteira.fontes[0].aviso).toBeUndefined();
+    expect(achada.fontes[0].veredito).toBe("encontrado literalmente");
+    expect(achada.fontes[0].aviso).toBeUndefined();
+  });
+
   it("aceita a lista como texto de lista JSON e informa a opção das reticências ligada", async () => {
     const { site } = siteQueConta();
     const mcp = await conectar(site);

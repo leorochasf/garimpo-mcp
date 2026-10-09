@@ -7,7 +7,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { Cliente, VERSAO } from "./cliente.js";
-import { buscaDireta } from "./busca.js";
+import { buscaDireta, ementaAparentementeIncompleta } from "./busca.js";
 import { buscaAmpla } from "./ampla.js";
 import { pastaDeDados } from "./coordenacao.js";
 import { lerFiltrosLocais, listaJson } from "./filtroLocal.js";
@@ -88,6 +88,11 @@ const AVISO_NATUREZA_JURIDICA =
   "Resultado de busca em base não oficial. Confira o acórdão na fonte oficial do tribunal antes de citar; " +
   "a ementa não substitui o inteiro teor.";
 
+/** "Não encontrado" na ementa que parece ter vindo cortada do site (heurística de busca.ts). */
+const AVISO_CITACAO_NA_EMENTA_CORTADA =
+  "A ementa parece ter vindo incompleta do JurisprudênciaIA (termina no meio da frase): a citação pode estar no " +
+  "trecho que faltou. Confira no inteiro teor.";
+
 function comAvisoNaturezaJuridica<T extends object>(dado: T) {
   return json({ ...dado, avisoNaturezaJuridica: AVISO_NATUREZA_JURIDICA });
 }
@@ -158,7 +163,8 @@ export function criarServidor(
       title: "Busca direta",
       description:
         "Pesquisa jurisprudência num tribunal pela busca direta do JurisprudênciaIA (sem o chat de IA do site). " +
-        "Devolve acórdãos com ementa inteira, número, órgão, data e link oficial, e, em lista separada, os " +
+        "Devolve acórdãos com a ementa como veio do site (avisoDeEmenta quando ela parece cortada pelo próprio site), " +
+        "número, órgão, data e link oficial, e, em lista separada, os " +
         "precedentes qualificados (temas, súmulas). O site costuma devolver poucos acórdãos do STF por busca (de 2 a 7 na medição de out/2026). " +
         "O campo cabecalhoDeCobertura diz se veio o número pedido (pode haver mais) ou menos (a base não tem mais " +
         "para o texto; no STF, que devolve poucos por busca, pode haver mais). " +
@@ -260,7 +266,8 @@ export function criarServidor(
     {
       title: "Obter ementa",
       description:
-        "Devolve a ementa inteira e os dados de um acórdão já devolvido por busca_direta ou busca_ampla, pelo id " +
+        "Devolve a ementa como veio do site (avisoDeEmenta quando ela parece cortada pelo próprio site) e os dados de " +
+        "um acórdão já devolvido por busca_direta ou busca_ampla, pelo id " +
         "(ex.: \"stj:12345\"), com o mesmo enquadramento927 da busca e a data e hora em que foi obtido do site " +
         "(obtidoDoSite). A memória do Garimpo guarda os acórdãos por 24 h desde a busca, para todas as janelas " +
         "(com GARIMPO_SEM_MEMORIA=1, só na janela que fez a busca, enquanto ela estiver aberta). " +
@@ -382,7 +389,8 @@ export function criarServidor(
         "em maiúsculas/pontuação\" (não é literal; vem o texto exato da fonte); \"não encontrado\" (com a passagem " +
         "parecida da fonte, quando houver, que não é o texto informado; no PDF, também a passagem candidata, nunca " +
         "confirmada, quando a citação só fecha retirando hífen de fim de linha ou pulando linhas que podem ser " +
-        "cabeçalho/rodapé na quebra de página); \"não verificável\" (acórdão fora da memória, sem ementa, erro de leitura do PDF " +
+        "cabeçalho/rodapé na quebra de página; na ementa que parece ter vindo cortada do site, o aviso de que a " +
+        "citação pode estar no trecho que faltou); \"não verificável\" (acórdão fora da memória, sem ementa, erro de leitura do PDF " +
         "ou sem texto extraível). Hífen, meia-risca e travessão nunca são iguais. Reticências soltas são procuradas " +
         "como texto, salvo reticenciasComoCorte. Na ementa, a posição vem como a frase que contém a citação; no " +
         "inteiro teor, como página do PDF (nunca folha dos autos), parte do ler_inteiro_teor e segmento, com a origem " +
@@ -454,7 +462,11 @@ export function criarServidor(
           const conferida = a
             ? conferirNaEmenta(a.ementa, lida)
             : naoVerificavel(`O acórdão ${id} não está na memória do Garimpo. Refaça a busca que o trouxe e confira de novo.`);
-          fontes.push({ fonte: "ementa", id, ...conferida });
+          const cortada =
+            a && conferida.veredito === "não encontrado" && ementaAparentementeIncompleta(a.ementa)
+              ? { aviso: AVISO_CITACAO_NA_EMENTA_CORTADA }
+              : {};
+          fontes.push({ fonte: "ementa", id, ...conferida, ...cortada });
         }
         if (caminho !== undefined) {
           if (!leituras.has(caminho)) leituras.set(caminho, lerParaConferir(caminho));
