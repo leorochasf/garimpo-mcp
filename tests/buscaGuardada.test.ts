@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -347,5 +347,95 @@ describe("busca guardada", () => {
       expect(conteudo).not.toMatch(/teoria-do-orgao|nexo-causal|Relator-Ficticio|Orgao-Ficticio/);
       expect(f).not.toMatch(/teoria|nexo|Ficticio/);
     }
+  });
+});
+
+/** Simula falha de leitura: cada busca guardada no disco vira uma pasta com o mesmo nome (ler dá erro, não "ausente"). */
+async function estragarBuscasNoDisco() {
+  for (const f of (await arquivosDaMemoria()).filter((f) => f.includes(join("memoria", "buscas-1")) && f.endsWith(".json"))) {
+    await rm(f);
+    await mkdir(f);
+  }
+}
+
+describe("falha na memória vira busca normal explícita", () => {
+  it("busca_direta: falha ao ler a busca guardada leva a busca ao site, com aviso na resposta", async () => {
+    const a = await janela(siteFalso().cliente);
+    await chamar(a, "busca_direta", { tribunal: "stj", texto: "omissão estatal" });
+    await esperarBuscasNoDisco(1);
+    await estragarBuscasNoDisco();
+
+    const siteB = siteFalso();
+    const b = await janela(siteB.cliente);
+    const r = await chamar(b, "busca_direta", { tribunal: "stj", texto: "omissão estatal" });
+    expect(r.isError).toBe(false);
+    const json = JSON.parse(r.texto);
+    expect(json.buscaGuardada).toBeUndefined();
+    expect(json.acordaos.map((x: { id: string }) => x.id)).toEqual(["stj:omiss-o-estatal"]);
+    expect(json.avisos.join("\n")).toMatch(/A memória do Garimpo falhou ao ler a busca guardada .*: a busca foi feita no site/);
+    expect(siteB.chamadas).toEqual(["omissão estatal"]);
+  });
+
+  it("busca_ampla: as buscas cuja leitura falhou vão ao site, com aviso; as legíveis voltam da memória", async () => {
+    const a = await janela(siteFalso().cliente);
+    await chamar(a, "busca_ampla", { formulacoes: ["omissão estatal"], tribunais: ["stj"] });
+    await esperarBuscasNoDisco(1);
+    await estragarBuscasNoDisco();
+    await chamar(a, "busca_direta", { tribunal: "stj", texto: "dever de vigilância", limite: 100 });
+    await esperarBuscasNoDisco(1);
+
+    const siteB = siteFalso();
+    const b = await janela(siteB.cliente);
+    const r = await chamar(b, "busca_ampla", { formulacoes: ["omissão estatal", "dever de vigilância"], tribunais: ["stj"] });
+    expect(r.isError).toBe(false);
+    const json = JSON.parse(r.texto);
+    expect(siteB.chamadas).toEqual(["omissão estatal"]);
+    expect(json.cabecalhoDeCobertura.porTribunal[0]).toMatchObject({ buscasFeitas: 2, guardadas: 1, feitasAgora: 1 });
+    expect(json.avisos.join("\n")).toMatch(/Memória do Garimpo falhou ao ler 1 de 2 buscas.*tratadas como/);
+  });
+
+  it("falha ao gravar na memória: a busca vai ao site normalmente e a resposta avisa que a memória não está gravando", async () => {
+    // A pasta "memoria" é um arquivo: nenhuma gravação da memória consegue criar as subpastas.
+    await writeFile(join(dados, "memoria"), "não é uma pasta");
+    const site = siteFalso();
+    const a = await janela(site.cliente);
+    const primeira = await chamar(a, "busca_direta", { tribunal: "stj", texto: "tese 0" });
+    expect(primeira.isError).toBe(false);
+
+    // A gravação corre por trás da resposta: o aviso aparece numa resposta seguinte, assim que ela tiver falhado.
+    const prazo = Date.now() + 5_000;
+    let avisos = "";
+    for (let i = 1; !/não conseguiu gravar/.test(avisos); i++) {
+      if (Date.now() > prazo) throw new Error("o aviso de falha na gravação não apareceu no prazo");
+      const r = await chamar(a, "busca_direta", { tribunal: "stj", texto: `tese ${i}` });
+      expect(r.isError).toBe(false);
+      avisos = JSON.parse(r.texto).avisos.join("\n");
+    }
+    expect(avisos).toMatch(/A memória do Garimpo não conseguiu gravar no disco .*: as buscas seguem indo ao site/);
+    const ampla = JSON.parse((await chamar(a, "busca_ampla", { formulacoes: ["tese nova"], tribunais: ["stj"] })).texto);
+    expect(ampla.avisos.join("\n")).toMatch(/Memória do Garimpo falhou .*ao gravar/);
+    expect(await readFile(join(dados, "memoria"), "utf8")).toBe("não é uma pasta");
+  });
+
+  it("falha ao ler a memória com a rede parada segue a regra atual: erro, sem chamada", async () => {
+    const chamadas: string[] = [];
+    const cliente = new Cliente({
+      nome: "O site",
+      esperar: async () => {},
+      vagas: new CoordenacaoEmArquivo({ pasta: dados, agora: relogio }),
+      fetch: (async (_url: string, init: RequestInit) => {
+        chamadas.push(String(JSON.parse(String(init.body)).query));
+        return respostaJson({ results: [acordao("p3")] });
+      }) as typeof fetch,
+    });
+    await chamar(await janela(cliente), "busca_direta", { tribunal: "stj", texto: "omissão estatal" });
+    await esperarBuscasNoDisco(1);
+    await estragarBuscasNoDisco();
+    await writeFile(join(dados, "protecao", "estado.json"), "{ ilegível");
+
+    const r = await chamar(await janela(cliente), "busca_direta", { tribunal: "stj", texto: "omissão estatal" });
+    expect(r.isError).toBe(true);
+    expect(r.texto).toMatch(/Rede parada/);
+    expect(chamadas).toEqual(["omissão estatal"]);
   });
 });

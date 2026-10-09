@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -221,6 +221,42 @@ describe("busca ampla", () => {
 
       expect(estado.chamadas).toBe(chamadas);
       expect(r.cabecalhoDeCobertura.porTribunal.every((t) => t.guardadas === 3 && t.maisAntiga)).toBe(true);
+      expect(r.acordaos).toHaveLength(50);
+      expect(r.qualificados).toHaveLength(10);
+      expect(JSON.stringify(r).length).toBeLessThan(25_000);
+    } finally {
+      await rm(dados, { recursive: true, force: true, maxRetries: 10 });
+    }
+  });
+
+  it("com a memória falhando ao ler e ao gravar, os dois avisos cabem: continua < 25 mil caracteres", async () => {
+    const dados = await mkdtemp(join(tmpdir(), "garimpo-ampla-"));
+    /** A gravação corre por trás: espera a condição, com prazo. */
+    const esperar = async (pronto: () => Promise<boolean> | boolean) => {
+      for (const prazo = Date.now() + 5_000; !(await pronto()); await new Promise((r) => setTimeout(r, 20))) {
+        if (Date.now() > prazo) throw new Error("a gravação da memória não terminou no prazo");
+      }
+    };
+    try {
+      const { cliente } = siteRealista();
+      const pedido = { formulacoes: FORMULACOES_REALISTAS, tribunais: ["tjrs", "stj"] };
+      await buscaAmpla(cliente, pedido, new Memoria({ dados }));
+      // Cada busca guardada no disco vira uma pasta com o mesmo nome: ler e gravar nela falham.
+      const buscas = join(dados, "memoria", "buscas-1");
+      const guardadas = async () => (await readdir(buscas).catch(() => [])).filter((n) => n.endsWith(".json"));
+      await esperar(async () => (await guardadas()).length === 6);
+      for (const n of await guardadas()) {
+        await rm(join(buscas, n));
+        await mkdir(join(buscas, n));
+      }
+      // Outra janela: uma das buscas renovada antes falha ao gravar; as outras 5 falham ao ler na busca ampla.
+      const memoria = new Memoria({ dados });
+      await buscaDireta(cliente, { tribunal: "tjrs", texto: FORMULACOES_REALISTAS[0], limite: 100 }, memoria, { renovar: true });
+      await esperar(() => memoria.avisoDeGravacao() !== undefined);
+
+      const r = await buscaAmpla(cliente, pedido, memoria);
+
+      expect(r.avisos).toContain("Memória do Garimpo falhou ao ler 5 de 6 buscas (tratadas como novas) e ao gravar.");
       expect(r.acordaos).toHaveLength(50);
       expect(r.qualificados).toHaveLength(10);
       expect(JSON.stringify(r).length).toBeLessThan(25_000);

@@ -262,7 +262,8 @@ export function criarServidor(
       description:
         "Devolve a ementa inteira e os dados de um acórdão já devolvido por busca_direta ou busca_ampla, pelo id " +
         "(ex.: \"stj:12345\"), com o mesmo enquadramento927 da busca e a data e hora em que foi obtido do site " +
-        "(obtidoDoSite). A memória do Garimpo guarda os acórdãos por 24 h desde a busca, para todas as janelas. " +
+        "(obtidoDoSite). A memória do Garimpo guarda os acórdãos por 24 h desde a busca, para todas as janelas " +
+        "(com GARIMPO_SEM_MEMORIA=1, só na janela que fez a busca, enquanto ela estiver aberta). " +
         "Não faz nova busca no site: fora da memória, refaça a busca que o trouxe.",
       annotations: { readOnlyHint: true, openWorldHint: false },
       inputSchema: { id: z.string().describe("Id do acórdão, como veio na busca (tribunal:id)") },

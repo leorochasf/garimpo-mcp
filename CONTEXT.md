@@ -47,7 +47,7 @@ Uma busca direta que não chegou a uma resposta utilizável (recusa, erro do sit
 _Evitar_: busca vazia, falha silenciosa
 
 **Lista cortada**:
-Lista mostrada com menos acórdãos do que a busca achou, por causa do máximo pedido.
+Lista mostrada com menos acórdãos do que a busca achou (com filtro local, do que passaram pelo filtro), por causa do máximo pedido.
 _Evitar_: lista completa (quando cortada), resultado parcial (é o caso de recusa)
 
 **Aviso de natureza jurídica**:

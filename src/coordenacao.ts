@@ -84,7 +84,10 @@ export function pastaDeDados(): string {
   return join(process.env.XDG_CACHE_HOME || join(homedir(), ".cache"), "garimpo");
 }
 
-const LEMBRETE_LEITURA = "A leitura de PDF já baixado continua funcionando.";
+/** O que não precisa de rede continua: o mesmo que o README diz da rede parada. */
+const LEMBRETE_LEITURA =
+  "O que não precisa de rede continua funcionando: buscas guardadas e ementas dentro das 24 h da memória, PDF já " +
+  "baixado na pasta de destino (obter_inteiro_teor) e leitura de PDF (ler_inteiro_teor).";
 
 const semPermissao = (caminho: string) =>
   new RedeParadaError(

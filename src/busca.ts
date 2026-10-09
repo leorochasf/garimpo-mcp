@@ -7,7 +7,7 @@ import { createHash } from "node:crypto";
 import { Cliente, FormatoInesperadoError } from "./cliente.js";
 import { type Enquadramento927, enquadrarAcordao, enquadrarQualificado, type ParadigmaDoSite } from "./enquadramento.js";
 import { juntarEquivalentes } from "./equivalencia.js";
-import { fotografiaDaBusca, type Memoria } from "./memoria.js";
+import { FalhaNaMemoriaError, fotografiaDaBusca, type Memoria } from "./memoria.js";
 import { infoTribunal } from "./tribunais.js";
 
 export const SITE = "https://www.jurisprudenciaia.com.br";
@@ -162,9 +162,19 @@ export async function buscaDireta(
   { renovar = false, guardarAcordaos = true }: OpcoesBuscaDireta = {},
 ): Promise<ResultadoBusca> {
   const { tribunal, corpo, chave, cobertura } = pedido(p);
+  // Falha ao ler a memória vira busca normal no site, com aviso; sem rede permitida, o erro da rede, como sempre.
+  let falhaAoLer: string | undefined;
   if (memoria && !renovar) {
-    const guardada = await lerBuscaGuardada(memoria, p);
-    if (guardada) return guardada.resultado;
+    try {
+      const guardada = await lerBuscaGuardada(memoria, p);
+      if (guardada) {
+        guardada.resultado.avisos.push(...avisosDaMemoria(memoria));
+        return guardada.resultado;
+      }
+    } catch (e) {
+      if (!(e instanceof FalhaNaMemoriaError)) throw e;
+      falhaAoLer = e.message;
+    }
   }
 
   const resposta = await cliente.requisitar(`${SITE}/api/tribunais/${tribunal}/search`, {
@@ -207,8 +217,18 @@ export async function buscaDireta(
     acordaos: resultado.acordaos,
     qualificados: resultado.qualificados,
     ressalvaQualificados: resultado.ressalvaQualificados,
-    avisos: resultado.avisos,
+    // Depois de guardar: o aviso da memória vale só para esta resposta.
+    avisos: [...resultado.avisos, ...avisosDaMemoria(memoria, falhaAoLer)],
   };
+}
+
+/** Avisos da memória que falhou: a leitura desta busca (código do erro) e a última gravação em disco. */
+function avisosDaMemoria(memoria?: Memoria, falhaAoLer?: string): string[] {
+  const avisos = falhaAoLer
+    ? [`A memória do Garimpo falhou ao ler a busca guardada (${falhaAoLer}): a busca foi feita no site, como busca nova.`]
+    : [];
+  const gravacao = memoria?.avisoDeGravacao();
+  return gravacao ? [...avisos, gravacao] : avisos;
 }
 
 /**

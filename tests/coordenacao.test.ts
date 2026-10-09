@@ -177,6 +177,13 @@ describe("rede parada", () => {
     };
   }
 
+  /** A mensagem de rede parada diz o que continua sem rede, como o README: memória válida, PDF na pasta e leitura. */
+  function lembraOQueContinua(mensagem: string) {
+    expect(mensagem).toMatch(/buscas guardadas e ementas dentro das 24 h da memória/);
+    expect(mensagem).toMatch(/PDF já baixado na pasta de destino \(obter_inteiro_teor\)/);
+    expect(mensagem).toMatch(/leitura de PDF \(ler_inteiro_teor\)/);
+  }
+
   it("estado ausente é o primeiro uso: criado, e a chamada sai", async () => {
     const { cliente, chamadas } = clienteNaPasta([() => respostaJson({})]);
     await (await cliente.requisitar("https://exemplo.test/a")).text();
@@ -195,6 +202,7 @@ describe("rede parada", () => {
     expect(e.message).toMatch(/feche todas as instâncias do Garimpo/);
     expect(e.message).toMatch(/mova só este arquivo/);
     expect(e.message).toMatch(/apaga o histórico de pausa/);
+    lembraOQueContinua(e.message);
     expect(chamadas).toEqual([]);
     expect(await readFile(estado(), "utf8")).toBe("{ isto não é o estado");
     expect(await vagasDepoisDaLiberacao()).toEqual([]);
@@ -217,6 +225,7 @@ describe("rede parada", () => {
     expect(e.message).toMatch(/versão mais nova do Garimpo/);
     expect(e.message).toMatch(/Atualize o Garimpo e reinicie esta janela/);
     expect(e.message).toMatch(/não apague nem mova/);
+    lembraOQueContinua(e.message);
     expect(chamadas).toEqual([]);
     expect(await readFile(estado(), "utf8")).toBe(futuro);
   });

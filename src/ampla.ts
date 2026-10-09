@@ -16,7 +16,7 @@ import {
 import { ART_927_CONFERIDO_EM } from "./enquadramento.js";
 import { juntarEquivalentes, type Ocorrencia } from "./equivalencia.js";
 import { filtroLocal, type FiltrosLocais } from "./filtroLocal.js";
-import { diaEHora, type Memoria } from "./memoria.js";
+import { diaEHora, FalhaNaMemoriaError, type Memoria } from "./memoria.js";
 import { ordenarPorAderencia, trecho } from "./pontuacao.js";
 import { juntarQualificados, type QualificadoAmplo, type QualificadosDaBusca, reservarPorTribunal } from "./saida.js";
 
@@ -178,9 +178,18 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla, memoria?:
 
   // Primeiro a memória, sem nenhuma chamada: repetir ou ampliar a busca só leva ao site as combinações novas, e a
   // busca guardada responde mesmo com o serviço pausado.
+  // Falha ao ler a memória leva a busca ao site, como busca nova, com aviso.
+  let falhasAoLer = 0;
   const guardadas =
     memoria && !p.renovar
-      ? await Promise.all(tarefas.map((t) => lerBuscaGuardada(memoria, parametros(t)).catch(() => undefined)))
+      ? await Promise.all(
+          tarefas.map((t) =>
+            lerBuscaGuardada(memoria, parametros(t)).catch((e) => {
+              if (e instanceof FalhaNaMemoriaError) falhasAoLer++;
+              return undefined;
+            }),
+          ),
+        )
       : [];
   tarefas.forEach((t, i) => {
     const g = guardadas[i];
@@ -239,6 +248,13 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla, memoria?:
     avisos.push("O site costuma devolver poucos acórdãos do STF por busca (de 2 a 7 na medição de out/2026); " +
         "a cobertura dele depende do número de formulações.");
   }
+  // Uma frase curta, sem código nem caminho (estão no aviso da busca_direta): a resposta beira o teto de 25 mil.
+  const falhouAoGravar = memoria?.avisoDeGravacao() !== undefined;
+  // "Tratadas como novas": foram ao site e, se a rede não deixou, estão "com erro" no cabeçalho, como qualquer nova.
+  const naoLidas = `ao ler ${falhasAoLer} de ${tarefas.length} buscas`;
+  if (falhasAoLer && falhouAoGravar) avisos.push(`Memória do Garimpo falhou ${naoLidas} (tratadas como novas) e ao gravar.`);
+  else if (falhasAoLer) avisos.push(`Memória do Garimpo falhou ${naoLidas}: tratadas como buscas novas.`);
+  else if (falhouAoGravar) avisos.push("Memória do Garimpo falhou ao gravar: o que esta janela guarda não vale nas outras.");
 
   // Cópias do mesmo acórdão achadas em buscas diferentes viram um acórdão só (mesmo tribunal, data e ementa,
   // sem números de processo que se contradigam).

@@ -5,6 +5,9 @@
  *
  * - É descartável: falha ao gravar ou ler nunca derruba a ferramenta; a janela guarda também consigo, enquanto está
  *   aberta. A gravação em disco corre por trás da resposta: milhares de arquivos levariam segundos no Windows.
+ *   Falha nas buscas não é silenciosa: a leitura de busca guardada que falha (erro que não é "ausente") dá
+ *   FalhaNaMemoriaError (a de acórdão pelo id segue como ausente), e a última leva
+ *   de gravação que falhou vira o aviso de `avisoDeGravacao`, até uma leva seguinte dar certo.
  * - Formato desconhecido é ignorado e nunca apagado (outra versão pode usá-lo); cada versão do formato tem a sua
  *   pasta, para uma versão não sobrescrever a memória da outra.
  * - Limpeza ao encontrar um vencido e numa varredura ao iniciar; teto de espaço (acórdãos e buscas somados), apagando
@@ -54,6 +57,14 @@ export interface BuscaGuardada {
   obtidoEm: number;
 }
 
+/** A memória em disco falhou ao ler (erro que não é "ausente"); a mensagem é o código do erro. */
+export class FalhaNaMemoriaError extends Error {
+  constructor(codigo: string) {
+    super(codigo);
+    this.name = "FalhaNaMemoriaError";
+  }
+}
+
 export interface OpcoesMemoria {
   /** Pasta de dados; sem ela, a memória fica só na janela, enquanto está aberta. */
   dados?: string;
@@ -85,6 +96,8 @@ export class Memoria {
   private varrendo?: Promise<void>;
   /** As gravações em disco, uma leva depois da outra, por trás das respostas. */
   private gravando = Promise.resolve();
+  /** Código do erro da última leva de gravação, se ela falhou. */
+  private falhaDeGravacao?: string;
 
   constructor({ dados, agora = Date.now, tetoBytes = TETO_MEMORIA_BYTES }: OpcoesMemoria = {}) {
     this.pasta = dados && join(dados, "memoria", `acordaos-${VERSAO}`);
@@ -114,11 +127,12 @@ export class Memoria {
     const daJanela = this.sessao.get(id);
     if (!this.pasta) return daJanela;
     const arquivo = join(this.pasta, nomeDoArquivo(id));
-    let lido = await lerGuardado(arquivo);
+    const ler = () => lerGuardado(arquivo).catch(() => undefined);
+    let lido = await ler();
     if (lido && lido.id === id && !this.valido(lido.obtidoEm)) {
       await descartar(arquivo, lido.obtidoEm, lerGuardado);
       // Outra janela pode ter gravado uma versão nova no meio: o descarte a devolve ao lugar.
-      lido = await lerGuardado(arquivo);
+      lido = await ler();
     }
     if (lido && lido.id === id && this.valido(lido.obtidoEm)) return { acordao: lido.acordao, obtidoEm: lido.obtidoEm };
     return daJanela && this.valido(daJanela.obtidoEm) ? daJanela : undefined;
@@ -139,18 +153,26 @@ export class Memoria {
   /**
    * A busca guardada e válida, de qualquer janela (a mais recente); vencida ou ausente = undefined (e a vencida é
    * apagada). Os acórdãos dela voltam à memória da janela com a data em que foram obtidos, nunca com a de hoje.
+   * Falha ao ler o disco, sem a busca guardada na janela = FalhaNaMemoriaError.
    */
   async obterBusca(chave: string): Promise<BuscaGuardada | undefined> {
     if (!this.pastaDeBuscas) return undefined;
     const arquivo = join(this.pastaDeBuscas, `${chave}.json`);
-    let lida = await lerBusca(arquivo);
-    if (lida && !this.valido(lida.obtidoEm)) {
-      await descartar(arquivo, lida.obtidoEm, lerBusca);
+    let lida: Awaited<ReturnType<typeof lerBusca>>;
+    let falha: unknown;
+    try {
       lida = await lerBusca(arquivo);
+      if (lida && !this.valido(lida.obtidoEm)) {
+        await descartar(arquivo, lida.obtidoEm, lerBusca);
+        lida = await lerBusca(arquivo);
+      }
+    } catch (e) {
+      falha = e;
     }
     const guardada = [lida, this.buscasDaSessao.get(chave)]
       .filter((b): b is BuscaGuardada => b !== undefined && this.valido(b.obtidoEm))
       .sort((x, y) => y.obtidoEm - x.obtidoEm)[0];
+    if (!guardada && falha) throw new FalhaNaMemoriaError(codigoDoErro(falha));
     if (!guardada) return undefined;
     for (const { ids, registro } of guardada.busca.acordaos) {
       for (const id of ids) {
@@ -162,6 +184,16 @@ export class Memoria {
     return { busca: guardada.busca, obtidoEm: guardada.obtidoEm };
   }
 
+  /** O aviso de que a última leva de gravação em disco falhou; undefined se deu certo (ou ainda não houve). */
+  avisoDeGravacao(): string | undefined {
+    if (!this.falhaDeGravacao || !this.pasta) return undefined;
+    return (
+      `A memória do Garimpo não conseguiu gravar no disco (${this.falhaDeGravacao}, em ${join(this.pasta, "..")}): ` +
+      "as buscas seguem indo ao site normalmente, e o que esta janela guarda vale só nela, enquanto estiver aberta, " +
+      "não nas outras janelas."
+    );
+  }
+
   private valido(obtidoEm: number): boolean {
     return this.agora() - obtidoEm < VALIDADE_MS;
   }
@@ -169,19 +201,24 @@ export class Memoria {
   /** Grava por trás das respostas, uma leva depois da outra; acima do teto, começa a limpeza. */
   private agendar(pasta: string, registros: { nome: string; texto: string }[]): void {
     this.gravando = this.gravando.then(async () => {
+      let falha: string | undefined;
       try {
         await mkdir(pasta, { recursive: true });
         // Em lotes: a busca ampla pode trazer milhares de acórdãos de uma vez.
         for (let i = 0; i < registros.length; i += 16) {
           await Promise.all(
             registros.slice(i, i + 16).map(async ({ nome, texto }) => {
-              if (await gravar(pasta, nome, texto)) this.ocupado += Buffer.byteLength(texto);
+              const erro = await gravar(pasta, nome, texto);
+              if (erro) falha ??= erro;
+              else this.ocupado += Buffer.byteLength(texto);
             }),
           );
         }
-      } catch {
-        // Memória é descartável: a janela já guardou.
+      } catch (e) {
+        // Memória é descartável: a janela já guardou; a falha vira aviso nas respostas seguintes.
+        falha = codigoDoErro(e);
       }
+      this.falhaDeGravacao = falha;
       if (this.ocupado > this.teto) this.limpar();
     });
   }
@@ -204,7 +241,7 @@ export class Memoria {
         const nomes = (await readdir(pasta).catch(() => [] as string[])).filter((n) => nomeValido.test(n));
         for (const nome of nomes) {
           const arquivo = join(pasta, nome);
-          const lido = await ler(arquivo);
+          const lido = await ler(arquivo).catch(() => undefined);
           if (!lido) continue;
           if (this.valido(lido.obtidoEm)) validos.push({ arquivo, obtidoEm: lido.obtidoEm, bytes: lido.bytes, ler });
           else await descartar(arquivo, lido.obtidoEm, ler);
@@ -256,13 +293,17 @@ function nomeDoArquivo(id: string): string {
   return `${createHash("sha256").update(id).digest("hex").slice(0, 32)}.json`;
 }
 
-/** Arquivo da memória neste formato e versão, com o instante da obtenção; qualquer outra coisa = undefined. */
+/**
+ * Arquivo da memória neste formato e versão, com o instante da obtenção; ausente ou qualquer outra coisa = undefined.
+ * Erro de leitura que não é "ausente" (sem permissão, pasta no lugar do arquivo…) passa adiante.
+ */
 async function lerRegistro(arquivo: string, formato: string) {
   let bruto: Buffer;
   try {
     bruto = await readFile(arquivo);
-  } catch {
-    return undefined;
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw e;
   }
   try {
     const r = JSON.parse(bruto.toString("utf8"));
@@ -306,17 +347,24 @@ async function lerBusca(arquivo: string) {
   return { busca, obtidoEm: lido.obtidoEm, bytes: lido.bytes };
 }
 
-/** Grava por temporário + renomeação: quem lê vê o arquivo anterior ou o novo, nunca pela metade. */
-async function gravar(pasta: string, nome: string, texto: string): Promise<boolean> {
+/**
+ * Grava por temporário + renomeação: quem lê vê o arquivo anterior ou o novo, nunca pela metade. Devolve o código do
+ * erro, se falhou.
+ */
+async function gravar(pasta: string, nome: string, texto: string): Promise<string | undefined> {
   const temporario = join(pasta, `.${randomUUID()}.tmp`);
   try {
     await writeFile(temporario, texto, { flag: "wx" });
     await insistir(() => rename(temporario, join(pasta, nome)));
-    return true;
-  } catch {
+    return undefined;
+  } catch (e) {
     await rm(temporario, { force: true }).catch(() => {});
-    return false;
+    return codigoDoErro(e);
   }
+}
+
+function codigoDoErro(e: unknown): string {
+  return (e as NodeJS.ErrnoException)?.code ?? "erro desconhecido";
 }
 
 /**
@@ -331,7 +379,7 @@ async function descartar(arquivo: string, visto: number, ler: Leitor): Promise<b
   } catch {
     return false;
   }
-  const tirado = await ler(descarte);
+  const tirado = await ler(descarte).catch(() => undefined);
   const apagar = tirado?.obtidoEm === visto;
   if (!apagar) await link(descarte, arquivo).catch(() => {});
   await rm(descarte, { force: true }).catch(() => {});

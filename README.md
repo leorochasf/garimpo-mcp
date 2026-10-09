@@ -134,8 +134,13 @@ a busca; nunca busca sozinho.
 - A memória ocupa no máximo 200 MB (acórdãos e buscas somados, por versão do formato da memória): acima disso, o mais antigo é apagado primeiro. A
   limpeza só mexe na pasta `memoria`, nunca na `protecao`, nos PDFs nem nos recibos de origem. Memória gravada por
   outra versão do Garimpo, num formato que esta não entende, é ignorada e não é apagada.
-- Falha ao ler ou gravar a memória nunca derruba a ferramenta: a busca vai ao site, como se não houvesse memória
-  (se a rede não estiver parada).
+- Falha ao ler uma busca guardada ou ao gravar a memória nunca derruba a ferramenta e, nas buscas, nunca é
+  silenciosa: a busca é tratada como busca nova (vai ao site) e a resposta avisa em `avisos` (na `busca_direta`, com
+  o código do erro e, na falha de gravação, a pasta; na `busca_ampla`, numa frase curta, com quantas buscas a memória
+  não conseguiu ler). Como a gravação corre por trás da resposta, a falha de gravação aparece nas respostas seguintes
+  da janela, até uma gravação dar certo; enquanto isso, o que a janela guarda vale só nela, enquanto estiver aberta.
+  Com a rede parada ou o serviço pausado, a busca que a memória não conseguiu ler dá o erro da rede (na busca ampla,
+  "com erro"), como qualquer busca nova.
 - `GARIMPO_SEM_MEMORIA=1` desliga a memória em disco: cada janela guarda os acórdãos só enquanto está aberta,
   como antes, e nenhuma busca é guardada. O freio (vagas e pausas) e a conferência do PDF continuam ligados.
 - **Apagar só a memória:** apague a pasta `memoria` dentro da pasta de dados (por exemplo,
