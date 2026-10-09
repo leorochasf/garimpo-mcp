@@ -64,9 +64,20 @@ O inciso do art. 927 do CPC em que um precedente se encaixa por regra fixa, com 
 _Evitar_: força, peso, nível, vinculante (sozinho), persuasivo, fora do rol (para acórdão)
 _Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
 
+**Roteiro de pesquisa**:
+O passo a passo que o Garimpo oferece para pesquisar uma tese com as suas ferramentas: formular, buscar, separar pelo enquadramento no art. 927, ler ementas e inteiro teor, conferir antes de citar. Orienta quem pesquisa; nunca afirma jurisprudência.
+_Evitar_: workflow, receita, prompt (sozinho)
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
 **Inteiro teor oficial**:
-O PDF do acórdão baixado do portal do próprio tribunal, nunca de cópia de terceiro.
+O PDF do acórdão baixado do portal do próprio tribunal, nunca de cópia de terceiro. O endereço do PDF pode ter sido indicado por terceiro (ex.: a rota de íntegra do JurisprudênciaIA), mas o arquivo vem do portal.
 _Evitar_: íntegra (do site), documento
+_Nota sobre endereço indicado por terceiro decidida pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeita a revisão do dono._
+
+**HTTP comum**:
+Obter o PDF do portal só com pedidos simples, com a identificação do próprio Garimpo: cookies que o próprio portal entrega na mesma sessão e leitura dos links escritos no HTML, só em https nos endereços oficiais. Não inclui executar JavaScript, fazer login, resolver captcha, se passar por navegador nem usar proxy.
+_Evitar_: download direto, sem contorno (sozinho), scraping
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
 
 **Inteiro teor trazido pelo usuário**:
 O PDF que o usuário entrega ao Garimpo pelo caminho do arquivo (ex.: baixado à mão do STF ou do TJGO). A origem é declarada pelo usuário e não é conferida; nunca é chamado de oficial por declaração ou pelo nome do arquivo.
@@ -197,6 +208,23 @@ _Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 �
 A lista, na busca ampla, das referências a precedente mais frequentes entre os acórdãos achados (antes dos filtros locais e do corte), com quantos acórdãos fazem cada uma. Frequência não é relevância.
 _Evitar_: mapa de citações, ranking de precedentes
 _Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
+## Tabela de precedentes
+
+**Tabela de precedentes**:
+A fotografia, dentro do Garimpo, de uma fonte oficial de precedentes qualificados (hoje: temas repetitivos e IAC do STJ, do Portal de Dados Abertos do STJ), com a data da coleta e a data de atualização informada pela fonte; consultada sem rede.
+_Evitar_: base, cache, banco, memória (é outra coisa: respostas do site por 24 h)
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-09 — sujeito a revisão do dono._
+
+**Situação na fonte**:
+O valor literal que a fonte oficial dá a um precedente na data da tabela (ex.: "Trânsito em Julgado", "Afetado", "Cancelado"). Não é vigência nem aplicabilidade, e nunca é traduzido para "vigente" ou "superado".
+_Evitar_: vigência, status, situação atual
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-09 — sujeito a revisão do dono._
+
+**Não consta na tabela**:
+O número pedido não está na tabela de precedentes daquela data. Não prova que o precedente não existe (pode ser posterior à fotografia).
+_Evitar_: não existe, inexistente, número inválido
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-09 — sujeito a revisão do dono._
 
 ## Banco de provas
 

@@ -26,6 +26,21 @@ com o inciso III-A (Lei 15.484/2026); a base de legislação do JusRatio estava 
   exigida pelo inciso IV não vem nos dados); repercussão geral (não aparece no art. 927); PUIL, IRR, OJ e súmula do
   TST (fundamento não verificado); III-A (nenhum dado indica o regime da relevância).
 
+## Reforço pela tabela de precedentes (B8, ADR-0015)
+
+_Emenda decidida pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-09 — sujeita a revisão do dono._
+
+Quando um tema repetitivo ou IAC do STJ da lista do site casa com a tabela de precedentes por tribunal, tipo e número:
+
+- tema/IAC **sem** tese no site e **com** tese firmada na tabela → art. 927, III, com a evidência "tese firmada na
+  tabela de precedentes do STJ de <data>";
+- o aviso "situação não verificada" é trocado pela situação na fonte literal, com a data da tabela;
+- situação na fonte `Cancelado` ou `Revisado` → **nota** ("a fonte indica …"), sem mudar o inciso: o enquadramento
+  descreve o tipo, não a vigência;
+- tese do site diferente da tese da tabela → mostra a da tabela como texto da fonte oficial naquela data e avisa que
+  difere da do site, sem afirmar qual vale hoje;
+- número que não consta na tabela → "não consta na tabela de <data>", e vale a regra sem a tabela.
+
 ## Opções consideradas
 
 - Escala doutrinária de 4 níveis: rejeitada; não se apoia no texto legal consultado.
