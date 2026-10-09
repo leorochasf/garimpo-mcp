@@ -269,6 +269,7 @@ describe("inteiro teor — link pedido à rota de link do site", () => {
     ["HTTP 400", () => respostaJson({ error: "bad request" }, 400)],
     ["corpo sem link", () => respostaJson({})],
     ["link que não é https", () => respostaJson({ link: "javascript:alert(1)" })],
+    ["link fora de domínio .jus.br", () => respostaJson({ link: "https://exemplo.test/documento/802" })],
   ])("rota falhou (%s): resposta sem link do ticket 02, sem erro e sem link inventado", async (_caso, resposta) => {
     const memoria = await semLink("tjba", "802");
     const site = clienteFalso([resposta()]);
@@ -280,6 +281,18 @@ describe("inteiro teor — link pedido à rota de link do site", () => {
     expect(r.explicacao).toContain("0000009-99.2024.8.05.0001");
     expect(r.explicacao).not.toMatch(/abr(a|ir) o link/i);
     expect(site.chamadas).toHaveLength(1);
+  });
+
+  it("tribunal que baixa, sem link na busca: baixa pelo link da rota, e o recibo diz de onde ele veio", async () => {
+    const memoria = await semLink("tjmg", "804");
+    const link = "https://www5.tjmg.jus.br/jurisprudencia/relatorioEspelhoAcordao.do?inteiroTeor=true&numero=804";
+    const site = clienteFalso([respostaJson({ link })]);
+    const tribunal = clienteFalso([pdf()]);
+    const r = await obterInteiroTeor({ id: "tjmg:804", pasta }, () => tribunal.cliente, memoria, site.cliente);
+    expect(r).toMatchObject({ baixado: true, fonte: link });
+    if (!r.baixado) return;
+    expect(tribunal.chamadas.map((c) => c.url)).toEqual([link]);
+    expect(await readFile(r.recibo, "utf8")).toContain(`Link pedido à rota de link do site: ${link}`);
   });
 
   it("TST (rota responde 400 por documentação): nenhuma chamada", async () => {

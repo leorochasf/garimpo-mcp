@@ -51,7 +51,7 @@ Lista mostrada com menos acórdãos do que a busca achou (com filtro local, do q
 _Evitar_: lista completa (quando cortada), resultado parcial (é o caso de recusa)
 
 **Aviso de natureza jurídica**:
-A linha fixa, em toda resposta com jurisprudência, que lembra que é resultado de busca em base não oficial e deve ser conferido no link oficial antes de citar.
+A linha fixa, em toda resposta com jurisprudência, que lembra que é resultado de busca em base não oficial e deve ser conferido na fonte oficial do tribunal antes de citar (vale também para o acórdão que veio sem link).
 _Evitar_: disclaimer, ressalva
 
 **Precedente qualificado**:

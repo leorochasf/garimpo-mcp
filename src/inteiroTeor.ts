@@ -103,7 +103,8 @@ export function pastaPadrao(): string {
 /**
  * Acórdão da memória sem link nenhum na busca: pede o link oficial à rota de link do site, uma vez, pelo Cliente do
  * site (freios de sempre), e o guarda no acórdão sem estender as 24 h. Nada no TST (a rota responde 400). Recusa do
- * site ou rede parada sobe como erro; outra falha, resposta sem link ou link que não é https = sem link.
+ * site ou rede parada sobe como erro; outra falha, resposta sem link ou link fora de https num domínio .jus.br = sem
+ * link: o que sai como link oficial é só o do portal do tribunal.
  */
 async function comLinkDaRota(
   guardado: Guardado | undefined,
@@ -121,7 +122,7 @@ async function comLinkDaRota(
       headers: { Origin: SITE, Referer: `${SITE}/` },
     });
     const valor = ((await r.json()) as { link?: unknown } | null)?.link;
-    if (typeof valor === "string" && new URL(valor.trim()).protocol === "https:") link = valor.trim();
+    if (typeof valor === "string" && ehDoTribunal(new URL(valor.trim()))) link = valor.trim();
   } catch (e) {
     if (e instanceof RecusaError || e instanceof RedeParadaError) throw e;
   }
@@ -129,6 +130,12 @@ async function comLinkDaRota(
   const comLink = { ...acordao, linkDaRota: link };
   memoria.lembrar([{ ids: [acordao.id], registro: comLink }], guardado.obtidoEm);
   return comLink;
+}
+
+/** Endereço https num domínio da Justiça (.jus.br): o único que o Garimpo apresenta como link oficial vindo da rota. */
+function ehDoTribunal(url: URL): boolean {
+  const host = url.hostname.toLowerCase();
+  return url.protocol === "https:" && (host === "jus.br" || host.endsWith(".jus.br"));
 }
 
 export async function obterInteiroTeor(
