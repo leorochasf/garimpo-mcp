@@ -217,6 +217,25 @@ describe("conferência de citação — casos achados na revisão", () => {
     expect(r.veredito).toBe("não encontrado");
   });
 
+  it.each([0.1, 0.25, 0.4])(
+    "trecho do meio tirado sem (...) (%s das palavras): não encontrado, com a passagem parecida da frase inteira",
+    (fracao) => {
+      const frase =
+        "A tutela coletiva do patrimônio público exige demonstração concreta da lesão ao erário causada pelo ato " +
+        "administrativo impugnado nos autos originários";
+      const ementa = `EMENTA FICTÍCIA. ADMINISTRATIVO. 1. ${frase}. 2. Recurso conhecido e não provido.`;
+      const p = frase.split(" ");
+      const tirar = Math.round(p.length * fracao);
+      const de = Math.floor((p.length - tirar) / 2);
+      const citacao = [...p.slice(0, de), ...p.slice(de + tirar)].join(" ");
+
+      const r = conferir(ementa, citacao);
+      expect(r.veredito).toBe("não encontrado");
+      expect(r.passagemParecida?.texto).toBe(frase);
+      expect(r.passagemParecida?.palavrasEmComum).toBe(`${p.length - tirar} de ${p.length - tirar} palavras da citação, na mesma ordem`);
+    },
+  );
+
   it("passagem parecida em ementa longa de palavras comuns sai em tempo de uso (menos de 1 s)", () => {
     const comuns = ["a", "de", "o", "que", "e", "do", "da", "em", "um", "para"];
     const fonte = Array.from({ length: 3000 }, (_, i) => comuns[(i * 7) % comuns.length]).join(" ");

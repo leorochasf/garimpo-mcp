@@ -755,7 +755,8 @@ function passagemParecida(fonte: Fonte, citacao: string): PassagemParecida | und
   // Com 80% em comum, a 1ª palavra casada da citação está entre as primeiras 20%, e a janela tem, fora de ordem,
   // ao menos 80% das palavras da citação. Só as janelas com mais palavras em comum passam pela comparação em ordem.
   const comeco = new Set(cit.slice(0, Math.floor(n / 5) + 1));
-  const largura = n + Math.ceil(n / 4);
+  // Janela do dobro da citação: cobre a citação de que se tirou, sem marcar com (...), até metade da frase da fonte.
+  const largura = 2 * n;
   const precisa = Math.ceil((n * 4) / 5);
   const naCitacao = new Map<string, number>();
   for (const p of cit) naCitacao.set(p, (naCitacao.get(p) ?? 0) + 1);
