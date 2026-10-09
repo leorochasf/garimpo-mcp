@@ -1,11 +1,13 @@
 # Garimpo
 
 Servidor MCP local (stdio) para pesquisar jurisprudência brasileira pela **busca direta** do
-[JurisprudênciaIA](https://www.jurisprudenciaia.com.br) e baixar o **inteiro teor oficial** dos tribunais.
+[JurisprudênciaIA](https://www.jurisprudenciaia.com.br) e baixar o **inteiro teor oficial** dos tribunais. Os 24 TRTs
+vêm do **Falcão** (CSJT), o repositório oficial de jurisprudência da Justiça do Trabalho (Res. CSJT 401/2024), com o
+texto integral do acórdão.
 Devolve dados crus e verificáveis (ementa como veio do site, número, órgão, data, link oficial); quem interpreta é a IA
 de quem usa.
 
-> **Cliente não oficial.** O Garimpo não é afiliado ao JurisprudênciaIA nem à JAI. A API usada não é
+> **Cliente não oficial.** O Garimpo não é afiliado ao JurisprudênciaIA, à JAI, ao CSJT nem a nenhuma outra fonte. A API usada não é
 > documentada e pode mudar sem aviso. Licença MIT.
 
 ## Ferramentas
@@ -18,13 +20,35 @@ de quem usa.
 | `obter_inteiro_teor` | Baixa o PDF oficial do portal do tribunal (STJ, TJMG, TJSP, TSE) e devolve o caminho do arquivo e o sha256. Ao lado do PDF grava o recibo de origem (`.recibo.txt`: link oficial, data e hora, sha256; declaração do Garimpo, não certidão). Recusa PDF acima de 50 MB e nunca deixa arquivo pela metade. Já devolve a **1ª parte** do texto, com o mesmo cabeçalho do `ler_inteiro_teor` e a chamada pronta para a parte seguinte. Se, num caso extremo (pasta ou link muito longos), a 1ª parte não couber no teto junto com os dados do download, vem um aviso e a chamada pronta para lê-la com o `ler_inteiro_teor`. Com `texto: false`, devolve só o caminho, o recibo e o total de páginas do PDF, sem extrair o texto (para baixar vários e ler depois, economizando tokens). Antes de baixar, procura **só na pasta de destino** um PDF do mesmo acórdão já baixado pelo Garimpo, pelo recibo de origem (mesmo tribunal e id, ou o mesmo link da busca; nunca só pelo número do processo): com o PDF intacto (mesmo sha256 do recibo), responde na hora, sem nenhuma chamada, dizendo de quando é o download (`jaEstavaNaPasta`); com várias versões válidas, usa a de download mais recente e preserva as outras. Isso vale mesmo depois das 24 h da memória, pedindo pelo id do download ou pelo link (pelo id de outra cópia equivalente do mesmo acórdão, só dentro das 24 h). Não há como forçar novo download: para outra cópia do tribunal, mova o PDF e o recibo para fora da pasta de destino (sem apagar). Se o PDF salvo não puder ser lido ou contado, o download continua valendo e vem o motivo ("total de páginas não disponível" ou o erro de leitura), nunca um número inventado. STF, TJGO e demais: devolve o link, explica como obter no navegador e ensina a ler o PDF baixado: passar o caminho do arquivo ao `ler_inteiro_teor`. Acórdão que veio da busca sem link nenhum: pede o link, uma vez, à rota de link do JurisprudênciaIA (exceto TST; só aceita https em domínio .jus.br) e diz que veio de lá; sem link também ali, diz como achar o acórdão pelo número CNJ no portal de jurisprudência do tribunal |
 | `ler_inteiro_teor` | Lê, pelo caminho do arquivo, o PDF que o `obter_inteiro_teor` baixou, ou um PDF que você baixou à mão em qualquer pasta, e devolve uma **parte** do texto (cerca de 8 mil tokens estimados, feita de páginas do PDF inteiras; página grande demais vem em segmentos, com a continuação indicada). Cada parte traz o mesmo cabeçalho: tribunal, número, data, link oficial, sha256, id, nome do arquivo, origem e "páginas X–Y de N (parte P de T)" (páginas do PDF, não folhas dos autos), com "não informado" no que faltar, e a chamada pronta para a parte seguinte. Origem **conferida** só quando o recibo de origem ao lado do PDF é reconhecido, registra download pelo Garimpo e tem o mesmo sha256 do arquivo; senão, **não conferida**, com o motivo (sem recibo, recibo de formato desconhecido, PDF alterado depois do download). Página sem texto extraível é avisada ("pode ser escaneada"; não há OCR); PDF que o extrator não consegue ler é erro de leitura. PDF sem recibo é **inteiro teor trazido pelo usuário**: origem declarada, não conferida, nunca chamado de oficial. Só aceita arquivo PDF de até 50 MB (não aceita URL nem pasta, e não procura arquivos sozinho). Para esse PDF, se quiser, informe o id que veio na busca, ou tribunal + número: o cabeçalho é preenchido como **vínculo declarado pelo usuário** (com a memória do Garimpo, sem nova chamada à rede) e diz se o número do processo aparece no texto (encontrado / não encontrado / não verificável), só como informação. Não grava, não copia e não chama a rede |
 | `julgamentos_do_processo` | Pelo número CNJ (com ou sem máscara; o tribunal sai do número, ou informe `tribunal`, ex.: `stj` para o processo que subiu), os **julgamentos registrados** do processo no **DataJud**, a base pública de metadados do CNJ (sem texto de decisão e sem nome de parte): só registros de 2º grau ou de tribunal superior (os de 1º grau são contados), só movimentos de resultado de julgamento da Tabela Processual Unificada e, à parte, a juntada de documento com complemento "Acórdão". Cada linha traz a data do **lançamento no DataJud** (não a da sessão), código, nome e órgão; cada registro, a última atualização no DataJud. Ao lado, os acórdãos do mesmo número que uma busca pelo número no JurisprudênciaIA devolve, com o id; em `ladoALado`, os totais das duas fontes e, só com as duas respostas utilizáveis e sem corte, a comparação de embargos de declaração com embargos de declaração e o que conferir no portal do tribunal (o movimento de tipo não verificado, ou a diferença de embargos). **Nunca afirma que um acórdão falta.** Cada fonte vem com o seu estado (ok, vazia, erro, recusa, pausa, não consultada): "o DataJud não devolveu este processo" não prova que ele não exista. O DataJud não cobre o STF. Consulta repetida em 24 h volta da memória. Uso sob o [termo de uso da API Pública do CNJ](https://formularios.cnj.jus.br/wp-content/uploads/2023/11/Termos-de-uso-api-publica-V1.2.pdf) (fins legais e não comerciais); a chave pública vem no Garimpo e pode ser trocada pela variável `GARIMPO_DATAJUD_CHAVE`. Com `incluir_djen` (padrão; `false` responde mais rápido), também as **comunicações do processo no DJEN** (uma página, até 100; "lista cortada" quando há mais): data de disponibilização, tipo de comunicação e de documento, órgão, classe e link, nunca o texto nem nome de parte ou advogado — comunicações do processo, não um inventário de acórdãos. Se o DJEN pedir para esperar mais de 1 minuto, a resposta vem na hora com o que as outras fontes trouxeram e o instante em que se pode tentar de novo (estado `pausa`, que não é recusa). Fontes e limites: [`docs/fontes.md`](docs/fontes.md) |
-| `listar_tribunais` | Para cada tribunal: busca, precedentes qualificados, teto de resultados por busca e se o inteiro teor é baixado ou só linkado |
+| `listar_tribunais` | Para cada tribunal: a fonte (JurisprudênciaIA ou Falcão), busca, precedentes qualificados, teto de resultados por busca e se o inteiro teor é baixado, só linkado ou, nos TRTs, texto integral do repositório oficial (sem PDF). A mesma tabela, com os limites do Falcão, sai no recurso `garimpo://tribunais` |
 | `conferir_citacao` | Confere, por regra fixa e sem IA, se cada citação (até 20 por chamada; 5 palavras ou mais, até 3 mil caracteres) está literalmente na ementa do acórdão, pelo id que veio na busca (ementa guardada na memória do Garimpo). Vereditos: **encontrado literalmente** (só diferença de espaço, quebra de linha, espaço não separável, forma Unicode dos acentos ou aspas/apóstrofos tipográficos, avisadas); **encontrado com supressão indicada** (cortes marcados com `(...)` ou `[...]`, pedaços de 5 palavras ou mais, na ordem); **difere só em maiúsculas/pontuação** (não é literal; vem o texto exato da fonte); **não encontrado** (com a passagem parecida copiada da fonte, quando 80% ou mais das palavras estão na mesma ordem, rotulada como diferente da citação); **não verificável** (acórdão fora da memória — refaça a busca — ou sem ementa). Hífen, meia-risca e travessão nunca são iguais. Reticências soltas (e o corte escrito com a reticência de um caractere só, `(…)`) são texto, salvo `reticenciasComoCorte`. Item da lista sem `citacao` ou `id`, e citação curta ou longa demais, recebem resultado próprio com a frase que ensina a corrigir, sem derrubar as outras. A posição vem como a frase da ementa que contém a citação (até 10 ocorrências, com o total); passagem entre aspas ganha o aviso de que pode ser de outro autor. Com `caminho` (o PDF do `obter_inteiro_teor` ou um trazido pelo usuário), confere também no inteiro teor: a posição vem como página do PDF, parte e segmento, com a origem do PDF (no PDF trazido, declarada pelo usuário, não conferida; o `id` junto é só vínculo declarado) e a seção do acórdão pelo título de seção sozinho na linha (EMENTA, ACÓRDÃO, RELATÓRIO, VOTO, VOTO-VISTA, VOTO VENCIDO, VOTO VOGAL, CERTIDÃO), ou "não identificada"; no relatório e no voto vencido, aviso forte. O Garimpo nunca diz de quem é a passagem, e a falta de sinal não prova que ela é do tribunal. Achar o texto não autentica a fonte. Não grava e não chama a rede |
 | `consultar_precedente` | Tema repetitivo ou IAC do STJ pelo número (tipo obrigatório: a numeração é separada), **sem internet**, na tabela de precedentes que vai no pacote: situação na fonte literal, tese firmada (ou "sem tese firmada na tabela"), questão submetida, órgão, datas, processo paradigma quando a fonte o identifica, números de súmula e de tema de repercussão geral do STF ligados, enquadramento no art. 927, atribuição e datas da tabela; número ausente volta como "não consta na tabela de <data>" (veja [Tabela de precedentes do STJ](#tabela-de-precedentes-do-stj)) |
 
 As respostas de `busca_direta`, `busca_ampla` e `obter_ementa` trazem, no campo `avisoNaturezaJuridica`, a linha
 "Resultado de busca em base não oficial. Confira o acórdão na fonte oficial do tribunal antes de citar; a ementa não
-substitui o inteiro teor."
+substitui o inteiro teor." Nos TRTs, o aviso é o do Falcão: "Resultado obtido do repositório oficial da Justiça do
+Trabalho (Falcão) por cliente não oficial (Garimpo); confira no portal do tribunal antes de citar."; na busca ampla
+com as duas fontes, vêm os dois, cada um com a sua (a oficialidade do Falcão não se estende ao JurisprudênciaIA).
+
+### TRTs pelo Falcão
+
+- **Busca direta** (`trt1` a `trt24`): só acórdãos; `limite` padrão 10, máximo 30 (3 páginas do Falcão). Cada
+  acórdão traz o rótulo "Falcão — repositório oficial de jurisprudência da Justiça do Trabalho (Res. CSJT 401/2024)",
+  número, classe, relator, turma, **julgado em** (`dataJulgamento`) e **juntado em** (`dataJuntada`, que não é data
+  de publicação; a publicação não é informada pela fonte). Acórdão sem ementa aparece como "sem ementa no Falcão",
+  sem trecho inventado. O cabeçalho de cobertura separa o total que o Falcão informa ("10.000 ou mais" no teto da
+  contagem dele) de quantos vieram e quantos são mostrados. Nomes de partes nunca vão a listas, cabeçalhos nem à busca
+  guardada.
+- **Busca ampla:** cada TRT conta como tribunal (até 5), 1 página (10) por formulação × TRT, com teto de **5 páginas
+  do Falcão por chamada**, usadas primeiro na 1ª formulação de cada TRT pedido, na ordem dada; o que não couber sai
+  no cabeçalho como `foraDoTeto` (repita a chamada para executar o que faltou: o já feito volta da memória).
+- **Texto integral:** vem na própria busca e fica na memória do Garimpo por 24 h (o Falcão não tem busca por id).
+  `ler_inteiro_teor` com o `id` (sem caminho) o devolve em partes por tamanho, convertido de HTML (não é PDF, sem
+  recibo de origem); `conferir_citacao` com o `id` confere na ementa e no texto integral, dizendo em qual achou;
+  `obter_inteiro_teor` explica que não há PDF. Fora da memória, refaça a busca (pode não trazer o mesmo acórdão).
+- **Ainda não:** filtros `de`, `ate`, `relator`, `orgao` e `classe` nos TRTs (erro que ensina, sem chamada),
+  precedentes qualificados dos TRTs, TST pelo Falcão. Termos de uso do Falcão lidos e registrados em
+  [`docs/fonte-falcao.md`](docs/fonte-falcao.md).
 
 Tribunal inválido e data fora do formato recebem uma frase em português que diz como corrigir: as siglas válidas;
 "use AAAA-MM-DD". Na `busca_ampla`, `formulacoes` e `tribunais` aceitam lista, texto
@@ -272,8 +296,12 @@ civil do Estado por omissão."*
   arquivo ao `ler_inteiro_teor` para ler o texto (origem declarada, não conferida).
 - **TSE:** downloads seguidos esperam 10 s entre si, contados da última saída de qualquer janela do Garimpo (o
   portal recusa chamadas em sequência).
-- Tribunais cobertos (32): STF, STJ, TST, TSE, STM e os 27 TJs, inclusive TJDFT e TJTO. Não há TRFs, TCU nem
-  tribunais de contas.
+- Tribunais cobertos (56): STF, STJ, TST, TSE, STM e os 27 TJs, inclusive TJDFT e TJTO, pelo JurisprudênciaIA; os 24
+  TRTs pelo Falcão. Não há TRFs, TCU nem tribunais de contas.
+- **Falcão (TRTs):** sem login, no máximo 200 documentos por busca na fonte; o Garimpo para antes do limite de pedidos
+  do Falcão (**freio preventivo**: pausa de 15 min em todas as janelas, com a hora para tentar de novo), porque passar
+  dele bloqueia o IP por horas. O freio reduz esse risco, sem garanti-lo: outros usos do mesmo IP não são vistos pelo
+  Garimpo.
 
 ## Desenvolvimento
 

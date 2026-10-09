@@ -37,7 +37,14 @@ import { julgamentosDoProcesso } from "./julgamentos.js";
 import { avisoRecorridoDoAcordao } from "./recorrido.js";
 import { INSTRUCTIONS, roteiroDePesquisa } from "./roteiro.js";
 import { clienteDoFalcao } from "./falcao.js";
-import { ehDoFalcao, paginaDeTribunais, SIGLAS, TRIBUNAIS } from "./tribunais.js";
+import {
+  ehDoFalcao,
+  INTEIRO_TEOR_TRT,
+  paginaDeTribunais,
+  QUALIFICADOS_TRT,
+  SIGLAS,
+  TRIBUNAIS,
+} from "./tribunais.js";
 import {
   consultarPrecedente,
   reforcoDaTabela,
@@ -758,8 +765,11 @@ export function criarServidor(
     {
       title: "Listar tribunais",
       description:
-        "Lista os tribunais cobertos pelo Garimpo e, para cada um: se tem busca, quais precedentes qualificados " +
-        "o site devolve, o teto de resultados por busca e se o inteiro teor oficial é baixado ou só linkado.",
+        "Lista os tribunais cobertos pelo Garimpo e, para cada um: a fonte (JurisprudênciaIA ou Falcão (CSJT), o " +
+        "repositório oficial da Justiça do Trabalho, para os 24 TRTs), se tem busca, quais precedentes qualificados " +
+        "o site devolve, o teto de resultados por busca e se o inteiro teor oficial é baixado, só linkado ou, nos " +
+        "TRTs, texto integral do repositório oficial (sem PDF). Detalhes dos limites do Falcão na página " +
+        "garimpo://tribunais.",
       annotations: { readOnlyHint: true, openWorldHint: false },
       inputSchema: {},
     },
@@ -768,11 +778,13 @@ export function criarServidor(
         TRIBUNAIS.map((t) => ({
           tribunal: t.sigla,
           nome: t.nome,
+          fonte: t.fonte,
           busca: true,
-          qualificados: t.qualificados,
+          qualificados: t.fonte === "Falcão (CSJT)" ? QUALIFICADOS_TRT : t.qualificados,
           tetoResultados: t.tetoResultados,
           inteiroTeor: t.inteiroTeor,
           ...(t.motivoLink ? { motivo: t.motivoLink } : {}),
+          ...(t.inteiroTeor === "texto" ? { motivo: INTEIRO_TEOR_TRT } : {}),
         })),
       ),
   );
@@ -783,8 +795,8 @@ export function criarServidor(
     {
       title: "Tribunais cobertos pelo Garimpo",
       description:
-        "Por tribunal: sigla, nome, precedentes qualificados, teto por busca e se o inteiro teor é baixado ou só " +
-        "linkado (e por quê). Mesma tabela do listar_tribunais, sem rede.",
+        "Por tribunal: sigla, nome, fonte, precedentes qualificados, teto por busca e se o inteiro teor é baixado, só " +
+        "linkado (e por quê) ou texto integral (TRTs); e os limites do Falcão. Mesma tabela do listar_tribunais, sem rede.",
       mimeType: "text/markdown",
     },
     async (uri) => ({ contents: [{ uri: uri.href, mimeType: "text/markdown", text: paginaDeTribunais() }] }),

@@ -10,6 +10,10 @@ export type InteiroTeorModo = "baixa" | "link" | "texto";
 /** De onde vem a busca do tribunal. */
 export type Fonte = "JurisprudênciaIA" | "Falcão (CSJT)";
 
+/** O que a tabela diz dos TRTs: precedentes qualificados e inteiro teor. */
+export const QUALIFICADOS_TRT = "qualificados não pesquisados no B12";
+export const INTEIRO_TEOR_TRT = "texto integral do repositório oficial (sem PDF)";
+
 /** Rótulo de cada acórdão de TRT (ADR-0018). */
 export const ROTULO_FALCAO =
   "Falcão — repositório oficial de jurisprudência da Justiça do Trabalho (Res. CSJT 401/2024)";
@@ -194,14 +198,15 @@ export function infoTribunal(sigla: string): InfoTribunal | undefined {
  */
 export function paginaDeTribunais(): string {
   const linhas = TRIBUNAIS.map((t) => {
-    const qualificados = t.qualificados.length ? t.qualificados.join(", ") : "nenhum";
+    const qualificados =
+      t.fonte === "Falcão (CSJT)" ? QUALIFICADOS_TRT : t.qualificados.length ? t.qualificados.join(", ") : "nenhum";
     const inteiroTeor =
       t.inteiroTeor === "baixa"
         ? "baixado pelo Garimpo"
         : t.inteiroTeor === "texto"
-          ? "texto integral do repositório oficial (sem PDF)"
+          ? INTEIRO_TEOR_TRT
           : `só link: ${t.motivoLink}`;
-    return `| ${t.sigla.toUpperCase()} | ${t.nome} | ${qualificados} | ${t.tetoResultados} | ${inteiroTeor} |`;
+    return `| ${t.sigla.toUpperCase()} | ${t.nome} | ${t.fonte} | ${qualificados} | ${t.tetoResultados} | ${inteiroTeor} |`;
   });
   return [
     "# Tribunais cobertos pelo Garimpo",
@@ -209,12 +214,22 @@ export function paginaDeTribunais(): string {
     "Cobertura e limites registrados no Garimpo, os mesmos da ferramenta listar_tribunais. A página não diz se o " +
       "portal do tribunal está funcionando agora: o registro pode ter mudado desde a última conferência.",
     "",
+    "- **Fonte:** de onde vem a busca: a busca direta do JurisprudênciaIA (base não oficial) ou o Falcão (CSJT), " +
+      "repositório oficial de jurisprudência da Justiça do Trabalho (Res. CSJT 401/2024), para os 24 TRTs (só acórdãos).",
     "- **Qualificados:** listas de precedentes qualificados que o site devolve em separado na busca.",
-    "- **Teto por busca:** máximo de acórdãos observado por busca; só informa, não limita a busca.",
-    "- **Inteiro teor:** se o Garimpo baixa o PDF oficial ou só devolve o link, e por quê.",
+    "- **Teto por busca:** máximo de acórdãos observado por busca; só informa, não limita a busca. Nos TRTs, é o teto " +
+      "da busca direta (3 páginas de 10 do Falcão), que limita a busca.",
+    "- **Inteiro teor:** se o Garimpo baixa o PDF oficial ou só devolve o link, e por quê; nos TRTs, o texto integral " +
+      "do repositório oficial, que vem na própria busca, convertido de HTML (não é PDF, sem recibo de origem).",
     "",
-    "| Sigla | Tribunal | Qualificados | Teto por busca | Inteiro teor |",
-    "| --- | --- | --- | --- | --- |",
+    "Nos TRTs (Falcão): a busca_ampla usa no máximo 5 páginas do Falcão por chamada (1 página = 1 formulação × TRT); " +
+      "o que não couber sai no cabeçalho de cobertura como não executado, nunca como busca vazia. O Garimpo tem um " +
+      "freio preventivo: para de chamar o Falcão, em todas as janelas, antes do limite de pedidos que bloqueia o IP por " +
+      "horas, e diz a partir de que hora tentar de novo. O texto integral só pode ser lido e conferido (ler_inteiro_teor, " +
+      "conferir_citacao) enquanto estiver na memória do Garimpo, 24 h desde a busca: o Falcão não tem busca por id.",
+    "",
+    "| Sigla | Tribunal | Fonte | Qualificados | Teto por busca | Inteiro teor |",
+    "| --- | --- | --- | --- | --- | --- |",
     ...linhas,
     "",
   ].join("\n");
