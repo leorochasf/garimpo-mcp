@@ -57,8 +57,9 @@ de decisão e sem nome de parte.
 - **O que o Garimpo guarda:** por até 24 h, na memória do Garimpo, só a resposta reduzida que a ferramenta mostra
   (códigos, nomes, datas e órgãos dos movimentos de julgamento), com a fonte e o momento da obtenção; nunca a resposta
   bruta. A ferramenta não busca por nome de parte.
+- **Decidido pelo dono em 2026-10-09:** item 1, se o uso cabe em "não comerciais" (3.3) — o Garimpo é open source
+  (licença MIT) e sem cobrança; nas palavras do dono: "garimpo é opensource sem cobrança".
 - **Pendências do dono (bloqueiam a publicação, não o código):**
-  1. se o uso por advogado em atividade profissional cabe em "não comerciais" (3.3) — **não verificado** com o CNJ;
   2. o alcance de "não distribuir [...] qualquer informação derivada dela" (3.8) para uma ferramenta que mostra o dado
      ao próprio usuário;
   3. dar ciência ao CNJ quando o Garimpo for publicado (3.9).

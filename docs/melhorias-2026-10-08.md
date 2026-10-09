@@ -393,5 +393,6 @@ TRFs seguem sem bloco até o teste do CJF.
 [ADR-0018](adr/0018-falcao-csjt-para-os-trts.md) (Falcão para os TRTs, UA de navegador só nessa fonte, freio
 preventivo, texto integral sem PDF), [ADR-0019](adr/0019-acordao-que-falta-datajud-e-djen-sob-pedido.md) (DataJud e
 DJEN sob pedido, sem inferir ausência) e o adendo ao [ADR-0009](adr/0009-disjuntor-por-servico-e-rede-parada.md)
-(espera de 60 s do DJEN). Pendências do dono que bloqueiam a publicação: o alcance do termo do DataJud v1.2 (uso
-"não comercial" por advogado, "informação derivada", ciência ao CNJ).
+(espera de 60 s do DJEN). Termo do DataJud v1.2, uso "não comercial" (3.3): decidido pelo dono em 2026-10-09 — o
+Garimpo é open source (licença MIT) e sem cobrança ("garimpo é opensource sem cobrança"). Pendências do dono que
+bloqueiam a publicação: "informação derivada" (3.8) e ciência ao CNJ (3.9).

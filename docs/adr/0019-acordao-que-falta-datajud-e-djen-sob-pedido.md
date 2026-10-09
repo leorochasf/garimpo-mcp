@@ -29,10 +29,10 @@ divididas com o site, e comparar por data confundiria julgamentos.
 
 - O STF não está no DataJud: a ferramenta diz isso sem chamada.
 - Uso sujeito ao termo do DataJud v1.2 (não comercial, não distribuir informação derivada, ciência ao CNJ do que for
-  publicado), citado na ferramenta e no README. Pendências do dono, que bloqueiam a publicação e não o código: (i) se
-  o uso por advogado em atividade profissional é "não comercial" (item 3.3) — não verificado com o CNJ; (ii) o
-  alcance de "não distribuir informação derivada" (3.8); (iii) dar ciência ao CNJ quando o Garimpo for publicado
-  (3.9).
+  publicado), citado na ferramenta e no README. Item (i), se o uso é "não comercial" (item 3.3): decidido pelo dono em
+  2026-10-09 — o Garimpo é open source (licença MIT) e sem cobrança; nas palavras do dono: "garimpo é opensource sem
+  cobrança". Pendências do dono, que bloqueiam a publicação e não o código: (ii) o alcance de "não distribuir
+  informação derivada" (3.8); (iii) dar ciência ao CNJ quando o Garimpo for publicado (3.9).
 - A chave pública do DataJud pode mudar: em 401 com a chave do código, uma leitura da página oficial da wiki (pelo
   `Cliente`; User-Agent de navegador permitido se a wiki recusar o do Garimpo) e uma repetição; nunca troca a chave
   definida pelo usuário.
