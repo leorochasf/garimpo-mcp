@@ -17,7 +17,9 @@ Cabeçalhos usados no teste: `Content-Type: application/json`, `Origin` e `Refer
 Sem login, sem chave, sem cookie.
 
 Tribunais: `stf stj tst tse stm tjac tjal tjam tjap tjba tjce tjdft tjes tjgo tjma tjmg tjms tjmt tjpa tjpb
-tjpe tjpi tjpr tjrj tjrn tjro tjrr tjrs tjsc tjse tjsp`. Não há TRFs, TCU nem tribunais de contas.
+tjpe tjpi tjpr tjrj tjrn tjro tjrr tjrs tjsc tjse tjsp tjto`: STF, STJ, TST, TSE, STM e os 27 TJs (26 estados e o
+DF), 32 no total. Não há TRFs, TCU nem tribunais de contas. O TJTO faltou no mapeamento de 2026-10-07; a busca
+dele foi conferida ao vivo em 2026-10-09 (resposta 200, acórdãos do TJTO em `results`, mesmo corpo dos outros TJs).
 
 Corpo:
 
@@ -99,6 +101,7 @@ simultâneas sem recusa. Um 503 isolado em ~400 chamadas. O teto real **não** f
 | **TJMG** | `www5.tjmg.jus.br/jurisprudencia/relatorioEspelhoAcordao.do?inteiroTeor=true&...` | PDF direto | baixa |
 | **TSE** | `sjur-servicos.tse.jus.br/sjur-servicos/rest/download/pdf/{id}` | PDF direto, mas **embrulhado num envelope multipart** (`--fronteira`, cabeçalhos `form-data`, PDF, `--fronteira--`) mesmo com `content-type: application/pdf` — é preciso desembrulhar. Em chamadas seguidas devolve "Excesso de requisições" (HTTP 200): recusou com 3 s e 8 s de intervalo, aceitou com 10 s (2026-10-07) | baixa, com pausa de 10 s |
 | TJSP, TST, TJDFT | página de login/JavaScript | não investigado | link |
+| TJTO | `jurisprudencia.tjto.jus.br/viewFileDoc.php?uuid=...` (visto em 2026-10-09) | download não testado | link (padrão; não verificado) |
 
 **STJ em 3 passos** (mesma sessão de cookies; `num_registro` e `dt_publicacao` saem do `link_pdf`), conferido em 2026-10-07:
 1. `GET https://processo.stj.jus.br/processo/revista/inteiroteor/?num_registro={reg}&dt_publicacao={DD/MM/AAAA}`

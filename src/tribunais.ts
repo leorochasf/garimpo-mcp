@@ -132,6 +132,7 @@ export const TRIBUNAIS: InfoTribunal[] = [
   { ...tj("tjsc", "TJ de Santa Catarina") },
   { ...tj("tjse", "TJ de Sergipe") },
   { ...tj("tjsp", "TJ de São Paulo") },
+  { ...tj("tjto", "TJ do Tocantins") },
 ];
 
 export const SIGLAS = TRIBUNAIS.map((t) => t.sigla);

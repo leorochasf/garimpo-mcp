@@ -236,7 +236,8 @@ civil do Estado por omissão."*
   arquivo ao `ler_inteiro_teor` para ler o texto (origem declarada, não conferida).
 - **TSE:** downloads seguidos esperam 10 s entre si, contados da última saída de qualquer janela do Garimpo (o
   portal recusa chamadas em sequência).
-- Não há TRFs, TCU nem tribunais de contas.
+- Tribunais cobertos (32): STF, STJ, TST, TSE, STM e os 27 TJs, inclusive TJDFT e TJTO. Não há TRFs, TCU nem
+  tribunais de contas.
 
 ## Desenvolvimento
 

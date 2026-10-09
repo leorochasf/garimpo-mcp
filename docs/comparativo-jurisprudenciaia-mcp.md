@@ -29,7 +29,7 @@ O desenho do Garimpo (`docs/design/2026-10-07-garimpo.md`) afirma que os conecto
 
 ### 2. Tribunais cobertos
 
-- **Garimpo:** 31 tribunais. São STF, STJ, TST, TSE, STM e 26 TJs, entre eles o TJDFT. O TJTO não aparece na lista, e não há TRFs, TCU nem tribunais de contas (`src/tribunais.ts`, `docs/api-jurisprudenciaia.md` linhas 19–20, README "Limites conhecidos"). Também há limites por tribunal: o STF devolve no máximo 4 acórdãos por busca, e o TJGO tem cerca de 2 meses de defasagem (README).
+- **Garimpo:** 31 tribunais. São STF, STJ, TST, TSE, STM e 26 TJs, entre eles o TJDFT. O TJTO não aparece na lista (**correção de 2026-10-09:** o TJTO faltou por esquecimento no mapeamento; a busca do site o aceita e ele entrou no Garimpo, que passou a 32 tribunais e 27 TJs), e não há TRFs, TCU nem tribunais de contas (`src/tribunais.ts`, `docs/api-jurisprudenciaia.md` linhas 19–20, README "Limites conhecidos"). Também há limites por tribunal: o STF devolve no máximo 4 acórdãos por busca, e o TJGO tem cerca de 2 meses de defasagem (README).
 - **jurisprudenciaia-mcp:** **não informado.** A página diz apenas que "a cobertura, a qualidade e a disponibilidade dos resultados dependem da fonte" [P]. O único recorte que aparece num exemplo é `"tribunais":["STJ"]` [P].
 
 ### 3. Busca simples × busca ampla, sem repetidos
@@ -112,7 +112,7 @@ Na direção contrária, isto o Garimpo faz e a página do outro não informa: b
 - **Faz menos coisas.** São 5 ferramentas contra 14. Não tem busca por número CNJ, legislação, informativos, linha do tempo, overruling, jurimetria nem análise ou comparação pronta de teses.
 - **É um projeto novo.** Tem dois dias e está na versão 0.1.0; o outro está no ar há cerca de 4 meses e tem algum uso público.
 - **Só roda no computador de cada um.** Não serve hoje para usar no claude.ai pelo navegador ou pelo celular, nem para dar um único link à equipe.
-- **Limites na cobertura.** O STF devolve no máximo 4 acórdãos por busca, faltam TRFs, TCU e TJTO, e o inteiro teor só é baixado de 3 tribunais.
+- **Limites na cobertura.** O STF devolve no máximo 4 acórdãos por busca, faltam TRFs, TCU e TJTO (o TJTO entrou em 2026-10-09), e o inteiro teor só é baixado de 3 tribunais.
 
 **Para quem serve cada um**
 
