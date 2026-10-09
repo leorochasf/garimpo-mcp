@@ -372,8 +372,8 @@ para tudo" e "Como isso viraria blocos no plano"); os códigos C1–C8 são os d
 | Bloco | Itens | Depende de | Pronto quando |
 |---|---|---|---|
 | **B11 ampliado — testes baratos** | `consulta.php` do TJTO; busca do TJGO; TREs; reCAPTCHA do CJF | — | Uma chamada por item, resultado e data registrados em `docs/api-jurisprudenciaia.md` |
-| **B12 — Justiça do Trabalho (CSJT)** | C1 (TST + 24 TRTs) | D3 (decidido); B3 (V1/V3) | Termos lidos e registrados; 1 chamada de teste registrada em `docs/`; `busca_direta`/`busca_ampla` aceitam TST/TRT por essa fonte, com texto integral; testes sem rede sobre resposta gravada; teto de páginas por busca |
-| **B13 — Acórdão que falta** | C4 (DataJud), C5 (DJEN); absorve E8, E10 e o aviso de embargos (`TICKETS/avisos/01`) | B1; D3 (decidido) | Dado um CNJ, o Garimpo lista os julgamentos (data, órgão) do DataJud e marca "não veio na busca do JurisprudênciaIA"; o texto do DJEN sai rotulado "texto da intimação"; sem nome de parte; testes sem rede |
+| **B12 — Justiça do Trabalho (CSJT)** | C1, recortado pela entrevista: 24 TRTs pelo Falcão; o TST segue pelo JurisprudênciaIA ([ADR-0018](adr/0018-falcao-csjt-para-os-trts.md)) | D3 (decidido); B3 (V1/V3) | Termos lidos e registrados; 1 chamada de teste registrada em `docs/`; `busca_direta`/`busca_ampla` aceitam TRT por essa fonte, com o texto integral do repositório oficial; UA de navegador só no Falcão; freio preventivo; testes sem rede sobre resposta gravada; teto de 5 páginas por ferramenta |
+| **B13 — Acórdão que falta** | C4 (DataJud), C5 (DJEN); absorve E8, E10 e o aviso de embargos (`TICKETS/avisos/01`) ([ADR-0019](adr/0019-acordao-que-falta-datajud-e-djen-sob-pedido.md)) | B1; D3 (decidido) | Sob pedido e dado um CNJ, o Garimpo põe lado a lado os julgamentos registrados no DataJud, as comunicações do DJEN e a busca pelo número no JurisprudênciaIA; compara só por tipo comprovado e nunca conclui que o acórdão falta (aponta o movimento a conferir no portal); o texto do DJEN sai em trecho saneado, rotulado "texto da intimação"; sem nome de parte; testes sem rede |
 | **B14 — TCU** | C2 (e a rota C2-bis, se oficial) | D3 (decidido) | Dicionário de dados lido; planilha baixada uma vez e indexada no computador do usuário; busca local por número e por texto; data da base informada em toda resposta |
 | **D2 revisto — STF oficial** | C3 (opção A com cookie de ~4 dias e alternativa de cookie colado) | B3 (V3), B11 | 1 navegador comum a cada ~4 dias, sem disfarce; buscas STF com mais de 7 resultados medidas no banco de provas; parada no primeiro 202 |
 | **D1 (P8) — TJs via juscraper ou equivalente** | C6 | D1, D3 (decidido) | Prova comparativa: cobertura de ementa inteira e de acórdão faltante em 3 TJs (TJTO, TJPA, TJGO), contra o JurisprudênciaIA |
@@ -388,3 +388,10 @@ para tudo" e "Como isso viraria blocos no plano"); os códigos C1–C8 são os d
 5. Por último, D1/P8 (portais dos TJs via juscraper ou equivalente).
 
 TRFs seguem sem bloco até o teste do CJF.
+
+**Entrevistas do B12 e do B13 (2026-10-09).** Decisões do GPT Sol, delegado do dono, sujeitas a revisão do dono:
+[ADR-0018](adr/0018-falcao-csjt-para-os-trts.md) (Falcão para os TRTs, UA de navegador só nessa fonte, freio
+preventivo, texto integral sem PDF), [ADR-0019](adr/0019-acordao-que-falta-datajud-e-djen-sob-pedido.md) (DataJud e
+DJEN sob pedido, sem inferir ausência) e o adendo ao [ADR-0009](adr/0009-disjuntor-por-servico-e-rede-parada.md)
+(espera de 60 s do DJEN). Pendências do dono que bloqueiam a publicação: o alcance do termo do DataJud v1.2 (uso
+"não comercial" por advogado, "informação derivada", ciência ao CNJ).

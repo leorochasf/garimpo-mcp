@@ -28,9 +28,30 @@ O JurisprudênciaIA, para os tribunais que ele cobre. As outras fontes entram on
 _Evitar_: fonte padrão, fonte oficial (o JurisprudênciaIA não é oficial)
 _Decidido pelo dono em 2026-10-09._
 
+**Acórdão recorrido**:
+O acórdão impugnado por um recurso contra acórdão (por exemplo, embargos de declaração ou agravo interno). Pode existir no tribunal e não estar na base do JurisprudênciaIA.
+_Evitar_: acórdão principal, acórdão de mérito (nem todo recorrido é de mérito), acórdão embargado (só serve aos embargos)
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-09 — sujeito a revisão do dono._
+
+**Julgamento registrado**:
+Um movimento de resultado de julgamento (pela tabela oficial de movimentos do CNJ) num registro de 2º grau ou de tribunal superior do DataJud. Indica que houve uma decisão naquele processo; não é acórdão, não traz texto e não identifica, por si só, qual recurso foi julgado.
+_Evitar_: acórdão (do DataJud), decisão (genérico), andamento (é qualquer movimento)
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-09 — sujeito a revisão do dono._
+
+**Data de lançamento**:
+A data em que um movimento foi registrado no sistema do tribunal e aparece no DataJud. Pode ficar dias depois da sessão de julgamento; nunca é apresentada como data do julgamento.
+_Evitar_: data do julgamento, data da sessão
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-09 — sujeito a revisão do dono._
+
+**Texto da intimação**:
+O texto de uma comunicação publicada no DJEN, mostrado só em trecho saneado (sem nome de parte ou advogado) e sempre rotulado "texto da intimação, não o acórdão oficial". Nunca é inteiro teor oficial nem substitui a ementa do acórdão.
+_Evitar_: acórdão, ementa oficial, inteiro teor, publicação (sozinho)
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-09 — sujeito a revisão do dono._
+
 **Busca direta**:
-Uma consulta à base do JurisprudênciaIA, num tribunal, que devolve ementas inteiras, metadados e link do portal oficial, sem passar pelo chat de IA do site.
+Uma consulta a uma fonte, num tribunal, que devolve ementas inteiras e metadados: no JurisprudênciaIA, com o link do portal oficial e sem passar pelo chat de IA do site; no Falcão, com o texto integral do repositório oficial.
 _Evitar_: pesquisa IA, chat, scraping
+_Ampliação para outras fontes decidida pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-09 — sujeita a revisão do dono._
 
 **Busca ampla**:
 Um conjunto de buscas diretas com várias formulações da mesma tese, em um ou mais tribunais, cujos resultados são juntados sem acórdão repetido (registros equivalentes viram um acórdão só) e ordenados pela aderência, depois por quantas formulações acharam cada acórdão e pela melhor posição na busca de origem; cada tribunal com acórdão aderente tem vagas garantidas na lista, e os precedentes qualificados devolvidos vêm numa lista própria.
@@ -61,8 +82,9 @@ Lista mostrada com menos acórdãos do que a busca achou (com filtro local, do q
 _Evitar_: lista completa (quando cortada), resultado parcial (é o caso de recusa)
 
 **Aviso de natureza jurídica**:
-A linha fixa, em toda resposta com jurisprudência, que lembra que é resultado de busca em base não oficial e deve ser conferido na fonte oficial do tribunal antes de citar (vale também para o acórdão que veio sem link).
+A linha fixa, em toda resposta com jurisprudência, que lembra que o resultado deve ser conferido na fonte oficial do tribunal antes de citar (vale também para o acórdão que veio sem link). Para o JurisprudênciaIA, diz que a base não é oficial; para o Falcão, diz que a fonte é o repositório oficial da Justiça do Trabalho, consultado por cliente não oficial. Com fontes diferentes na mesma resposta, cita as fontes usadas, sem estender a oficialidade de uma à outra.
 _Evitar_: disclaimer, ressalva
+_Variante por fonte decidida pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-09 — sujeita a revisão do dono._
 
 **Precedente qualificado**:
 Tema de repercussão geral, tema repetitivo, súmula, súmula vinculante, IAC, PUIL, IRR ou OJ, que o site devolve em listas próprias, separadas dos acórdãos. É o rótulo da lista do site e não comprova enquadramento, vigência nem aplicabilidade jurídica; o enquadramento legal é informado separadamente em Enquadramento no art. 927, com evidência ou motivo de não classificação.
@@ -84,10 +106,15 @@ O PDF do acórdão baixado do portal do próprio tribunal, nunca de cópia de te
 _Evitar_: íntegra (do site), documento
 _Nota sobre endereço indicado por terceiro decidida pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeita a revisão do dono._
 
+**Texto integral do repositório oficial**:
+O texto do acórdão que vem na resposta do Falcão (repositório oficial de jurisprudência da Justiça do Trabalho, Res. CSJT 401/2024), convertido de HTML para texto pelo Garimpo por regra fixa, sem outra mudança. Não é PDF: não tem página do PDF, recibo de origem nem origem conferida; é lido em partes e pode ser usado na conferência de citação, sempre com o rótulo da fonte.
+_Evitar_: inteiro teor oficial (é o PDF), íntegra, PDF
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-09 — sujeito a revisão do dono._
+
 **HTTP comum**:
-Obter o PDF do portal só com pedidos simples, com a identificação do próprio Garimpo: cookies que o próprio portal entrega na mesma sessão e leitura dos links escritos no HTML, só em https nos endereços oficiais. Não inclui executar JavaScript, fazer login, resolver captcha, se passar por navegador nem usar proxy.
+O jeito de baixar o PDF do portal usado no B11: pedidos simples, com cookies que o próprio portal entrega na mesma sessão e leitura dos links escritos no HTML, só em https nos endereços oficiais, sem executar JavaScript, login nem captcha. É um recorte técnico, não uma proibição: outras fontes podem se apresentar como navegador quando a fonte exige (ex.: o Falcão), sempre dentro dos freios.
 _Evitar_: download direto, sem contorno (sozinho), scraping
-_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08; recorte ajustado à política do dono em 2026-10-09 — sujeito a revisão do dono._
 
 **Inteiro teor trazido pelo usuário**:
 O PDF que o usuário entrega ao Garimpo pelo caminho do arquivo (ex.: baixado à mão do STF ou do TJGO). A origem é declarada pelo usuário e não é conferida; nunca é chamado de oficial por declaração ou pelo nome do arquivo.
@@ -125,15 +152,16 @@ _Evitar_: página escaneada (é só uma das causas), página vazia
 _Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
 
 **Recusa**:
-Uma resposta do site ou do tribunal que nega a chamada (429, 403, 503, desafio anti-robô, captcha). O Garimpo nunca contorna uma recusa: espera e tenta uma vez, ou para e avisa.
+Uma resposta de uma fonte que nega a chamada (429, 403, 503, desafio anti-robô, captcha). Diante dela o Garimpo espera e tenta uma vez, ou para, avisa e pausa a fonte em todas as janelas. Contornar a barreira que causa a recusa (por exemplo, apresentar-se como navegador) é permitido quando decidido para a fonte; insistir depois da recusa, nunca.
 _Evitar_: erro (genérico demais), bloqueio contornável
+_Ajuste à política do dono (contorno permitido, freios obrigatórios) proposto na entrevista do B12, 2026-10-09 — sujeito a revisão do dono._
 
 ## Memória e freio
 
 **Memória**:
-As respostas do site (acórdãos e buscas) que o Garimpo guarda por até 24 h desde a obtenção, visíveis por todas as janelas do Garimpo do usuário, sujeitas a limpeza antecipada pelo teto de espaço. Não inclui o PDF do inteiro teor nem promete disponibilidade pelo período todo.
+As respostas do site (acórdãos e buscas) que o Garimpo guarda por até 24 h desde a obtenção, visíveis por todas as janelas do Garimpo do usuário, sujeitas a limpeza antecipada pelo teto de espaço. Não inclui o PDF do inteiro teor nem promete disponibilidade pelo período todo. Para acórdãos do Falcão, guarda também o texto integral do repositório oficial, que só existe se veio numa busca; a busca guardada leva só ementa e metadados. Do DataJud e do DJEN, guarda só a resposta reduzida e saneada, sem nome de parte ou advogado.
 _Evitar_: cache, memória da sessão
-_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08; notas do Falcão, do DataJud e do DJEN em 2026-10-09 — sujeito a revisão do dono._
 
 **Busca guardada**:
 A resposta de uma busca direta tirada da memória: fotografia da busca feita no site em certa data e hora, não uma busca nova.
@@ -149,6 +177,11 @@ _Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 �
 O estado de um serviço, compartilhado por todas as janelas do Garimpo do usuário, que impede chamadas a ele depois de uma recusa final, por uma pausa que dobra a cada nova abertura.
 _Evitar_: bloqueio, ban
 _Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
+**Freio preventivo**:
+A parada de uma fonte antes de ela recusar, quando a própria fonte informa que restam poucas chamadas (no Falcão, o cabeçalho de restante chegou à reserva). Pausa a fonte em todas as janelas por um prazo fixo; vencido o prazo, o próximo pedido do usuário deixa sair uma só chamada, que confere o restante: acima da reserva, as chamadas voltam; senão, nova pausa igual. Não é recusa: não abre o disjuntor nem dobra a pausa, e nunca sonda sozinho.
+_Evitar_: bloqueio, rate limit, disjuntor (é outra coisa)
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-09 — sujeito a revisão do dono._
 
 **Chamada de prova**:
 A única chamada, um pedido real, que sai a um serviço quando a pausa do disjuntor vence. Não tem nova tentativa: aceita, as chamadas voltam; recusada, a pausa recomeça dobrada; erro sem recusa deixa o serviço aguardando outra prova.

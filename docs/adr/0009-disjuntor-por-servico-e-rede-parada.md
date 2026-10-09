@@ -20,3 +20,15 @@ todos juntos, sucesso antigo apagando recusa nova, recriar estado por tempo) rea
 - Recriar o estado ilegível depois de X horas: rejeitado; é tempo decorrido sem evidência.
 - Tratar tempo esgotado como recusa: rejeitado; lentidão não é recusa e não aumenta a dobra, mas também não libera a
   vaga de um processo vivo.
+
+## Adendo (B13, 2026-10-09): exceção do DJEN
+
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-09 — sujeito a revisão do dono._
+
+O DJEN orienta "aguardar 1 minuto" depois de um 429. Para o serviço `djen`, a espera dentro da chamada antes da única
+nova tentativa é de no mínimo 60 s (como os 10 s do TSE), sem ocupar vaga. Se a fonte pedir mais que 60 s, a
+ferramenta não fica parada: devolve na hora o que já tem das outras fontes, com o instante permitido (data, hora e
+fuso), e registra uma **pausa** do `djen` até esse instante para todas as janelas. Essa pausa **não é recusa final**:
+não abre nem dobra o disjuntor. A primeira chamada depois da pausa, controlada entre as janelas, é a única nova
+tentativa; recusada, abre o disjuntor e avisa, sem novo ciclo. Os outros serviços continuam com o teto de 30 s.
+Ver ADR-0019.
