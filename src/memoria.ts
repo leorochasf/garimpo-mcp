@@ -1,7 +1,8 @@
 /**
  * Memória (ADR-0010): os acórdãos que o site devolveu, guardados por 24 h desde a obtenção sob o id
  * "tribunal:id-do-site" de cada cópia, e as buscas diretas com resposta utilizável (inclusive vazia), sob o sha256
- * dos parâmetros, sem o texto da busca em claro; na subpasta de memória da pasta de dados, visíveis por todas as janelas.
+ * dos parâmetros, sem o texto da busca em claro; e as consultas reduzidas a outras fontes (DataJud), sob o sha256 do
+ * pedido; na subpasta de memória da pasta de dados, visíveis por todas as janelas.
  *
  * - É descartável: falha ao gravar ou ler nunca derruba a ferramenta; a janela guarda também consigo, enquanto está
  *   aberta. A gravação em disco corre por trás da resposta: milhares de arquivos levariam segundos no Windows.
@@ -28,6 +29,7 @@ const VALIDADE_MS = 24 * 3_600_000;
 const TETO_MEMORIA_BYTES = 200 * 1024 * 1024;
 const FORMATO = "garimpo-memoria-acordao";
 const FORMATO_BUSCA = "garimpo-memoria-busca";
+const FORMATO_CONSULTA = "garimpo-memoria-consulta";
 const VERSAO = 1;
 const NOME_DE_ARQUIVO = /^[0-9a-f]{32}\.json$/;
 const NOME_DE_BUSCA = /^[0-9a-f]{64}\.json$/;
@@ -54,6 +56,18 @@ export interface BuscaNaMemoria {
 export interface BuscaGuardada {
   busca: BuscaNaMemoria;
   /** Instante em que a busca foi feita no site (ms desde 1970, UTC). */
+  obtidoEm: number;
+}
+
+/**
+ * A resposta reduzida de uma fonte além do site (DataJud, DJEN), como a ferramenta a mostra: nunca a resposta bruta.
+ * Guardada sob o sha256 do pedido, sem o número do processo em claro no nome.
+ */
+export interface ConsultaGuardada {
+  /** A fonte da consulta ("datajud", "djen"). */
+  fonte: string;
+  dado: unknown;
+  /** Instante em que a consulta foi feita na fonte (ms desde 1970, UTC). */
   obtidoEm: number;
 }
 
@@ -86,8 +100,10 @@ export class Memoria {
   private readonly sessao = new Map<string, Guardado>();
   /** As buscas desta janela, valendo na hora (a gravação em disco corre por trás). */
   private readonly buscasDaSessao = new Map<string, BuscaGuardada>();
+  private readonly consultasDaSessao = new Map<string, ConsultaGuardada>();
   private readonly pasta?: string;
   private readonly pastaDeBuscas?: string;
+  private readonly pastaDeConsultas?: string;
   private readonly agora: () => number;
   private readonly teto: number;
   /** Espaço estimado em disco (gravações de outras janelas só entram na próxima varredura). */
@@ -102,6 +118,7 @@ export class Memoria {
   constructor({ dados, agora = Date.now, tetoBytes = TETO_MEMORIA_BYTES }: OpcoesMemoria = {}) {
     this.pasta = dados && join(dados, "memoria", `acordaos-${VERSAO}`);
     this.pastaDeBuscas = dados && join(dados, "memoria", `buscas-${VERSAO}`);
+    this.pastaDeConsultas = dados && join(dados, "memoria", `consultas-${VERSAO}`);
     this.agora = agora;
     this.teto = tetoBytes;
     this.limpar();
@@ -184,6 +201,30 @@ export class Memoria {
     return { busca: guardada.busca, obtidoEm: guardada.obtidoEm };
   }
 
+  /** Guarda a consulta reduzida a uma fonte sob a chave (sha256 do pedido). Sem pasta de dados, não guarda. */
+  guardarConsulta(chave: string, fonte: string, dado: unknown): void {
+    if (!this.pastaDeConsultas) return;
+    const guardada: ConsultaGuardada = { fonte, dado, obtidoEm: this.agora() };
+    this.consultasDaSessao.set(chave, guardada);
+    const texto = JSON.stringify({ formato: FORMATO_CONSULTA, versao: VERSAO, ...guardada });
+    this.agendar(this.pastaDeConsultas, [{ nome: `${chave}.json`, texto }]);
+  }
+
+  /** A consulta guardada e válida, de qualquer janela (a mais recente); falha de leitura = ausente (é descartável). */
+  async obterConsulta(chave: string): Promise<ConsultaGuardada | undefined> {
+    if (!this.pastaDeConsultas) return undefined;
+    const arquivo = join(this.pastaDeConsultas, `${chave}.json`);
+    let lida = await lerConsulta(arquivo).catch(() => undefined);
+    if (lida && !this.valido(lida.obtidoEm)) {
+      await descartar(arquivo, lida.obtidoEm, lerConsulta);
+      lida = await lerConsulta(arquivo).catch(() => undefined);
+    }
+    const guardada = [lida?.consulta, this.consultasDaSessao.get(chave)]
+      .filter((c): c is ConsultaGuardada => c !== undefined && this.valido(c.obtidoEm))
+      .sort((x, y) => y.obtidoEm - x.obtidoEm)[0];
+    return guardada;
+  }
+
   /** O aviso de que a última leva de gravação em disco falhou; undefined se deu certo (ou ainda não houve). */
   avisoDeGravacao(): string | undefined {
     if (!this.falhaDeGravacao || !this.pasta) return undefined;
@@ -237,6 +278,7 @@ export class Memoria {
       for (const [pasta, nomeValido, ler] of [
         [this.pasta, NOME_DE_ARQUIVO, lerGuardado],
         [this.pastaDeBuscas, NOME_DE_BUSCA, lerBusca],
+        [this.pastaDeConsultas!, NOME_DE_BUSCA, lerConsulta],
       ] as const) {
         const nomes = (await readdir(pasta).catch(() => [] as string[])).filter((n) => nomeValido.test(n));
         for (const nome of nomes) {
@@ -273,7 +315,7 @@ export function fotografiaDaBusca(obtidoEm: number): string {
 }
 
 /** "08/10/2026 14:03 (hora local, UTC-03:00)". */
-function dataEHora(instante: number): string {
+export function dataEHora(instante: number): string {
   const fuso = -new Date(instante).getTimezoneOffset();
   return `${diaEHora(instante)} (hora local, UTC${fuso < 0 ? "-" : "+"}${dois(fuso / 60)}:${dois(fuso % 60)})`;
 }
@@ -345,6 +387,15 @@ async function lerBusca(arquivo: string) {
     avisos: r.avisos,
   };
   return { busca, obtidoEm: lido.obtidoEm, bytes: lido.bytes };
+}
+
+/** Consulta guardada neste formato e versão; qualquer outra coisa = undefined. */
+async function lerConsulta(arquivo: string) {
+  const lido = await lerRegistro(arquivo, FORMATO_CONSULTA);
+  const r = lido?.r;
+  if (!lido || typeof r.fonte !== "string" || r.dado === undefined) return undefined;
+  const consulta: ConsultaGuardada = { fonte: r.fonte, dado: r.dado, obtidoEm: lido.obtidoEm };
+  return { consulta, obtidoEm: lido.obtidoEm, bytes: lido.bytes };
 }
 
 /**

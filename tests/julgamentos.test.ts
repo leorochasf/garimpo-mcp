@@ -1,0 +1,314 @@
+import { mkdtemp, readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { Cliente, Vagas } from "../src/cliente.js";
+import { clienteDoDataJud } from "../src/datajud.js";
+import { servicoDe } from "../src/disjuntor.js";
+import { criarServidor, type OpcoesServidor } from "../src/servidor.js";
+import { fixture, respostaJson } from "./apoio.js";
+
+/** Números fictícios com dígito verificador válido (módulo 97). */
+const TJTO = "0000123-70.2020.8.27.0001";
+const TJTO_2 = "0000124-55.2020.8.27.0001";
+const STF = "0000126-63.2020.1.00.0000";
+const CNJ = "0000128-49.2020.2.00.0000";
+
+type Rota = (url: string, init: RequestInit) => Response | Promise<Response>;
+
+/** DataJud falso: roteia por host (API e wiki) e registra as chamadas. */
+function dataJudFalso(api: Rota, wiki: Rota = () => new Response("", { status: 404 })) {
+  const chamadas: { url: string; init: RequestInit }[] = [];
+  const cliente = new Cliente({
+    nome: "O DataJud",
+    vagas: new Vagas(2),
+    esperar: async () => {},
+    fetch: (async (url: string, init: RequestInit) => {
+      chamadas.push({ url, init });
+      return new URL(url).host === "datajud-wiki.cnj.jus.br" ? wiki(url, init) : api(url, init);
+    }) as typeof fetch,
+  });
+  return { cliente, chamadas };
+}
+
+const siteQueNuncaResponde = () =>
+  new Cliente({
+    nome: "O site",
+    esperar: async () => {},
+    fetch: (async () => {
+      throw new Error("o site não devia ser chamado");
+    }) as typeof fetch,
+  });
+
+async function conectar(opcoes: OpcoesServidor) {
+  const [ladoCliente, ladoServidor] = InMemoryTransport.createLinkedPair();
+  const dados = opcoes.dados ?? (await mkdtemp(join(process.env.GARIMPO_DADOS!, "julgamentos-")));
+  await criarServidor(siteQueNuncaResponde(), { dados, ...opcoes }).connect(ladoServidor);
+  const mcp = new Client({ name: "teste", version: "0" });
+  await mcp.connect(ladoCliente);
+  return mcp;
+}
+
+async function chamar(mcp: Client, args: Record<string, unknown>) {
+  const r = (await mcp.callTool({ name: "julgamentos_do_processo", arguments: args })) as {
+    content: { text: string }[];
+    isError?: boolean;
+  };
+  const texto = r.content[0].text;
+  return { isError: Boolean(r.isError), texto, json: r.isError ? undefined : JSON.parse(texto) };
+}
+
+/** Resposta do DataJud com estes registros (_source). */
+const hits = (...fontes: unknown[]) => respostaJson({ hits: { total: { value: fontes.length }, hits: fontes.map((f) => ({ _source: f })) } });
+const mov = (codigo: number | undefined, nome: string | undefined, dataHora: string, extra: object = {}) => ({
+  ...(codigo !== undefined && { codigo }),
+  ...(nome !== undefined && { nome }),
+  dataHora,
+  orgaoJulgador: { nome: "GAB. DO RELATOR 1" },
+  ...extra,
+});
+
+afterEach(() => vi.unstubAllEnvs());
+
+describe("julgamentos_do_processo: entrada sem chamada nenhuma", () => {
+  it.each([
+    ["número curto", { numero: "123" }, /20 dígitos/],
+    ["dígito verificador errado", { numero: "0000123-71.2020.8.27.0001" }, /dígito verificador/],
+    ["STF pelo número", { numero: STF }, /não cobre o STF/],
+    ["STF pedido", { numero: TJTO, tribunal: "STF" }, /não cobre o STF/],
+    ["CNJ, sem rota", { numero: CNJ }, /não tem rota no DataJud/],
+    ["tribunal desconhecido", { numero: TJTO, tribunal: "tjxx" }, /não tem rota no DataJud/],
+  ])("%s: explica, sem chamar", async (_caso, args, motivo) => {
+    const { cliente, chamadas } = dataJudFalso(() => hits());
+    const r = await chamar(await conectar({ datajud: cliente }), args);
+    expect(r.isError).toBe(true);
+    expect(r.texto).toMatch(motivo);
+    expect(chamadas).toHaveLength(0);
+  });
+});
+
+describe("julgamentos_do_processo: DataJud (gravação real reduzida)", () => {
+  it("mostra só o 2º grau, os resultados de julgamento e, à parte, as juntadas com complemento Acórdão", async () => {
+    const { cliente, chamadas } = dataJudFalso(() => respostaJson(fixture("datajud-tjto.json")));
+    const r = await chamar(await conectar({ datajud: cliente }), { numero: TJTO.replace(/\D/g, "") });
+
+    expect(r.isError).toBe(false);
+    const d = r.json.datajud;
+    expect(r.json).toMatchObject({ numero: TJTO, tribunal: "TJTO" });
+    expect(d).toMatchObject({ fonte: "DataJud (API Pública do CNJ)", estado: "ok", total: 2, registrosDePrimeiroGrauNaoMostrados: 1 });
+    expect(d.registros).toHaveLength(1);
+    const [g2] = d.registros;
+    expect(g2).toMatchObject({ grau: "G2", classe: "Apelação Cível", orgao: "GAB. DO RELATOR 1" });
+    expect(g2.atualizadoNoDataJud).toBe("2026-11-30T10:09:23.414Z");
+    // Códigos e nomes TPU reais, na ordem do lançamento; pauta (12115), baixa (22) e distribuição (26) ficam de fora.
+    expect(g2.resultadosDeJulgamento.map((m: { codigo: number; nome: string }) => `${m.codigo} ${m.nome}`)).toEqual([
+      "237 Provimento",
+      "200 Não-Acolhimento de Embargos de Declaração",
+      "239 Não-Provimento",
+    ]);
+    expect(g2.resultadosDeJulgamento[1]).toEqual({
+      lancadoEm: "2021-02-28T14:46:25.000Z",
+      codigo: 200,
+      nome: "Não-Acolhimento de Embargos de Declaração",
+      orgao: "GAB. DO RELATOR 2",
+    });
+    expect(g2.juntadasComComplementoAcordao.map((m: { lancadoEm: string }) => m.lancadoEm)).toEqual([
+      "2020-11-15T11:49:43.000Z",
+      "2021-03-04T13:40:54.000Z",
+      "2026-01-03T16:54:11.000Z",
+    ]);
+    expect(d.sobreAsDatas).toMatch(/data do lançamento no DataJud, não é a data da sessão/);
+    expect(r.json.termoDeUso).toMatch(/Termos-de-uso-api-publica-V1\.2\.pdf/);
+    expect(r.texto).not.toMatch(/julgamento colegiado/i);
+    expect(d.notas).toBeUndefined();
+
+    expect(chamadas).toHaveLength(1);
+    expect(chamadas[0].url).toBe("https://api-publica.datajud.cnj.jus.br/api_publica_tjto/_search");
+    expect(chamadas[0].init.method).toBe("POST");
+    expect(JSON.parse(String(chamadas[0].init.body)).query).toEqual({ match: { numeroProcesso: "00001237020208270001" } });
+    expect(new Headers(chamadas[0].init.headers).get("Authorization")).toMatch(/^APIKey \S+$/);
+    expect(new Headers(chamadas[0].init.headers).get("User-Agent")).toMatch(/^Garimpo\//);
+  });
+
+  it("tribunal informado troca a rota (o processo que subiu ao STJ)", async () => {
+    const { cliente, chamadas } = dataJudFalso(() => hits());
+    const r = await chamar(await conectar({ datajud: cliente }), { numero: TJTO, tribunal: "STJ" });
+    expect(r.json.tribunal).toBe("STJ");
+    expect(chamadas[0].url).toMatch(/\/api_publica_stj\/_search$/);
+  });
+
+  it("consulta repetida volta da memória, sem chamada, dizendo de quando é", async () => {
+    const { cliente, chamadas } = dataJudFalso(() => respostaJson(fixture("datajud-tjto.json")));
+    const mcp = await conectar({ datajud: cliente });
+    const primeira = await chamar(mcp, { numero: TJTO });
+    const segunda = await chamar(mcp, { numero: TJTO });
+    expect(chamadas).toHaveLength(1);
+    expect(primeira.json.datajud.obtido).toMatch(/^consultado no DataJud em /);
+    expect(segunda.json.datajud.obtido).toMatch(/^consulta guardada: fotografia da consulta feita no DataJud em /);
+    expect(segunda.json.datajud.registros).toEqual(primeira.json.datajud.registros);
+  });
+
+  it("a memória guarda só a resposta reduzida, sem o número em claro no nome do arquivo", async () => {
+    const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "julgamentos-"));
+    const { cliente } = dataJudFalso(() => respostaJson(fixture("datajud-tjto.json")));
+    await chamar(await conectar({ datajud: cliente, dados }), { numero: TJTO });
+    const pasta = join(dados, "memoria", "consultas-1");
+    let nomes: string[] = [];
+    for (const prazo = Date.now() + 5_000; !nomes.length && Date.now() < prazo; await new Promise((r) => setTimeout(r, 20))) {
+      nomes = (await readdir(pasta).catch(() => [])).filter((n) => n.endsWith(".json"));
+    }
+    expect(nomes).toHaveLength(1);
+    expect(nomes[0]).toMatch(/^[0-9a-f]{64}\.json$/);
+    const guardado = await readFile(join(pasta, nomes[0]), "utf8");
+    expect(guardado).toContain('"fonte":"datajud"');
+    expect(guardado).toContain("Não-Acolhimento de Embargos de Declaração");
+    // Nada da resposta bruta: nem o número, nem andamentos que a ferramenta não mostra, nem campos não usados.
+    for (const bruto of ["00001237020208270001", "Distribuição", "Baixa Definitiva", "nivelSigilo", "VARA 6"]) {
+      expect(guardado).not.toContain(bruto);
+    }
+  });
+});
+
+describe("julgamentos_do_processo: bordas do DataJud", () => {
+  const g2 = (movimentos: unknown[]) => ({ grau: "G2", classe: { nome: "Apelação Cível" }, movimentos });
+
+  it("total 0: estado vazia e a frase de que isso não prova que o processo não exista", async () => {
+    const { cliente } = dataJudFalso(() => hits());
+    const r = await chamar(await conectar({ datajud: cliente }), { numero: TJTO });
+    expect(r.json.datajud.estado).toBe("vazia");
+    expect(r.json.datajud.notas).toEqual([
+      "O DataJud não devolveu este processo nesta rota (TJTO); isso não prova que ele não exista.",
+    ]);
+  });
+
+  it("só 1º grau: nenhum registro listado, o de 1º grau contado e a nota", async () => {
+    const { cliente } = dataJudFalso(() => hits({ grau: "G1", movimentos: [mov(219, "Procedência", "2020-01-01T10:00:00Z")] }));
+    const d = (await chamar(await conectar({ datajud: cliente }), { numero: TJTO })).json.datajud;
+    expect(d).toMatchObject({ estado: "ok", registros: [], registrosDePrimeiroGrauNaoMostrados: 1 });
+    expect(d.notas).toEqual([
+      "A resposta trouxe apenas registro de 1º grau; não há registro de 2º grau ou superior nesta resposta.",
+    ]);
+  });
+
+  it("andamento sem código ou nome é contado, nunca adivinhado; repetição só com mesmo código e mesmo instante", async () => {
+    const { cliente } = dataJudFalso(() =>
+      hits(
+        g2([
+          mov(undefined, "Sem código", "2020-01-01T10:00:00Z"),
+          mov(239, undefined, "2020-01-01T10:00:00Z"),
+          mov(239, "Não-Provimento", "2020-01-02T10:00:00Z"),
+          mov(239, "Não-Provimento", "2020-01-02T10:00:00Z"),
+          mov(239, "Não-Provimento", "2020-01-02T15:00:00Z"),
+          mov(198, "Acolhimento de Embargos de Declaração", "2020-01-02T10:00:00Z"),
+        ]),
+      ),
+    );
+    const [r] = (await chamar(await conectar({ datajud: cliente }), { numero: TJTO })).json.datajud.registros;
+    expect(r.andamentosSemCodigoOuNomeNaoMostrados).toBe(2);
+    expect(r.resultadosDeJulgamento.map((m: { codigo: number; lancadoEm: string }) => `${m.codigo} ${m.lancadoEm}`)).toEqual([
+      "239 2020-01-02T10:00:00Z",
+      "198 2020-01-02T10:00:00Z",
+      "239 2020-01-02T15:00:00Z",
+    ]);
+    expect(r.atualizadoNoDataJud).toBe("não informada");
+  });
+
+  it("erro HTTP do DataJud: estado erro com o motivo, nunca lista vazia", async () => {
+    const { cliente } = dataJudFalso(() => new Response("falha", { status: 500 }));
+    const d = (await chamar(await conectar({ datajud: cliente }), { numero: TJTO })).json.datajud;
+    expect(d.estado).toBe("erro");
+    expect(d.mensagem).toMatch(/HTTP 500/);
+    expect(d).not.toHaveProperty("registros");
+  });
+
+  it("403 do DataJud: estado recusa", async () => {
+    const { cliente } = dataJudFalso(() => new Response("negado", { status: 403 }));
+    const d = (await chamar(await conectar({ datajud: cliente }), { numero: TJTO })).json.datajud;
+    expect(d.estado).toBe("recusa");
+  });
+});
+
+describe("julgamentos_do_processo: chave do DataJud", () => {
+  const CHAVE_NOVA = "Q2hhdmVGaWN0aWNpYU5vdmFQYXJhVGVzdGU6MTIzNDU2Nzg5MA==";
+  /** Página /acesso fictícia, no formato da wiki (a chave entre tags, com o texto da página logo depois). */
+  const paginaDaWiki = (chave: string) =>
+    new Response(
+      `<p>utilize o formato &quot;Authorization: APIKey <!-- -->[Chave Pública]<!-- -->&quot; no cabeçalho.</p>` +
+        `<ul><li><strong>APIKey atual</strong>:<ul><li>Authorization: APIKey <strong>${chave}</strong></li></ul></li></ul>` +
+        `</div></article><nav>Próxima página</nav>`,
+      { headers: { "content-type": "text/html" } },
+    );
+  const autorizacao = (init: RequestInit) => new Headers(init.headers).get("Authorization");
+
+  it("401 com a chave do código: lê a wiki uma vez, repete uma vez com a chave nova e passa a usá-la", async () => {
+    const { cliente, chamadas } = dataJudFalso(
+      (_url, init) => (autorizacao(init) === `APIKey ${CHAVE_NOVA}` ? hits() : new Response("", { status: 401 })),
+      () => paginaDaWiki(CHAVE_NOVA),
+    );
+    const mcp = await conectar({ datajud: cliente });
+    const r = await chamar(mcp, { numero: TJTO });
+    expect(r.json.datajud.estado).toBe("vazia");
+    expect(chamadas.map((c) => new URL(c.url).host)).toEqual([
+      "api-publica.datajud.cnj.jus.br",
+      "datajud-wiki.cnj.jus.br",
+      "api-publica.datajud.cnj.jus.br",
+    ]);
+    expect(chamadas[1].url).toBe("https://datajud-wiki.cnj.jus.br/api-publica/acesso/");
+    expect(new Headers(chamadas[1].init.headers).get("User-Agent")).toMatch(/^Garimpo\//);
+
+    await chamar(mcp, { numero: TJTO_2 });
+    expect(chamadas).toHaveLength(4);
+    expect(autorizacao(chamadas[3].init)).toBe(`APIKey ${CHAVE_NOVA}`);
+  });
+
+  it("401 e a wiki sem chave reconhecível: erro com o link da wiki, sem a chave na mensagem", async () => {
+    const { cliente, chamadas } = dataJudFalso(
+      () => new Response("", { status: 401 }),
+      () => new Response("<p>página mudou</p>", { headers: { "content-type": "text/html" } }),
+    );
+    const r = await chamar(await conectar({ datajud: cliente }), { numero: TJTO });
+    expect(r.json.datajud.estado).toBe("erro");
+    expect(r.json.datajud.mensagem).toMatch(/https:\/\/datajud-wiki\.cnj\.jus\.br\/api-publica\/acesso\//);
+    expect(chamadas).toHaveLength(2);
+    const chave = autorizacao(chamadas[0].init)!.replace("APIKey ", "");
+    expect(r.texto).not.toContain(chave);
+  });
+
+  it("401 com a chave da variável de ambiente: nunca troca nem lê a wiki; explica e aponta a wiki", async () => {
+    vi.stubEnv("GARIMPO_DATAJUD_CHAVE", "minha-chave-de-teste-1234567890");
+    const { cliente, chamadas } = dataJudFalso(() => new Response("", { status: 401 }), () => paginaDaWiki(CHAVE_NOVA));
+    const r = await chamar(await conectar({ datajud: cliente }), { numero: TJTO });
+    expect(chamadas).toHaveLength(1);
+    expect(autorizacao(chamadas[0].init)).toBe("APIKey minha-chave-de-teste-1234567890");
+    expect(r.json.datajud.estado).toBe("erro");
+    expect(r.json.datajud.mensagem).toMatch(/GARIMPO_DATAJUD_CHAVE/);
+    expect(r.json.datajud.mensagem).toMatch(/datajud-wiki\.cnj\.jus\.br/);
+    expect(r.texto).not.toContain("minha-chave-de-teste");
+  });
+});
+
+describe("freios do DataJud", () => {
+  it("API e wiki são o serviço datajud no disjuntor", () => {
+    expect(servicoDe("https://api-publica.datajud.cnj.jus.br/api_publica_tjto/_search")).toBe("datajud");
+    expect(servicoDe("https://datajud-wiki.cnj.jus.br/api-publica/acesso/")).toBe("datajud");
+  });
+
+  it("intervalo mínimo de 0,5 s entre chamadas ao mesmo host", async () => {
+    let agora = 0;
+    const esperas: number[] = [];
+    const cliente = clienteDoDataJud({
+      vagas: new Vagas(2),
+      agora: () => agora,
+      esperar: async (ms) => {
+        esperas.push(ms);
+        agora += ms;
+      },
+      fetch: (async () => respostaJson({ hits: { total: { value: 0 }, hits: [] } })) as typeof fetch,
+    });
+    const url = "https://api-publica.datajud.cnj.jus.br/api_publica_tjto/_search";
+    await (await cliente.requisitar(url, { method: "POST" })).text();
+    await (await cliente.requisitar(url, { method: "POST" })).text();
+    expect(esperas).toEqual([500]);
+  });
+});

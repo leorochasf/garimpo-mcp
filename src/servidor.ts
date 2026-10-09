@@ -27,6 +27,8 @@ import {
   lerParaConferir,
 } from "./leitura.js";
 import { Memoria, obtidoDoSite } from "./memoria.js";
+import { ChaveDoDataJud, clienteDoDataJud, TERMO_DE_USO_DATAJUD } from "./datajud.js";
+import { julgamentosDoProcesso } from "./julgamentos.js";
 import { avisoRecorridoDoAcordao } from "./recorrido.js";
 import { INSTRUCTIONS, roteiroDePesquisa } from "./roteiro.js";
 import { paginaDeTribunais, SIGLAS, TRIBUNAIS } from "./tribunais.js";
@@ -175,11 +177,13 @@ export interface OpcoesServidor {
    * com erro e as listas de qualificados seguem a regra sem a tabela.
    */
   tabela?: TabelaDePrecedentes;
+  /** Cliente do DataJud (padrão: o real, com os freios dele). */
+  datajud?: Cliente;
 }
 
 export function criarServidor(
   site: Cliente,
-  { tribunais = clientePadrao, pasta, dados, agora, tetoDaMemoria, tabela }: OpcoesServidor = {},
+  { tribunais = clientePadrao, pasta, dados, agora, tetoDaMemoria, tabela, datajud = clienteDoDataJud() }: OpcoesServidor = {},
 ): McpServer {
   const servidor = new McpServer({ name: "garimpo", version: VERSAO }, { instructions: INSTRUCTIONS });
   // GARIMPO_SEM_MEMORIA=1 desliga só a memória em disco (a janela guarda enquanto está aberta), nunca o freio.
@@ -188,6 +192,9 @@ export function criarServidor(
     agora,
     tetoBytes: tetoDaMemoria,
   });
+
+  /** A chave do DataJud desta janela: a renovada pela wiki vale para as chamadas seguintes. */
+  const chaveDoDataJud = new ChaveDoDataJud();
 
   /** Atribuição e datas da tabela, quando ela reforçou algum tema ou IAC do STJ da lista de qualificados. */
   const comATabela = (qualificados: { tribunal: string; tipo: string; numero?: string }[], { curta = false } = {}) =>
@@ -597,6 +604,39 @@ export function criarServidor(
         if (!tabela) throw new Error("A tabela de precedentes não foi carregada neste servidor.");
         const resposta = consultarPrecedente(tabela, doTipo, numero, (agora ?? Date.now)());
         return json({ ...resposta, avisoNaturezaJuridica: AVISO_DA_TABELA });
+      } catch (e) {
+        return erro(e);
+      }
+    },
+  );
+
+  servidor.registerTool(
+    "julgamentos_do_processo",
+    {
+      title: "Julgamentos do processo",
+      description:
+        "Pelo número CNJ (com ou sem máscara; o tribunal sai do número), mostra os julgamentos registrados do processo " +
+        "no DataJud, a base pública de metadados do CNJ (sem texto de decisão e sem nome de parte): só registros de 2º " +
+        "grau ou de tribunal superior (os de 1º grau são contados, não listados), só os movimentos de resultado de " +
+        "julgamento da Tabela Processual Unificada (ex.: Não-Provimento, Não-Acolhimento de Embargos de Declaração) e, " +
+        "à parte, a juntada de documento com complemento \"Acórdão\". Cada linha traz lancadoEm (data do lançamento no " +
+        "DataJud, não a da sessão), código, nome e órgão; cada registro, a última atualização no DataJud. Use tribunal " +
+        "(ex.: stj, tst) para consultar o processo depois que ele subiu. O DataJud não cobre o STF. Cada fonte vem com " +
+        "o seu estado (ok, vazia, erro, recusa); \"o DataJud não devolveu este processo\" não prova que ele não exista. " +
+        "Consulta repetida em 24 h volta da memória do Garimpo, sem nova chamada. Não busca por nome de parte. " +
+        `Uso sob o termo de uso da API Pública do CNJ (${TERMO_DE_USO_DATAJUD}).`,
+      annotations: { readOnlyHint: true, openWorldHint: true },
+      inputSchema: {
+        numero: z.string().describe("Número CNJ do processo, com ou sem máscara (NNNNNNN-DD.AAAA.J.TR.OOOO)"),
+        tribunal: z
+          .string()
+          .optional()
+          .describe("Opcional: sigla do tribunal onde consultar (ex.: stj, tst); padrão: o tribunal do número"),
+      },
+    },
+    async (args) => {
+      try {
+        return json(await julgamentosDoProcesso(args, { datajud, chave: chaveDoDataJud, memoria, agora }));
       } catch (e) {
         return erro(e);
       }

@@ -1,0 +1,261 @@
+{
+ "_gravacao": "DataJud, rota api_publica_tjto, consulta por numeroProcesso, 2026-10-09. Reduzida e trocada em memória antes de gravar: número fictício, órgãos fictícios, datas deslocadas por igual (mesmos intervalos), só os movimentos de interesse e alguns outros; códigos e nomes TPU, classe e complementos como vieram.",
+ "hits": {
+  "total": {
+   "value": 2
+  },
+  "hits": [
+   {
+    "_source": {
+     "numeroProcesso": "00001237020208270001",
+     "classe": {
+      "codigo": 198,
+      "nome": "Apelação Cível"
+     },
+     "tribunal": "TJTO",
+     "grau": "G2",
+     "nivelSigilo": 0,
+     "orgaoJulgador": {
+      "codigo": 1000,
+      "nome": "GAB. DO RELATOR 1"
+     },
+     "dataHoraUltimaAtualizacao": "2026-11-30T10:09:23.414Z",
+     "movimentos": [
+      {
+       "codigo": 26,
+       "nome": "Distribuição",
+       "dataHora": "2020-10-04T12:26:38.000Z",
+       "complementosTabelados": [
+        {
+         "codigo": 2,
+         "descricao": "tipo_de_distribuicao_redistribuicao",
+         "valor": 2,
+         "nome": "sorteio"
+        }
+       ],
+       "orgaoJulgador": {
+        "codigo": 1000,
+        "nome": "GAB. DO RELATOR 1"
+       }
+      },
+      {
+       "codigo": 581,
+       "nome": "Documento",
+       "dataHora": "2020-10-05T12:16:19.000Z",
+       "complementosTabelados": [
+        {
+         "codigo": 4,
+         "descricao": "tipo_de_documento",
+         "valor": 80,
+         "nome": "Outros documentos"
+        }
+       ],
+       "orgaoJulgador": {
+        "codigo": 1000,
+        "nome": "GAB. DO RELATOR 1"
+       }
+      },
+      {
+       "codigo": 123,
+       "nome": "Remessa",
+       "dataHora": "2020-10-05T12:16:19.000Z",
+       "complementosTabelados": [
+        {
+         "codigo": 18,
+         "descricao": "motivo_da_remessa",
+         "valor": 40,
+         "nome": "outros motivos"
+        }
+       ],
+       "orgaoJulgador": {
+        "codigo": 1000,
+        "nome": "GAB. DO RELATOR 1"
+       }
+      },
+      {
+       "codigo": 581,
+       "nome": "Documento",
+       "dataHora": "2020-11-15T11:49:43.000Z",
+       "complementosTabelados": [
+        {
+         "codigo": 4,
+         "descricao": "tipo_de_documento",
+         "valor": 117,
+         "nome": "Acórdão"
+        }
+       ],
+       "orgaoJulgador": {
+        "codigo": 1000,
+        "nome": "GAB. DO RELATOR 1"
+       }
+      },
+      {
+       "codigo": 581,
+       "nome": "Documento",
+       "dataHora": "2021-03-04T13:40:54.000Z",
+       "complementosTabelados": [
+        {
+         "codigo": 4,
+         "descricao": "tipo_de_documento",
+         "valor": 117,
+         "nome": "Acórdão"
+        }
+       ],
+       "orgaoJulgador": {
+        "codigo": 1000,
+        "nome": "GAB. DO RELATOR 1"
+       }
+      },
+      {
+       "codigo": 581,
+       "nome": "Documento",
+       "dataHora": "2026-01-03T16:54:11.000Z",
+       "complementosTabelados": [
+        {
+         "codigo": 4,
+         "descricao": "tipo_de_documento",
+         "valor": 117,
+         "nome": "Acórdão"
+        }
+       ],
+       "orgaoJulgador": {
+        "codigo": 1002,
+        "nome": "GAB. DO RELATOR 3"
+       }
+      },
+      {
+       "codigo": 237,
+       "nome": "Provimento",
+       "dataHora": "2020-11-13T14:11:43.000Z",
+       "orgaoJulgador": {
+        "codigo": 1000,
+        "nome": "GAB. DO RELATOR 1"
+       }
+      },
+      {
+       "codigo": 200,
+       "nome": "Não-Acolhimento de Embargos de Declaração",
+       "dataHora": "2021-02-28T14:46:25.000Z",
+       "orgaoJulgador": {
+        "codigo": 1001,
+        "nome": "GAB. DO RELATOR 2"
+       }
+      },
+      {
+       "codigo": 581,
+       "nome": "Documento",
+       "dataHora": "2024-09-19T11:41:13.000Z",
+       "orgaoJulgador": {
+        "codigo": 1000,
+        "nome": "GAB. DO RELATOR 1"
+       }
+      },
+      {
+       "codigo": 12115,
+       "nome": "Para julgamento de mérito",
+       "dataHora": "2025-12-19T11:28:45.000Z",
+       "orgaoJulgador": {
+        "codigo": 1003,
+        "nome": "GAB. DO RELATOR 4"
+       }
+      },
+      {
+       "codigo": 239,
+       "nome": "Não-Provimento",
+       "dataHora": "2026-01-01T12:12:06.000Z",
+       "orgaoJulgador": {
+        "codigo": 1003,
+        "nome": "GAB. DO RELATOR 4"
+       }
+      },
+      {
+       "codigo": 22,
+       "nome": "Baixa Definitiva",
+       "dataHora": "2026-02-08T09:56:54.000Z",
+       "orgaoJulgador": {
+        "codigo": 1004,
+        "nome": "GAB. DO RELATOR 5"
+       }
+      }
+     ]
+    }
+   },
+   {
+    "_source": {
+     "numeroProcesso": "00001237020208270001",
+     "classe": {
+      "codigo": 7,
+      "nome": "Procedimento Comum Cível"
+     },
+     "tribunal": "TJTO",
+     "grau": "G1",
+     "nivelSigilo": 0,
+     "orgaoJulgador": {
+      "codigo": 1005,
+      "nome": "VARA 6"
+     },
+     "dataHoraUltimaAtualizacao": "2026-12-22T12:37:53.152Z",
+     "movimentos": [
+      {
+       "codigo": 26,
+       "nome": "Distribuição",
+       "dataHora": "2020-03-01T17:22:17.000Z",
+       "complementosTabelados": [
+        {
+         "codigo": 2,
+         "descricao": "tipo_de_distribuicao_redistribuicao",
+         "valor": 2,
+         "nome": "sorteio"
+        }
+       ],
+       "orgaoJulgador": {
+        "codigo": 1005,
+        "nome": "VARA 6"
+       }
+      },
+      {
+       "codigo": 51,
+       "nome": "Conclusão",
+       "dataHora": "2020-03-02T10:48:24.000Z",
+       "complementosTabelados": [
+        {
+         "codigo": 3,
+         "descricao": "tipo_de_conclusao",
+         "valor": 5,
+         "nome": "para despacho"
+        },
+        {
+         "codigo": 3,
+         "descricao": "tipo_de_conclusao",
+         "valor": 6,
+         "nome": "para decisão"
+        }
+       ],
+       "orgaoJulgador": {
+        "codigo": 1006,
+        "nome": "VARA 7"
+       }
+      },
+      {
+       "codigo": 581,
+       "nome": "Documento",
+       "dataHora": "2020-05-01T18:15:25.000Z",
+       "complementosTabelados": [
+        {
+         "codigo": 4,
+         "descricao": "tipo_de_documento",
+         "valor": 107,
+         "nome": "Certidão"
+        }
+       ],
+       "orgaoJulgador": {
+        "codigo": 1005,
+        "nome": "VARA 6"
+       }
+      }
+     ]
+    }
+   }
+  ]
+ }
+}

@@ -48,6 +48,17 @@ export class RecusaError extends Error {
   }
 }
 
+/** O serviço respondeu com erro HTTP que não é recusa nem pedido de espera (ex.: 401, 404, 500). */
+export class ErroHttp extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "ErroHttp";
+  }
+}
+
 /** A resposta veio num formato que o Garimpo não reconhece. */
 export class FormatoInesperadoError extends Error {
   constructor(message: string) {
@@ -341,7 +352,7 @@ export class Cliente {
       try {
         if (!ok && !redirectManual) {
           await this.anotar(servico, chamada, saida, { tipo: "erro" });
-          throw new Error(`${this.opcoes.nome} respondeu com erro HTTP ${status} para ${url}.`);
+          throw new ErroHttp(`${this.opcoes.nome} respondeu com erro HTTP ${status} para ${url}.`, status);
         }
         await this.anotar(servico, chamada, saida, { tipo: "aceita" });
       } catch (e) {

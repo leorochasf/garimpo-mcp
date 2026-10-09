@@ -77,12 +77,14 @@ const PAUSA_MAXIMA_DOBRADA_MS = 60 * 60_000;
 const CONFERENCIA_MS = 250;
 
 /**
- * O serviço de uma URL, por regra central (nunca por rota nem por janela): o JurisprudênciaIA, cada tribunal
- * pelo domínio `<sigla>.jus.br`; qualquer outro endereço é o próprio host (com a porta).
+ * O serviço de uma URL, por regra central (nunca por rota nem por janela): o JurisprudênciaIA, o DataJud, cada
+ * tribunal pelo domínio `<sigla>.jus.br`; qualquer outro endereço é o próprio host (com a porta).
  */
 export function servicoDe(url: string): string {
   const { host, hostname: nome } = new URL(url);
   if (/(^|\.)jurisprudenciaia\.com\.br$/i.test(nome)) return "jurisprudenciaia";
+  // A API e a wiki do DataJud são um serviço só, com nome próprio (o domínio daria "cnj").
+  if (/^(api-publica\.datajud|datajud-wiki)\.cnj\.jus\.br$/i.test(nome)) return "datajud";
   const tribunal = nome.toLowerCase().match(/(?:^|\.)([a-z0-9-]+)\.jus\.br$/);
   return tribunal ? tribunal[1] : host.toLowerCase();
 }
