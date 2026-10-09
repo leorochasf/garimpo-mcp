@@ -1,5 +1,5 @@
 /**
- * Busca direta: uma consulta à base do JurisprudênciaIA, num tribunal.
+ * Busca direta: uma consulta à base do JurisprudênciaIA, num tribunal (os TRTs vão ao Falcão, em falcao.ts).
  * Normaliza a resposta (acórdãos e precedentes qualificados em listas separadas).
  */
 
@@ -9,8 +9,9 @@ import { type Enquadramento927, enquadrarAcordao, enquadrarQualificado, type Par
 import { reforcoDaTabela, type TabelaDePrecedentes } from "./tabelaDePrecedentes.js";
 import { juntarEquivalentes } from "./equivalencia.js";
 import { FalhaNaMemoriaError, fotografiaDaBusca, type Memoria } from "./memoria.js";
+import { buscaNoFalcao, clienteDoFalcao, lerBuscaGuardadaNoFalcao } from "./falcao.js";
 import { avisoDeRecorridoAusente } from "./recorrido.js";
-import { infoTribunal } from "./tribunais.js";
+import { ehDoFalcao, infoTribunal } from "./tribunais.js";
 
 export const SITE = "https://www.jurisprudenciaia.com.br";
 
@@ -27,13 +28,20 @@ export interface Acordao {
   orgao?: string;
   dataJulgamento?: string;
   dataPublicacao?: string;
+  /** Só no Falcão: data de juntada do acórdão aos autos ("juntado em"), que não é data de publicação. */
+  dataJuntada?: string;
   ementa: string;
   /** Link do PDF do inteiro teor (link_pdf). */
   link?: string;
   /** Página oficial de consulta do processo/acórdão (link_consulta, url_acordao ou, no TJPA, link_processo), quando há. */
   linkConsulta?: string;
-  /** Só quando a ementa parece ter vindo cortada do site (heurística): o aviso. O texto da ementa nunca é mexido. */
+  /**
+   * Só quando a ementa parece ter vindo cortada do site (heurística), ou, no Falcão, quando não veio ("sem ementa no
+   * Falcão") ou diverge do possuiEmenta: o aviso. O texto da ementa nunca é mexido.
+   */
   avisoDeEmenta?: string;
+  /** Só no Falcão: o rótulo da fonte (repositório oficial da Justiça do Trabalho). */
+  fonte?: string;
   /** Link oficial que o Garimpo pediu à rota de link do site, porque a busca não trouxe nenhum (obter_inteiro_teor). */
   linkDaRota?: string;
   relevancia?: number;
@@ -56,6 +64,8 @@ export interface ResultadoBusca {
   /** Só na busca guardada: veio da memória, como fotografia da busca feita no site na data e hora ditas aqui. */
   buscaGuardada?: string;
   tribunal: string;
+  /** Só no Falcão: o rótulo da fonte. */
+  fonte?: string;
   /** Cabeçalho de cobertura: se veio o número pedido (pode haver mais) ou menos (a base não tem mais). */
   cabecalhoDeCobertura?: string;
   acordaos: Acordao[];
@@ -107,6 +117,8 @@ export interface OpcoesBuscaDireta {
   guardarAcordaos?: boolean;
   /** Tabela de precedentes do STJ que reforça o enquadramento dos temas e IAC do STJ; sem ela, a regra sem a tabela. */
   tabela?: TabelaDePrecedentes;
+  /** Cliente do Falcão, para os TRTs (padrão: um novo, com os mesmos freios compartilhados). */
+  falcao?: Cliente;
 }
 
 /** O pedido ao site: tudo o que afeta a resposta, na mesma ordem sempre (a chave da busca guardada sai daqui). */
@@ -139,6 +151,7 @@ export async function lerBuscaGuardada(
   memoria: Memoria,
   p: ParametrosBusca,
 ): Promise<{ resultado: ResultadoBusca; obtidoEm: number } | undefined> {
+  if (ehDoFalcao(p.tribunal)) return lerBuscaGuardadaNoFalcao(memoria, p);
   const { tribunal, chave, cobertura } = pedido(p);
   const guardada = await memoria.obterBusca(chave);
   if (!guardada) return undefined;
@@ -167,8 +180,11 @@ export async function buscaDireta(
   cliente: Cliente,
   p: ParametrosBusca,
   memoria?: Memoria,
-  { renovar = false, guardarAcordaos = true, tabela }: OpcoesBuscaDireta = {},
+  { renovar = false, guardarAcordaos = true, tabela, falcao }: OpcoesBuscaDireta = {},
 ): Promise<ResultadoBusca> {
+  if (ehDoFalcao(p.tribunal)) {
+    return buscaNoFalcao(falcao ?? clienteDoFalcao(), p, memoria, { renovar, guardarAcordaos });
+  }
   const { tribunal, corpo, chave, cobertura } = pedido(p);
   // Falha ao ler a memória vira busca normal no site, com aviso; sem rede permitida, o erro da rede, como sempre.
   let falhaAoLer: string | undefined;

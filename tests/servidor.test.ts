@@ -1997,11 +1997,12 @@ describe("página de tribunais (recurso garimpo://tribunais)", () => {
     const { contents } = await mcp.readResource({ uri: "garimpo://tribunais" });
     const pagina = (contents[0] as { text: string }).text;
     // Uma linha de tabela por tribunal, começando pela sigla em maiúsculas.
-    const linhas = pagina.split("\n").filter((l) => /^\| [A-Z]+ \|/.test(l));
+    const linhas = pagina.split("\n").filter((l) => /^\| [A-Z]+\d* \|/.test(l));
 
     expect(linhas.map((l) => l.split("|")[1].trim().toLowerCase())).toEqual(tribunais.map((t) => t.tribunal));
     for (const [i, t] of tribunais.entries()) {
-      expect(linhas[i]).toContain(t.inteiroTeor === "baixa" ? "baixado pelo Garimpo" : "só link");
+      const esperado = { baixa: "baixado pelo Garimpo", texto: "texto integral do repositório oficial (sem PDF)", link: "só link" };
+      expect(linhas[i]).toContain(esperado[t.inteiroTeor as keyof typeof esperado]);
       expect(linhas[i]).toContain(`| ${t.tetoResultados} |`);
       if (t.motivo) expect(linhas[i]).toContain(t.motivo);
     }

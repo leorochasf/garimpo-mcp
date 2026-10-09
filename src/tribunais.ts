@@ -1,24 +1,32 @@
 /**
- * Tabela interna de tribunais cobertos pela busca direta do JurisprudênciaIA,
- * com o que cada um oferece (precedentes qualificados, teto de resultados,
- * inteiro teor oficial). Fonte: docs/api-jurisprudenciaia.md.
+ * Tabela interna de tribunais cobertos pelo Garimpo, com a fonte de cada um e o que ela oferece (precedentes
+ * qualificados, teto de resultados, inteiro teor oficial). Fontes: docs/api-jurisprudenciaia.md (JurisprudênciaIA) e
+ * docs/fonte-falcao.md (Falcão, os 24 TRTs).
  */
 
-export type InteiroTeorModo = "baixa" | "link";
+/** "baixa" = o Garimpo baixa o PDF oficial; "link" = devolve link + explicação; "texto" = texto integral na busca. */
+export type InteiroTeorModo = "baixa" | "link" | "texto";
+
+/** De onde vem a busca do tribunal. */
+export type Fonte = "JurisprudênciaIA" | "Falcão (CSJT)";
+
+/** Rótulo de cada acórdão de TRT (ADR-0018). */
+export const ROTULO_FALCAO =
+  "Falcão — repositório oficial de jurisprudência da Justiça do Trabalho (Res. CSJT 401/2024)";
 
 export interface InfoTribunal {
   /** Sigla usada na rota da busca direta (minúscula). */
   sigla: string;
   nome: string;
+  fonte: Fonte;
   /** Listas de precedentes qualificados que o site devolve em separado. */
   qualificados: string[];
   /**
    * Máximo de acórdãos observado por busca. Só informa (aviso e listar_tribunais); não limita a busca.
    * STF = 7: o site costuma devolver poucos acórdãos do STF por busca (de 2 a 7 na medição de out/2026).
-   * Demais = 100.
+   * Demais = 100. TRTs = 30: o teto da busca direta no Falcão (3 páginas de 10), que limita a busca.
    */
   tetoResultados: number;
-  /** "baixa" = o Garimpo baixa o PDF oficial; "link" = devolve link + explicação. */
   inteiroTeor: InteiroTeorModo;
   /** Explicação curta de por que não baixa sozinho (quando inteiroTeor = "link"); o caminho, com ou sem link, vem à parte. */
   motivoLink?: string;
@@ -60,6 +68,7 @@ function tj(sigla: string, nome: string): InfoTribunal {
   return {
     sigla,
     nome,
+    fonte: "JurisprudênciaIA",
     qualificados: [],
     tetoResultados: 100,
     inteiroTeor: "link",
@@ -71,6 +80,7 @@ export const TRIBUNAIS: InfoTribunal[] = [
   {
     sigla: "stf",
     nome: "Supremo Tribunal Federal",
+    fonte: "JurisprudênciaIA",
     qualificados: ["repercussão geral", "súmula vinculante", "súmula"],
     tetoResultados: 7,
     inteiroTeor: "link",
@@ -88,6 +98,7 @@ export const TRIBUNAIS: InfoTribunal[] = [
   {
     sigla: "stj",
     nome: "Superior Tribunal de Justiça",
+    fonte: "JurisprudênciaIA",
     qualificados: ["tema repetitivo", "súmula", "IAC", "PUIL"],
     tetoResultados: 100,
     inteiroTeor: "baixa",
@@ -102,6 +113,7 @@ export const TRIBUNAIS: InfoTribunal[] = [
   {
     sigla: "tst",
     nome: "Tribunal Superior do Trabalho",
+    fonte: "JurisprudênciaIA",
     qualificados: ["súmula", "IRR", "OJ"],
     tetoResultados: 100,
     inteiroTeor: "link",
@@ -119,6 +131,7 @@ export const TRIBUNAIS: InfoTribunal[] = [
   {
     sigla: "tse",
     nome: "Tribunal Superior Eleitoral",
+    fonte: "JurisprudênciaIA",
     qualificados: [],
     tetoResultados: 100,
     inteiroTeor: "baixa",
@@ -151,7 +164,23 @@ export const TRIBUNAIS: InfoTribunal[] = [
   { ...tj("tjse", "TJ de Sergipe") },
   { ...tj("tjsp", "TJ de São Paulo"), inteiroTeor: "baixa", motivoLink: undefined },
   { ...tj("tjto", "TJ do Tocantins"), motivoLink: EXPLICA_TJTO },
+  ...Array.from({ length: 24 }, (_, i): InfoTribunal => ({
+    sigla: `trt${i + 1}`,
+    nome: `TRT da ${i + 1}ª Região`,
+    fonte: "Falcão (CSJT)",
+    qualificados: [],
+    tetoResultados: 30,
+    inteiroTeor: "texto",
+  })),
 ];
+
+/** Os TRTs (pelo Falcão), na ordem: trt1 … trt24. */
+export const TRTS = Array.from({ length: 24 }, (_, i) => `trt${i + 1}`);
+
+/** O tribunal vem do Falcão (um dos 24 TRTs). */
+export function ehDoFalcao(sigla: string): boolean {
+  return TRTS.includes(sigla.toLowerCase());
+}
 
 export const SIGLAS = TRIBUNAIS.map((t) => t.sigla);
 
@@ -166,7 +195,12 @@ export function infoTribunal(sigla: string): InfoTribunal | undefined {
 export function paginaDeTribunais(): string {
   const linhas = TRIBUNAIS.map((t) => {
     const qualificados = t.qualificados.length ? t.qualificados.join(", ") : "nenhum";
-    const inteiroTeor = t.inteiroTeor === "baixa" ? "baixado pelo Garimpo" : `só link: ${t.motivoLink}`;
+    const inteiroTeor =
+      t.inteiroTeor === "baixa"
+        ? "baixado pelo Garimpo"
+        : t.inteiroTeor === "texto"
+          ? "texto integral do repositório oficial (sem PDF)"
+          : `só link: ${t.motivoLink}`;
     return `| ${t.sigla.toUpperCase()} | ${t.nome} | ${qualificados} | ${t.tetoResultados} | ${inteiroTeor} |`;
   });
   return [

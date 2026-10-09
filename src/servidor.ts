@@ -32,7 +32,8 @@ import { clienteDoDjen, FonteDjen } from "./djen.js";
 import { julgamentosDoProcesso } from "./julgamentos.js";
 import { avisoRecorridoDoAcordao } from "./recorrido.js";
 import { INSTRUCTIONS, roteiroDePesquisa } from "./roteiro.js";
-import { paginaDeTribunais, SIGLAS, TRIBUNAIS } from "./tribunais.js";
+import { clienteDoFalcao } from "./falcao.js";
+import { ehDoFalcao, paginaDeTribunais, SIGLAS, TRIBUNAIS } from "./tribunais.js";
 import {
   consultarPrecedente,
   reforcoDaTabela,
@@ -123,8 +124,26 @@ const AVISO_DA_TABELA =
   "Fotografia da tabela de precedentes do STJ na data informada, não consulta ao vivo: a situação e a tese podem " +
   "ter mudado depois. Confira no portal do STJ antes de citar; a situação na fonte não é vigência.";
 
-function comAvisoNaturezaJuridica<T extends object>(dado: T) {
-  return json({ ...dado, avisoNaturezaJuridica: AVISO_NATUREZA_JURIDICA });
+/** Aviso de natureza jurídica do Falcão: a fonte é oficial, o Garimpo não; nunca diz que o acórdão foi conferido. */
+const AVISO_FALCAO =
+  "Resultado obtido do repositório oficial da Justiça do Trabalho (Falcão) por cliente não oficial (Garimpo); " +
+  "confira no portal do tribunal antes de citar.";
+
+/**
+ * O aviso das fontes usadas, pelos tribunais: só JurisprudênciaIA, só Falcão, ou os dois, cada um com o seu (a
+ * oficialidade do Falcão não se estende ao JurisprudênciaIA).
+ */
+function avisoDasFontes(tribunais: readonly string[]): string {
+  const falcao = tribunais.some(ehDoFalcao);
+  const site = tribunais.some((t) => !ehDoFalcao(t));
+  if (falcao && site) {
+    return `Acórdãos do JurisprudênciaIA: ${AVISO_NATUREZA_JURIDICA} Acórdãos dos TRTs: ${AVISO_FALCAO}`;
+  }
+  return falcao ? AVISO_FALCAO : AVISO_NATUREZA_JURIDICA;
+}
+
+function comAvisoNaturezaJuridica<T extends object>(dado: T, tribunais: readonly string[] = []) {
+  return json({ ...dado, avisoNaturezaJuridica: avisoDasFontes(tribunais) });
 }
 
 function erro(e: unknown) {
@@ -182,11 +201,23 @@ export interface OpcoesServidor {
   datajud?: Cliente;
   /** Cliente do DJEN (padrão: o real, com os freios dele). */
   djen?: Cliente;
+  /** Cliente do Falcão, a fonte dos TRTs (padrão: o real, com UA de navegador, 1 s e freio preventivo). */
+  falcao?: Cliente;
 }
 
 export function criarServidor(
   site: Cliente,
-  { tribunais = clientePadrao, pasta, dados, agora, tetoDaMemoria, tabela, datajud = clienteDoDataJud(), djen = clienteDoDjen() }: OpcoesServidor = {},
+  {
+    tribunais = clientePadrao,
+    pasta,
+    dados,
+    agora,
+    tetoDaMemoria,
+    tabela,
+    datajud = clienteDoDataJud(),
+    djen = clienteDoDjen(),
+    falcao = clienteDoFalcao(),
+  }: OpcoesServidor = {},
 ): McpServer {
   const servidor = new McpServer({ name: "garimpo", version: VERSAO }, { instructions: INSTRUCTIONS });
   // GARIMPO_SEM_MEMORIA=1 desliga só a memória em disco (a janela guarda enquanto está aberta), nunca o freio.
@@ -221,6 +252,13 @@ export function criarServidor(
         "evidência tirada dos dados do site, ou \"não classificado\" com o motivo; o rótulo da lista de qualificados " +
         "não prova enquadramento, vigência nem aplicabilidade. " +
         "Ementas são longas: prefira limite baixo aqui e busca_ampla para volume. " +
+        "TRTs (trt1 a trt24) vêm do Falcão, o repositório oficial de jurisprudência da Justiça do Trabalho (Res. CSJT " +
+        "401/2024), só acórdãos: limite padrão 10, máximo 30; cada acórdão traz o rótulo da fonte, \"julgado em\" " +
+        "(dataJulgamento) e \"juntado em\" (dataJuntada, que não é publicação), e \"sem ementa no Falcão\" quando ela " +
+        "não veio; o cabecalhoDeCobertura separa o total informado pelo Falcão (\"10.000 ou mais\" no teto da contagem) " +
+        "de quantos vieram e quantos são mostrados. O texto integral fica na memória por 24 h para ler_inteiro_teor e " +
+        "conferir_citacao pelo id. Nos TRTs, os filtros de, ate, relator, orgao e classe ainda não estão disponíveis " +
+        "(erro que ensina) e precedentes qualificados não são pesquisados. " +
         `${SOBRE_A_TABELA_NAS_LISTAS} ` +
         `${SOBRE_A_BUSCA_GUARDADA} A busca guardada traz o campo buscaGuardada com essa data. ` +
         SOBRE_O_RECORRIDO,
@@ -237,8 +275,11 @@ export function criarServidor(
       try {
         conferirTribunais(args.tribunal);
         conferirDatas(args);
-        const r = await buscaDireta(site, args, memoria, { renovar, tabela });
-        return comAvisoNaturezaJuridica({ ...r, ...comATabela(r.qualificados.map((q) => ({ ...q, tribunal: r.tribunal }))) });
+        const r = await buscaDireta(site, args, memoria, { renovar, tabela, falcao });
+        return comAvisoNaturezaJuridica(
+          { ...r, ...comATabela(r.qualificados.map((q) => ({ ...q, tribunal: r.tribunal }))) },
+          [r.tribunal],
+        );
       } catch (e) {
         return erro(e);
       }
@@ -342,11 +383,15 @@ export function criarServidor(
         );
       }
       const avisoRecorrido = avisoRecorridoDoAcordao(guardado.acordao);
-      return comAvisoNaturezaJuridica({
-        ...guardado.acordao,
-        obtidoDoSite: obtidoDoSite(guardado.obtidoEm),
-        ...(avisoRecorrido && { avisoRecorrido }),
-      });
+      const obtido = obtidoDoSite(guardado.obtidoEm);
+      return comAvisoNaturezaJuridica(
+        {
+          ...guardado.acordao,
+          obtidoDoSite: ehDoFalcao(guardado.acordao.tribunal) ? obtido.replace("do site", "do Falcão") : obtido,
+          ...(avisoRecorrido && { avisoRecorrido }),
+        },
+        [guardado.acordao.tribunal],
+      );
     },
   );
 

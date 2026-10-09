@@ -3,6 +3,8 @@
  * "tribunal:id-do-site" de cada cópia, e as buscas diretas com resposta utilizável (inclusive vazia), sob o sha256
  * dos parâmetros, sem o texto da busca em claro; e as consultas reduzidas a outras fontes (DataJud), sob o sha256 do
  * pedido; na subpasta de memória da pasta de dados, visíveis por todas as janelas.
+ * Do Falcão (ADR-0018), também o texto integral do repositório oficial de cada acórdão, já convertido do HTML, com os
+ * nomes que o texto traz, só para leitura e conferência pedidas (nunca vai a lista, cabeçalho nem busca guardada).
  *
  * - É descartável: falha ao gravar ou ler nunca derruba a ferramenta; a janela guarda também consigo, enquanto está
  *   aberta. A gravação em disco corre por trás da resposta: milhares de arquivos levariam segundos no Windows.
@@ -30,6 +32,7 @@ const TETO_MEMORIA_BYTES = 200 * 1024 * 1024;
 const FORMATO = "garimpo-memoria-acordao";
 const FORMATO_BUSCA = "garimpo-memoria-busca";
 const FORMATO_CONSULTA = "garimpo-memoria-consulta";
+const FORMATO_TEXTO = "garimpo-memoria-texto";
 const VERSAO = 1;
 const NOME_DE_ARQUIVO = /^[0-9a-f]{32}\.json$/;
 const NOME_DE_BUSCA = /^[0-9a-f]{64}\.json$/;
@@ -51,6 +54,21 @@ export interface BuscaNaMemoria {
   acordaos: { ids: readonly string[]; registro: Acordao }[];
   qualificados: Qualificado[];
   avisos: string[];
+  /** Só no Falcão: o total que a fonte informou (10000 = "10.000 ou mais"). */
+  totalNaFonte?: number;
+}
+
+/** O texto integral do repositório oficial de um acórdão do Falcão, convertido do HTML. */
+export interface TextoIntegral {
+  id: string;
+  texto: string;
+  /** O HTML parecia cortado: o texto nunca é apresentado como completo. */
+  indicioDeCorte: boolean;
+}
+
+export interface TextoGuardado extends TextoIntegral {
+  /** Instante da obtenção na fonte (ms desde 1970, UTC). */
+  obtidoEm: number;
 }
 
 export interface BuscaGuardada {
@@ -102,9 +120,11 @@ export class Memoria {
   /** As buscas desta janela, valendo na hora (a gravação em disco corre por trás). */
   private readonly buscasDaSessao = new Map<string, BuscaGuardada>();
   private readonly consultasDaSessao = new Map<string, ConsultaGuardada>();
+  private readonly textosDaSessao = new Map<string, TextoGuardado>();
   private readonly pasta?: string;
   private readonly pastaDeBuscas?: string;
   private readonly pastaDeConsultas?: string;
+  private readonly pastaDeTextos?: string;
   private readonly agora: () => number;
   private readonly teto: number;
   /** Espaço estimado em disco (gravações de outras janelas só entram na próxima varredura). */
@@ -120,6 +140,7 @@ export class Memoria {
     this.pasta = dados && join(dados, "memoria", `acordaos-${VERSAO}`);
     this.pastaDeBuscas = dados && join(dados, "memoria", `buscas-${VERSAO}`);
     this.pastaDeConsultas = dados && join(dados, "memoria", `consultas-${VERSAO}`);
+    this.pastaDeTextos = dados && join(dados, "memoria", `textos-${VERSAO}`);
     this.agora = agora;
     this.teto = tetoBytes;
     this.limpar();
@@ -233,6 +254,32 @@ export class Memoria {
     return guardada;
   }
 
+  /** Guarda o texto integral de cada acórdão do Falcão, com o instante de agora (24 h, como os acórdãos). */
+  lembrarTextos(textos: readonly TextoIntegral[], obtidoEm = this.agora()): void {
+    const guardados = textos.map((t) => ({ ...t, obtidoEm }));
+    for (const g of guardados) this.textosDaSessao.set(g.id, g);
+    if (!this.pastaDeTextos || !guardados.length) return;
+    this.agendar(
+      this.pastaDeTextos,
+      guardados.map((g) => ({ nome: nomeDoArquivo(g.id), texto: JSON.stringify({ formato: FORMATO_TEXTO, versao: VERSAO, ...g }) })),
+    );
+  }
+
+  /** O texto integral guardado e válido, de qualquer janela; vencido ou ausente = undefined (e o vencido é apagado). */
+  async obterTexto(id: string): Promise<TextoGuardado | undefined> {
+    const daJanela = this.textosDaSessao.get(id);
+    if (this.pastaDeTextos) {
+      const arquivo = join(this.pastaDeTextos, nomeDoArquivo(id));
+      let lido = await lerTexto(arquivo).catch(() => undefined);
+      if (lido && lido.id === id && !this.valido(lido.obtidoEm)) {
+        await descartar(arquivo, lido.obtidoEm, lerTexto);
+        lido = await lerTexto(arquivo).catch(() => undefined);
+      }
+      if (lido && lido.id === id && this.valido(lido.obtidoEm)) return lido.guardado;
+    }
+    return daJanela && this.valido(daJanela.obtidoEm) ? daJanela : undefined;
+  }
+
   /** O aviso de que a última leva de gravação em disco falhou; undefined se deu certo (ou ainda não houve). */
   avisoDeGravacao(): string | undefined {
     if (!this.falhaDeGravacao || !this.pasta) return undefined;
@@ -279,7 +326,7 @@ export class Memoria {
 
   /** Apaga os vencidos e, acima do teto, os mais antigos até 90% dele (folga para não varrer a cada gravação). */
   private async varrer(): Promise<void> {
-    if (!this.pasta || !this.pastaDeBuscas) return;
+    if (!this.pasta || !this.pastaDeBuscas || !this.pastaDeTextos) return;
     const antes = this.ocupado;
     try {
       const validos: ArquivoGuardado[] = [];
@@ -287,6 +334,7 @@ export class Memoria {
         [this.pasta, NOME_DE_ARQUIVO, lerGuardado],
         [this.pastaDeBuscas, NOME_DE_BUSCA, lerBusca],
         [this.pastaDeConsultas!, NOME_DE_BUSCA, lerConsulta],
+        [this.pastaDeTextos, NOME_DE_ARQUIVO, lerTexto],
       ] as const) {
         const nomes = (await readdir(pasta).catch(() => [] as string[])).filter((n) => nomeValido.test(n));
         for (const nome of nomes) {
@@ -393,6 +441,7 @@ async function lerBusca(arquivo: string) {
     acordaos: r.acordaos,
     qualificados: r.qualificados,
     avisos: r.avisos,
+    ...(Number.isInteger(r.totalNaFonte) && { totalNaFonte: r.totalNaFonte }),
   };
   return { busca, obtidoEm: lido.obtidoEm, bytes: lido.bytes };
 }
@@ -404,6 +453,17 @@ async function lerConsulta(arquivo: string) {
   if (!lido || typeof r.fonte !== "string" || r.dado === undefined) return undefined;
   const consulta: ConsultaGuardada = { fonte: r.fonte as FonteDaConsulta, dado: r.dado, obtidoEm: lido.obtidoEm };
   return { consulta, obtidoEm: lido.obtidoEm, bytes: lido.bytes };
+}
+
+/** Texto integral guardado neste formato e versão; qualquer outra coisa = undefined. */
+async function lerTexto(arquivo: string) {
+  const lido = await lerRegistro(arquivo, FORMATO_TEXTO);
+  const r = lido?.r;
+  if (!lido || typeof r?.id !== "string" || typeof r.texto !== "string" || typeof r.indicioDeCorte !== "boolean") {
+    return undefined;
+  }
+  const guardado: TextoGuardado = { id: r.id, texto: r.texto, indicioDeCorte: r.indicioDeCorte, obtidoEm: lido.obtidoEm };
+  return { id: r.id as string, obtidoEm: lido.obtidoEm, bytes: lido.bytes, guardado };
 }
 
 /**

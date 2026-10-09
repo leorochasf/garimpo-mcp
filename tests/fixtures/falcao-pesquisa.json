@@ -1,0 +1,52 @@
+{
+  "documentos": [
+    {
+      "numeroProcesso": "0000001-00.2024.5.03.0001",
+      "siglaClasseProcesso": "ROT",
+      "classeProcesso": "RECURSO ORDINÁRIO TRABALHISTA",
+      "relator": "RELATOR FICTICIO UM",
+      "tribunal": "TRT3",
+      "idGabinete": 101,
+      "gabinete": "GABINETE FICTICIO UM",
+      "idTurma": 11,
+      "turma": "1a. Turma",
+      "textoAcordao": "<p><img src=\"data:image/png;base64,iVBORw0KGgo=\" alt=\"\"></p><p>PODER JUDICI&Aacute;RIO</p><p>RECORRENTE: PARTE FICTICIA A</p><p>RECORRIDO: PARTE FICTICIA B</p><p><b>EMENTA:</b> INTERVALO INTRAJORNADA. SUPRESS&Atilde;O PARCIAL. Texto fict&iacute;cio de ementa.</p><p>VOTO</p><p>Fundamenta&ccedil;&atilde;o fict&iacute;cia, <i>com</i> etiquetas <span>aninhadas</span>&nbsp;e&nbsp;entidades.</p><ul><li>Item um</li><li>Item dois</li></ul><table><tr><td>c&eacute;lula A</td><td>c&eacute;lula B</td></tr></table><!-- comentario --><script>void 0</script><style>p{}</style>",
+      "ementa": "<p>INTERVALO INTRAJORNADA. SUPRESS&Atilde;O PARCIAL. Texto fict&iacute;cio de ementa.</p>",
+      "possuiEmenta": "S",
+      "idDocumentoAcordao": "10000001",
+      "highlightTextoAcordaoAnonimizado": "<p>RECORRENTE: ____</p><p>RECORRIDO: ____</p><p>Fundamenta&ccedil;&atilde;o fict&iacute;cia com <em>intervalo</em> <em>intrajornada</em>.</p>",
+      "highlightEmenta": "<p><em>INTERVALO</em> <em>INTRAJORNADA</em>. SUPRESS&Atilde;O PARCIAL. Texto fict&iacute;cio de ementa.</p>",
+      "highlightTextoAcordao": "<p>RECORRENTE: PARTE FICTICIA A</p><p>Fundamenta&ccedil;&atilde;o fict&iacute;cia com <em>intervalo</em> <em>intrajornada</em>.</p>",
+      "referenciaLegislativa": ["art_71_clt", "sumula_437_tst"],
+      "prioridades": null,
+      "dataJulgamento": "27/02/2024",
+      "dataJuntada": "05/03/2024",
+      "score": 41.5
+    },
+    {
+      "numeroProcesso": "0000002-00.2024.5.03.0002",
+      "siglaClasseProcesso": "AP",
+      "classeProcesso": "AGRAVO DE PETIÇÃO",
+      "relator": "RELATOR FICTICIO DOIS",
+      "tribunal": "TRT3",
+      "idGabinete": 102,
+      "gabinete": "GABINETE FICTICIO DOIS",
+      "idTurma": 12,
+      "turma": "2a. Turma",
+      "textoAcordao": "<p>RECORRENTE: PARTE FICTICIA C</p><p>Ac&oacute;rd&atilde;o fict&iacute;cio sem ementa.</p>",
+      "ementa": "",
+      "possuiEmenta": "N",
+      "idDocumentoAcordao": "10000002",
+      "highlightTextoAcordaoAnonimizado": "<p>RECORRENTE: ____</p><p>Ac&oacute;rd&atilde;o fict&iacute;cio sem ementa.</p>",
+      "highlightEmenta": "",
+      "highlightTextoAcordao": "<p>RECORRENTE: PARTE FICTICIA C</p><p>Ac&oacute;rd&atilde;o fict&iacute;cio sem ementa.</p>",
+      "referenciaLegislativa": ["art_897_clt"],
+      "prioridades": null,
+      "dataJulgamento": "28/02/2024",
+      "dataJuntada": "05/03/2024",
+      "score": 30.25
+    }
+  ],
+  "temasTopFive": [],
+  "quantidadeTotal": 10000
+}
