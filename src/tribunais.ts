@@ -48,9 +48,6 @@ const EXPLICA_TJRN =
   "JurisprudênciaIA não chegou a ser testada; o uso contínuo dessa rota ainda depende de confirmar o combinado " +
   "com a JAI.";
 
-const EXPLICA_TJSP =
-  "Testado em 2026-10-09: o PDF sai por HTTP comum, mas o download automático ainda não foi implementado.";
-
 const EXPLICA_TST =
   `${INCONCLUSIVO_B11} O link do PDF veio como endereço encurtado da Justiça do Trabalho, fora do portal do TST.`;
 
@@ -152,7 +149,7 @@ export const TRIBUNAIS: InfoTribunal[] = [
   { ...tj("tjrs", "TJ do Rio Grande do Sul") },
   { ...tj("tjsc", "TJ de Santa Catarina") },
   { ...tj("tjse", "TJ de Sergipe") },
-  { ...tj("tjsp", "TJ de São Paulo"), motivoLink: EXPLICA_TJSP },
+  { ...tj("tjsp", "TJ de São Paulo"), inteiroTeor: "baixa", motivoLink: undefined },
   { ...tj("tjto", "TJ do Tocantins"), motivoLink: EXPLICA_TJTO },
 ];
 

@@ -1,6 +1,6 @@
 /**
  * Inteiro teor oficial: o PDF do acórdão baixado do portal do próprio tribunal.
- * Baixa só o que sai por HTTP comum (STJ, TJMG, TSE). Para os demais devolve link + explicação:
+ * Baixa só o que sai por HTTP comum (STJ, TJMG, TJSP, TSE). Para os demais devolve link + explicação:
  * nunca navegador automatizado, captcha ou contorno de proteção.
  */
 
@@ -196,7 +196,17 @@ export async function obterInteiroTeor(
   if (tribunal === "stj") baixado = await baixarStj(cliente, linkPdf);
   else if (tribunal === "tjmg") baixado = await baixarDireto(cliente, linkPdf, "www5.tjmg.jus.br", "TJMG");
   else if (tribunal === "tse") baixado = await baixarDireto(cliente, linkPdf, "sjur-servicos.tse.jus.br", "TSE");
-  else throw new Error(`Download automático não implementado para ${tribunal.toUpperCase()}.`);
+  else if (tribunal === "tjsp") {
+    const r = await baixarTjsp(cliente, linkPdf);
+    if ("bytesDaPagina" in r) {
+      return {
+        baixado: false,
+        link: linkPdf,
+        explicacao: `O TJSP devolveu uma página (${r.bytesDaPagina} bytes) no lugar do PDF; nada foi salvo. ${PONTE}`,
+      };
+    }
+    baixado = r;
+  } else throw new Error(`Download automático não implementado para ${tribunal.toUpperCase()}.`);
 
   await mkdir(pasta, { recursive: true });
   // O número do processo não é único (dois acórdãos podem ter o mesmo): o id do documento entra no nome.
@@ -484,7 +494,7 @@ async function baixarStj(cliente: Cliente, link: string): Promise<Baixado> {
   if (!registro || !data) {
     throw new Error(`Link do STJ sem número de registro e data de publicação: ${link}`);
   }
-  const sessao = new Sessao(cliente);
+  const sessao = new Sessao(cliente, "STJ", urlDoStj);
 
   const passo1 = `https://processo.stj.jus.br/processo/revista/inteiroteor/?num_registro=${registro}&dt_publicacao=${data}`;
   const pagina = await sessao.texto(passo1);
@@ -521,16 +531,50 @@ function urlDoStj(endereco: string, contexto: string): URL {
 
 const MAX_REDIRECTS = 5;
 
-/** Cookies de uma sessão de download no STJ (só vivem durante ela e só vão para o STJ). */
+/**
+ * TJSP (e-SAJ), numa mesma sessão de cookies do portal, como observado na prova do B11 (2026-10-09):
+ * 1. o link do PDF redireciona para a página de verificação de login (verificarLoginArquivo.jsp);
+ * 2. essa página traz, no caminho de quem não está logado, o endereço seguinte como texto literal
+ *    (window.location.href = '...casChecked=true'): lido do HTML, sem executar JavaScript;
+ * 3. esse endereço devolve o PDF.
+ * Página sem PDF em qualquer passo: devolve o tamanho dela, para virar link + motivo.
+ */
+async function baixarTjsp(cliente: Cliente, link: string): Promise<Baixado | { bytesDaPagina: number }> {
+  const sessao = new Sessao(cliente, "TJSP", urlDoTjsp);
+  const corpo1 = await lerCorpo(await sessao.get(link), "TJSP");
+  if (ehPdf(corpo1)) return { pdf: corpo1, urlFinal: sessao.urlFinal };
+  const literal = latin1(corpo1).match(/window\.location\.href\s*=\s*'([^']*casChecked=true[^']*)'/)?.[1];
+  if (!literal) return { bytesDaPagina: corpo1.length };
+  const pagina = sessao.urlFinal;
+  const passo3 = urlDoTjsp(new URL(literal.replace(/&amp;/g, "&"), pagina).href, "O TJSP apontou o PDF").href;
+  const corpo3 = await lerCorpo(await sessao.get(passo3, pagina), "TJSP");
+  return ehPdf(corpo3) ? { pdf: corpo3, urlFinal: sessao.urlFinal } : { bytesDaPagina: corpo3.length };
+}
+
+/** Só o portal do TJSP: HTTPS e host tjsp.jus.br ou subdomínio dele. */
+function urlDoTjsp(endereco: string, contexto: string): URL {
+  const url = new URL(endereco);
+  const host = url.hostname.toLowerCase();
+  if (url.protocol !== "https:" || (host !== "tjsp.jus.br" && !host.endsWith(".tjsp.jus.br"))) {
+    throw new Error(`${contexto} fora do portal oficial do TJSP (só https em tjsp.jus.br): ${endereco}`);
+  }
+  return url;
+}
+
+/** Cookies de uma sessão de download num portal (só vivem durante ela e só vão para esse portal). */
 class Sessao {
   private cookies = new Map<string, string>();
   /** Endereço que respondeu à última chamada, depois dos redirecionamentos. */
   urlFinal = "";
-  constructor(private readonly cliente: Cliente) {}
+  constructor(
+    private readonly cliente: Cliente,
+    private readonly sigla: string,
+    private readonly doPortal: (endereco: string, contexto: string) => URL,
+  ) {}
 
-  /** GET no STJ seguindo redirects um a um: o destino de cada salto é validado antes de levar os cookies. */
+  /** GET no portal seguindo redirects um a um: o destino de cada salto é validado antes de levar os cookies. */
   async get(endereco: string, referer?: string): Promise<Response> {
-    let url = urlDoStj(endereco, "Endereço");
+    let url = this.doPortal(endereco, `Link do ${this.sigla}`);
     for (let saltos = 0; ; saltos++) {
       const headers: Record<string, string> = {};
       if (this.cookies.size) headers.Cookie = [...this.cookies].map(([k, v]) => `${k}=${v}`).join("; ");
@@ -548,14 +592,14 @@ class Sessao {
       await r.body?.cancel();
       const destino = r.headers.get("location");
       if (!destino || saltos >= MAX_REDIRECTS) {
-        throw new Error(`O STJ redirecionou sem destino ou vezes demais (${url.href}); nada foi salvo.`);
+        throw new Error(`O ${this.sigla} redirecionou sem destino ou vezes demais (${url.href}); nada foi salvo.`);
       }
-      url = urlDoStj(new URL(destino, url).href, "O STJ redirecionou");
+      url = this.doPortal(new URL(destino, url).href, `O ${this.sigla} redirecionou`);
     }
   }
 
   async texto(url: string, referer?: string): Promise<string> {
-    return latin1(await lerCorpo(await this.get(url, referer), "STJ"));
+    return latin1(await lerCorpo(await this.get(url, referer), this.sigla));
   }
 }
 

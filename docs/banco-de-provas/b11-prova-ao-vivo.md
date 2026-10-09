@@ -31,4 +31,14 @@ Nenhum 429/503. Nenhuma recusa do JurisprudênciaIA. Total: 5 buscas e 7 GETs.
 | TREs, `jurisprudencia-tres.tse.jus.br` | 200 | aplicação web (só scripts), sem captcha no HTML; a rota da busca não aparece no HTML estático |
 | CJF, `unificada/index.xhtml` | 200 | o script do reCAPTCHA é **carregado**, mas o formulário estático não tem widget nem campo de token; se é exigido na busca não se decide com uma chamada |
 
+## Depois — TJSP habilitado (ticket 04, 2026-10-09)
+
+**Depois:** 4 tribunais baixam o inteiro teor oficial (STJ, TJMG, TJSP, TSE). O `obter_inteiro_teor` segue no TJSP o
+caminho da prova (link → verificação de login → endereço literal do fallback anônimo → PDF), numa sessão de cookies
+do portal, só https em `tjsp.jus.br`, cada redirecionamento conferido. Conferência ao vivo de um **segundo acórdão**
+(diferente do da prova) pelo servidor compilado, com pasta de dados temporária: `busca_direta` no TJSP (tese 20,
+limite 5) → `obter_inteiro_teor` do 2º registro → PDF de 11 páginas (~0,5 MB) com recibo versão 1 ("Link oficial
+final" = `getArquivo.do?cdAcordao={n}&cdForo={n}&casChecked=true`) → `ler_inteiro_teor` da parte 1 com o texto do
+acórdão. 3 chamadas de ferramenta, sem 429/503.
+
 Uma amostra prova aquele caminho naquela data, não a cobertura de todo o tribunal.

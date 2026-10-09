@@ -1063,9 +1063,6 @@ describe("textos honestos por tribunal: o observado, com data, ou \"ainda não t
     expect(m.get("tst")).toMatch(/endereço encurtado da Justiça do Trabalho, fora do portal do TST/);
     expect(m.get("tjdft")).toMatch(/^Testado em 2026-10-09 sem conclusão; o download automático não está disponível\./);
     expect(m.get("tjdft")).toMatch(/página de aplicação no lugar do PDF/);
-    expect(m.get("tjsp")).toBe(
-      "Testado em 2026-10-09: o PDF sai por HTTP comum, mas o download automático ainda não foi implementado.",
-    );
     expect(m.get("tjto")).toMatch(/^Testado em 2026-10-09: o portal respondeu HTTP 403 \(acesso negado\)\./);
   });
 
