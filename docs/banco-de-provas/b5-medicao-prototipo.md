@@ -78,6 +78,27 @@ No teste sem rede de pior caso (campos de tamanho real, 2 tribunais, buscas guar
 resposta com filtro fica em 24.997 caracteres, abaixo do teto de 25 mil: por isso o cabeçalho usa nomes curtos
 (`excluidos`; `semEmenta` só quando há).
 
+**Medição final (ticket 06, 2026-10-08):** com o build final (commit `992fde8`: desempate fixo do 07 + filtros do 03,
+os dois recursos aprovados), refeita sem rede sobre a mesma gravação (264 respostas, nenhuma sobra), mesmos filtros
+(sha256 conferido), pasta de dados temporária. Saída idêntica à das medições dos tickets 03 e 07, a menos do tempo
+local:
+
+| | Protótipo | Build final |
+|---|---|---|
+| Lista dos 50 sem filtro igual à do protótipo | — | 11 de 11 teses |
+| Precisão nos 10 / nos 50 sem filtro (média, 11 teses) | 97,3% \| 97,3% / 94,2% \| 94,4% | 97,3% \| 97,3% / 94,2% \| 94,4% |
+| Lista dos 50 com filtro igual à do protótipo | — | 11 de 11 teses |
+| Precisão nos 50 com filtro (média, 11 teses) | 94,4% \| 94,5% | 94,4% \| 94,5% |
+| Excluídos pelo filtro / sem ementa (total) | 1.672 / 0 | 1.672 / 0 |
+| Ordens distintas em 6 execuções (sem e com filtro) | — | 1 por tese, nas 11 |
+| Maior resposta (sem / com filtro) | 21.819 / — | 21.819 / 22.124 caracteres |
+
+Nenhuma diferença a explicar. Chamada real curta (cliente único com os freios, em série): uma busca ampla com
+2 formulações × STJ (2 chamadas ao site, sem recusa), repetida com `deveConter` e `naoPodeConter`: a repetição veio
+das buscas guardadas (0 chamadas ao site), o cabeçalho de cobertura mostrou os excluídos pelo filtro (60 de 182
+achados) e "mostrando 5 de 122", e a ordem relativa dos que ficaram não mudou. Nenhum recurso rejeitado foi
+demonstrado.
+
 ## Limites
 
 - Precisão perto do teto em 10 das 11 teses: o banco mede bem perda, mal ganho.
