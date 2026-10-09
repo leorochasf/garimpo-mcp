@@ -61,6 +61,23 @@ com pasta de dados temporária: 1 ordem e 1 conjunto por tese em 6 execuções n
 dono, por tese e na média, igual ao da ordem atual: precisão nos 10 97,3% | 97,3%, nos 50 94,2% | 94,4%, cobertura
 (7 teses) 46,4% | 46,5%; nenhuma tese mudou. Maior resposta: 21.819 caracteres (< 25 mil).
 
+**Implementado no ticket 03 (2026-10-08):** `deveConter` e `naoPodeConter` na busca ampla. Refeito sem rede sobre a
+mesma gravação (264 respostas, nenhuma sobra), com os mesmos filtros (rodada de filtros 1, sha256 conferido) e pasta de
+dados temporária, comparando a lista real do servidor com a do protótipo (pessimista | otimista):
+
+| | Protótipo (marca do dono) | Servidor (ticket 03) |
+|---|---|---|
+| Lista dos 50 igual à do protótipo | — | 11 de 11 teses |
+| Precisão nos 50 (média, 11 teses) | 94,4% \| 94,5% | 94,4% \| 94,5% |
+| Excluídos pelo filtro (total) | 1.672 | 1.672 |
+| Sem ementa para conferir | 0 | 0 |
+| Respostas do site gastas na busca filtrada | — | 0 (todas buscas guardadas) |
+| Maior resposta com filtro | — | 22.124 caracteres |
+
+No teste sem rede de pior caso (campos de tamanho real, 2 tribunais, buscas guardadas, exclusões de 3 dígitos), a
+resposta com filtro fica em 24.997 caracteres, abaixo do teto de 25 mil: por isso o cabeçalho usa nomes curtos
+(`excluidos`; `semEmenta` só quando há).
+
 ## Limites
 
 - Precisão perto do teto em 10 das 11 teses: o banco mede bem perda, mal ganho.

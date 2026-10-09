@@ -15,11 +15,12 @@ import {
 } from "./busca.js";
 import { ART_927_CONFERIDO_EM } from "./enquadramento.js";
 import { juntarEquivalentes, type Ocorrencia } from "./equivalencia.js";
+import { filtroLocal, type FiltrosLocais } from "./filtroLocal.js";
 import { diaEHora, type Memoria } from "./memoria.js";
 import { ordenarPorAderencia, trecho } from "./pontuacao.js";
 import { juntarQualificados, type QualificadoAmplo, type QualificadosDaBusca, reservarPorTribunal } from "./saida.js";
 
-export interface ParametrosAmpla extends FiltrosBusca {
+export interface ParametrosAmpla extends FiltrosBusca, FiltrosLocais {
   formulacoes: string[];
   tribunais: string[];
   /** Acórdãos pedidos por busca (1 a 100; padrão 100). */
@@ -62,6 +63,13 @@ export interface CoberturaTribunal {
   maisAntiga?: string;
   /** Só quando alguma busca do tribunal deu resposta: sem nenhuma, não há "0 achados" a mostrar. */
   achados?: number;
+  /**
+   * Só com filtro local (nomes curtos: com 2 tribunais e buscas guardadas, a resposta já beira o teto de 25 mil
+   * caracteres): excluídos pelo filtro, achados com ementa conferível que descumpriram o filtro e saíram da lista...
+   */
+  excluidos?: number;
+  /** ...e, só quando há, os sem ementa para conferir, que saem por não haver texto a conferir. */
+  semEmenta?: number;
   mostrados?: number;
   /** Nenhuma busca do tribunal deu resposta: "com erro", ou "não pesquisado" se a busca parou antes dele. */
   situacao?: "com erro" | "não pesquisado";
@@ -73,6 +81,8 @@ export interface CabecalhoDeCobertura {
   formulacoesSemAcordao: string[];
   /** Só quando a lista foi cortada pelo máximo. */
   listaCortada?: string;
+  /** Só quando o filtro local tirou todos os acórdãos achados: o motivo da lista vazia. */
+  filtroLocal?: string;
 }
 
 export interface ResultadoAmplo {
@@ -89,6 +99,9 @@ export interface ResultadoAmplo {
   ressalvaQualificados: string;
   avisos: string[];
 }
+
+/** O campo semEmenta só vai quando há acórdão sem ementa para conferir (a resposta beira o teto de 25 mil caracteres). */
+const semEmentaDoTribunal = (n: number) => (n ? { semEmenta: n } : {});
 
 export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla, memoria?: Memoria): Promise<ResultadoAmplo> {
   const tarefas = p.tribunais.flatMap((t) =>
@@ -249,9 +262,21 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla, memoria?:
     })),
     p.formulacoes,
   );
+  // Filtro local depois da ordem, que ele não muda: tira acórdãos, e a reserva por tribunal e o corte vêm depois, só
+  // entre os que passaram. Sem ementa, com qualquer filtro ativo, sai por não haver texto a conferir.
+  const passa = filtroLocal(p);
+  const excluidos = new Set<(typeof ordenados)[number]>();
+  const semEmenta = new Set<(typeof ordenados)[number]>();
+  if (passa) {
+    for (const x of ordenados) {
+      if (!x.ementa.trim()) semEmenta.add(x);
+      else if (!passa(x.ementa)) excluidos.add(x);
+    }
+  }
+  const sobreviventes = ordenados.filter((x) => !excluidos.has(x) && !semEmenta.has(x));
   const maximo = p.maximo ?? 50;
   // Cada tribunal com acórdão na faixa de aderência de cima tem vagas garantidas na lista mostrada.
-  const mostrados = reservarPorTribunal(ordenados, { maximo, naFaixaDeCima: (x) => x.faixa === 0 });
+  const mostrados = reservarPorTribunal(sobreviventes, { maximo, naFaixaDeCima: (x) => x.faixa === 0 });
   // Tamanhos escolhidos para 50 acórdãos + 10 qualificados caberem numa resposta (< 25 mil caracteres) com campos
   // de tamanho real (número CNJ, links longos): ver o teste de tamanho em tests/ampla.test.ts.
   const tamanho = p.tamanhoTrecho ?? 120;
@@ -268,6 +293,8 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla, memoria?:
       return {
         ...linha,
         achados: ordenados.filter((x) => x.tribunal === tribunal).length,
+        ...(passa && { excluidos: [...excluidos].filter((x) => x.tribunal === tribunal).length }),
+        ...semEmentaDoTribunal([...semEmenta].filter((x) => x.tribunal === tribunal).length),
         mostrados: mostrados.filter((x) => x.tribunal === tribunal).length,
       };
     }),
@@ -276,9 +303,17 @@ export async function buscaAmpla(cliente: Cliente, p: ParametrosAmpla, memoria?:
       (_, f) => porFormulacao[f].respostas === p.tribunais.length && porFormulacao[f].acordaos === 0,
     ),
   };
-  if (mostrados.length < ordenados.length) {
+  // Lista vazia por causa do filtro diz isso com todas as letras: não se lê como "os tribunais nunca decidiram".
+  if (ordenados.length && !sobreviventes.length) {
+    cabecalho.filtroLocal =
+      `Nenhum dos ${ordenados.length} acórdãos achados passou pelo filtro local (${excluidos.size} excluídos pelo ` +
+      `filtro; ${semEmenta.size} sem ementa para conferir): a lista está vazia por causa do filtro, não por falta de ` +
+      "acórdãos achados; afrouxe ou retire o filtro local.";
+  }
+  // Com filtro local, conta só os que passaram por ele: o que o filtro tirou não é lista cortada.
+  if (mostrados.length < sobreviventes.length) {
     cabecalho.listaCortada =
-      `mostrando ${mostrados.length} de ${ordenados.length}; ` +
+      `mostrando ${mostrados.length} de ${sobreviventes.length}; ` +
       (maximo < 200 ? "para ver mais, peça máximo maior (até 200)" : "200 é o máximo por resposta");
   }
   return {

@@ -1811,3 +1811,91 @@ describe("PDF trazido pelo usuário e seção do acórdão na conferência (pela
     expect(r.notaSinalDeOutroAutor).toMatch(/seção "não identificada"/);
   });
 });
+
+describe("filtros locais da busca ampla (pela porta)", () => {
+  /** Site falso que conta as buscas e devolve sempre os mesmos acórdãos fictícios. */
+  function siteQueConta() {
+    const estado = { buscas: 0 };
+    const registro = (id: string, ementa: string) => ({
+      id,
+      texto_ementa: ementa,
+      numero_processo: `${id}/UF`,
+      link_pdf: `https://exemplo.test/${id}`,
+    });
+    const site = new Cliente({
+      nome: "O site",
+      esperar: async () => {},
+      fetch: (async () => {
+        estado.buscas++;
+        return respostaJson({
+          results: [
+            registro("1", "EMENTA FICTÍCIA. DANO MORAL COLETIVO. Relação de consumo."),
+            registro("2", "EMENTA FICTÍCIA. DANO MORAL COLETIVO. Matéria ambiental, art. 37, § 6º."),
+            registro("3", "EMENTA FICTÍCIA. DANO MORAL COLETIVO. Execução fiscal."),
+          ],
+        });
+      }) as typeof fetch,
+    });
+    return { site, estado };
+  }
+
+  async function chamar(mcp: Client, args: Record<string, unknown>) {
+    const r = (await mcp.callTool({ name: "busca_ampla", arguments: { formulacoes: ["dano moral coletivo"], tribunais: ["stj"], ...args } })) as {
+      content: { text: string }[];
+      isError?: boolean;
+    };
+    return { isError: r.isError, texto: r.content[0].text, ids: r.isError ? [] : JSON.parse(r.content[0].text).acordaos.map((a: { id: string }) => a.id) };
+  }
+
+  it("aceita as listas como JSON ou como texto de lista JSON; texto solto vale um termo inteiro, sem partir por vírgula", async () => {
+    const { site } = siteQueConta();
+    const mcp = await conectar(site);
+
+    expect((await chamar(mcp, { deveConter: [["consumo", "ambiental"]], naoPodeConter: ["execução fiscal"] })).ids).toEqual(["stj:1", "stj:2"]);
+    expect((await chamar(mcp, { deveConter: '[["consumo"], ["dano moral"]]' })).ids).toEqual(["stj:1"]);
+    expect((await chamar(mcp, { naoPodeConter: '["consumo", "fiscal"]' })).ids).toEqual(["stj:2"]);
+    expect((await chamar(mcp, { deveConter: "art. 37, § 6º" })).ids).toEqual(["stj:2"]);
+    expect((await chamar(mcp, { naoPodeConter: "art. 37, § 6º" })).ids).toEqual(["stj:1", "stj:3"]);
+    // Lista vazia não ativa filtro.
+    const semFiltro = await chamar(mcp, { deveConter: [], naoPodeConter: "[]" });
+    expect(semFiltro.ids).toEqual(["stj:1", "stj:2", "stj:3"]);
+    expect(JSON.parse(semFiltro.texto).cabecalhoDeCobertura).not.toHaveProperty("filtroLocal");
+  });
+
+  it("grupo vazio, termo vazio ou elemento de tipo errado: erro com o formato aceito, antes de chamar o site", async () => {
+    const { site, estado } = siteQueConta();
+    const mcp = await conectar(site);
+    const errados = [
+      { deveConter: [["consumo"], []] },
+      { deveConter: ["consumo", "ambiental"] },
+      { deveConter: '["consumo"]' },
+      { deveConter: [["consumo", 7]] },
+      { deveConter: [["  "]] },
+      { naoPodeConter: [["consumo"]] },
+      { naoPodeConter: [""] },
+      { naoPodeConter: "[1, 2]" },
+    ];
+
+    for (const args of errados) {
+      const r = await chamar(mcp, args);
+      expect(r.isError, JSON.stringify(args)).toBe(true);
+      expect(r.texto).not.toMatch(/validation|Invalid|invalid_|"code"|"path"|MCP error/);
+      if ("deveConter" in args) expect(r.texto).toMatch(/^O deveConter não está no formato aceito: .*\[\["improbidade"\], \["dolo", "dolosa"\]\]/);
+      else expect(r.texto).toMatch(/^O naoPodeConter não está no formato aceito: .*\["multa administrativa", "tributário"\]/);
+    }
+    expect(estado.buscas).toBe(0);
+  });
+
+  it("repetir a busca mudando só o filtro não chama o site: as buscas vêm guardadas", async () => {
+    const { site, estado } = siteQueConta();
+    const mcp = await conectar(site);
+    await chamar(mcp, {});
+    const antes = estado.buscas;
+
+    const r = await chamar(mcp, { deveConter: [["ambiental"]] });
+
+    expect(estado.buscas).toBe(antes);
+    expect(r.ids).toEqual(["stj:2"]);
+    expect(JSON.parse(r.texto).cabecalhoDeCobertura.porTribunal[0]).toMatchObject({ guardadas: 1, excluidos: 2, mostrados: 1 });
+  });
+});

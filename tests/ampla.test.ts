@@ -229,6 +229,38 @@ describe("busca ampla", () => {
     }
   });
 
+  it("com filtro local, repetida da memória e campos de tamanho realista, continua < 25 mil caracteres", async () => {
+    const dados = await mkdtemp(join(tmpdir(), "garimpo-ampla-"));
+    try {
+      const memoria = new Memoria({ dados });
+      const { cliente } = siteRealista();
+      const pedido = { formulacoes: FORMULACOES_REALISTAS, tribunais: ["tjrs", "stj"] };
+      await buscaAmpla(cliente, pedido, memoria);
+
+      // Exclusões de 3 dígitos nos dois tribunais, só de quem fica fora dos 50: a lista mostrada é a mesma da busca sem
+      // filtro, e a diferença de tamanho é só a do filtro (cada ementa traz "tjrsa-57", "stjbb-63"...).
+      const naoPodeConter = ["tjrs", "stj"].flatMap((t) =>
+        ["a", "bb", "ccc"].flatMap((chave) => Array.from({ length: 50 }, (_, i) => `${t}${chave}-${50 + i}`)),
+      );
+      const r = await buscaAmpla(
+        cliente,
+        { ...pedido, deveConter: [["dano moral coletivo", "dano moral difuso"], ["apelação cível"]], naoPodeConter },
+        memoria,
+      );
+
+      expect(r.cabecalhoDeCobertura.porTribunal.map((t) => [t.guardadas, t.excluidos])).toEqual([
+        [3, 150],
+        [3, 150],
+      ]);
+      expect(r.cabecalhoDeCobertura.listaCortada).toBe("mostrando 50 de 300; para ver mais, peça máximo maior (até 200)");
+      expect(r.acordaos).toHaveLength(50);
+      expect(r.qualificados).toHaveLength(10);
+      expect(JSON.stringify(r).length).toBeLessThan(25_000);
+    } finally {
+      await rm(dados, { recursive: true, force: true, maxRetries: 10 });
+    }
+  });
+
   it("cópias do mesmo acórdão achadas por formulações diferentes viram um só, com as formulações somadas", async () => {
     const ementa = "EMENTA FICTÍCIA DO MESMO ACÓRDÃO EM DOIS REGISTROS.";
     const { cliente } = siteFalso((_t, texto) =>
@@ -575,5 +607,122 @@ describe("cabeçalho de cobertura da busca ampla", () => {
     const r = await buscaAmpla(cliente, { formulacoes: ["a", "bb", "ccc"], tribunais: ["stj"], maximo: 200 });
 
     expect(r.cabecalhoDeCobertura.listaCortada).toBe("mostrando 200 de 300; 200 é o máximo por resposta");
+  });
+});
+
+describe("filtros locais da busca ampla (deveConter, naoPodeConter)", () => {
+  const formulacoes = ["dano moral coletivo"];
+  /** Acórdão fictício na faixa de cima de aderência, com uma palavra que os filtros dos testes procuram. */
+  const comPalavra = (id: string, palavra: string) => bruto(id, 0.5, `DANO MORAL COLETIVO. ${palavra}. EXEMPLO FICTÍCIO ${id}.`);
+
+  it("tira só quem descumpre, sem mudar a ordem dos que ficam; exclusão e lista cortada distintas no cabeçalho", async () => {
+    const registros = [
+      comPalavra("a", "CONSUMIDOR"),
+      comPalavra("b", "TRIBUTÁRIO"),
+      comPalavra("c", "CONSUMIDOR"),
+      comPalavra("d", "AMBIENTAL"),
+      comPalavra("e", "CONSUMIDOR"),
+      comPalavra("f", "Consumidor tributário"),
+      comPalavra("g", "CONSUMIDOR"),
+    ];
+    const { cliente } = siteFalso(() => respostaJson({ results: registros }));
+    const sem = await buscaAmpla(cliente, { formulacoes, tribunais: ["stj"] });
+
+    const r = await buscaAmpla(cliente, {
+      formulacoes,
+      tribunais: ["stj"],
+      maximo: 3,
+      deveConter: [["consumidor", "ambiental"]],
+      naoPodeConter: ["tributario"],
+    });
+
+    const sobreviventes = ["a", "c", "d", "e", "g"].map((x) => `stj:${x}`);
+    expect(sem.acordaos.map((a) => a.id).filter((id) => sobreviventes.includes(id))).toEqual(sobreviventes);
+    expect(r.acordaos.map((a) => a.id)).toEqual(sobreviventes.slice(0, 3));
+    expect(r.totalAcordaos).toBe(7);
+    expect(r.cabecalhoDeCobertura.porTribunal).toEqual([
+      {
+        tribunal: "stj",
+        buscasFeitas: 1,
+        vazias: 0,
+        comErro: 0,
+        achados: 7,
+        excluidos: 2,
+        mostrados: 3,
+      },
+    ]);
+    // O que o filtro tirou não é lista cortada: o corte conta só os 5 que passaram.
+    expect(r.cabecalhoDeCobertura.listaCortada).toBe("mostrando 3 de 5; para ver mais, peça máximo maior (até 200)");
+    expect(r.cabecalhoDeCobertura).not.toHaveProperty("filtroLocal");
+  });
+
+  it("a reserva por tribunal só vale entre os que passaram pelo filtro", async () => {
+    const { cliente } = siteFalso((tribunal) =>
+      respostaJson({
+        results:
+          tribunal === "tjgo"
+            ? Array.from({ length: 10 }, (_, i) => bruto(`tj-${i}`, 0.5, "DANO MORAL COLETIVO. CONSUMIDOR. EXEMPLO FICTÍCIO."))
+            : [comPalavra("stf-0", "TRIBUTÁRIO"), ...Array.from({ length: 4 }, (_, i) => comPalavra(`stf-${i + 1}`, "CONSUMIDOR"))],
+      }),
+    );
+
+    const r = await buscaAmpla(cliente, { formulacoes, tribunais: ["tjgo", "stf"], maximo: 6, naoPodeConter: ["tributário"] });
+
+    expect(r.acordaos.filter((a) => a.tribunal === "stf").map((a) => a.id)).toEqual(["stf:stf-1", "stf:stf-2", "stf:stf-3"]);
+  });
+});
+
+describe("filtros locais: sem ementa, lista vazia, falha total e precedentes qualificados", () => {
+  const formulacoes = ["dano moral coletivo"];
+
+  it("sem ementa, com só naoPodeConter ativo, sai e é contado à parte dos excluídos pelo filtro", async () => {
+    const { cliente } = siteFalso(() =>
+      respostaJson({
+        results: [
+          bruto("com", 0.5, "DANO MORAL COLETIVO. EXEMPLO FICTÍCIO."),
+          { ...bruto("vazia", 0.5), texto_ementa: "" },
+          { ...bruto("sem", 0.5), texto_ementa: null },
+        ],
+      }),
+    );
+
+    const r = await buscaAmpla(cliente, { formulacoes, tribunais: ["stj"], naoPodeConter: ["tributário"] });
+
+    expect(r.acordaos.map((a) => a.id)).toEqual(["stj:com"]);
+    expect(r.cabecalhoDeCobertura.porTribunal[0]).toEqual({ tribunal: "stj", buscasFeitas: 1, vazias: 0, comErro: 0, achados: 3, excluidos: 0, semEmenta: 2, mostrados: 1 });
+    expect(r.cabecalhoDeCobertura.listaCortada).toBeUndefined();
+  });
+
+  it("filtro que tira todos: resposta utilizável com lista vazia e o motivo, nunca erro", async () => {
+    const { cliente } = siteFalso(() => respostaJson({ results: [bruto("a", 0.5, "DANO MORAL COLETIVO. EXEMPLO FICTÍCIO.")] }));
+
+    const r = await buscaAmpla(cliente, { formulacoes, tribunais: ["stj"], deveConter: [["ambiental"]] });
+
+    expect(r.acordaos).toEqual([]);
+    expect(r.completa).toBe(true);
+    expect(r.cabecalhoDeCobertura.filtroLocal).toBe(
+      "Nenhum dos 1 acórdãos achados passou pelo filtro local (1 excluídos pelo filtro; 0 sem ementa para conferir): " +
+        "a lista está vazia por causa do filtro, não por falta de acórdãos achados; afrouxe ou retire o filtro local.",
+    );
+  });
+
+  it("falha total das buscas com filtro ativo continua sendo erro, nunca lista vazia (ADR-0001)", async () => {
+    const { cliente } = siteFalso(() => respostaJson({ mensagem: "formato que o Garimpo não conhece" }));
+
+    await expect(buscaAmpla(cliente, { formulacoes, tribunais: ["stj"], deveConter: [["ambiental"]] })).rejects.toThrow(
+      /^Nenhuma das 1 buscas deu resposta/,
+    );
+  });
+
+  it("precedentes qualificados não passam pelo filtro local e seguem na lista própria", async () => {
+    const tema = { numero: 900, tese_firmada: "Tese fictícia sem a palavra exigida.", link: "https://exemplo.test/tema-900" };
+    const { cliente } = siteFalso(() =>
+      respostaJson({ juris: [bruto("a", 0.5, "DANO MORAL COLETIVO. EXEMPLO FICTÍCIO.")], rg: [tema] }),
+    );
+
+    const r = await buscaAmpla(cliente, { formulacoes, tribunais: ["stf"], deveConter: [["ambiental"]] });
+
+    expect(r.acordaos).toEqual([]);
+    expect(r.qualificados.map((q) => [q.tipo, q.numero])).toEqual([["repercussão geral", "900"]]);
   });
 });

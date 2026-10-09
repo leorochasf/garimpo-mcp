@@ -10,6 +10,7 @@ import { Cliente, VERSAO } from "./cliente.js";
 import { buscaDireta } from "./busca.js";
 import { buscaAmpla } from "./ampla.js";
 import { pastaDeDados } from "./coordenacao.js";
+import { lerFiltrosLocais, listaJson } from "./filtroLocal.js";
 import { conferirNaEmenta, conferirNoInteiroTeor, lerCitacao, naoVerificavel } from "./conferencia.js";
 import {
   type ClientePorTribunal,
@@ -64,16 +65,7 @@ const SOBRE_A_BUSCA_GUARDADA =
  * JSON vira a lista; qualquer outro texto vale como um item só. Nunca parte por vírgula ("art. 37, § 6º").
  */
 function listaOuTexto<T extends z.ZodTypeAny>(lista: T) {
-  return z.preprocess((valor) => {
-    if (typeof valor !== "string") return valor;
-    try {
-      const lido: unknown = JSON.parse(valor);
-      if (Array.isArray(lido)) return lido;
-    } catch {
-      // Não é JSON: texto solto.
-    }
-    return [valor];
-  }, lista);
+  return z.preprocess((valor) => (typeof valor === "string" ? (listaJson(valor) ?? [valor]) : valor), lista);
 }
 
 /** Recusa, com frase que ensina a corrigir, data de julgamento fora de AAAA-MM-DD. */
@@ -219,7 +211,16 @@ export function criarServidor(
         "formulações novas só busca no site as novas. No cabecalhoDeCobertura, o tribunal com busca guardada traz " +
         "guardadas (quantas das buscasFeitas vieram da memória), feitasAgora (quantas foram feitas no site agora) e " +
         "maisAntiga (data e hora local em que foi feita no site a busca guardada mais antiga); os acórdãos dessas " +
-        "buscas são da data delas, não de hoje.",
+        "buscas são da data delas, não de hoje. " +
+        "Filtros locais (deveConter, naoPodeConter), sem nenhuma chamada a mais ao site: tiram da lista os acórdãos " +
+        "cuja ementa descumpre a condição, sem mudar a ordem dos que ficam; a reserva por tribunal e o máximo valem " +
+        "só entre os que passaram. Casam a expressão inteira, sem diferenciar acento e maiúscula, sem radical e sem " +
+        "sinônimo automático: liste você as variantes (\"doloso\", \"dolosa\"; \"14.230\", \"14230\"). No " +
+        "cabecalhoDeCobertura, cada tribunal traz excluidos (excluídos pelo filtro) e, se houver, semEmenta (acórdãos " +
+        "sem ementa para conferir, que saem com qualquer filtro ativo); \"mostrando X de Y\" conta só os que " +
+        "passaram. Se o filtro local tirar todos, a lista vem vazia com o motivo no campo filtroLocal. Os precedentes " +
+        "qualificados não passam pelos filtros locais. Repetir a busca mudando só o filtro não chama o site (buscas " +
+        "guardadas).",
       annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: {
         formulacoes: listaOuTexto(z.array(z.string().min(2)).min(1).max(20)).describe("Formulações da mesma tese (até 20)"),
@@ -227,14 +228,27 @@ export function criarServidor(
         limitePorBusca: z.number().int().min(1).max(100).optional().describe("Acórdãos por busca (padrão 100)"),
         maximo: z.number().int().min(1).max(200).optional().describe("Máximo de acórdãos na resposta (padrão 50)"),
         ...filtros,
+        // Conferidos dentro da ferramenta, como tribunal e datas: o erro precisa dizer o formato aceito.
+        deveConter: z
+          .union([z.string(), z.array(z.unknown())])
+          .optional()
+          .describe(
+            'Filtro local: grupos de sinônimos que a ementa deve conter, como [["improbidade"], ["dolo", "dolosa"]] ' +
+              "(basta um termo de cada grupo; todos os grupos são exigidos); texto solto vale um termo",
+          ),
+        naoPodeConter: z
+          .union([z.string(), z.array(z.unknown())])
+          .optional()
+          .describe('Filtro local: termos que excluem o acórdão, como ["multa administrativa"]; texto solto vale um termo'),
         renovar,
       },
     },
-    async (args) => {
+    async ({ deveConter, naoPodeConter, ...args }) => {
       try {
         conferirTribunais(...args.tribunais);
         conferirDatas(args);
-        return comAvisoNaturezaJuridica(await buscaAmpla(site, args, memoria));
+        const filtrosLocais = lerFiltrosLocais({ deveConter, naoPodeConter });
+        return comAvisoNaturezaJuridica(await buscaAmpla(site, { ...args, ...filtrosLocais }, memoria));
       } catch (e) {
         return erro(e);
       }
