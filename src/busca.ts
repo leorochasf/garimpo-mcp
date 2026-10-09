@@ -9,6 +9,7 @@ import { type Enquadramento927, enquadrarAcordao, enquadrarQualificado, type Par
 import { reforcoDaTabela, type TabelaDePrecedentes } from "./tabelaDePrecedentes.js";
 import { juntarEquivalentes } from "./equivalencia.js";
 import { FalhaNaMemoriaError, fotografiaDaBusca, type Memoria } from "./memoria.js";
+import { avisoDeRecorridoAusente } from "./recorrido.js";
 import { infoTribunal } from "./tribunais.js";
 
 export const SITE = "https://www.jurisprudenciaia.com.br";
@@ -175,7 +176,8 @@ export async function buscaDireta(
     try {
       const guardada = await lerBuscaGuardada(memoria, p);
       if (guardada) {
-        guardada.resultado.avisos.push(...avisosDaMemoria(memoria));
+        const { acordaos, avisos } = guardada.resultado;
+        avisos.push(...avisoDoRecorrido(acordaos), ...avisosDaMemoria(memoria));
         return guardada.resultado;
       }
     } catch (e) {
@@ -224,9 +226,15 @@ export async function buscaDireta(
     acordaos: resultado.acordaos,
     qualificados: resultado.qualificados,
     ressalvaQualificados: resultado.ressalvaQualificados,
-    // Depois de guardar: o aviso da memória vale só para esta resposta.
-    avisos: [...resultado.avisos, ...avisosDaMemoria(memoria, falhaAoLer)],
+    // Depois de guardar: o aviso do recorrido e o da memória valem só para esta resposta.
+    avisos: [...resultado.avisos, ...avisoDoRecorrido(resultado.acordaos), ...avisosDaMemoria(memoria, falhaAoLer)],
   };
+}
+
+/** Calculado a cada resposta, nunca guardado: a busca guardada devolvida não o repete. */
+function avisoDoRecorrido(acordaos: Acordao[]): string[] {
+  const aviso = avisoDeRecorridoAusente(acordaos);
+  return aviso ? [aviso] : [];
 }
 
 /** Avisos da memória que falhou: a leitura desta busca (código do erro) e a última gravação em disco. */

@@ -390,7 +390,7 @@ function espacosSimples(s: string): string {
 }
 
 /** Minúsculas, sem acento e com espaços simples: só para comparar nomes de classe e de órgão vindos do site. */
-function comparavel(s: string): string {
+export function comparavel(s: string): string {
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
 }
 

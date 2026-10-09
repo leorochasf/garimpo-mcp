@@ -18,6 +18,7 @@ import { juntarEquivalentes, type Ocorrencia } from "./equivalencia.js";
 import { filtroLocal, type FiltrosLocais } from "./filtroLocal.js";
 import { diaEHora, FalhaNaMemoriaError, type Memoria } from "./memoria.js";
 import { ordenarPorAderencia, trecho } from "./pontuacao.js";
+import { avisoDeRecorridoAusenteAmplo } from "./recorrido.js";
 import type { TabelaDePrecedentes } from "./tabelaDePrecedentes.js";
 import { juntarQualificados, type QualificadoAmplo, type QualificadosDaBusca, reservarPorTribunal } from "./saida.js";
 
@@ -338,6 +339,12 @@ export async function buscaAmpla(
       `mostrando ${mostrados.length} de ${sobreviventes.length}; ` +
       (maximo < 200 ? "para ver mais, peça máximo maior (até 200)" : "200 é o máximo por resposta");
   }
+  // Uma vez, nunca por item: o recorrido achado e cortado da lista (ou filtrado) não está ausente.
+  const recorrido = avisoDeRecorridoAusenteAmplo(
+    mostrados.map((x) => x.acordao),
+    ordenados.map((x) => x.acordao),
+  );
+  if (recorrido) avisos.push(recorrido);
   return {
     buscasFeitas: feitas,
     buscasPlanejadas: tarefas.length,

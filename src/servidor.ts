@@ -27,6 +27,7 @@ import {
   lerParaConferir,
 } from "./leitura.js";
 import { Memoria, obtidoDoSite } from "./memoria.js";
+import { avisoRecorridoDoAcordao } from "./recorrido.js";
 import { INSTRUCTIONS, roteiroDePesquisa } from "./roteiro.js";
 import { paginaDeTribunais, SIGLAS, TRIBUNAIS } from "./tribunais.js";
 import {
@@ -75,6 +76,11 @@ const SOBRE_A_TABELA_NAS_LISTAS =
 const SOBRE_A_BUSCA_GUARDADA =
   "Busca repetida dentro de 24 h volta da memória do Garimpo, sem chamada ao site, como busca guardada: fotografia " +
   "da busca feita no site na data e hora informadas, não uma busca nova. Para dado novo, use renovar.";
+
+/** O aviso de recorrido ausente: vai na descrição das duas buscas. */
+const SOBRE_O_RECORRIDO =
+  "Embargos de declaração, agravo interno e similares sem o acórdão recorrido do mesmo número na resposta ganham um " +
+  "aviso (uma vez, até 10 números): o recorrido não veio nesta busca e pode não estar na base.";
 
 /**
  * Lista mandada como texto (ADR-0002): modelos que não são o Claude costumam mandar listas assim. Texto de lista
@@ -205,7 +211,8 @@ export function criarServidor(
         "não prova enquadramento, vigência nem aplicabilidade. " +
         "Ementas são longas: prefira limite baixo aqui e busca_ampla para volume. " +
         `${SOBRE_A_TABELA_NAS_LISTAS} ` +
-        `${SOBRE_A_BUSCA_GUARDADA} A busca guardada traz o campo buscaGuardada com essa data.`,
+        `${SOBRE_A_BUSCA_GUARDADA} A busca guardada traz o campo buscaGuardada com essa data. ` +
+        SOBRE_O_RECORRIDO,
       annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: {
         tribunal,
@@ -261,7 +268,7 @@ export function criarServidor(
         "sem ementa para conferir, que saem com qualquer filtro ativo); \"mostrando X de Y\" conta só os que " +
         "passaram. Se o filtro local tirar todos, a lista vem vazia com o motivo no campo filtroLocal. Os precedentes " +
         "qualificados não passam pelos filtros locais. Repetir a busca mudando só o filtro não chama o site (buscas " +
-        "guardadas).",
+        `guardadas). ${SOBRE_O_RECORRIDO}`,
       annotations: { readOnlyHint: true, openWorldHint: true },
       inputSchema: {
         formulacoes: listaOuTexto(z.array(z.string().min(2)).min(1).max(20)).describe("Formulações da mesma tese (até 20)"),
@@ -307,7 +314,9 @@ export function criarServidor(
         "(ex.: \"stj:12345\"), com o mesmo enquadramento927 da busca e a data e hora em que foi obtido do site " +
         "(obtidoDoSite). A memória do Garimpo guarda os acórdãos por 24 h desde a busca, para todas as janelas " +
         "(com GARIMPO_SEM_MEMORIA=1, só na janela que fez a busca, enquanto ela estiver aberta). " +
-        "Não faz nova busca no site: fora da memória, refaça a busca que o trouxe.",
+        "Não faz nova busca no site: fora da memória, refaça a busca que o trouxe. " +
+        "Acórdão de embargos de declaração, agravo interno e similares, com número CNJ, traz avisoRecorrido: o " +
+        "acórdão recorrido não vem nesta resposta e pode não estar na base.",
       annotations: { readOnlyHint: true, openWorldHint: false },
       inputSchema: { id: z.string().describe("Id do acórdão, como veio na busca (tribunal:id)") },
     },
@@ -321,7 +330,12 @@ export function criarServidor(
           ),
         );
       }
-      return comAvisoNaturezaJuridica({ ...guardado.acordao, obtidoDoSite: obtidoDoSite(guardado.obtidoEm) });
+      const avisoRecorrido = avisoRecorridoDoAcordao(guardado.acordao);
+      return comAvisoNaturezaJuridica({
+        ...guardado.acordao,
+        obtidoDoSite: obtidoDoSite(guardado.obtidoEm),
+        ...(avisoRecorrido && { avisoRecorrido }),
+      });
     },
   );
 

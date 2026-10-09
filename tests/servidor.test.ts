@@ -2139,3 +2139,28 @@ describe("roteiro de pesquisa (prompt pesquisar_tese e instructions do servidor)
     for (const e of exemplos) expect(AFIRMA_JURISPRUDENCIA.some((p) => p.test(e)), e).toBe(true);
   });
 });
+
+describe("aviso de acórdão recorrido no obter_ementa (pela porta)", () => {
+  const registro = (id: string, classe: string) => ({
+    id,
+    texto_ementa: "EMENTA FICTÍCIA.",
+    classe_processual: classe,
+    numero_processo: "0000123-45.2020.8.27.0001",
+    numero_processo_cnj: "0000123-45.2020.8.27.0001",
+    orgao_julgador: "GAB. DO RELATOR 1",
+  });
+
+  it("embargos de declaração com CNJ trazem avisoRecorrido; a apelação, não", async () => {
+    const mcp = await conectar(siteFalso([registro("1", "Embargos de Declaração Cível"), registro("2", "Apelação Cível")]));
+    await mcp.callTool({ name: "busca_direta", arguments: { tribunal: "tjto", texto: "exemplo" } });
+    const ementa = async (id: string) =>
+      JSON.parse(((await mcp.callTool({ name: "obter_ementa", arguments: { id } })) as { content: { text: string }[] }).content[0].text);
+
+    const embargos = await ementa("tjto:1");
+    expect(embargos.avisoRecorrido).toMatch(/0000123-45\.2020\.8\.27\.0001/);
+    expect(embargos.avisoRecorrido).toMatch(/pode não estar na base do JurisprudênciaIA/);
+    expect(embargos.avisoRecorrido).toMatch(/portal do TJTO/);
+    expect(embargos.avisoRecorrido).not.toMatch(/não existe|não está na base/);
+    expect(await ementa("tjto:2")).not.toHaveProperty("avisoRecorrido");
+  });
+});
