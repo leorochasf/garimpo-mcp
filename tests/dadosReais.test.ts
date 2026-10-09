@@ -17,9 +17,11 @@ const REAIS_CONHECIDOS = new Set([
 const FORMATO_STJ = /\b\d\.\d{3}\.\d{3}\/[A-Z]{2}\b/g;
 const FICTICIO = /^1\.(000\.\d{3}|234\.567)\//;
 
+// dados/ é a tabela de precedentes copiada do Portal de Dados Abertos do STJ (ADR-0015): os processos citados nas teses
+// e os paradigmas são dados públicos da fonte, não de usuário.
 const arquivos = execFileSync("git", ["ls-files"], { encoding: "utf8" })
   .split("\n")
-  .filter((f) => /\.(md|ts|json)$/.test(f) && f !== "package-lock.json");
+  .filter((f) => /\.(md|ts|json)$/.test(f) && f !== "package-lock.json" && !f.startsWith("dados/"));
 
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 

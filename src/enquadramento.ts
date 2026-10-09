@@ -5,6 +5,8 @@
  * Módulo puro: sem rede nem disco.
  */
 
+import type { LinhaDaTabela } from "./tabelaDePrecedentes.js";
+
 /** Data em que o texto do art. 927 foi conferido no Planalto, já com o inciso III-A (Lei nº 15.484/2026). */
 export const ART_927_CONFERIDO_EM = "2026-10-08";
 
@@ -78,8 +80,23 @@ export interface QualificadoParaEnquadrar {
   tese?: string;
 }
 
-export function enquadrarQualificado(q: QualificadoParaEnquadrar): Enquadramento927 {
-  return regraDoQualificado({ ...q, temTese: Boolean(q.tese?.trim()) }).completo;
+/**
+ * O que a tabela de precedentes diz do mesmo tema ou IAC do STJ (ADR-0007, emenda "Reforço pela tabela de
+ * precedentes"): a linha casada por tipo e número, ou nenhuma ("não consta"), e a data da tabela.
+ */
+export interface ReforcoDaTabela {
+  /** Data da tabela (coleta), AAAA-MM-DD. */
+  data: string;
+  linha?: Pick<LinhaDaTabela, "situacao" | "teseFirmada">;
+  /** O item veio da própria tabela (consultar_precedente), não de uma lista do site. */
+  consulta?: boolean;
+}
+
+export function enquadrarQualificado(q: QualificadoParaEnquadrar, reforco?: ReforcoDaTabela): Enquadramento927 {
+  const doReforco = reforcoAplicavel(q, reforco);
+  const temTese = Boolean(q.tese?.trim()) || Boolean(doReforco?.linha?.teseFirmada);
+  const completo = regraDoQualificado({ ...q, temTese, temTeseDoSite: Boolean(q.tese?.trim()) }, doReforco).completo;
+  return doReforco ? { ...completo, notas: notasDoReforco(q, doReforco) } : completo;
 }
 
 /**
@@ -87,13 +104,66 @@ export function enquadrarQualificado(q: QualificadoParaEnquadrar): Enquadramento
  * busca ampla caber no teto de 25 mil caracteres. Sai da mesma regra, refeita a partir do enquadramento completo: além
  * do tribunal, do tipo e do número, a regra só lê se há tese, e só o tema e o IAC do STJ dependem disso (inciso III).
  */
-export function formaCurta(q: Omit<QualificadoParaEnquadrar, "tese">, e: Enquadramento927): string {
-  return regraDoQualificado({ ...q, temTese: e.inciso === "III" }).curto;
+export function formaCurta(
+  q: Omit<QualificadoParaEnquadrar, "tese">,
+  e: Enquadramento927,
+  reforco?: ReforcoDaTabela,
+): string {
+  return regraDoQualificado({ ...q, temTese: e.inciso === "III" }, reforcoAplicavel(q, reforco)).curto;
 }
 
-type QualificadoDaRegra = Omit<QualificadoParaEnquadrar, "tese"> & { temTese: boolean };
+/** O reforço só vale para tema repetitivo e IAC do STJ; nos demais, a regra é a de sempre. */
+function reforcoAplicavel(q: Pick<QualificadoParaEnquadrar, "tribunal" | "tipo">, reforco?: ReforcoDaTabela) {
+  return reforco && q.tribunal === "stj" && (q.tipo === "tema repetitivo" || q.tipo === "IAC") ? reforco : undefined;
+}
 
-function regraDoQualificado(q: QualificadoDaRegra): { completo: Enquadramento927; curto: string } {
+const daTabela = (r: ReforcoDaTabela) => `tabela de precedentes do STJ de ${r.data}`;
+
+/** Situação na fonte literal, com a data da tabela; nunca traduzida para vigência. */
+function situacaoDaTabela(r: ReforcoDaTabela): { completa: string; curta: string } {
+  const situacao = r.linha?.situacao;
+  if (!situacao) {
+    return {
+      completa: `situação não informada pela fonte (${daTabela(r)}): conferir antes de citar`,
+      curta: `situação não informada pela fonte (${r.data})`,
+    };
+  }
+  return {
+    completa: `situação na fonte: "${situacao}" (${daTabela(r)}); é a situação processual, não a vigência: conferir antes de citar`,
+    curta: `situação na fonte em ${r.data}: ${situacao}`,
+  };
+}
+
+/** Notas do reforço: nunca mudam o inciso. */
+function notasDoReforco(q: QualificadoParaEnquadrar, r: ReforcoDaTabela): string[] {
+  if (!r.linha) return [`não consta na ${daTabela(r)}`];
+  const notas: string[] = [];
+  const situacao = r.linha.situacao;
+  if (situacao === "Cancelado" || situacao === "Revisado") {
+    notas.push(`a fonte indica "${situacao}" (${daTabela(r)}); o inciso descreve o tipo do precedente, não a vigência`);
+  }
+  const doSite = textoComparavel(q.tese);
+  const daFonte = r.linha.teseFirmada;
+  if (doSite && daFonte && doSite !== textoComparavel(daFonte)) {
+    notas.push(
+      `a tese informada pelo site difere da tese firmada na ${daTabela(r)}, que é o texto da fonte oficial naquela ` +
+        `data (o Garimpo não afirma qual vale hoje): "${daFonte}"`,
+    );
+  }
+  return notas;
+}
+
+/** Comparação literal da tese: só CRLF → LF e espaço das pontas, como na tabela. */
+function textoComparavel(s: string | undefined): string {
+  return (s ?? "").replace(/\r\n/g, "\n").trim();
+}
+
+type QualificadoDaRegra = Omit<QualificadoParaEnquadrar, "tese"> & { temTese: boolean; temTeseDoSite?: boolean };
+
+function regraDoQualificado(
+  q: QualificadoDaRegra,
+  reforco?: ReforcoDaTabela,
+): { completo: Enquadramento927; curto: string } {
   // O tipo é o rótulo fixo que o próprio Garimpo dá a cada lista do site: casamento exato.
   const tipo = q.tipo;
   const numero = q.numero ? ` nº ${q.numero}` : "";
@@ -119,6 +189,36 @@ function regraDoQualificado(q: QualificadoDaRegra): { completo: Enquadramento927
       return curta(
         naoClassificado(`${rotulo} de tribunal que não o STJ: a regra fixa só prevê ${rotulo} do STJ`),
         `${rotulo} fora do STJ, sem regra fixa`,
+      );
+    }
+    if (reforco?.linha) {
+      const situacao = situacaoDaTabela(reforco);
+      const onde = reforco.consulta ? `a ${daTabela(reforco)}` : `o site nem na ${daTabela(reforco)}`;
+      if (!q.temTese) {
+        const semTese = naoClassificado(`${rotulo} do STJ sem tese firmada informada pel${onde}`);
+        return curta({ ...semTese, avisoSituacao: situacao.completa }, `${rotulo} sem tese no site nem na tabela`);
+      }
+      const evidencia = reforco.consulta
+        ? `${daTabela(reforco)}, ${rotulo}${numero}, com tese firmada`
+        : q.temTeseDoSite
+          ? `lista de ${rotulo} do site (STJ), ${rotulo}${numero}, com tese informada`
+          : `lista de ${rotulo} do site (STJ), ${rotulo}${numero}; tese firmada na ${daTabela(reforco)}`;
+      return curta(classificado("III", evidencia, situacao.completa), situacao.curta);
+    }
+    if (reforco && !q.temTese) {
+      return curta(
+        naoClassificado(`${rotulo} do STJ sem tese informada pelo site`),
+        `${rotulo} sem tese; não consta na tabela de ${reforco.data}`,
+      );
+    }
+    if (reforco) {
+      return curta(
+        classificado(
+          "III",
+          `lista de ${rotulo} do site (STJ), ${rotulo}${numero}, com tese informada`,
+          `situação do ${rotulo} não verificada: não consta na ${daTabela(reforco)}; conferir antes de citar`,
+        ),
+        `não consta na tabela de ${reforco.data}: conferir antes de citar`,
       );
     }
     if (!q.temTese) {

@@ -29,6 +29,7 @@ import {
 import { Memoria, obtidoDoSite } from "./memoria.js";
 import { INSTRUCTIONS, roteiroDePesquisa } from "./roteiro.js";
 import { paginaDeTribunais, SIGLAS, TRIBUNAIS } from "./tribunais.js";
+import { consultarPrecedente, type TabelaDePrecedentes, tabelaEmpacotada, TIPOS_NA_TABELA } from "./tabelaDePrecedentes.js";
 
 // Tribunal e datas são conferidos dentro da ferramenta, não no esquema: o erro do esquema sai embrulhado em texto
 // técnico de validação, e a chamada errada precisa de uma frase que diga como corrigir.
@@ -94,6 +95,11 @@ const AVISO_CITACAO_NA_EMENTA_CORTADA =
   "A ementa parece ter vindo incompleta do JurisprudênciaIA (termina no meio da frase): a citação pode estar no " +
   "trecho que faltou. Confira no inteiro teor.";
 
+/** Aviso de natureza jurídica das respostas que vêm da tabela de precedentes (fotografia, não consulta ao vivo). */
+const AVISO_DA_TABELA =
+  "Fotografia da tabela de precedentes do STJ na data informada, não consulta ao vivo: a situação e a tese podem " +
+  "ter mudado depois. Confira no portal do STJ antes de citar; a situação na fonte não é vigência.";
+
 function comAvisoNaturezaJuridica<T extends object>(dado: T) {
   return json({ ...dado, avisoNaturezaJuridica: AVISO_NATUREZA_JURIDICA });
 }
@@ -144,11 +150,13 @@ export interface OpcoesServidor {
   agora?: () => number;
   /** Teto de espaço da memória em disco (padrão: 200 MB). */
   tetoDaMemoria?: number;
+  /** Tabela de precedentes do STJ (padrão: a empacotada em dados/). */
+  tabela?: TabelaDePrecedentes;
 }
 
 export function criarServidor(
   site: Cliente,
-  { tribunais = clientePadrao, pasta, dados, agora, tetoDaMemoria }: OpcoesServidor = {},
+  { tribunais = clientePadrao, pasta, dados, agora, tetoDaMemoria, tabela }: OpcoesServidor = {},
 ): McpServer {
   const servidor = new McpServer({ name: "garimpo", version: VERSAO }, { instructions: INSTRUCTIONS });
   // GARIMPO_SEM_MEMORIA=1 desliga só a memória em disco (a janela guarda enquanto está aberta), nunca o freio.
@@ -507,6 +515,49 @@ export function criarServidor(
           "título de seção antes da passagem (EMENTA, ACÓRDÃO, RELATÓRIO, VOTO, VOTO-VISTA, VOTO VENCIDO, VOTO VOGAL, " +
           'CERTIDÃO, sozinho na linha); sem título assim, seção "não identificada".',
       });
+    },
+  );
+
+  servidor.registerTool(
+    "consultar_precedente",
+    {
+      title: "Consultar precedente (tabela do STJ)",
+      description:
+        "Consulta, sem internet, um tema repetitivo ou IAC do STJ pelo número na tabela de precedentes que vai no " +
+        "Garimpo: fotografia datada do conjunto \"Precedentes qualificados\" do Portal de Dados Abertos do STJ. " +
+        "Devolve a situação na fonte (literal, como o STJ escreve: situação processual, nunca vigência), a tese " +
+        "firmada ou \"sem tese firmada na tabela\", a questão submetida (a pergunta, não a tese), órgão, datas, " +
+        "processo paradigma quando a fonte o identifica, números de súmula e de tema de repercussão geral do STF " +
+        "ligados (sem enunciado), o enquadramento927 e a atribuição com as datas da tabela (coleta e atualização " +
+        "informada pela fonte; aviso se tiver mais de 90 dias). Número ausente volta como \"não consta na tabela de " +
+        "<data>\", nunca como inexistente. Tema e IAC têm numeração separada: o tipo é obrigatório. Só o STJ.",
+      annotations: { readOnlyHint: true, openWorldHint: false },
+      inputSchema: {
+        tribunal: z.string().describe('Só "stj": a tabela de precedentes só tem o STJ'),
+        tipo: z.string().optional().describe('"tema repetitivo" ou "IAC" (obrigatório: a numeração é separada)'),
+        numero: z.number().int().min(1).describe("Número do tema repetitivo ou do IAC"),
+      },
+    },
+    async ({ tribunal, tipo, numero }) => {
+      try {
+        if (tribunal.trim().toLowerCase() !== "stj") {
+          throw new Error(
+            `A tabela de precedentes só tem o STJ (temas repetitivos e IAC); "${tribunal}" não está nela. ` +
+              'Use tribunal "stj", ou busque o precedente com busca_direta.',
+          );
+        }
+        const doTipo = TIPOS_NA_TABELA.find((t) => t.toLowerCase() === tipo?.trim().toLowerCase());
+        if (!doTipo) {
+          throw new Error(
+            `Diga o tipo: "tema repetitivo" ou "IAC"${tipo ? ` ("${tipo}" não é um deles)` : ""}. Tema e IAC do STJ ` +
+              "têm numeração separada: o Tema 1 e o IAC 1 são precedentes diferentes.",
+          );
+        }
+        const resposta = consultarPrecedente(tabela ?? tabelaEmpacotada(), doTipo, numero, (agora ?? Date.now)());
+        return json({ ...resposta, avisoNaturezaJuridica: AVISO_DA_TABELA });
+      } catch (e) {
+        return erro(e);
+      }
     },
   );
 

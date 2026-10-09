@@ -19,6 +19,7 @@ de quem usa.
 | `ler_inteiro_teor` | Lê, pelo caminho do arquivo, o PDF que o `obter_inteiro_teor` baixou, ou um PDF que você baixou à mão em qualquer pasta, e devolve uma **parte** do texto (cerca de 8 mil tokens estimados, feita de páginas do PDF inteiras; página grande demais vem em segmentos, com a continuação indicada). Cada parte traz o mesmo cabeçalho: tribunal, número, data, link oficial, sha256, id, nome do arquivo, origem e "páginas X–Y de N (parte P de T)" (páginas do PDF, não folhas dos autos), com "não informado" no que faltar, e a chamada pronta para a parte seguinte. Origem **conferida** só quando o recibo de origem ao lado do PDF é reconhecido, registra download pelo Garimpo e tem o mesmo sha256 do arquivo; senão, **não conferida**, com o motivo (sem recibo, recibo de formato desconhecido, PDF alterado depois do download). Página sem texto extraível é avisada ("pode ser escaneada"; não há OCR); PDF que o extrator não consegue ler é erro de leitura. PDF sem recibo é **inteiro teor trazido pelo usuário**: origem declarada, não conferida, nunca chamado de oficial. Só aceita arquivo PDF de até 50 MB (não aceita URL nem pasta, e não procura arquivos sozinho). Para esse PDF, se quiser, informe o id que veio na busca, ou tribunal + número: o cabeçalho é preenchido como **vínculo declarado pelo usuário** (com a memória do Garimpo, sem nova chamada à rede) e diz se o número do processo aparece no texto (encontrado / não encontrado / não verificável), só como informação. Não grava, não copia e não chama a rede |
 | `listar_tribunais` | Para cada tribunal: busca, precedentes qualificados, teto de resultados por busca e se o inteiro teor é baixado ou só linkado |
 | `conferir_citacao` | Confere, por regra fixa e sem IA, se cada citação (até 20 por chamada; 5 palavras ou mais, até 3 mil caracteres) está literalmente na ementa do acórdão, pelo id que veio na busca (ementa guardada na memória do Garimpo). Vereditos: **encontrado literalmente** (só diferença de espaço, quebra de linha, espaço não separável, forma Unicode dos acentos ou aspas/apóstrofos tipográficos, avisadas); **encontrado com supressão indicada** (cortes marcados com `(...)` ou `[...]`, pedaços de 5 palavras ou mais, na ordem); **difere só em maiúsculas/pontuação** (não é literal; vem o texto exato da fonte); **não encontrado** (com a passagem parecida copiada da fonte, quando 80% ou mais das palavras estão na mesma ordem, rotulada como diferente da citação); **não verificável** (acórdão fora da memória — refaça a busca — ou sem ementa). Hífen, meia-risca e travessão nunca são iguais. Reticências soltas (e o corte escrito com a reticência de um caractere só, `(…)`) são texto, salvo `reticenciasComoCorte`. Item da lista sem `citacao` ou `id`, e citação curta ou longa demais, recebem resultado próprio com a frase que ensina a corrigir, sem derrubar as outras. A posição vem como a frase da ementa que contém a citação (até 10 ocorrências, com o total); passagem entre aspas ganha o aviso de que pode ser de outro autor. Com `caminho` (o PDF do `obter_inteiro_teor` ou um trazido pelo usuário), confere também no inteiro teor: a posição vem como página do PDF, parte e segmento, com a origem do PDF (no PDF trazido, declarada pelo usuário, não conferida; o `id` junto é só vínculo declarado) e a seção do acórdão pelo título de seção sozinho na linha (EMENTA, ACÓRDÃO, RELATÓRIO, VOTO, VOTO-VISTA, VOTO VENCIDO, VOTO VOGAL, CERTIDÃO), ou "não identificada"; no relatório e no voto vencido, aviso forte. O Garimpo nunca diz de quem é a passagem, e a falta de sinal não prova que ela é do tribunal. Achar o texto não autentica a fonte. Não grava e não chama a rede |
+| `consultar_precedente` | Tema repetitivo ou IAC do STJ pelo número (tipo obrigatório: a numeração é separada), **sem internet**, na tabela de precedentes que vai no pacote: situação na fonte literal, tese firmada (ou "sem tese firmada na tabela"), questão submetida, órgão, datas, processo paradigma quando a fonte o identifica, números de súmula e de tema de repercussão geral do STF ligados, enquadramento no art. 927, atribuição e datas da tabela; número ausente volta como "não consta na tabela de <data>" (veja [Tabela de precedentes do STJ](#tabela-de-precedentes-do-stj)) |
 
 As respostas de `busca_direta`, `busca_ampla` e `obter_ementa` trazem, no campo `avisoNaturezaJuridica`, a linha
 "Resultado de busca em base não oficial. Confira o acórdão na fonte oficial do tribunal antes de citar; a ementa não
@@ -53,7 +54,32 @@ _Medição provisória, sujeita à revisão do dono_ (banco de provas do B5; vej
   Grupo vazio, termo vazio ou elemento fora do formato (por exemplo, `deveConter: ["a", "b"]`, que não diz se os
   termos são sinônimos ou exigências separadas) dão erro com o formato aceito, antes de qualquer busca.
 
-`busca_direta`, `busca_ampla`, `obter_ementa`, `ler_inteiro_teor`, `conferir_citacao` e `listar_tribunais` são declaradas ao cliente como
+### Tabela de precedentes do STJ
+
+O pacote leva uma **fotografia datada** dos temas repetitivos e dos IAC do STJ, tirada do conjunto
+[Precedentes qualificados](https://dadosabertos.web.stj.jus.br/dataset/precedentes-qualificados) do Portal de Dados
+Abertos do STJ (`dados/tabela-precedentes-stj.json`). É dela que vêm o `consultar_precedente` e, nas listas de
+precedentes qualificados das buscas, a situação na fonte do tema ou IAC do STJ.
+
+- **Fonte e licença dos dados:** "Fonte: STJ — Portal de Dados Abertos, conjunto Precedentes qualificados". A página
+  do conjunto declara a licença "Creative Commons Atribuição" (sem indicar a versão; conferida na data gravada na
+  tabela). Essa licença vale para os dados da tabela e é distinta da licença MIT do código do Garimpo. Toda resposta
+  que usa a tabela traz a atribuição, a licença como declarada e as datas.
+- **Datas:** a tabela guarda a data e hora da coleta de cada arquivo, a data de atualização que a própria página do
+  conjunto informa (texto literal "Última Atualização …", ou "não informada") e a data em que a tabela foi gerada.
+  Com mais de 90 dias, a resposta traz um aviso: a situação e a tese podem ter mudado no STJ.
+- **Como é gerada:** pelo mantenedor, a cada versão, com `npm run gerar-tabela`, que baixa a página do conjunto,
+  `temas.csv` e `processos.csv` pelo cliente do Garimpo (identificação própria, 10 s entre chamadas como pede o
+  robots.txt do portal, nunca `/api/`); para, sem trocar a tabela anterior, em recusa, cabeçalho de CSV diferente do
+  esperado ou marcação HTML nos textos. Tese firmada e questão submetida são copiadas da fonte (só quebra de linha
+  CRLF → LF e espaço das pontas); nada é escrito à mão. Guarda o sha256 de cada arquivo baixado.
+- **O que fica de fora e por quê:** Controvérsia, SIRDR e PUIL do mesmo arquivo (não são o que o art. 927, III, usa);
+  os campos de anotação da fonte; o enunciado das súmulas (a fonte só traz os números); o STF, cuja inclusão depende
+  de decisão do dono (sem licença ou termo do tribunal verificados). A **situação na fonte** é a situação processual
+  como o STJ escreve ("Afetado", "Trânsito em Julgado", "Cancelado"…): nunca vira "vigente" ou "superado" e nunca muda
+  o inciso do art. 927.
+
+`busca_direta`, `busca_ampla`, `obter_ementa`, `ler_inteiro_teor`, `conferir_citacao`, `consultar_precedente` e `listar_tribunais` são declaradas ao cliente como
 ferramentas que só leem (as duas buscas, como ferramentas que consultam serviço externo); `obter_inteiro_teor` não, porque grava
 o PDF no disco. Cabe a cada cliente decidir se usa essa marca para dispensar o pedido de permissão.
 
