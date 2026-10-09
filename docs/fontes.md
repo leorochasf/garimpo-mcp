@@ -62,3 +62,42 @@ de decisão e sem nome de parte.
   2. o alcance de "não distribuir [...] qualquer informação derivada dela" (3.8) para uma ferramenta que mostra o dado
      ao próprio usuário;
   3. dar ciência ao CNJ quando o Garimpo for publicado (3.9).
+
+## DJEN (comunicações processuais do CNJ)
+
+Usado por `julgamentos_do_processo` (desligável com `incluir_djen: false`): as **comunicações do processo** publicadas
+no Diário de Justiça Eletrônico Nacional — metadados e link, nunca o texto. São comunicações do processo, **não um
+inventário de acórdãos**.
+
+- **Especificação:** OpenAPI oficial https://comunicaapi.pje.jus.br/swagger/djen.yml, versão 1.0.4 ("Última
+  atualização em 04-03-2026"), lida em 2026-10-09; licença indicada: Resolução CNJ 455/2022. Página do CNJ:
+  https://www.cnj.jus.br/programas-e-acoes/processo-judicial-eletronico-pje/comunicacoes-processuais/ (pelo art. 13
+  da Res. CNJ 455/2022, citado ali, publicam-se no DJEN, entre outros, "a ementa dos acórdãos"; o texto da resolução
+  não foi aberto). **Termo de uso próprio do DJEN: não encontrado.**
+- **Trechos literais da especificação:**
+  - "Endpoints sem cadeado não exigem autenticação." / "Uso abusivo está sujeito a bloqueios. Observe os cabeçalhos de
+    rate limit."
+  - "As consultas estão sujeitas a controle de taxa de requisições por IP [...] x-ratelimit-limit [...]
+    x-ratelimit-remaining." Na medição de 2026-10-09: `x-ratelimit-limit 20`.
+  - "Ao receber um erro 429 orienta-se aguardar 1 minuto para retomar as requisições para evitar um loop de erros."
+  - "A utilização de múltiplos IPs por um mesmo cliente para contornar o controle da taxa de requisições é considerado
+    uso abusivo e poderá resultar em bloqueios."
+- **Rota:** `GET https://comunicaapi.pje.jus.br/api/v1/comunicacao?numeroProcesso=<20 dígitos>&itensPorPagina=100&pagina=1`,
+  **uma página só**. Com mais de 100 comunicações, a resposta diz "lista cortada: o DJEN tem N comunicações, mostradas
+  100".
+- **O que é mostrado, por comunicação:** data de disponibilização, tipo de comunicação, tipo de documento, órgão, classe
+  e link (só se for https). **Nunca** `texto`, `destinatarios`, `destinatarioadvogados`, nomes de advogado ou OAB —
+  nem na resposta nem na memória.
+- **Freios:** serviço `djen` no disjuntor, nas 2 vagas somadas; intervalo mínimo de 3 s entre chamadas ao mesmo host,
+  para todas as janelas (20 por minuto); se `x-ratelimit-remaining` vier 2 ou menos, a próxima chamada ao DJEN espera
+  1 minuto (nesta janela). **Exceção à regra geral (adendo proposto ao ADR-0009):** em 429/503, espera mínima de
+  60 s dentro da chamada, sem ocupar vaga, e uma nova tentativa; se o DJEN pedir mais de 60 s, a ferramenta devolve na
+  hora o que as outras fontes trouxeram, com o instante permitido (data, hora e fuso), e grava um **adiamento** do
+  `djen` para todas as janelas, que não é recusa (não abre nem dobra o disjuntor); vencido, a primeira chamada é a
+  única nova tentativa; recusada, disjuntor e aviso, como sempre.
+- **Medição:** em 2026-10-09 o DJEN respondeu em 1–2 s às consultas do entrevistador; mais tarde no mesmo dia, durante
+  a gravação deste ticket, respondeu **HTTP 503** em duas tentativas separadas por cerca de 15 min (em cada uma, a
+  chamada e a única nova tentativa, 60 s depois), e o Garimpo parou, como manda a regra 3. Por isso a gravação do DJEN
+  nos testes é sintética, montada com os campos da especificação, e não uma resposta real reduzida.
+- **O que o Garimpo guarda:** por até 24 h, só a lista reduzida acima (sem texto e sem nomes), com a fonte e o momento
+  da obtenção.
