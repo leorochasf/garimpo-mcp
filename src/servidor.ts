@@ -621,8 +621,13 @@ export function criarServidor(
         "julgamento da Tabela Processual Unificada (ex.: Não-Provimento, Não-Acolhimento de Embargos de Declaração) e, " +
         "à parte, a juntada de documento com complemento \"Acórdão\". Cada linha traz lancadoEm (data do lançamento no " +
         "DataJud, não a da sessão), código, nome e órgão; cada registro, a última atualização no DataJud. Use tribunal " +
-        "(ex.: stj, tst) para consultar o processo depois que ele subiu. O DataJud não cobre o STF. Cada fonte vem com " +
-        "o seu estado (ok, vazia, erro, recusa); \"o DataJud não devolveu este processo\" não prova que ele não exista. " +
+        "(ex.: stj, tst) para consultar o processo depois que ele subiu. O DataJud não cobre o STF. Ao lado, os " +
+        "acórdãos do mesmo número que uma busca pelo número no JurisprudênciaIA devolve, com o id para o obter_ementa " +
+        "(busca guardada, se houver). ladoALado traz os totais das duas fontes; só com as duas respostas utilizáveis e " +
+        "sem corte, compara embargos de declaração com embargos de declaração e diz o que conferir no portal do " +
+        "tribunal (o movimento de tipo não verificado, ou a diferença de embargos). Nunca afirma que um acórdão falta. " +
+        "Cada fonte vem com o seu estado (ok, vazia, erro, recusa, não consultada); \"o DataJud não devolveu este " +
+        "processo\" não prova que ele não exista. " +
         "Consulta repetida em 24 h volta da memória do Garimpo, sem nova chamada. Não busca por nome de parte. " +
         `Uso sob o termo de uso da API Pública do CNJ (${TERMO_DE_USO_DATAJUD}).`,
       annotations: { readOnlyHint: true, openWorldHint: true },
@@ -636,7 +641,7 @@ export function criarServidor(
     },
     async (args) => {
       try {
-        return json(await julgamentosDoProcesso(args, { datajud, chave: chaveDoDataJud, memoria, agora }));
+        return json(await julgamentosDoProcesso(args, { site, datajud, chave: chaveDoDataJud, memoria, agora, tabela }));
       } catch (e) {
         return erro(e);
       }

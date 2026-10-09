@@ -2159,6 +2159,7 @@ describe("aviso de acórdão recorrido no obter_ementa (pela porta)", () => {
     const embargos = await ementa("tjto:1");
     expect(embargos.avisoRecorrido).toMatch(/0000123-45\.2020\.8\.27\.0001/);
     expect(embargos.avisoRecorrido).toMatch(/pode não estar na base do JurisprudênciaIA/);
+    expect(embargos.avisoRecorrido).toMatch(/julgamentos_do_processo, pelo número 0000123-45\.2020\.8\.27\.0001/);
     expect(embargos.avisoRecorrido).toMatch(/portal do TJTO/);
     expect(embargos.avisoRecorrido).not.toMatch(/não existe|não está na base/);
     expect(await ementa("tjto:2")).not.toHaveProperty("avisoRecorrido");

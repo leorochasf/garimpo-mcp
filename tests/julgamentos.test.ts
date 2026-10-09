@@ -41,10 +41,10 @@ const siteQueNuncaResponde = () =>
     }) as typeof fetch,
   });
 
-async function conectar(opcoes: OpcoesServidor) {
+async function conectar(opcoes: OpcoesServidor, site = siteQueNuncaResponde()) {
   const [ladoCliente, ladoServidor] = InMemoryTransport.createLinkedPair();
   const dados = opcoes.dados ?? (await mkdtemp(join(process.env.GARIMPO_DADOS!, "julgamentos-")));
-  await criarServidor(siteQueNuncaResponde(), { dados, ...opcoes }).connect(ladoServidor);
+  await criarServidor(site, { dados, ...opcoes }).connect(ladoServidor);
   const mcp = new Client({ name: "teste", version: "0" });
   await mcp.connect(ladoCliente);
   return mcp;
@@ -310,5 +310,131 @@ describe("freios do DataJud", () => {
     await (await cliente.requisitar(url, { method: "POST" })).text();
     await (await cliente.requisitar(url, { method: "POST" })).text();
     expect(esperas).toEqual([500]);
+  });
+});
+
+
+describe("julgamentos_do_processo: lado a lado com o JurisprudênciaIA", () => {
+  const TRF1 = "0000131-91.2020.4.01.3400";
+
+  /** Site falso: responde a toda busca com estes registros (ou esta resposta) e registra as chamadas. */
+  function siteFalso(resposta: unknown[] | (() => Response)) {
+    const chamadas: { url: string; corpo: Record<string, unknown> }[] = [];
+    const cliente = new Cliente({
+      nome: "O JurisprudênciaIA",
+      vagas: new Vagas(2),
+      esperar: async () => {},
+      fetch: (async (url: string, init: RequestInit) => {
+        chamadas.push({ url, corpo: JSON.parse(String(init.body)) });
+        return typeof resposta === "function" ? resposta() : respostaJson({ results: resposta });
+      }) as typeof fetch,
+    });
+    return { cliente, chamadas };
+  }
+  const doSite = (id: number, classe: string, cnj: string) => ({
+    id,
+    texto_ementa: `EMENTA: EXEMPLO FICTÍCIO ${id}.`,
+    classe_processual: classe,
+    numero_processo: cnj,
+    numero_processo_cnj: cnj,
+    data_julgamento: "2023-12-11T00:00:00.000Z",
+  });
+  /** O caso típico: o DataJud tem o mérito e os embargos; o site, só os embargos. */
+  const dataJudTipico = () =>
+    dataJudFalso(() =>
+      hits(
+        {
+          grau: "G2",
+          classe: { nome: "Apelação Cível" },
+          movimentos: [
+            mov(239, "Não-Provimento", "2023-09-06T10:00:00.000Z"),
+            mov(200, "Não-Acolhimento de Embargos de Declaração", "2023-12-12T10:00:00.000Z"),
+          ],
+        },
+        { grau: "G1", movimentos: [mov(219, "Procedência", "2022-01-01T10:00:00.000Z")] },
+      ),
+    );
+  /** Nada de "falta acórdão" a partir de contagem, nem comparação por data. */
+  const PROIBIDO = /falta|fora da base|não está na base|não existe|antes d[ao]|depois d[ao]|mesma data/i;
+
+  it("caso típico: aponta o movimento de tipo não verificado, com nome e data, sem dizer que falta acórdão", async () => {
+    const { cliente: datajud } = dataJudTipico();
+    const site = siteFalso([doSite(1, "Embargos de Declaração Cível", TJTO), doSite(2, "Apelação Cível", TJTO_2)]);
+    const r = await chamar(await conectar({ datajud }, site.cliente), { numero: TJTO });
+
+    expect(r.json.jurisprudenciaia).toMatchObject({
+      fonte: "JurisprudênciaIA (busca pelo número)",
+      estado: "ok",
+      acordaos: [{ id: "tjto:1", numero: TJTO, classe: "Embargos de Declaração Cível", tipo: "embargos de declaração" }],
+    });
+    expect(r.json.ladoALado).toEqual({
+      datajud:
+        "2 movimentos de resultado de julgamento (1 de embargos de declaração; 1 de tipo não verificado: " +
+        "Não-Provimento, lançado no DataJud em 2023-09-06)",
+      jurisprudenciaia: "busca pelo número: 1 acórdão deste número (embargos de declaração, id tjto:1)",
+      comparacao: "embargos de declaração: 1 no DataJud e 1 no JurisprudênciaIA (mesmo número)",
+      conferir:
+        "Confira no portal do TJTO o movimento de tipo não verificado (Não-Provimento, lançado no DataJud em 2023-09-06).",
+    });
+    expect(r.texto).not.toMatch(PROIBIDO);
+    // Uma chamada ao site, pelo número, no tribunal do número.
+    expect(site.chamadas).toHaveLength(1);
+    expect(site.chamadas[0].url).toMatch(/\/api\/tribunais\/tjto\/search$/);
+    expect(site.chamadas[0].corpo.query).toBe(TJTO);
+  });
+
+  it("diferença no número de embargos: aponta a diferença, sem dizer que falta", async () => {
+    const { cliente: datajud } = dataJudTipico();
+    const site = siteFalso([]);
+    const r = await chamar(await conectar({ datajud }, site.cliente), { numero: TJTO });
+    expect(r.json.jurisprudenciaia).toMatchObject({ estado: "vazia", acordaos: [] });
+    expect(r.json.ladoALado.comparacao).toBe("embargos de declaração: 1 no DataJud e 0 no JurisprudênciaIA");
+    expect(r.json.ladoALado.conferir).toMatch(/e a diferença no número de embargos de declaração\.$/);
+    expect(r.texto).not.toMatch(PROIBIDO);
+  });
+
+  it("repetida: o site responde pela busca guardada, sem nova chamada", async () => {
+    const { cliente: datajud } = dataJudTipico();
+    const site = siteFalso([doSite(1, "Embargos de Declaração", TJTO)]);
+    const mcp = await conectar({ datajud }, site.cliente);
+    await chamar(mcp, { numero: TJTO });
+    const r = await chamar(mcp, { numero: TJTO });
+    expect(site.chamadas).toHaveLength(1);
+    expect(r.json.jurisprudenciaia.buscaGuardada).toMatch(/fotografia da busca/);
+    expect(r.json.jurisprudenciaia.acordaos).toHaveLength(1);
+  });
+
+  it.each([
+    ["site com erro", () => new Response("falha", { status: 500 }), /o JurisprudênciaIA não deu resposta utilizável \(erro\)/],
+    ["site recusa", () => new Response("negado", { status: 403 }), /o JurisprudênciaIA não deu resposta utilizável \(recusa\)/],
+    [
+      "lista do site cortada",
+      () => respostaJson({ results: Array.from({ length: 20 }, (_, i) => doSite(i, "Embargos de Declaração", TJTO)) }),
+      /a lista do JurisprudênciaIA pode ter sido cortada/,
+    ],
+  ])("%s: sem comparação, com o estado da fonte dito", async (_caso, resposta, motivo) => {
+    const { cliente: datajud } = dataJudTipico();
+    const r = await chamar(await conectar({ datajud }, siteFalso(resposta).cliente), { numero: TJTO });
+    expect(r.json.ladoALado.comparacao).toMatch(motivo);
+    expect(r.json.ladoALado).not.toHaveProperty("conferir");
+    // O DataJud continua lá.
+    expect(r.json.datajud.registros).toHaveLength(1);
+  });
+
+  it("DataJud sem 2º grau: sem comparação", async () => {
+    const { cliente: datajud } = dataJudFalso(() => hits({ grau: "G1", movimentos: [] }));
+    const r = await chamar(await conectar({ datajud }, siteFalso([doSite(1, "Embargos de Declaração", TJTO)]).cliente), {
+      numero: TJTO,
+    });
+    expect(r.json.ladoALado.comparacao).toBe("sem comparação: o DataJud não trouxe registro de 2º grau ou superior");
+  });
+
+  it("tribunal que o site não cobre: o site fica não consultado, sem chamada", async () => {
+    const { cliente: datajud } = dataJudFalso(() => hits());
+    const site = siteFalso([]);
+    const r = await chamar(await conectar({ datajud }, site.cliente), { numero: TRF1 });
+    expect(r.json.tribunal).toBe("TRF1");
+    expect(r.json.jurisprudenciaia).toMatchObject({ estado: "não consultada", mensagem: "O JurisprudênciaIA não cobre o TRF1." });
+    expect(site.chamadas).toHaveLength(0);
   });
 });

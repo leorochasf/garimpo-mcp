@@ -40,7 +40,7 @@ describe("aviso de acórdão recorrido ausente: busca direta", () => {
     expect(avisos).toHaveLength(1);
     expect(avisos[0]).toContain(CNJ_A);
     expect(avisos[0]).toMatch(/pode não estar na base do JurisprudênciaIA/);
-    expect(avisos[0]).toMatch(/TJTO/);
+    expect(avisos[0]).toMatch(/julgamentos_do_processo, pelo número, e confira no portal do TJTO\./);
     expect(avisos[0]).not.toMatch(PROIBIDO);
     expect(r.acordaos[0]).not.toHaveProperty("avisoRecorrido");
   });
@@ -134,7 +134,7 @@ describe("aviso de acórdão recorrido ausente: busca ampla", () => {
     expect(avisosDeRecorrido(r.avisos)).toEqual([]);
   });
 
-  it("embargos em dois tribunais: números com sigla e fim \"no portal do tribunal\", uma vez só", async () => {
+  it("embargos em dois tribunais: números com sigla e o fim que sugere julgamentos_do_processo, uma vez só", async () => {
     const cliente = siteAmplo((t) =>
       t === "tjto"
         ? [tjto(1, "Embargos de Declaração", CNJ_A)]
@@ -145,15 +145,15 @@ describe("aviso de acórdão recorrido ausente: busca ampla", () => {
     expect(avisos).toHaveLength(1);
     expect(avisos[0]).toContain(`${CNJ_A} (TJTO)`);
     expect(avisos[0]).toContain("0000124-11.2020.8.09.0001 (TJGO)");
-    expect(avisos[0]).toMatch(/no portal do tribunal\./);
+    expect(avisos[0]).toMatch(/julgamentos_do_processo/);
     expect(avisos[0]).not.toMatch(PROIBIDO);
   });
 
-  it("um tribunal só: sem sigla nos números e o fim com a sigla do tribunal", async () => {
+  it("um tribunal só: sem sigla nos números", async () => {
     const cliente = siteAmplo(() => [tjto(1, "Embargos de Declaração", CNJ_A), tjto(2, "Agravo Interno", CNJ_B)]);
     const [aviso] = avisosDeRecorrido((await buscaAmpla(cliente, { formulacoes: ["a"], tribunais: ["tjto"] })).avisos);
     expect(aviso).toContain(`${CNJ_A}, ${CNJ_B}`);
-    expect(aviso).toMatch(/portal do TJTO\./);
+    expect(aviso).toMatch(/julgamentos_do_processo/);
   });
 
   it("50 embargos mostrados, sem recorrido, e 10 qualificados: aviso uma vez, 3 números e \"e mais 47\", < 25 mil", async () => {

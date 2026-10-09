@@ -18,6 +18,12 @@ const CLASSES = [
 /** As mesmas classes pela sigla, no começo do número, quando o site não traz a classe (caso do STJ). */
 const SIGLAS = ["ed", "edcl", "agint", "agrg", "ei", "eresp", "earesp", "ere", "eag"];
 
+/** Embargos de declaração, pela classe ou, sem ela, pela sigla no começo do número (a primeira linha das tabelas). */
+export function ehEmbargosDeDeclaracao(a: Pick<Acordao, "classe" | "numero">): boolean {
+  if (a.classe) return comparavel(a.classe).startsWith(CLASSES[0]);
+  return ["ed", "edcl"].includes(comparavel(a.numero.split(/\s+/)[0] ?? ""));
+}
+
 export function ehRecursoContraAcordao(a: Pick<Acordao, "classe" | "numero">): boolean {
   if (a.classe) {
     const classe = comparavel(a.classe);
@@ -61,8 +67,8 @@ export function avisoDeRecorridoAusente(acordaos: readonly Acordao[]): string | 
   return (
     "Recurso contra outro acórdão sem o acórdão recorrido nesta busca (embargos de declaração, agravo interno e " +
     `similares), processo(s): ${numeros(lista, TETO_DE_NUMEROS, (a) => a.numeroCnj!)}. O acórdão recorrido pode não ` +
-    "estar na base do JurisprudênciaIA (às vezes está e só não veio nesta busca): confira pelo número na consulta " +
-    `processual do portal do ${lista[0].tribunal.toUpperCase()}.`
+    "estar na base do JurisprudênciaIA (às vezes está e só não veio nesta busca): veja os julgamentos registrados " +
+    `do processo com julgamentos_do_processo, pelo número, e confira no portal do ${lista[0].tribunal.toUpperCase()}.`
   );
 }
 
@@ -76,11 +82,10 @@ export function avisoDeRecorridoAusenteAmplo(mostrados: readonly Acordao[], acha
   const tribunais = new Set(lista.map((a) => a.tribunal));
   const varios = tribunais.size > 1;
   const rotulo = (a: Acordao) => (varios ? `${a.numeroCnj} (${a.tribunal.toUpperCase()})` : a.numeroCnj!);
-  const portal = varios ? "do tribunal" : `do ${[...tribunais][0].toUpperCase()}`;
   return (
     `Recurso contra acórdão sem o recorrido nesta busca (embargos de declaração e similares): ` +
     `${numeros(lista, TETO_DE_NUMEROS_AMPLA, rotulo)}. O recorrido pode não estar na base do JurisprudênciaIA: ` +
-    `confira pelo número no portal ${portal}.`
+    "veja os julgamentos com julgamentos_do_processo."
   );
 }
 
@@ -89,7 +94,8 @@ export function avisoRecorridoDoAcordao(a: Acordao): string | undefined {
   if (!a.numeroCnj || !ehRecursoContraAcordao(a)) return undefined;
   return (
     `Este acórdão julga recurso contra outro acórdão do processo ${a.numeroCnj}. O acórdão recorrido não vem nesta ` +
-    "resposta; se a busca que trouxe este também não o trouxe, ele pode não estar na base do JurisprudênciaIA: " +
-    `confira pelo número na consulta processual do portal do ${a.tribunal.toUpperCase()}.`
+    "resposta; se a busca que trouxe este também não o trouxe, ele pode não estar na base do JurisprudênciaIA: veja " +
+    `os julgamentos registrados com julgamentos_do_processo, pelo número ${a.numeroCnj}, e confira no portal do ` +
+    `${a.tribunal.toUpperCase()}.`
   );
 }
