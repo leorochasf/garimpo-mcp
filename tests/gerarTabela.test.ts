@@ -1,5 +1,4 @@
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -135,7 +134,7 @@ describe("gerador da tabela de precedentes — rede (fetch falso)", () => {
     new Response(gravado("processos-trecho.csv"), { status: 200, headers: { "content-type": "text/csv" } }),
   ];
   const destinoComTabelaAnterior = () => {
-    const destino = join(mkdtempSync(join(tmpdir(), "garimpo-tabela-")), "tabela.json");
+    const destino = join(mkdtempSync(join(process.env.GARIMPO_DADOS!, "garimpo-tabela-")), "tabela.json");
     writeFileSync(destino, "tabela anterior");
     return destino;
   };

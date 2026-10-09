@@ -1,11 +1,16 @@
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, afterEach, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, vi } from "vitest";
 
-// A pasta de dados (vagas e pausas compartilhadas) dos testes é temporária: nunca a do usuário.
-const pasta = mkdtempSync(join(tmpdir(), "garimpo-teste-"));
-process.env.GARIMPO_DADOS = pasta;
+// A pasta de dados (vagas e pausas compartilhadas) dos testes é temporária: nunca a do usuário. Nasce no beforeAll,
+// não ao carregar o arquivo: num arquivo com todos os testes pulados (os ao vivo) o Vitest não roda o afterAll, e a
+// pasta criada ficava vazia no %TEMP%.
+let pasta: string;
+beforeAll(() => {
+  pasta = mkdtempSync(join(tmpdir(), "garimpo-teste-"));
+  process.env.GARIMPO_DADOS = pasta;
+});
 // Os testes que gravam centenas de acórdãos no disco ou rodam o disjuntor entre janelas levam de 2 a 6 s com a máquina
 // carregada: o prazo padrão de 5 s derrubava um deles ao acaso.
 vi.setConfig({ testTimeout: 20_000 });
