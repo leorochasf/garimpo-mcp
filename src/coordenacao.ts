@@ -6,7 +6,8 @@
  *   conferindo que ainda é a mesma aquisição. Arquivo de vaga incompleto ou ilegível nunca é vaga livre.
  * - Vaga (ou trava) alheia só é retomada quando o PID dono comprovadamente não existe; tempo nunca libera.
  * - A pausa por host é reservada sob uma trava curta, com a vaga já ocupada: duas janelas não saem juntas.
- * - O disjuntor de cada serviço (disjuntor.ts) fica no mesmo estado e é decidido e gravado sob a mesma trava.
+ * - O disjuntor de cada serviço (disjuntor.ts) fica no mesmo estado e é decidido e gravado sob a mesma trava; o
+ *   freio preventivo (freio.ts) também, com a reserva do restante feita junto da saída.
  * - Estado ilegível, sem permissão ou de versão mais nova = rede parada, com o caminho e a instrução.
  */
 
@@ -26,6 +27,7 @@ import {
   type Resultado,
   type Saida,
 } from "./disjuntor.js";
+import { anotarRestante, decidirFreio, type Freio, freioValido, type RestanteLido, temFreio } from "./freio.js";
 
 /** Libera a vaga ocupada (termina quando ela está livre); chamar mais de uma vez não faz nada. */
 export type Liberar = () => Promise<void>;
@@ -58,6 +60,8 @@ export interface Coordenacao {
   reservarSaida(p: PedidoDeSaida, agora: () => number): Promise<Ordem>;
   /** Anota no disjuntor do serviço o resultado de uma chamada que saiu; devolve a pausa em vigor, se houver. */
   anotar(servico: string, chamada: Chamada, saida: Saida, r: Resultado, agora: () => number): Promise<Pausa | undefined>;
+  /** Anota no freio do serviço (só os que têm freio) o restante que a resposta informou, ou a falta de resposta. */
+  anotarFreio(servico: string, chamada: Chamada, lido: RestanteLido, agora: () => number): Promise<void>;
 }
 
 const MAXIMO_DE_VAGAS = 2;
@@ -65,7 +69,10 @@ const MAXIMO_DE_VAGAS = 2;
 const ESPERA_MAXIMA_POR_VAGA_MS = 3 * 60_000;
 const INTERVALO_DE_CONFERENCIA_MS = 250;
 const FORMATO_ESTADO = "garimpo-protecao";
-/** 1: vagas e pausas (B3-01); 2: mais os disjuntores. A 1 é lida e gravada de volta como 2. */
+/**
+ * 1: vagas e pausas (B3-01); 2: mais os disjuntores. A 1 é lida e gravada de volta como 2. Os freios (B12) são campo
+ * opcional da 2: janelas de versão anterior não chamam o Falcão e, ao regravar o estado, mantêm o campo.
+ */
 const VERSAO_ESTADO = 2;
 
 /** A rede está parada: nenhuma chamada sai até o usuário agir. A leitura local continua. */
@@ -234,6 +241,8 @@ interface Estado {
   pausas: Record<string, number>;
   /** Disjuntor por serviço; o de um serviço fechado pela prova fica, para a geração não voltar a zero. */
   disjuntores: Record<string, Disjuntor>;
+  /** Freio preventivo por serviço (freio.ts). */
+  freios?: Record<string, Freio>;
 }
 
 export interface OpcoesCoordenacao {
@@ -285,15 +294,19 @@ export class CoordenacaoEmArquivo implements Coordenacao {
 
   async conferir(p: PedidoDeSaida, agora: () => number): Promise<Ordem> {
     const estado = await this.lerEstado();
-    return decidirSaida(estado.disjuntores[p.servico], p.chamada, agora(), p.provaPermitida, donoMorto).ordem;
+    const instante = agora();
+    const ordem = decidirSaida(estado.disjuntores[p.servico], p.chamada, instante, p.provaPermitida, donoMorto).ordem;
+    if (ordem.tipo !== "sai" || !temFreio(p.servico)) return ordem;
+    return ordemDoFreio(decidirFreio(estado.freios?.[p.servico], p.chamada, instante, donoMorto).ordem, ordem);
   }
 
   async reservarSaida(p: PedidoDeSaida, agora: () => number): Promise<Ordem> {
     const decidir = (estado: Estado, instante: number) =>
       decidirSaida(estado.disjuntores[p.servico], p.chamada, instante, p.provaPermitida, donoMorto);
-    // Sem nada a gravar (saída comum sem pausa de host, ou chamada que não sai), basta ler.
+    // Sem nada a gravar (saída comum sem pausa de host nem freio, ou chamada que não sai), basta ler.
     const previa = decidir(await this.lerEstado(), agora());
-    if (previa.ordem.tipo !== "sai" || (!previa.novo && p.intervaloMs <= 0)) return previa.ordem;
+    const freio = temFreio(p.servico);
+    if (previa.ordem.tipo !== "sai" || (!previa.novo && p.intervaloMs <= 0 && !freio)) return previa.ordem;
     return this.comTrava(async () => {
       const estado = await this.lerEstado(true);
       const instante = agora();
@@ -304,8 +317,18 @@ export class CoordenacaoEmArquivo implements Coordenacao {
         // Relógio que voltou não prende a chamada além de uma pausa inteira.
         const falta = ultima === undefined ? 0 : Math.min(p.intervaloMs, ultima + p.intervaloMs - instante);
         if (falta > 0) return { tipo: "espera", ms: falta, motivo: "host" };
-        estado.pausas[p.host] = instante;
       }
+      if (freio) {
+        const atual = estado.freios?.[p.servico];
+        const f = decidirFreio(atual, p.chamada, instante, donoMorto);
+        if (f.novo && f.novo !== atual) estado.freios = { ...estado.freios, [p.servico]: f.novo };
+        if (f.ordem.tipo !== "sai") {
+          // A pausa que começa agora vale para todas as janelas, mesmo esta chamada não saindo.
+          if (f.novo !== atual) await this.gravarEstado(estado);
+          return ordemDoFreio(f.ordem, ordem);
+        }
+      }
+      if (p.intervaloMs > 0) estado.pausas[p.host] = instante;
       if (novo) estado.disjuntores[p.servico] = novo;
       await this.gravarEstado(estado);
       return ordem;
@@ -322,6 +345,19 @@ export class CoordenacaoEmArquivo implements Coordenacao {
         await this.gravarEstado(estado);
       }
       return novo?.pausa;
+    });
+  }
+
+  async anotarFreio(servico: string, chamada: Chamada, lido: RestanteLido, agora: () => number): Promise<void> {
+    if (!temFreio(servico)) return;
+    await this.comTrava(async () => {
+      const estado = await this.lerEstado(true);
+      const atual = estado.freios?.[servico];
+      const novo = anotarRestante(atual, chamada, lido, agora());
+      if (novo && novo !== atual) {
+        estado.freios = { ...estado.freios, [servico]: novo };
+        await this.gravarEstado(estado);
+      }
     });
   }
 
@@ -438,7 +474,7 @@ export class CoordenacaoEmArquivo implements Coordenacao {
       }
       throw ehPermissao(e) ? semPermissao(this.estado) : ilegivel(this.estado);
     }
-    let estado: { formato?: unknown; versao?: unknown; pausas?: unknown; disjuntores?: unknown };
+    let estado: { formato?: unknown; versao?: unknown; pausas?: unknown; disjuntores?: unknown; freios?: unknown };
     try {
       estado = JSON.parse(texto);
     } catch {
@@ -447,7 +483,7 @@ export class CoordenacaoEmArquivo implements Coordenacao {
     if (estado?.formato !== FORMATO_ESTADO || !Number.isInteger(estado.versao)) throw ilegivel(this.estado);
     const versao = estado.versao as number;
     if (versao > VERSAO_ESTADO) throw versaoMaisNova(this.estado);
-    const { pausas } = estado;
+    const { pausas, freios } = estado;
     const disjuntores = versao === 1 ? {} : estado.disjuntores;
     const valido =
       versao >= 1 &&
@@ -456,7 +492,8 @@ export class CoordenacaoEmArquivo implements Coordenacao {
       Object.values(pausas).every((v) => Number.isFinite(v)) &&
       typeof disjuntores === "object" &&
       disjuntores !== null &&
-      Object.values(disjuntores).every(disjuntorValido);
+      Object.values(disjuntores).every(disjuntorValido) &&
+      (freios === undefined || (typeof freios === "object" && freios !== null && Object.values(freios).every(freioValido)));
     if (!valido) throw ilegivel(this.estado);
     return { ...estado, versao: VERSAO_ESTADO, pausas, disjuntores } as Estado;
   }
@@ -472,6 +509,13 @@ export class CoordenacaoEmArquivo implements Coordenacao {
       throw ehPermissao(e) ? semPermissao(this.estado) : e;
     }
   }
+}
+
+/** A ordem do freio na linguagem do cliente; "sai" mantém a ordem do disjuntor. */
+export function ordemDoFreio(f: ReturnType<typeof decidirFreio>["ordem"], ordem: Ordem): Ordem {
+  if (f.tipo === "freio") return f;
+  if (f.tipo === "espera") return { tipo: "espera", ms: f.ms, motivo: "disjuntor" };
+  return ordem;
 }
 
 let padrao: CoordenacaoEmArquivo | undefined;

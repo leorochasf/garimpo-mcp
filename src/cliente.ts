@@ -12,7 +12,8 @@
  * - intervalo mínimo entre chamadas ao mesmo host (opcional, ex.: TSE; sempre 1 s no Falcão), também entre janelas; a
  *   espera dessa pausa não ocupa vaga;
  * - opcional (DJEN): pedido de espera acima do teto vira adiamento, não recusa: a chamada volta na hora com o
- *   instante permitido e o serviço fica adiado para todas as janelas, sem abrir nem dobrar o disjuntor.
+ *   instante permitido e o serviço fica adiado para todas as janelas, sem abrir nem dobrar o disjuntor;
+ * - freio preventivo no Falcão (freio.ts): para antes do bloqueio, pelo restante que ele informa, em todas as janelas.
  */
 
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -21,6 +22,7 @@ import {
   type Coordenacao,
   coordenacaoPadrao,
   type Liberar,
+  ordemDoFreio,
   type PedidoDeSaida,
 } from "./coordenacao.js";
 import {
@@ -37,6 +39,7 @@ import {
   servicoDe,
 } from "./disjuntor.js";
 import { dataEHora } from "./memoria.js";
+import { anotarRestante, decidirFreio, type Freio, lerRestante, type RestanteLido, temFreio } from "./freio.js";
 
 export const VERSAO = "0.3.2";
 export const USER_AGENT = `Garimpo/${VERSAO} (cliente MCP local e nao oficial de pesquisa de jurisprudencia)`;
@@ -92,6 +95,20 @@ export class AdiadaError extends Error {
   }
 }
 
+/**
+ * O freio preventivo parou a chamada antes de sair: não é recusa do serviço, é o Garimpo evitando o bloqueio do IP.
+ * `ate` = a partir de quando pode tentar de novo (sem promessa de liberação).
+ */
+export class PausaPreventivaError extends Error {
+  constructor(
+    message: string,
+    readonly ate: number,
+  ) {
+    super(message);
+    this.name = "PausaPreventivaError";
+  }
+}
+
 /** A resposta veio num formato que o Garimpo não reconhece. */
 export class FormatoInesperadoError extends Error {
   constructor(message: string) {
@@ -106,6 +123,7 @@ export class Vagas implements Coordenacao {
   private fila: (() => void)[] = [];
   private ultimaPorHost = new Map<string, number>();
   private disjuntores = new Map<string, Disjuntor>();
+  private freios = new Map<string, Freio>();
 
   constructor(private readonly max: number) {}
 
@@ -123,7 +141,10 @@ export class Vagas implements Coordenacao {
   }
 
   async conferir(p: PedidoDeSaida, agora: () => number): Promise<Ordem> {
-    return decidirSaida(this.disjuntores.get(p.servico), p.chamada, agora(), p.provaPermitida, () => false).ordem;
+    const instante = agora();
+    const ordem = decidirSaida(this.disjuntores.get(p.servico), p.chamada, instante, p.provaPermitida, () => false).ordem;
+    if (ordem.tipo !== "sai" || !temFreio(p.servico)) return ordem;
+    return ordemDoFreio(decidirFreio(this.freios.get(p.servico), p.chamada, instante, () => false).ordem, ordem);
   }
 
   async reservarSaida(p: PedidoDeSaida, agora: () => number): Promise<Ordem> {
@@ -134,6 +155,11 @@ export class Vagas implements Coordenacao {
     const ultima = this.ultimaPorHost.get(p.host);
     const falta = ultima === undefined || p.intervaloMs <= 0 ? 0 : ultima + p.intervaloMs - instante;
     if (falta > 0) return { tipo: "espera", ms: falta, motivo: "host" };
+    if (temFreio(p.servico)) {
+      const f = decidirFreio(this.freios.get(p.servico), p.chamada, instante, () => false);
+      if (f.novo) this.freios.set(p.servico, f.novo);
+      if (f.ordem.tipo !== "sai") return ordemDoFreio(f.ordem, ordem);
+    }
     if (p.intervaloMs > 0) this.ultimaPorHost.set(p.host, instante);
     if (novo) this.disjuntores.set(p.servico, novo);
     return ordem;
@@ -143,6 +169,12 @@ export class Vagas implements Coordenacao {
     const novo = aplicarResultado(this.disjuntores.get(servico), chamada, saida, r, agora(), servico);
     if (novo) this.disjuntores.set(servico, novo);
     return novo?.pausa;
+  }
+
+  async anotarFreio(servico: string, chamada: Chamada, lido: RestanteLido, agora: () => number) {
+    if (!temFreio(servico)) return;
+    const novo = anotarRestante(this.freios.get(servico), chamada, lido, agora());
+    if (novo) this.freios.set(servico, novo);
   }
 }
 
@@ -355,7 +387,7 @@ export class Cliente {
       }
       let ida: Ida;
       try {
-        ida = await this.ir(url, init);
+        ida = await this.ir(url, init, servico, chamada);
       } catch (e) {
         void vaga();
         if (e instanceof RecusaError) throw await this.abrir(servico, chamada, saida, e, 0);
@@ -466,6 +498,16 @@ export class Cliente {
           ordem.ate,
         );
       }
+      if (ordem.tipo === "freio") {
+        throw new PausaPreventivaError(
+          `Esta chamada não foi feita: as chamadas ${ao(this.opcoes.nome)} estão em pausa preventiva em todas as ` +
+            "janelas do Garimpo. O limite de pedidos que ele informa chegou à reserva de segurança do Garimpo, e " +
+            "passar do limite bloqueia o IP por horas. Não é recusa do serviço. Pode tentar a partir de " +
+            `${horaDeRetorno(ordem.ate, this.agora())}; a primeira chamada depois disso confere o limite antes de ` +
+            "liberar as outras, sem garantia de liberação.",
+          ordem.ate,
+        );
+      }
       if (ordem.tipo === "sem-prova") {
         throw new Error(
           `Esta chamada não foi feita: a pausa das chamadas ${ao(this.opcoes.nome)} venceu, mas esta ferramenta já ` +
@@ -540,7 +582,7 @@ export class Cliente {
    * Bloqueio e 429/503 são decididos pelo status e cabeçalhos, antes de qualquer leitura do corpo;
    * só as demais respostas têm o começo do corpo lido em busca do aviso de excesso.
    */
-  private async ir(url: string, init: RequestInit): Promise<Ida> {
+  private async ir(url: string, init: RequestInit, servico: string, chamada: Chamada): Promise<Ida> {
     const headers = new Headers(init.headers);
     headers.set("User-Agent", USER_AGENT);
     for (const [nome, valor] of Object.entries(IDENTIFICACAO_POR_HOST[new URL(url).host] ?? {})) headers.set(nome, valor);
@@ -549,12 +591,17 @@ export class Cliente {
       `${this.opcoes.nome} não respondeu em ${Math.ceil(prazoMs / 1000)} s; o Garimpo desistiu da chamada. Tente mais tarde.`,
     );
     const ida = new Ida(prazoMs, estouro);
+    // O freio do serviço anota o restante de toda resposta, ou a falta dela (a liberação não fica presa).
+    const anotarFreio = (lido: RestanteLido) =>
+      temFreio(servico) ? this.vagas.anotarFreio(servico, chamada, lido, this.agora) : Promise.resolve();
     try {
-      ida.resposta = await this.fetchFn(url, { ...init, headers, signal: ida.controle.signal }).catch((e: Error) => {
+      ida.resposta = await this.fetchFn(url, { ...init, headers, signal: ida.controle.signal }).catch(async (e: Error) => {
+        await anotarFreio("sem-resposta").catch(() => {});
         throw ida.controle.signal.reason === estouro
           ? estouro
           : new Error(`Não foi possível falar com ${this.opcoes.nome} (${e.message}). Verifique a conexão.`);
       });
+      await anotarFreio(lerRestante(ida.resposta.headers));
       await this.barrarBloqueio(ida, url);
       if (!pedeEspera(ida)) await ida.lerAviso();
       return ida;

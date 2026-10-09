@@ -64,7 +64,9 @@ export type Ordem =
   /** O serviço pediu para esperar até `ate` (não é recusa). */
   | { tipo: "adiado"; ate: number }
   /** A pausa venceu, mas esta ferramenta já fez a sua chamada de prova. */
-  | { tipo: "sem-prova" };
+  | { tipo: "sem-prova" }
+  /** Pausa preventiva do freio (freio.ts): não é recusa. */
+  | { tipo: "freio"; ate: number };
 
 export type Resultado =
   | { tipo: "aceita" }
