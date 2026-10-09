@@ -1,0 +1,2 @@
+# Gravações reais do STJ: bytes literais, sem conversão de fim de linha (CRLF da fonte).
+tests/fixtures/stj-precedentes/*.csv -text
