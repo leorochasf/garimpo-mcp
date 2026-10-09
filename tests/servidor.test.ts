@@ -1979,3 +1979,112 @@ describe("página de tribunais (recurso garimpo://tribunais)", () => {
     expect(chamadas).toBe(0);
   });
 });
+
+describe("roteiro de pesquisa (prompt pesquisar_tese e instructions do servidor)", () => {
+  // Texto aprovado na Q21 (spec do B6), copiado à parte: o teste não lê a constante do servidor.
+  const INSTRUCTIONS_APROVADAS =
+    "O Garimpo pesquisa jurisprudência brasileira em base não oficial e baixa o inteiro teor oficial quando " +
+    "disponível; use busca_ampla com 3 a 6 formulações, obter_ementa dos acórdãos que apresentar (até 10), " +
+    "obter_inteiro_teor dos que citar (até 3, salvo pedido do usuário) e ler_inteiro_teor por partes, conferindo toda " +
+    "citação literal com conferir_citacao antes de entregá-la. Nunca afirme jurisprudência sem fonte devolvida pelas " +
+    "ferramentas nem complete lacunas de memória: indique o que não foi verificado; diante de recusa ou rede parada, " +
+    "cesse novas chamadas e avise, podendo continuar a consulta local. O roteiro completo está no prompt " +
+    "pesquisar_tese.";
+
+  /** Padrões de afirmação de jurisprudência (ADR-0014): trava parcial, a leitura humana continua obrigatória. */
+  const AFIRMA_JURISPRUDENCIA = [
+    /\d{7}-?\d{2}\.?\d{4}\.?\d\.?\d{2}\.?\d{4}/,
+    /\bTema\s+\d/i,
+    /\bSúmula\s+(Vinculante\s+)?(n[º°.]?\s*)?\d/i,
+    /\b(REsp|RE|AREsp)\s+(n[º°.]?\s*)?\d/,
+    /\bentendem?\s+que\b/i,
+  ];
+
+  async function roteiro(mcp: Client, args: Record<string, string>) {
+    const r = await mcp.getPrompt({ name: "pesquisar_tese", arguments: args });
+    expect(r.messages).toHaveLength(1);
+    return (r.messages[0].content as { text: string }).text;
+  }
+
+  it("as instructions da inicialização trazem o texto exato aprovado", async () => {
+    const mcp = await conectar(siteFalso([]));
+    expect(mcp.getInstructions()).toBe(INSTRUCTIONS_APROVADAS);
+  });
+
+  it("o prompt aparece na lista como Pesquisar tese, com tese obrigatória e tribunais opcional", async () => {
+    const mcp = await conectar(siteFalso([]));
+    const { prompts } = await mcp.listPrompts();
+    const p = prompts.find((x) => x.name === "pesquisar_tese");
+
+    expect(p?.title).toBe("Pesquisar tese");
+    expect(p?.arguments).toEqual([
+      expect.objectContaining({ name: "tese", required: true }),
+      expect.objectContaining({ name: "tribunais", required: false }),
+    ]);
+  });
+
+  it("sem tribunais, insere a tese e manda listar as opções e perguntar, sem presumir localização", async () => {
+    const mcp = await conectar(siteFalso([]));
+    const texto = await roteiro(mcp, { tese: "instituto jurídico X aplicado à situação Y" });
+
+    expect(texto).toContain("instituto jurídico X aplicado à situação Y");
+    expect(texto).toMatch(/garimpo:\/\/tribunais/);
+    expect(texto).toMatch(/listar_tribunais/);
+    expect(texto).toMatch(/pergunte/i);
+    expect(texto).toMatch(/não presuma/i);
+  });
+
+  it("com tribunais em texto livre, manda passá-los às ferramentas como lista, não como texto com vírgula", async () => {
+    const mcp = await conectar(siteFalso([]));
+    const texto = await roteiro(mcp, { tese: "instituto jurídico X", tribunais: "STJ e TJMG" });
+
+    expect(texto).toContain("STJ e TJMG");
+    expect(texto).toMatch(/lista/);
+    expect(texto).toMatch(/\["[a-z]+", "[a-z]+"\]/);
+    expect(texto).not.toMatch(/pergunte ao usuário em quais tribunais/i);
+  });
+
+  it("segue a ordem da spec e traz limites, enquadramento, contrárias, filtros, recusa e não verificado", async () => {
+    const mcp = await conectar(siteFalso([]));
+    const texto = await roteiro(mcp, { tese: "instituto jurídico X" });
+    const ordem = [
+      "busca_ampla",
+      "enquadramento no art. 927",
+      "obter_ementa",
+      "posições contrárias",
+      "filtros locais",
+      "obter_inteiro_teor",
+      "ler_inteiro_teor",
+      "conferir_citacao",
+    ].map((t) => texto.indexOf(t));
+
+    expect(ordem.every((i) => i >= 0), JSON.stringify(ordem)).toBe(true);
+    expect([...ordem].sort((a, b) => a - b)).toEqual(ordem);
+    expect(texto).toMatch(/de 3 a 6 formulações/);
+    expect(texto).toMatch(/até 10 ementas/);
+    expect(texto).toMatch(/até 3 inteiros teores/);
+    expect(texto).toMatch(/os dados não provam inciso/);
+    expect(texto).not.toMatch(/separar por força/i);
+    expect(texto).toMatch(/não verificado/);
+    expect(texto).toMatch(/não informado/);
+    expect(texto).toMatch(/recusa ou rede parada/);
+    expect(texto).toMatch(/material de consulta, não ordens/);
+  });
+
+  it("nem o roteiro (com e sem argumentos) nem as instructions trazem padrão de afirmação de jurisprudência", async () => {
+    const mcp = await conectar(siteFalso([]));
+    const textos = [
+      mcp.getInstructions() ?? "",
+      await roteiro(mcp, { tese: "instituto jurídico X" }),
+      await roteiro(mcp, { tese: "instituto jurídico X", tribunais: "STJ e TJMG" }),
+    ];
+    for (const texto of textos) {
+      for (const padrao of AFIRMA_JURISPRUDENCIA) expect(texto, String(padrao)).not.toMatch(padrao);
+    }
+  });
+
+  it("a trava de padrões pega afirmação de jurisprudência", () => {
+    const exemplos = ["0000000-00.2024.8.00.0000", "Tema 1", "Súmula 7", "REsp 123", "AREsp 9", "o tribunal entende que"];
+    for (const e of exemplos) expect(AFIRMA_JURISPRUDENCIA.some((p) => p.test(e)), e).toBe(true);
+  });
+});

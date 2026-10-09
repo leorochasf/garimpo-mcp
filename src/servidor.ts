@@ -27,6 +27,7 @@ import {
   lerParaConferir,
 } from "./leitura.js";
 import { Memoria, obtidoDoSite } from "./memoria.js";
+import { INSTRUCTIONS, roteiroDePesquisa } from "./roteiro.js";
 import { paginaDeTribunais, SIGLAS, TRIBUNAIS } from "./tribunais.js";
 
 // Tribunal e datas são conferidos dentro da ferramenta, não no esquema: o erro do esquema sai embrulhado em texto
@@ -149,7 +150,7 @@ export function criarServidor(
   site: Cliente,
   { tribunais = clientePadrao, pasta, dados, agora, tetoDaMemoria }: OpcoesServidor = {},
 ): McpServer {
-  const servidor = new McpServer({ name: "garimpo", version: VERSAO });
+  const servidor = new McpServer({ name: "garimpo", version: VERSAO }, { instructions: INSTRUCTIONS });
   // GARIMPO_SEM_MEMORIA=1 desliga só a memória em disco (a janela guarda enquanto está aberta), nunca o freio.
   const memoria = new Memoria({
     dados: process.env.GARIMPO_SEM_MEMORIA === "1" ? undefined : (dados ?? pastaDeDados()),
@@ -544,6 +545,26 @@ export function criarServidor(
       mimeType: "text/markdown",
     },
     async (uri) => ({ contents: [{ uri: uri.href, mimeType: "text/markdown", text: paginaDeTribunais() }] }),
+  );
+
+  servidor.registerPrompt(
+    "pesquisar_tese",
+    {
+      title: "Pesquisar tese",
+      description:
+        "Roteiro de pesquisa: o passo a passo para pesquisar uma tese com as ferramentas do Garimpo, da formulação à " +
+        "conferência da citação. Não afirma jurisprudência.",
+      argsSchema: {
+        tese: z.string().describe("A tese a pesquisar, em palavras suas"),
+        tribunais: z
+          .string()
+          .optional()
+          .describe("Tribunais em que pesquisar, em texto livre (opcional; sem eles, o roteiro manda perguntar)"),
+      },
+    },
+    ({ tese, tribunais }) => ({
+      messages: [{ role: "user", content: { type: "text", text: roteiroDePesquisa(tese, tribunais) } }],
+    }),
   );
 
   return servidor;
