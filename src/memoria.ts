@@ -53,6 +53,11 @@ export interface BuscaNaMemoria {
   registrosDoSite: number;
   acordaos: { ids: readonly string[]; registro: Acordao }[];
   qualificados: Qualificado[];
+  /**
+   * A tese firmada que o site informou para cada qualificado, na mesma ordem (null = nenhuma): com ela, a busca
+   * guardada refaz o enquadramento com as tabelas da janela que responde. Busca guardada antes disso não a tem.
+   */
+  tesesDoSite?: (string | null)[];
   avisos: string[];
   /** Só no Falcão: o total que a fonte informou (10000 = "10.000 ou mais"). */
   totalNaFonte?: number;
@@ -440,6 +445,9 @@ async function lerBusca(arquivo: string) {
     registrosDoSite: r.registrosDoSite,
     acordaos: r.acordaos,
     qualificados: r.qualificados,
+    ...(Array.isArray(r.tesesDoSite) &&
+      r.tesesDoSite.length === r.qualificados.length &&
+      r.tesesDoSite.every((t: unknown) => t === null || typeof t === "string") && { tesesDoSite: r.tesesDoSite }),
     avisos: r.avisos,
     ...(Number.isInteger(r.totalNaFonte) && { totalNaFonte: r.totalNaFonte }),
   };

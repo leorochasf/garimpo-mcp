@@ -153,6 +153,7 @@ function pedido(p: ParametrosBusca) {
 export async function lerBuscaGuardada(
   memoria: Memoria,
   p: ParametrosBusca,
+  { tabela, tabelaStf }: Pick<OpcoesBuscaDireta, "tabela" | "tabelaStf"> = {},
 ): Promise<{ resultado: ResultadoBusca; obtidoEm: number } | undefined> {
   if (ehDoFalcao(p.tribunal)) return lerBuscaGuardadaNoFalcao(memoria, p);
   const { tribunal, chave, cobertura } = pedido(p);
@@ -168,7 +169,13 @@ export async function lerBuscaGuardada(
       tribunal,
       cabecalhoDeCobertura: cobertura(busca.registrosDoSite),
       acordaos: busca.acordaos.map((a) => a.registro),
-      qualificados: busca.qualificados,
+      // O enquadramento é refeito com as tabelas desta janela, como na busca nova; guardada sem as teses, fica o gravado.
+      qualificados: busca.tesesDoSite
+        ? busca.qualificados.map((q, i) => ({
+            ...q,
+            enquadramento927: enquadrar(tribunal, q.tipo, q.numero, busca.tesesDoSite![i] ?? undefined, tabela, tabelaStf),
+          }))
+        : busca.qualificados,
       ressalvaQualificados: RESSALVA_DIRETA,
       avisos: [...busca.avisos],
     },
@@ -193,7 +200,7 @@ export async function buscaDireta(
   let falhaAoLer: string | undefined;
   if (memoria && !renovar) {
     try {
-      const guardada = await lerBuscaGuardada(memoria, p);
+      const guardada = await lerBuscaGuardada(memoria, p, { tabela, tabelaStf });
       if (guardada) {
         const { acordaos, avisos } = guardada.resultado;
         avisos.push(...avisoDoRecorrido(acordaos), ...avisosDaMemoria(memoria));
@@ -237,6 +244,7 @@ export async function buscaDireta(
     registrosDoSite,
     acordaos: acordaos.map(({ ids, registro }) => ({ ids, registro })),
     qualificados: resultado.qualificados,
+    tesesDoSite: resultado.tesesDoSite,
     avisos: [...resultado.avisos],
   });
   return {
@@ -289,7 +297,7 @@ export function normalizar(
   json: unknown,
   tabela?: TabelaDePrecedentes,
   tabelaStf?: TabelaDoStf,
-): ResultadoBusca {
+): ResultadoBusca & { tesesDoSite: (string | null)[] } {
   if (!json || typeof json !== "object") {
     throw new FormatoInesperadoError("O JurisprudênciaIA devolveu uma resposta vazia ou em formato inesperado.");
   }
@@ -321,9 +329,13 @@ export function normalizar(
   }
 
   const qualificados: Qualificado[] = [];
+  const tesesDoSite: (string | null)[] = [];
   for (const [lista, tipo] of Object.entries(LISTAS_QUALIFICADOS)) {
     if (!Array.isArray(r[lista])) continue;
-    for (const q of r[lista] as Bruto[]) qualificados.push(paraQualificado(tribunal, tipo, q, tabela, tabelaStf));
+    for (const q of r[lista] as Bruto[]) {
+      qualificados.push(paraQualificado(tribunal, tipo, q, tabela, tabelaStf));
+      tesesDoSite.push(texto(q.tese_firmada) ?? null);
+    }
   }
 
   const avisos: string[] = [];
@@ -341,6 +353,7 @@ export function normalizar(
     tribunal,
     acordaos: brutos.map((x) => paraAcordao(tribunal, x, paradigmas)),
     qualificados,
+    tesesDoSite,
     ressalvaQualificados: RESSALVA_DIRETA,
     avisos,
   };
@@ -392,11 +405,23 @@ function paraQualificado(
     processoParadigma: proc || undefined,
     link: texto(q.link) ?? texto(q.url_tema) ?? texto(q.link_pdf) ?? texto(q.link_acordao),
     // Tese só a firmada: descrição da questão submetida não é tese.
-    enquadramento927: enquadrarQualificado(
-      { tribunal, tipo, numero, tese: texto(q.tese_firmada) },
-      reforcoDaTabela(tabela, tribunal, tipo, numero) ?? reforcoDoStf(tabelaStf, tribunal, tipo, numero),
-    ),
+    enquadramento927: enquadrar(tribunal, tipo, numero, texto(q.tese_firmada), tabela, tabelaStf),
   });
+}
+
+/** Enquadramento de um item das listas de qualificados, com o reforço das tabelas carregadas (busca nova ou guardada). */
+function enquadrar(
+  tribunal: string,
+  tipo: string,
+  numero: string | undefined,
+  tese: string | undefined,
+  tabela?: TabelaDePrecedentes,
+  tabelaStf?: TabelaDoStf,
+): Enquadramento927 {
+  return enquadrarQualificado(
+    { tribunal, tipo, numero, tese },
+    reforcoDaTabela(tabela, tribunal, tipo, numero) ?? reforcoDoStf(tabelaStf, tribunal, tipo, numero),
+  );
 }
 
 const AVISO_EMENTA_INCOMPLETA =

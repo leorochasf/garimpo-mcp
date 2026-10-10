@@ -216,7 +216,7 @@ export async function buscaAmpla(
     memoria && !p.renovar
       ? await Promise.all(
           tarefas.map((t) =>
-            lerBuscaGuardada(memoria, parametros(t)).catch((e) => {
+            lerBuscaGuardada(memoria, parametros(t), { tabela, tabelaStf }).catch((e) => {
               if (e instanceof FalhaNaMemoriaError) falhasAoLer++;
               return undefined;
             }),
