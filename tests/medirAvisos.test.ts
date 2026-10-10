@@ -156,6 +156,15 @@ describe("medirAvisos — entradas que o protocolo recusa, com frase que ensina"
     expect((await medir(pasta)).itens).toBe(ITENS.length);
   });
 
+  it("conjunto fora de ajuste/validacao: recusa com erro claro, sem citar texto", async () => {
+    const itens = ITENS.map((i, k) => (k === 0 ? { ...i, conjunto: "validação" as never } : i));
+    await gravar(itens, null);
+    const erro = await medir(pasta).catch((e: Error) => e);
+    expect(erro).toBeInstanceOf(Error);
+    expect((erro as Error).message).toMatch(/"conjunto" inválido.*"ajuste" ou "validacao"/);
+    expect((erro as Error).message).not.toContain(CITACAO.negacao);
+  });
+
   it("id só de dígitos: recusa (a ordem embaralhada do formulário se perderia)", async () => {
     await gravar([{ id: "123", pdf: "autoria.pdf", citacao: CITACAO.negacao }], null);
     await expect(medir(pasta)).rejects.toThrow(/pelo menos uma letra/);

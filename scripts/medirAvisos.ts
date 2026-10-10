@@ -114,6 +114,9 @@ async function lerManifesto(pasta: string): Promise<{ itens: Item[]; semente?: s
     }
     if (vistos.has(item.id)) throw new ErroDeProtocolo(`O id "${item.id}" aparece duas vezes em ${MANIFESTO}.`);
     vistos.add(item.id);
+    if (item.conjunto !== undefined && !(CONJUNTOS as readonly unknown[]).includes(item.conjunto)) {
+      throw new ErroDeProtocolo(`O item "${item.id}" tem "conjunto" inválido: use "ajuste" ou "validacao" (ou tire o campo para o "montar" sortear).`);
+    }
     if (typeof item.pdf !== "string" || !item.pdf) throw new ErroDeProtocolo(`O item "${item.id}" não diz o seu "pdf".`);
     if (!sinaisDoItem(item).length) {
       throw new ErroDeProtocolo(`O item "${item.id}" não tem "citacao" nem "tribunal" com "orgaoDoRegistro": não há o que medir.`);
