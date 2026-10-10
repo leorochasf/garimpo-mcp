@@ -138,6 +138,8 @@ export interface CabecalhoDeCobertura {
 }
 
 export interface ResultadoAmplo {
+  /** Só em busca grande que vai ao site: quantas chamadas e quanto tempo, sempre "até" (é número de partida). */
+  estimativa?: string;
   buscasFeitas: number;
   buscasPlanejadas: number;
   completa: boolean;
@@ -156,6 +158,23 @@ export interface ResultadoAmplo {
 
 /** Teto de páginas do Falcão por chamada da busca ampla (1 página = 1 formulação × TRT). */
 export const PAGINAS_DO_FALCAO_POR_CHAMADA = 5;
+/** A estimativa só aparece com mais de 6 chamadas ao site (a de 6 com 50 acórdãos de campos longos já beira o teto); abaixo disso não há o que avisar. */
+const CHAMADAS_PARA_ESTIMAR = 7;
+/** Tempo por rodada de 2 chamadas simultâneas: número de partida, não medido; por isso a estimativa diz "até". */
+const SEGUNDOS_POR_RODADA = 3;
+
+/**
+ * Uma linha: chamadas que vão ao site (as guardadas não entram) e o tempo. O intervalo de 1 s por chamada ao Falcão
+ * (src/cliente.ts) cabe dentro da rodada de 3 s para 2 chamadas, então não muda a conta.
+ */
+function estimar(chamadas: number): string | undefined {
+  if (chamadas < CHAMADAS_PARA_ESTIMAR) return undefined;
+  const segundos = Math.ceil(chamadas / 2) * SEGUNDOS_POR_RODADA;
+  return (
+    `Estimativa: até ${chamadas} chamadas (2 por vez), até ${segundos} s; busca guardada reduz.`
+  );
+}
+
 /** Acórdãos por busca num TRT na busca ampla: 1 página do Falcão. */
 const LIMITE_TRT_NA_AMPLA = 10;
 
@@ -446,9 +465,10 @@ export async function buscaAmpla(
   }
   // Com filtro local, conta só os que passaram por ele: o que o filtro tirou não é lista cortada.
   if (mostrados.length < sobreviventes.length) {
+    // "Limite não é amostra" entra no lugar de palavras antigas: a resposta com 50 acórdãos já beira o teto de 25 mil.
     cabecalho.listaCortada =
-      `mostrando ${mostrados.length} de ${sobreviventes.length}; ` +
-      (maximo < 200 ? "para ver mais, peça máximo maior (até 200)" : "200 é o máximo por resposta");
+      `mostrando ${mostrados.length} de ${sobreviventes.length}; limite não é amostra; ` +
+      (maximo < 200 ? "peça mais (até 200)" : "200 é o máximo por resposta");
   }
   // Uma vez, nunca por item: o recorrido achado e cortado da lista (ou filtrado) não está ausente.
   const recorrido = avisoDeRecorridoAusenteAmplo(
@@ -469,7 +489,9 @@ export async function buscaAmpla(
       );
     }
   }
+  const estimativa = estimar(noSite.length);
   return {
+    ...(estimativa && { estimativa }),
     buscasFeitas: feitas,
     buscasPlanejadas: tarefas.length,
     completa: !recusa && !pausaDoFalcao && feitas === tarefas.length,
