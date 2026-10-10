@@ -37,22 +37,42 @@ export const RESSALVA_FALCAO =
 
 const AVISO_DATAS =
   'Datas do Falcão: "julgado em" é a data de julgamento e "juntado em" a de juntada do acórdão aos autos, que não é ' +
-  "data de publicação; a data de publicação não é informada pela fonte.";
+  "data de publicação; a data de publicação não é informada pela fonte. Os filtros de data (de, ate) valem para a data " +
+  "de juntada, não para a de julgamento.";
 
-const FILTROS = ["de", "ate", "relator", "orgao", "classe"] as const;
+/** Filtro do Garimpo → parâmetro do Falcão (formato e significado verificados na prova ao vivo do B12). */
+const PARAMETROS_DOS_FILTROS = {
+  de: "dataInicio",
+  ate: "dataFim",
+  relator: "nomeRelator",
+  orgao: "orgaoJulgador",
+  classe: "classeProcesso",
+} as const;
+
+const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
+/** Sigla de classe processual: uma palavra curta (ROT, AP, RORSum, AIRR). Nome por extenso não é sigla. */
+const SIGLA_DE_CLASSE = /^[A-Za-z][A-Za-z0-9]{0,9}$/;
 
 /**
- * Antes de gastar chamada: filtro ainda não verificado no Falcão é erro que ensina, nunca ignorado em silêncio; limite
- * acima do teto também.
+ * Antes de gastar chamada: filtro com formato que a fonte não aceita é erro que ensina, nunca ignorado em silêncio;
+ * limite acima do teto também.
  */
 export function conferirPedidoAoFalcao(p: ParametrosBusca, { limite = true } = {}): void {
   const tribunal = p.tribunal.toUpperCase();
-  const pedidos = FILTROS.filter((f) => p[f] !== undefined && p[f] !== "");
-  if (pedidos.length) {
+  for (const f of ["de", "ate"] as const) {
+    const v = p[f]?.trim();
+    if (v && !DATA_ISO.test(v)) {
+      throw new Error(
+        `O filtro ${f} no ${tribunal} (Falcão) pede a data no formato AAAA-MM-DD (por exemplo, 2024-03-31); recebeu "${v}". ` +
+          "Atenção: no Falcão a data filtrada é a data de juntada do acórdão, não a de julgamento.",
+      );
+    }
+  }
+  const classe = p.classe?.trim();
+  if (classe && !SIGLA_DE_CLASSE.test(classe)) {
     throw new Error(
-      `Filtro ${pedidos.join(", ")} ainda não disponível no ${tribunal} (Falcão): o Garimpo não verificou o significado ` +
-        "e o formato desses filtros na fonte e não os aplica em silêncio. Refaça a busca sem eles; para recortar o " +
-        "resultado, use os filtros locais da busca_ampla (deveConter, naoPodeConter).",
+      `O filtro classe no ${tribunal} (Falcão) só vale com a sigla da classe, não com o nome por extenso (por exemplo, ` +
+        `ROT ou AP); recebeu "${classe}". O Garimpo não verificou o nome por extenso na fonte.`,
     );
   }
   if (limite && p.limite !== undefined && p.limite > LIMITE_MAXIMO_TRT) {
@@ -63,10 +83,20 @@ export function conferirPedidoAoFalcao(p: ParametrosBusca, { limite = true } = {
   }
 }
 
-/** Chave da busca guardada: sha256 da fonte, do tribunal, do texto e do limite (nada em claro no disco). */
+/** O valor do filtro como vai à fonte (sem espaços nas pontas); vazio = filtro não pedido. */
+function valorDoFiltro(p: ParametrosBusca, f: keyof typeof PARAMETROS_DOS_FILTROS): string | undefined {
+  return p[f]?.trim() || undefined;
+}
+
+/** Chave da busca guardada: sha256 da fonte, do tribunal, do texto, do limite e dos filtros pedidos (nada em claro no disco). */
 export function chaveNoFalcao(p: ParametrosBusca): string {
   const limite = Math.min(Math.max(p.limite ?? POR_PAGINA, 1), LIMITE_MAXIMO_TRT);
-  return createHash("sha256").update(JSON.stringify(["falcao", p.tribunal.toLowerCase(), p.texto, limite])).digest("hex");
+  // Os filtros entram na chave só quando pedidos: a chave de uma busca sem filtro continua a de antes.
+  const filtros = (Object.keys(PARAMETROS_DOS_FILTROS) as (keyof typeof PARAMETROS_DOS_FILTROS)[])
+    .filter((f) => valorDoFiltro(p, f))
+    .map((f) => [f, valorDoFiltro(p, f)]);
+  const chave = ["falcao", p.tribunal.toLowerCase(), p.texto, limite, ...(filtros.length ? [filtros] : [])];
+  return createHash("sha256").update(JSON.stringify(chave)).digest("hex");
 }
 
 /** Cabeçalho de cobertura: o total que o Falcão informa, separado de quantos vieram e quantos foram mostrados. */
@@ -140,7 +170,7 @@ export async function buscaNoFalcao(
   for (let pagina = 0; pagina * POR_PAGINA < limite; pagina++) {
     let json: unknown;
     try {
-      json = await pedirPagina(cliente, tribunal, p.texto, pagina);
+      json = await pedirPagina(cliente, tribunal, p, pagina);
     } catch (e) {
       // Pausa ou recusa depois da 1ª página: fica o que já veio, com o motivo; a busca não é guardada.
       const parar = e instanceof PausaPreventivaError || e instanceof RecusaError || e instanceof RedeParadaError;
@@ -193,15 +223,19 @@ export async function buscaNoFalcao(
   };
 }
 
-async function pedirPagina(cliente: Cliente, tribunal: string, texto: string, pagina: number): Promise<unknown> {
+async function pedirPagina(cliente: Cliente, tribunal: string, p: ParametrosBusca, pagina: number): Promise<unknown> {
   const consulta = new URLSearchParams({
-    texto,
+    texto: p.texto,
     colecao: "acordaos",
     sessionId: SESSAO,
     page: String(pagina),
     size: String(POR_PAGINA),
     tribunais: tribunal.toUpperCase(),
   });
+  for (const [filtro, parametro] of Object.entries(PARAMETROS_DOS_FILTROS)) {
+    const valor = valorDoFiltro(p, filtro as keyof typeof PARAMETROS_DOS_FILTROS);
+    if (valor) consulta.set(parametro, valor);
+  }
   const resposta = await cliente.requisitar(`${PESQUISA_FALCAO}?${consulta}`);
   let json: unknown;
   try {

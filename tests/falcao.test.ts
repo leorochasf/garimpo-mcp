@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { UA_NAVEGADOR } from "../src/cliente.js";
+import { chaveNoFalcao } from "../src/falcao.js";
 import { chamar, conectar, documento, falcaoFalso, PESQUISA, pagina, siteFalso } from "./apoioFalcao.js";
 
 const ROTULO = "Falcão — repositório oficial de jurisprudência da Justiça do Trabalho (Res. CSJT 401/2024)";
@@ -102,15 +103,61 @@ describe("busca direta num TRT pelo Falcão", () => {
     expect(falcao.pedidos).toHaveLength(3);
   });
 
-  it("filtros de, ate, relator, orgao e classe num TRT: erro que ensina, antes de gastar chamada", async () => {
+  it("os 4 filtros verificados vão no pedido, no formato da prova, e a data vem com o aviso de juntada", async () => {
     const falcao = falcaoFalso();
     const { mcp } = await conectar(siteFalso().cliente, falcao.cliente);
-    for (const filtro of [{ de: "2024-01-01" }, { ate: "2024-12-31" }, { relator: "X" }, { orgao: "1a. Turma" }, { classe: "ROT" }]) {
-      const r = await chamar(mcp, "busca_direta", { tribunal: "trt1", texto: "horas extras", ...filtro });
-      expect(r.isError).toBe(true);
-      expect(r.texto).toMatch(/ainda não disponível no TRT1/);
-    }
+    const r = await chamar(mcp, "busca_direta", {
+      tribunal: "trt1",
+      texto: "horas extras",
+      de: "2024-01-01",
+      ate: "2024-12-31",
+      relator: "Fulano de Tal",
+      orgao: "1a. Turma",
+      classe: "ROT",
+    });
+    expect(r.isError).toBeFalsy();
+    expect(falcao.pedidos).toHaveLength(1);
+    const q = falcao.pedidos[0].searchParams;
+    expect(q.get("dataInicio")).toBe("2024-01-01");
+    expect(q.get("dataFim")).toBe("2024-12-31");
+    expect(q.get("nomeRelator")).toBe("Fulano de Tal");
+    expect(q.get("orgaoJulgador")).toBe("1a. Turma");
+    expect(q.get("classeProcesso")).toBe("ROT");
+    expect(r.dado.avisos.join(" ")).toMatch(/data de juntada/);
+  });
+
+  it("sem filtro, o pedido não leva nenhum dos 4 parâmetros", async () => {
+    const falcao = falcaoFalso();
+    const { mcp } = await conectar(siteFalso().cliente, falcao.cliente);
+    await chamar(mcp, "busca_direta", { tribunal: "trt1", texto: "horas extras" });
+    const q = falcao.pedidos[0].searchParams;
+    for (const k of ["dataInicio", "dataFim", "nomeRelator", "orgaoJulgador", "classeProcesso"]) expect(q.has(k)).toBe(false);
+  });
+
+  it("filtro de classe por nome (não sigla): erro que ensina, antes de gastar chamada", async () => {
+    const falcao = falcaoFalso();
+    const { mcp } = await conectar(siteFalso().cliente, falcao.cliente);
+    const r = await chamar(mcp, "busca_direta", { tribunal: "trt1", texto: "horas extras", classe: "Recurso Ordinário Trabalhista" });
+    expect(r.isError).toBe(true);
+    expect(r.texto).toMatch(/sigla/);
+    expect(r.texto).toMatch(/ROT/);
     expect(falcao.pedidos).toHaveLength(0);
+  });
+
+  it("data fora do formato AAAA-MM-DD: erro que ensina, antes de gastar chamada", async () => {
+    const falcao = falcaoFalso();
+    const { mcp } = await conectar(siteFalso().cliente, falcao.cliente);
+    const r = await chamar(mcp, "busca_direta", { tribunal: "trt1", texto: "horas extras", de: "01/01/2024" });
+    expect(r.isError).toBe(true);
+    expect(r.texto).toMatch(/AAAA-MM-DD/);
+    expect(falcao.pedidos).toHaveLength(0);
+  });
+
+  it("a busca guardada não vale para outro filtro: filtros entram na chave", () => {
+    const base = { tribunal: "trt1", texto: "horas extras", limite: 10 };
+    expect(chaveNoFalcao({ ...base, relator: "A" })).not.toBe(chaveNoFalcao(base));
+    expect(chaveNoFalcao({ ...base, relator: "A" })).not.toBe(chaveNoFalcao({ ...base, relator: "B" }));
+    expect(chaveNoFalcao({ ...base, de: "2024-01-01" })).not.toBe(chaveNoFalcao({ ...base, ate: "2024-01-01" }));
   });
 
   it("id ausente ou tribunal inesperado: registro descartado com aviso, nunca completado; data inválida = não informada", async () => {

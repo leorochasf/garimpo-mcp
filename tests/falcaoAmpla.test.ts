@@ -119,13 +119,40 @@ describe("TRTs na busca ampla", () => {
     expect(falcao.pedidos).toHaveLength(1);
   });
 
-  it("filtros de, ate, relator, orgao e classe com TRT na busca ampla: erro que ensina, nenhuma chamada", async () => {
+  it("os filtros valem em todos os TRTs pedidos na busca ampla, sem chamada a mais", async () => {
+    const falcao = falcaoFalso();
+    const { mcp } = await conectar(siteFalso().cliente, falcao.cliente);
+    const r = await chamar(mcp, "busca_ampla", {
+      formulacoes: ["horas extras"],
+      tribunais: ["trt2", "trt3"],
+      de: "2024-01-01",
+      ate: "2024-12-31",
+      relator: "Fulano de Tal",
+      orgao: "1a. Turma",
+      classe: "ROT",
+    });
+    expect(r.isError).toBeFalsy();
+    expect(falcao.pedidos).toHaveLength(2);
+    expect(falcao.pedidos.map((u) => u.searchParams.get("tribunais")).sort()).toEqual(["TRT2", "TRT3"]);
+    for (const u of falcao.pedidos) {
+      const q = u.searchParams;
+      expect([q.get("dataInicio"), q.get("dataFim"), q.get("nomeRelator"), q.get("orgaoJulgador"), q.get("classeProcesso")]).toEqual([
+        "2024-01-01",
+        "2024-12-31",
+        "Fulano de Tal",
+        "1a. Turma",
+        "ROT",
+      ]);
+    }
+  });
+
+  it("classe por nome com TRT na busca ampla: erro que ensina, nenhuma chamada", async () => {
     const falcao = falcaoFalso();
     const site = siteFalso();
     const { mcp } = await conectar(site.cliente, falcao.cliente);
-    const r = await chamar(mcp, "busca_ampla", { formulacoes: ["horas extras"], tribunais: ["tst", "trt2"], de: "2024-01-01" });
+    const r = await chamar(mcp, "busca_ampla", { formulacoes: ["horas extras"], tribunais: ["tst", "trt2"], classe: "Recurso Ordinário" });
     expect(r.isError).toBe(true);
-    expect(r.texto).toMatch(/ainda não disponível no TRT2/);
+    expect(r.texto).toMatch(/sigla/);
     expect(falcao.pedidos).toHaveLength(0);
     expect(site.chamadas).toHaveLength(0);
   });
