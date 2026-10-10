@@ -279,7 +279,8 @@ export async function buscaAmpla(
   for (const t of tarefas) if (t.resposta) registrar(t, t.resposta, t.guardadaEm);
 
   // Nenhuma busca deu resposta: é erro, nunca lista vazia, que se leria como "os tribunais nunca decidiram a
-  // tese" (ADR-0001). A mensagem de recusa vai junto, com o "espere e tente de novo".
+  // tese" (ADR-0001). A mensagem de recusa vai junto, com o "espere e tente de novo"; a recusa e a pausa originais
+  // vão em `cause`, para a marca de pausa do servidor.
   if (feitas === 0) {
     throw new Error(
       [
@@ -290,6 +291,7 @@ export async function buscaAmpla(
         "Motivo de cada busca:",
         ...tarefas.map((t) => t.motivo ?? `${t.rotulo}: ${motivoDaNaoFeita(t.naoExecutada)}`),
       ].join("\n"),
+      { cause: [recusa, pausaDoFalcao].filter((x) => x !== undefined) },
     );
   }
 

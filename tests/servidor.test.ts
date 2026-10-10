@@ -4,7 +4,7 @@ import { basename, dirname, join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { describe, expect, it, vi } from "vitest";
-import { Cliente, PausaPreventivaError, VERSAO } from "../src/cliente.js";
+import { Cliente, PausaPreventivaError, RecusaError, VERSAO } from "../src/cliente.js";
 import { CoordenacaoEmArquivo } from "../src/coordenacao.js";
 import { criarServidor, type OpcoesServidor } from "../src/servidor.js";
 import { clienteFalso, fixture, respostaJson } from "./apoio.js";
@@ -2597,6 +2597,48 @@ describe("marca de pausa legível por máquina (G-06)", () => {
       esperaSegundos: 90,
     });
     expect(r.content[1].text).toMatch(/^\[PAUSA tipo=ritmo-proprio .*esperaSegundos=90\] Não repita antes de liberadoEm; /);
+  });
+
+  it("busca_ampla em que nenhuma busca respondeu, por recusa ou pausa: a marca vem, com o fim de pausa mais tardio", async () => {
+    const recusa = (ate: number) =>
+      new RecusaError("O site recusou.", 429, { ate, segundos: (ate - AGORA) / 1000, aberturas: 1 });
+    const lancando = (e: Error) =>
+      new (class extends Cliente {
+        override async requisitar(): Promise<Response> {
+          throw e;
+        }
+      })({ nome: "O site", agora: () => AGORA });
+    const ampla = async (site: Cliente, falcao: Cliente) => {
+      const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "marca-"));
+      const mcp = await conectar(site, { dados, agora: () => AGORA, falcao });
+      return (await mcp.callTool({
+        name: "busca_ampla",
+        arguments: { formulacoes: ["termo de exemplo"], tribunais: ["stj", "trt2"] },
+      })) as Resposta;
+    };
+
+    const falcaoMaisTarde = await ampla(
+      lancando(recusa(AGORA + 60_000)),
+      lancando(new PausaPreventivaError("Pausa preventiva.", AGORA + 90_000, 90)),
+    );
+    expect(falcaoMaisTarde.isError).toBe(true);
+    expect(falcaoMaisTarde.content[0].text).toMatch(/^Nenhuma das 2 buscas deu resposta/);
+    expect(falcaoMaisTarde.structuredContent).toEqual({
+      tipoDePausa: "ritmo-proprio",
+      liberadoEm: new Date(AGORA + 90_000).toISOString(),
+      esperaSegundos: 90,
+    });
+
+    const siteMaisTarde = await ampla(
+      lancando(recusa(AGORA + 120_000)),
+      lancando(new PausaPreventivaError("Pausa preventiva.", AGORA + 90_000, 90)),
+    );
+    expect(siteMaisTarde.structuredContent).toEqual({
+      tipoDePausa: "recusa-da-fonte",
+      liberadoEm: new Date(AGORA + 120_000).toISOString(),
+      esperaSegundos: 120,
+    });
+    expect(siteMaisTarde.content[1].text).toMatch(/^\[PAUSA tipo=recusa-da-fonte /);
   });
 
   it("recusa final sem pausa e erro comum: nenhuma marca, nem convite a esperar", async () => {

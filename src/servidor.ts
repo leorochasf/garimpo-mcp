@@ -202,7 +202,12 @@ function comAvisoNaturezaJuridica<T extends object>(dado: T, tribunais: readonly
  * para esperar e retomar. A marca só informa o fim de uma pausa que já existe: nunca convida a repetir antes dele.
  * Com a chamada de prova já recusada, não há o que agendar: a marca diz para não repetir, sem `esperaSegundos`.
  */
-function marcaDePausa(e: unknown) {
+function marcaDePausa(e: unknown): { estruturada: { liberadoEm: string } & Record<string, unknown>; texto: string } | undefined {
+  // Erro que junta outros (busca ampla sem nenhuma resposta): a marca da pausa que acaba por último.
+  if (!(e instanceof RecusaError || e instanceof PausaPreventivaError) && e instanceof Error && e.cause !== undefined) {
+    const marcas = [e.cause].flat().map(marcaDePausa).filter((m) => m !== undefined);
+    return marcas.sort((a, b) => Date.parse(b.estruturada.liberadoEm) - Date.parse(a.estruturada.liberadoEm))[0];
+  }
   if (e instanceof RecusaError && e.pausa && e.pausa.aberturas >= RECUSAS_PARA_INDICIO) {
     const liberadoEm = new Date(e.pausa.ate).toISOString();
     return {
