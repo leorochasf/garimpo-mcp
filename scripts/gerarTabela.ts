@@ -18,7 +18,9 @@ import { fileURLToPath } from "node:url";
 import { Cliente } from "../src/cliente.js";
 import {
   ATRIBUICAO,
+  conferirComAAnterior,
   type LinhaDaTabela,
+  type OpcoesDaTrava,
   type TabelaDePrecedentes,
   type TipoNaTabela,
 } from "../src/tabelaDePrecedentes.js";
@@ -87,14 +89,20 @@ export async function baixarConjunto(cliente: Cliente, agora: () => number = Dat
   return { pagina, temas, processos };
 }
 
-/** Baixa, gera e só então grava (arquivo temporário + troca), para nunca deixar a tabela pela metade. */
+/**
+ * Baixa, gera, compara com a tabela anterior (trava de G-56) e só então grava (arquivo temporário + troca), para nunca
+ * deixar a tabela pela metade. `conferidaEm` só existe aqui: erro de rede ou parada nunca chegam a gravar.
+ */
 export async function gerarEGravar(
   cliente: Cliente,
   destino: string = DESTINO_PADRAO,
   agora: () => number = Date.now,
+  trava: OpcoesDaTrava = {},
 ): Promise<TabelaDePrecedentes> {
   const conjunto = await baixarConjunto(cliente, agora);
-  const tabela = gerarTabela(conjunto, new Date(agora()).toISOString());
+  const momento = new Date(agora()).toISOString();
+  const tabela = { ...gerarTabela(conjunto, momento), conferidaEm: momento };
+  conferirComAAnterior(destino, tabela, trava, (m) => new ParadaDoGerador(`${m} Nada foi gravado; a tabela anterior continua.`));
   const provisorio = `${destino}.gerando`;
   writeFileSync(provisorio, `${JSON.stringify(tabela, null, 1)}\n`);
   renameSync(provisorio, destino);

@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, utimesSync, writeFileSync, copyFileSync, existsSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, utimesSync, writeFileSync, copyFileSync, existsSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -229,5 +229,56 @@ describe("gerador da tabela do STF — pasta de entrada e gravação", () => {
     expect(() => gerarEGravarStf(pasta, destino, () => Date.parse(GERADA))).toThrow(ParadaDoGerador);
     expect(JSON.parse(readFileSync(destino, "utf8")).linhas).toHaveLength(t.linhas.length);
     expect(existsSync(`${destino}.gerando`)).toBe(false);
+  });
+
+  describe("trava contra a tabela anterior (G-56)", () => {
+    const destinoNovo = () => join(mkdtempSync(join(process.env.GARIMPO_DADOS!, "destino-")), "tabela.json");
+    const gravarAnterior = (pasta: string, mexer: (t: ReturnType<typeof gerarTabelaStf>) => void = () => {}) => {
+      const destino = destinoNovo();
+      const t = gerarEGravarStf(pasta, destino, () => Date.parse(GERADA));
+      mexer(t);
+      writeFileSync(destino, JSON.stringify(t));
+      return destino;
+    };
+    const agora = () => Date.parse(GERADA);
+
+    it("tema que sumiu: para e a tabela anterior continua; com revisado, grava e relata", () => {
+      const pasta = pastaDeEntrada();
+      const destino = gravarAnterior(pasta, (t) => t.linhas.push({ tipo: "súmula", numero: 9999 } as never));
+      const antes = readFileSync(destino, "utf8");
+      expect(() => gerarEGravarStf(pasta, destino, agora)).toThrow(/sumiram[\s\S]*súmula 9999/);
+      expect(readFileSync(destino, "utf8")).toBe(antes);
+      const relatorios: string[] = [];
+      gerarEGravarStf(pasta, destino, agora, { revisado: true, aoComparar: (r) => relatorios.push(r) });
+      expect(JSON.parse(readFileSync(destino, "utf8")).linhas.some((l: { numero: number }) => l.numero === 9999)).toBe(false);
+      expect(relatorios[0]).toMatch(/removidas: 1 \(súmula 9999\)/);
+    });
+
+    it("parte que falta na entrada derruba as linhas dela: para", () => {
+      const pasta = pastaDeEntrada();
+      const destino = gravarAnterior(pasta);
+      rmSync(join(pasta, "RepercussaoGeral.xls"));
+      expect(() => gerarEGravarStf(pasta, destino, agora)).toThrow(/sumiram/);
+    });
+
+    it("mudança grande para; com revisado grava; mudança pequena grava e marca conferidaEm", () => {
+      const pasta = pastaDeEntrada();
+      const limiares = { proporcao: 0.25, minimo: 2 };
+      const n = gerarTabelaStf(lerEntrada(pasta), GERADA).linhas.length;
+      const destino = gravarAnterior(pasta, (t) => t.linhas.slice(0, Math.ceil(n * 0.5)).forEach((l) => (l.situacao = "outra")));
+      expect(() => gerarEGravarStf(pasta, destino, agora, { limiares })).toThrow(/mudaram/);
+      gerarEGravarStf(pasta, destino, agora, { limiares, revisado: true });
+      const pequena = gravarAnterior(pasta, (t) => (t.linhas[0].situacao = "outra"));
+      const t = gerarEGravarStf(pasta, pequena, agora, { limiares: { proporcao: 0.25, minimo: 20 } });
+      expect(t.conferidaEm).toBe(GERADA);
+      expect(JSON.parse(readFileSync(pequena, "utf8")).conferidaEm).toBe(GERADA);
+    });
+
+    it("tabela anterior ilegível: para", () => {
+      const destino = destinoNovo();
+      writeFileSync(destino, "tabela anterior");
+      expect(() => gerarEGravarStf(pastaDeEntrada(), destino, agora)).toThrow(/ilegível/);
+      expect(readFileSync(destino, "utf8")).toBe("tabela anterior");
+    });
   });
 });

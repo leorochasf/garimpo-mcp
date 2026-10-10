@@ -43,6 +43,11 @@ export interface TabelaDePrecedentes {
   arquivos: { url: string; coletadoEm: string; sha256: string }[];
   /** Quando a tabela foi gerada (distinta da coleta e da atualização da fonte). */
   geradaEm: string;
+  /**
+   * Quando o gerador terminou uma geração que passou pela trava contra a tabela anterior (nada sumiu, ou o mantenedor
+   * revisou). Opcional: tabelas antigas não o trazem e são lidas como "não informado".
+   */
+  conferidaEm?: string;
   versaoDoGerador: string;
   transformacaoDosTextos: string;
   linhas: LinhaDaTabela[];
@@ -101,7 +106,12 @@ export function sobreATabela(t: TabelaDePrecedentes, agora: number, { curta = fa
     atualizacaoInformadaPelaFonte: t.atualizacaoDaFonte.texto,
     ...(curta
       ? {}
-      : { paginaDaFonte: t.fonte.pagina, tabelaGeradaEm: t.geradaEm, idadeDaTabela: `${dias} dias, ${contada}` }),
+      : {
+          paginaDaFonte: t.fonte.pagina,
+          tabelaGeradaEm: t.geradaEm,
+          tabelaConferidaEm: t.conferidaEm ?? "não informado",
+          idadeDaTabela: `${dias} dias, ${contada}`,
+        }),
     ...(dias > DIAS_PARA_AVISO
       ? {
           avisoDeIdade:
@@ -175,4 +185,115 @@ export function reforcoDaTabela(
   const doTipo = TIPOS_NA_TABELA.find((x) => x === tipo);
   if (!t || tribunal !== "stj" || !doTipo || !numero || !/^\d+$/.test(numero.trim())) return undefined;
   return { data: dataDaTabela(t), linha: acharNaTabela(t, doTipo, Number(numero)) };
+}
+
+// ——— Trava do gerador (G-56): comparação do candidato com a tabela anterior, por identificador ———
+
+/**
+ * Limiares de partida da trava de mudança grande: a ideia vem de outro projeto (MIT), sem teste de quanto muda numa
+ * revisão legítima (revisão em massa de súmulas, por exemplo). Ajuste aqui; a trava só recusa com as duas condições.
+ */
+export const LIMIAR_MUDANCA_PROPORCAO = 0.25;
+export const LIMIAR_MUDANCA_MINIMO = 20;
+
+export interface Limiares {
+  proporcao: number;
+  minimo: number;
+}
+
+/** O que mudou do anterior para o candidato; cada item é "tipo número". */
+export interface Diferencas {
+  anteriores: number;
+  removidas: string[];
+  adicionadas: string[];
+  alteradas: string[];
+}
+
+const idDaLinha = (l: { tipo: string; numero: number }) => `${l.tipo} ${l.numero}`;
+
+/** Compara por identificador (tipo e número); "alterada" é qualquer campo diferente na mesma linha. */
+export function compararLinhas<L extends { tipo: string; numero: number }>(anterior: L[], candidato: L[]): Diferencas {
+  const antes = new Map(anterior.map((l) => [idDaLinha(l), JSON.stringify(l)]));
+  const depois = new Map(candidato.map((l) => [idDaLinha(l), JSON.stringify(l)]));
+  return {
+    anteriores: antes.size,
+    removidas: [...antes.keys()].filter((id) => !depois.has(id)),
+    adicionadas: [...depois.keys()].filter((id) => !antes.has(id)),
+    alteradas: [...depois].filter(([id, json]) => antes.has(id) && antes.get(id) !== json).map(([id]) => id),
+  };
+}
+
+/** Por que a trava recusa gravar, ou undefined se pode gravar. Linha sumida sempre recusa; mudança grande, também. */
+export function motivoDaTrava(d: Diferencas, limiares: Limiares = { proporcao: LIMIAR_MUDANCA_PROPORCAO, minimo: LIMIAR_MUDANCA_MINIMO }): string | undefined {
+  if (d.removidas.length) {
+    return `${d.removidas.length} precedente(s) da tabela anterior sumiram do candidato (coleta possivelmente truncada).`;
+  }
+  const mudadas = d.alteradas.length;
+  if (d.anteriores && mudadas >= limiares.minimo && mudadas / d.anteriores >= limiares.proporcao) {
+    return (
+      `${mudadas} de ${d.anteriores} precedentes mudaram (${Math.round((mudadas / d.anteriores) * 100)}%; trava em ` +
+      `${Math.round(limiares.proporcao * 100)}% e ${limiares.minimo} itens, limiares de partida).`
+    );
+  }
+  return undefined;
+}
+
+/** Relatório de diferenças para a saída do gerador (até 20 identificadores por grupo). */
+export function relatorioDeDiferencas(d: Diferencas): string {
+  const grupo = (nome: string, ids: string[]) =>
+    `${nome}: ${ids.length}${ids.length ? ` (${ids.slice(0, 20).join(", ")}${ids.length > 20 ? ", …" : ""})` : ""}`;
+  return [
+    `Comparação com a tabela anterior (${d.anteriores} linhas):`,
+    grupo("removidas", d.removidas),
+    grupo("alteradas", d.alteradas),
+    grupo("adicionadas", d.adicionadas),
+  ].join("\n");
+}
+
+/** Linhas da tabela já gravada em `destino`; undefined se não há (primeira geração). Arquivo ilegível: erro. */
+export function lerLinhasAnteriores(destino: string): { tipo: string; numero: number }[] | undefined {
+  let texto: string;
+  try {
+    texto = readFileSync(destino, "utf8");
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw e;
+  }
+  const linhas = (JSON.parse(texto) as { linhas?: unknown }).linhas;
+  if (!Array.isArray(linhas)) throw new Error(`${destino} não tem a lista de linhas.`);
+  return linhas;
+}
+
+export interface OpcoesDaTrava {
+  /** O mantenedor revisou o relatório: grava mesmo com linha sumida ou mudança grande. */
+  revisado?: boolean;
+  limiares?: Limiares;
+  /** Recebe o relatório de diferenças (também quando a trava recusa), para a saída do gerador. */
+  aoComparar?: (relatorio: string) => void;
+}
+
+/**
+ * Trava dos geradores: compara o candidato com a tabela já gravada em `destino` e lança `parada(mensagem)` se a trava
+ * recusar (sem `revisado`) ou se a tabela anterior estiver ilegível. Sem tabela anterior, não há o que comparar.
+ */
+export function conferirComAAnterior(
+  destino: string,
+  candidato: { linhas: { tipo: string; numero: number }[] },
+  opcoes: OpcoesDaTrava,
+  parada: (mensagem: string) => Error,
+): void {
+  let anterior: { tipo: string; numero: number }[] | undefined;
+  try {
+    anterior = lerLinhasAnteriores(destino);
+  } catch (e) {
+    throw parada(`A tabela anterior em ${destino} está ilegível (${(e as Error).message}); não dá para comparar.`);
+  }
+  if (!anterior) return;
+  const diferencas = compararLinhas(anterior, candidato.linhas);
+  const relatorio = relatorioDeDiferencas(diferencas);
+  opcoes.aoComparar?.(relatorio);
+  const motivo = motivoDaTrava(diferencas, opcoes.limiares);
+  if (motivo && !opcoes.revisado) {
+    throw parada(`${motivo} Revise o relatório e rode de novo com --revisado.\n${relatorio}`);
+  }
 }

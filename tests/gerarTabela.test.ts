@@ -12,6 +12,7 @@ import {
   URL_TEMAS,
   urlPermitida,
 } from "../scripts/gerarTabela.js";
+import { compararLinhas, motivoDaTrava } from "../src/tabelaDePrecedentes.js";
 import { clienteFalso } from "./apoio.js";
 
 const gravado = (nome: string) => readFileSync(new URL(`./fixtures/stj-precedentes/${nome}`, import.meta.url));
@@ -157,6 +158,7 @@ describe("gerador da tabela de precedentes — rede (fetch falso)", () => {
   it("pede só a página e os dois downloads, com 10 s entre chamadas, e grava a tabela", async () => {
     const { cliente, chamadas, esperas, agora } = comRelogio(respostas());
     const destino = destinoComTabelaAnterior();
+    writeFileSync(destino, JSON.stringify(gerarTabela(conjunto(), "2026-10-01T00:00:00.000Z")));
     const tabela = await gerarEGravar(cliente, destino, agora);
     expect(chamadas.map((c) => c.url)).toEqual([PAGINA_DO_CONJUNTO, URL_TEMAS, URL_PROCESSOS]);
     expect(esperas).toEqual([INTERVALO_MS, INTERVALO_MS]);
@@ -209,5 +211,96 @@ describe("gerador da tabela de precedentes — rede (fetch falso)", () => {
     const destino = destinoComTabelaAnterior();
     await expect(gerarEGravar(cliente, destino)).rejects.toThrow(/processos\.csv: cabeçalho diferente/);
     expect(readFileSync(destino, "utf8")).toBe("tabela anterior");
+  });
+
+  describe("trava contra a tabela anterior (G-56)", () => {
+    /** Tabela anterior gravada no destino, a partir da geração real do trecho, com a troca que o teste pedir. */
+    const anteriorCom = (mexer: (t: ReturnType<typeof gerarTabela>) => void) => {
+      const destino = destinoComTabelaAnterior();
+      const t = gerarTabela(conjunto(), "2026-10-01T00:00:00.000Z");
+      mexer(t);
+      writeFileSync(destino, JSON.stringify(t));
+      return destino;
+    };
+    const rodar = async (destino: string, opcoes?: Parameters<typeof gerarEGravar>[3]) => {
+      const { cliente, agora } = comRelogio(respostas());
+      return gerarEGravar(cliente, destino, agora, opcoes);
+    };
+
+    it("tema que sumiu: para, mostra o relatório e deixa a tabela anterior como estava", async () => {
+      const destino = anteriorCom((t) => t.linhas.push({ tipo: "tema repetitivo", numero: 9999 }));
+      const antes = readFileSync(destino, "utf8");
+      await expect(rodar(destino)).rejects.toThrow(/sumiram[\s\S]*tema repetitivo 9999/);
+      expect(readFileSync(destino, "utf8")).toBe(antes);
+    });
+
+    it("tema que sumiu, com revisado: grava e relata", async () => {
+      const destino = anteriorCom((t) => t.linhas.push({ tipo: "tema repetitivo", numero: 9999 }));
+      const relatorios: string[] = [];
+      const tabela = await rodar(destino, { revisado: true, aoComparar: (r) => relatorios.push(r) });
+      expect(JSON.parse(readFileSync(destino, "utf8")).linhas).toHaveLength(tabela.linhas.length);
+      expect(relatorios[0]).toMatch(/removidas: 1 \(tema repetitivo 9999\)/);
+    });
+
+    it("mudança grande (≥ proporção e ≥ mínimo): para; com revisado, grava", async () => {
+      const mexer = (t: ReturnType<typeof gerarTabela>) => t.linhas.slice(0, 3).forEach((l) => (l.situacao = "outra"));
+      const limiares = { proporcao: 0.25, minimo: 3 };
+      const destino = anteriorCom(mexer);
+      await expect(rodar(destino, { limiares })).rejects.toThrow(/3 de 8 precedentes mudaram/);
+      expect(JSON.parse(readFileSync(destino, "utf8")).linhas[0].situacao).toBe("outra");
+      await rodar(destino, { limiares, revisado: true });
+      expect(JSON.parse(readFileSync(destino, "utf8")).linhas[0].situacao).not.toBe("outra");
+    });
+
+    it("mudança pequena: grava, relata e marca conferidaEm", async () => {
+      const destino = anteriorCom((t) => (t.linhas[0].situacao = "outra"));
+      const relatorios: string[] = [];
+      const tabela = await rodar(destino, { aoComparar: (r) => relatorios.push(r) });
+      expect(relatorios[0]).toMatch(/alteradas: 1 /);
+      expect(tabela.conferidaEm).toBe(tabela.geradaEm);
+      expect(JSON.parse(readFileSync(destino, "utf8")).conferidaEm).toBe(tabela.conferidaEm);
+    });
+
+    it("erro de rede nunca conta como conferência: a tabela anterior segue com o conferidaEm de antes", async () => {
+      const destino = anteriorCom((t) => (t.conferidaEm = "2026-10-01T00:00:00.000Z"));
+      const r = respostas();
+      r[1] = new Response("", { status: 403 });
+      const { cliente } = comRelogio(r);
+      await expect(gerarEGravar(cliente, destino)).rejects.toThrow(ParadaDoGerador);
+      expect(JSON.parse(readFileSync(destino, "utf8")).conferidaEm).toBe("2026-10-01T00:00:00.000Z");
+    });
+
+    it("sem tabela anterior (primeira geração): grava sem comparar", async () => {
+      const destino = join(mkdtempSync(join(process.env.GARIMPO_DADOS!, "garimpo-tabela-")), "nova.json");
+      const tabela = await rodar(destino);
+      expect(JSON.parse(readFileSync(destino, "utf8")).linhas).toHaveLength(tabela.linhas.length);
+    });
+
+    it("tabela anterior ilegível: para em vez de gravar às cegas", async () => {
+      const destino = destinoComTabelaAnterior();
+      await expect(rodar(destino)).rejects.toThrow(/ilegível/);
+      expect(readFileSync(destino, "utf8")).toBe("tabela anterior");
+    });
+  });
+});
+
+describe("trava — comparação e limiares (puros, sintéticos)", () => {
+  const lista = (n: number, mexer = 0) =>
+    Array.from({ length: n }, (_, i) => ({ tipo: "tema repetitivo", numero: i + 1, situacao: i < mexer ? "b" : "a" }));
+
+  it("compara por identificador: removidas, adicionadas e alteradas", () => {
+    const d = compararLinhas(lista(4), [...lista(4, 1).slice(0, 3), { tipo: "IAC", numero: 1 }]);
+    expect(d).toMatchObject({ anteriores: 4, removidas: ["tema repetitivo 4"], adicionadas: ["IAC 1"], alteradas: ["tema repetitivo 1"] });
+  });
+
+  it("25% de 100 (25 itens) para; 24% não; 25% de 40 (10 itens, abaixo de 20) não", () => {
+    expect(motivoDaTrava(compararLinhas(lista(100), lista(100, 25)))).toMatch(/25 de 100/);
+    expect(motivoDaTrava(compararLinhas(lista(100), lista(100, 24)))).toBeUndefined();
+    expect(motivoDaTrava(compararLinhas(lista(40), lista(40, 10)))).toBeUndefined();
+    expect(motivoDaTrava(compararLinhas(lista(80), lista(80, 20)))).toMatch(/20 de 80/);
+  });
+
+  it("linha sumida sempre trava, mesmo sendo uma só", () => {
+    expect(motivoDaTrava(compararLinhas(lista(500), lista(499)))).toMatch(/1 precedente/);
   });
 });

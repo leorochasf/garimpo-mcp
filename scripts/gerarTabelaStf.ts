@@ -38,6 +38,7 @@ import {
   type TipoNoStf,
 } from "../src/tabelaDoStf.js";
 import { ENTIDADES } from "../src/html.js";
+import { conferirComAAnterior, type OpcoesDaTrava } from "../src/tabelaDePrecedentes.js";
 
 export const VERSAO_DO_GERADOR_STF = "1";
 export const DESTINO_PADRAO_STF = fileURLToPath(new URL("../dados/tabela-precedentes-stf.json", import.meta.url));
@@ -85,13 +86,16 @@ export function lerEntrada(pasta: string): EntradaDoStf {
   };
 }
 
-/** Lê, gera e só então grava (arquivo temporário + troca), para nunca deixar a tabela pela metade. */
+/** Lê, gera, compara com a tabela anterior (trava de G-56) e só então grava (temporário + troca), sem deixar a tabela pela metade. */
 export function gerarEGravarStf(
   pasta: string = ENTRADA_PADRAO_STF,
   destino: string = DESTINO_PADRAO_STF,
   agora: () => number = Date.now,
+  trava: OpcoesDaTrava = {},
 ): TabelaDoStf {
-  const tabela = gerarTabelaStf(lerEntrada(pasta), new Date(agora()).toISOString());
+  const momento = new Date(agora()).toISOString();
+  const tabela = { ...gerarTabelaStf(lerEntrada(pasta), momento), conferidaEm: momento };
+  conferirComAAnterior(destino, tabela, trava, (m) => new ParadaDoGerador(m));
   const provisorio = `${destino}.gerando`;
   writeFileSync(provisorio, `${JSON.stringify(tabela, null, 1)}\n`);
   renameSync(provisorio, destino);

@@ -62,6 +62,8 @@ export interface TabelaDoStf {
   /** Partes sem arquivo nesta versão: delas a tabela não tem nenhuma linha. */
   partesAusentes: TipoNoStf[];
   geradaEm: string;
+  /** Quando o gerador terminou uma geração que passou pela trava contra a tabela anterior; tabelas antigas não o trazem. */
+  conferidaEm?: string;
   versaoDoGerador: string;
   transformacaoDosTextos: string;
   linhas: LinhaDoStf[];
@@ -96,7 +98,7 @@ export function sobreATabelaDoStf(t: TabelaDoStf, tipo: TipoNoStf, agora: number
     atribuicao: t.atribuicao,
     fundamento: t.fundamento,
     dataDaObtencao: data,
-    ...(curta ? {} : { paginaDaFonte: t.fonte.paginas[tipo], tabelaGeradaEm: t.geradaEm, idadeDaTabela: `${dias} dias` }),
+    ...(curta ? {} : { paginaDaFonte: t.fonte.paginas[tipo], tabelaGeradaEm: t.geradaEm, tabelaConferidaEm: t.conferidaEm ?? "não informado", idadeDaTabela: `${dias} dias` }),
     ...(dias > DIAS_PARA_AVISO_STF
       ? {
           avisoDeIdade:
