@@ -175,7 +175,7 @@ interface Fonte {
   /** Na ementa: a frase que contém o intervalo. */
   frase?(a: number, b: number): string;
   /** No inteiro teor e no texto integral: a seção do acórdão em que fica o intervalo. */
-  secao?(a: number, b: number): string;
+  secao?(a: number, b: number): string | undefined;
   /** No inteiro teor e no texto integral: a subparte da seção em que fica o intervalo, se identificada. */
   subparte?(a: number, b: number): string | undefined;
   sinal(a: number, b: number, ligados: SinaisDeQuemDisse): string | undefined;
@@ -230,7 +230,7 @@ function conferirNoTextoCorrido(
     frase: (a, b) => fraseEm(texto, a, b),
     ...(marcas
       ? {
-          secao: (a: number, b: number) => nomeDaSecao(secoesEm(marcas.titulos, a, b)),
+          secao: (a: number, b: number) => secaoAfirmada(marcas, a, b),
           subparte: (a: number, b: number) => subparteEm(marcas, a, b),
         }
       : {}),
@@ -359,11 +359,12 @@ function naoEncontrado(fonte: Fonte, citacao: Citacao): ConferenciaFeita {
 function posicao(fonte: Fonte, a: number, b: number, literal: boolean, ligados: SinaisDeQuemDisse): Posicao {
   const sinal = fonte.sinal(a, b, ligados);
   const subparte = fonte.subparte?.(a, b);
+  const secao = fonte.secao?.(a, b);
   return {
     ...fonte.onde(a, b),
     ...(fonte.frase ? { frase: fonte.frase(a, b) } : {}),
     ...(literal ? {} : { textoDaFonte: fonte.texto.slice(a, b) }),
-    ...(fonte.secao ? { secao: fonte.secao(a, b) } : {}),
+    ...(secao ? { secao } : {}),
     ...(subparte ? { subparte } : {}),
     ...(sinal ? { sinalDeOutroAutor: sinal } : {}),
   };
@@ -490,7 +491,7 @@ function fonteDoInteiroTeor(leitura: InteiroTeorParaConferir): FonteDoInteiroTeo
         ...(x.segmento || y.segmento ? { segmento: x === y ? segmento(x) : `${segmento(x)} até ${segmento(y)}` } : {}),
       };
     },
-    secao: (a, b) => nomeDaSecao(secoesEm(titulos, a, b)),
+    secao: (a, b) => secaoAfirmada(marcas, a, b),
     subparte: (a, b) => subparteEm(marcas, a, b),
     sinal: (a, b, ligados) =>
       sinalNoInteiroTeor(texto, a, b, secoesEm(titulos, a, b), ligados, (proclamado ??= proclamacao(texto, titulos))),
@@ -761,6 +762,8 @@ interface TituloDeSecao {
 interface TitulosAchados {
   titulos: TituloDeSecao[];
   transcricoes: number[];
+  /** Intervalos [início, fim) de transcrição aberta e ainda não fechada com segurança: a seção neles é ambígua. */
+  ambiguos: [number, number][];
 }
 
 /** Seções com aviso forte: o texto nelas costuma não ser fundamento do tribunal. Indício, nunca autoria. */
@@ -797,7 +800,7 @@ function ehLinhaDeCorpo(linha: string): boolean {
 }
 
 /** Linha que devolve o texto ao voto depois de uma decisão transcrita: "Retomando…", "Voltando ao caso…" ou fecho de aspas. */
-const RETOMADA_DO_VOTO = /^(?:retomando|voltando\s+ao\s+caso)\b|[”»"][ \t]*$/iu;
+const RETOMADA_DO_VOTO = /^(?:retomando|voltando\s+ao\s+caso|no\s+caso\s+dos\s+autos)\b|[”»"][ \t]*$/iu;
 
 /** Seções que um "EMENTA" ou "ACÓRDÃO" sozinho na linha não fecha: é a transcrição de outra decisão dentro delas. */
 const TRANSCREVEM_DECISOES: Secao[] = ["relatório", "voto vencido"];
@@ -813,9 +816,15 @@ const TRANSCREVEM_DECISOES: Secao[] = ["relatório", "voto vencido"];
 function titulosDeSecao(texto: string, paginaEm: (i: number) => number): TitulosAchados {
   const titulos: TituloDeSecao[] = [];
   const transcricoes: number[] = [];
+  const ambiguos: [number, number][] = [];
+  let transcrevendo = false;
+  let abertaEm = 0;
+  const fecha = (i: number) => {
+    if (transcrevendo) ambiguos.push([abertaEm, i]);
+    transcrevendo = false;
+  };
   let corpoAntes = false;
   let linhaDeAntes = "";
-  let transcrevendo = false;
   for (const m of texto.matchAll(/^[^\n]+$/gm)) {
     const titulo = m[0].trim();
     const linhaAnterior = linhaDeAntes;
@@ -830,7 +839,7 @@ function titulosDeSecao(texto: string, paginaEm: (i: number) => number): Titulos
       continue;
     }
     if (ehLinhaDeCorpo(titulo)) corpoAntes = true;
-    if (RETOMADA_DO_VOTO.test(titulo)) transcrevendo = false;
+    if (RETOMADA_DO_VOTO.test(titulo)) fecha(m.index);
     if (titulo.length > 80) continue;
     const linha = titulo.normalize("NFC").replace(/\s*:$/, "");
     const maiusculas = /^[\p{Lu}\s-]+$/u.test(linha);
@@ -845,15 +854,18 @@ function titulosDeSecao(texto: string, paginaEm: (i: number) => number): Titulos
       // Aberta a transcrição, os títulos seguintes ainda são dela até a retomada do voto.
       if (VOTOS.includes(anterior.secao) && (transcrevendo || ANUNCIA_TRANSCRICAO.test(`${linhaAnterior}
 `))) {
+        if (!transcrevendo) abertaEm = m.index;
         transcrevendo = true;
         transcricoes.push(m.index);
         continue;
       }
     }
-    transcrevendo = false;
+    fecha(m.index);
     titulos.push({ inicio: m.index, secao, titulo, pagina: paginaEm(m.index) });
   }
-  return { titulos, transcricoes };
+  // Transcrição que nunca foi retomada: do começo dela ao fim do documento não há fechamento seguro.
+  fecha(Infinity);
+  return { titulos, transcricoes, ambiguos };
 }
 
 /** As seções por que passa o intervalo [a, b): a do último título antes dele (se houver) e as que se abrem nele. */
@@ -873,6 +885,12 @@ function nomeDaSecao({ identificada, titulos }: Secoes): string {
   return juntarNomes([...(identificada ? [] : ["não identificada"]), ...titulos.map((t) => t.secao)], "um título de seção");
 }
 
+/** A seção em [a, b), ou nada se a passagem toca uma transcrição sem fechamento seguro: ali a seção não se afirma. */
+function secaoAfirmada({ titulos, ambiguos }: MarcasDoJulgado, a: number, b: number): string | undefined {
+  if (ambiguos.some(([x, y]) => a < y && b > x)) return undefined;
+  return nomeDaSecao(secoesEm(titulos, a, b));
+}
+
 function juntarNomes(nomes: string[], atravessa: string): string {
   if (nomes.length === 1) return nomes[0];
   return `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]} (a passagem atravessa ${atravessa})`;
@@ -886,6 +904,8 @@ interface MarcasDoJulgado {
    * não se distingue da decisão transcrita, e a subparte nele é omitida.
    */
   transcricoes: number[];
+  /** Transcrição aberta sem fechamento seguro: a passagem nesses intervalos não tem seção afirmada. */
+  ambiguos: [number, number][];
   /** Títulos da ementa padronizada ("I. Caso em exame"…), onde quer que estejam; só valem dentro da ementa. */
   daEmenta: { inicio: number; nome: string }[];
   /**
@@ -980,12 +1000,13 @@ function marcasDoJulgado(texto: string, paginaEm: (i: number) => number): Marcas
     const nome = titulo ? SUBPARTES_DA_EMENTA[semAcentos(titulo[1]).toLowerCase()] : undefined;
     if (nome) daEmenta.push({ inicio: m.index, nome });
   }
-  const { titulos, transcricoes } = titulosDeSecao(texto, paginaEm);
+  const { titulos, transcricoes, ambiguos } = titulosDeSecao(texto, paginaEm);
   // A linha de título de seção é limite: a letra minúscula do fim dela ("Voto vogal") não continua a frase.
   const fimDeTitulo = new Set(titulos.map((t) => texto.indexOf("\n", t.inicio)));
   return {
     titulos,
     transcricoes,
+    ambiguos,
     daEmenta,
     dispositivos: [...texto.matchAll(DISPOSITIVO)].map((m) => ({
       inicio: m.index,

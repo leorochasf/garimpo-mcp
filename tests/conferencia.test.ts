@@ -765,6 +765,32 @@ describe("conferência de citação — posição no julgado (G-09)", () => {
       expect(posicoes(conferir(pagina)).posicoes).toEqual([{ secao: "acórdão", subparte: undefined }]);
     });
 
+    it("transcrição sem retomada seguida de ACÓRDÃO próprio: o trecho depois não é afirmado como voto", () => {
+      const pagina =
+        `VOTO
+Cito o precedente:
+EMENTA
+A tese do precedente tem diversos fundamentos.
+` +
+        `ACÓRDÃO
+Acordam os julgadores ficticios: ${FRASE}.
+Ante o exposto, nego provimento ao recurso.`;
+      const [{ secao, subparte }] = posicoes(conferir(pagina)).posicoes;
+      expect(secao).not.toBe("voto");
+      expect(subparte).toBeUndefined();
+    });
+
+    it("transcrição fechada por \"No caso dos autos\": o voto volta a ser afirmado", () => {
+      const pagina =
+        `VOTO
+Cito o precedente:
+EMENTA
+A tese do precedente tem diversos fundamentos.
+` +
+        `No caso dos autos, ${FRASE}.`;
+      expect(posicoes(conferir(pagina)).posicoes).toEqual([{ secao: "voto", subparte: undefined }]);
+    });
+
     it("transcrição fechada e dispositivo próprio inequívoco depois dela: continua dispositivo", () => {
       const pagina =
         `VOTO\nTranscrevo a sentenca: “${SENTENCA_LONGA}\nAnte o exposto, julgo procedente o pedido.”\n` +
