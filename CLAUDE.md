@@ -16,11 +16,7 @@ Feito para qualquer pessoa usar.
 
 ## Regras inegociáveis
 
-1. **Código escrito do zero.** Existe um MCP de terceiros sem licença para a mesma API
-   (e eventuais cópias locais dele na máquina). Não copie, não adapte, não abra
-   esse código como base. O conhecimento da API vem de `docs/api-jurisprudenciaia.md`, mapeada de forma independente.
-   Repositórios **com licença** (ex.: juscraper, MIT) podem ser lidos como referência de técnica para outras
-   fontes, sem copiar nem adaptar código, com a licença registrada no documento que os cita.
+1. **Código escrito do zero.** Código de terceiros publicado no GitHub — com ou sem licença, inclusive o MCP de terceiros para a mesma API — pode ser lido como referência de técnica e ideia (decisão do dono em 2026-10-10). Nunca copie nem adapte trechos: repositório sem licença tem todos os direitos reservados e o Garimpo sai em MIT. Descreva a técnica com suas palavras e reescreva do zero, no estilo do Garimpo; registre a licença (ou a ausência dela) no documento que cita o repositório. O que for aprendido sobre a API vai para `docs/api-jurisprudenciaia.md`, conferido de forma independente.
 2. **Nada específico de usuário ou instituição.** Nenhum dado de processo real, nome de pessoa, órgão
    público, caminho de máquina ou fluxo de trabalho de alguém. Exemplos de busca são genéricos.
 3. **Uso responsável é requisito, não opção.** Toda chamada ao site passa pelo cliente único, com freios que
