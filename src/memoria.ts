@@ -61,6 +61,8 @@ export interface BuscaNaMemoria {
   avisos: string[];
   /** Só no Falcão: o total que a fonte informou (10000 = "10.000 ou mais"). */
   totalNaFonte?: number;
+  /** Só no Falcão: as páginas vieram inconsistentes; a repetição guardada mantém o cabeçalho de lista possivelmente incompleta. */
+  possivelmenteIncompleta?: boolean;
 }
 
 /** O texto integral do repositório oficial de um acórdão do Falcão, convertido do HTML. */
@@ -452,6 +454,7 @@ async function lerBusca(arquivo: string) {
       r.tesesDoSite.every((t: unknown) => t === null || typeof t === "string") && { tesesDoSite: r.tesesDoSite }),
     avisos: r.avisos,
     ...(Number.isInteger(r.totalNaFonte) && { totalNaFonte: r.totalNaFonte }),
+    ...(r.possivelmenteIncompleta === true && { possivelmenteIncompleta: true }),
   };
   return { busca, obtidoEm: lido.obtidoEm, bytes: lido.bytes };
 }

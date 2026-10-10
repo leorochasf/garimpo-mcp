@@ -60,9 +60,14 @@ describe("paginação do Falcão: conferências (só detectam e avisam)", () => 
     expect(r.dado.avisos.join(" ")).not.toMatch(/repetido/);
   });
 
-  it("busca inconsistente não é guardada: a repetição pergunta de novo à fonte", async () => {
+  it("busca inconsistente é guardada com os avisos e o cabeçalho de incompleta: a repetição não chama a fonte", async () => {
     const { falcao, mcp } = await buscar((n) => pagina(dez(n), n === 0 ? 120 : 95));
-    await chamar(mcp, "busca_direta", { tribunal: "trt2", texto: "horas extras", limite: 30 });
+    expect(falcao.pedidos).toHaveLength(3);
+    const repetida = await chamar(mcp, "busca_direta", { tribunal: "trt2", texto: "horas extras", limite: 30 });
+    expect(falcao.pedidos).toHaveLength(3);
+    expect(repetida.dado.cabecalhoDeCobertura).toMatch(/Lista possivelmente incompleta/);
+    expect(repetida.dado.avisos.join(" ")).toMatch(/possivelmente incompleta/);
+    await chamar(mcp, "busca_direta", { tribunal: "trt2", texto: "horas extras", limite: 30, renovar: true });
     expect(falcao.pedidos).toHaveLength(6);
   });
 });

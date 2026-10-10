@@ -121,6 +121,9 @@ export function chaveNoFalcao(p: ParametrosBusca): string {
   return createHash("sha256").update(JSON.stringify(chave)).digest("hex");
 }
 
+/** Fim do cabeçalho de cobertura quando as páginas do Falcão vieram inconsistentes. */
+const AVISO_CABECALHO_INCONSISTENTE = " Lista possivelmente incompleta: as páginas do Falcão vieram inconsistentes (ver avisos).";
+
 /** Cabeçalho de cobertura: o total que o Falcão informa, separado de quantos vieram e quantos foram mostrados. */
 export function coberturaNoFalcao(total: number | undefined, recebidos: number, mostrados: number, limite: number): string {
   const informado =
@@ -161,7 +164,9 @@ export async function lerBuscaGuardadaNoFalcao(
         "chamada ao Falcão; para dado novo, repita com renovar",
       tribunal: p.tribunal.toLowerCase(),
       fonte: ROTULO_FALCAO,
-      cabecalhoDeCobertura: coberturaNoFalcao(busca.totalNaFonte, busca.registrosDoSite, busca.acordaos.length, limite),
+      cabecalhoDeCobertura:
+        coberturaNoFalcao(busca.totalNaFonte, busca.registrosDoSite, busca.acordaos.length, limite) +
+        (busca.possivelmenteIncompleta ? AVISO_CABECALHO_INCONSISTENTE : ""),
       acordaos: busca.acordaos.map((a) => a.registro),
       qualificados: [],
       ressalvaQualificados: RESSALVA_FALCAO,
@@ -257,13 +262,14 @@ export async function buscaNoFalcao(
   juntos.sort((a, b) => a.melhorPosicao - b.melhorPosicao);
   memoria?.lembrarTextos(textos);
   if (guardarAcordaos) memoria?.lembrar(juntos);
-  if (completa && consistente) {
+  if (completa) {
     memoria?.guardarBusca(chaveNoFalcao(p), {
       registrosDoSite: recebidos.length,
       acordaos: juntos.map(({ ids, registro }) => ({ ids, registro })),
       qualificados: [],
       avisos: [...avisos],
       ...(total !== undefined && { totalNaFonte: total }),
+      ...(!consistente && { possivelmenteIncompleta: true }),
     });
   }
   const gravacao = memoria?.avisoDeGravacao();
@@ -272,7 +278,7 @@ export async function buscaNoFalcao(
     fonte: ROTULO_FALCAO,
     cabecalhoDeCobertura:
       coberturaNoFalcao(total, recebidos.length, juntos.length, limite) +
-      (consistente ? "" : " Lista possivelmente incompleta: as páginas do Falcão vieram inconsistentes (ver avisos)."),
+      (consistente ? "" : AVISO_CABECALHO_INCONSISTENTE),
     acordaos: juntos.map((a) => a.registro),
     qualificados: [],
     ressalvaQualificados: RESSALVA_FALCAO,
