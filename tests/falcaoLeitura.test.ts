@@ -105,6 +105,22 @@ describe("ler o texto integral de um TRT pelo id", () => {
     });
   }
 
+  for (const [rotulo, ordem] of [["só-ementa primeiro", [true, false]], ["texto real primeiro", [false, true]]] as const) {
+    it(`cópias equivalentes (${rotulo}): o acórdão mostrado é o da cópia com texto integral real e ler_inteiro_teor do id dele devolve o texto`, async () => {
+      const ementaHtml = "<p>INTERVALO INTRAJORNADA. SUPRESSÃO PARCIAL. Texto fictício de ementa.</p>";
+      const copia = (semTexto: boolean, id: string) =>
+        documento({ idDocumentoAcordao: id, textoAcordao: semTexto ? ementaHtml : "<p>Fundamentação fictícia exclusiva da cópia com texto.</p>" });
+      const falcao = falcaoFalso(() => pagina([copia(ordem[0], "70000001"), copia(ordem[1], "70000002")]));
+      const { mcp } = await conectar(siteFalso().cliente, falcao.cliente);
+      const busca = await chamar(mcp, "busca_direta", { tribunal: "trt3", texto: "intervalo intrajornada" });
+      expect(busca.dado.acordaos).toHaveLength(1);
+      const mostrado = busca.dado.acordaos[0];
+      expect(mostrado.id).toBe(ordem[0] ? "trt3:70000002" : "trt3:70000001");
+      expect(mostrado.motivoSemTextoIntegral).toBeUndefined();
+      const lido = await chamar(mcp, "ler_inteiro_teor", { id: mostrado.id });
+      expect(lido.dado.texto).toMatch(/exclusiva da cópia com texto/);
+    });
+  }
   it("texto fora da memória: erro que ensina a refazer a busca, sem prometer o mesmo acórdão; nenhuma chamada", async () => {
     const falcao = falcaoFalso();
     const { mcp } = await conectar(siteFalso().cliente, falcao.cliente);

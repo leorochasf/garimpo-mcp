@@ -227,6 +227,14 @@ export async function buscaNoFalcao(
   const { acordaos: juntos } = juntarEquivalentes(
     acordaos.map((registro, posicao) => ({ registro, formulacoes: new Set<number>(), melhorPosicao: posicao })),
   );
+  // Entre cópias equivalentes, o acórdão mostrado é o que tem texto integral real, não o que só repete a ementa;
+  // a outra cópia segue alcançável pelo próprio id.
+  const porIdDoRegistro = new Map(acordaos.map((registro) => [registro.id, registro]));
+  for (const j of juntos) {
+    if (!j.registro.motivoSemTextoIntegral) continue;
+    const comTexto = j.ids.map((id) => porIdDoRegistro.get(id)).find((r) => r && !r.motivoSemTextoIntegral);
+    if (comTexto) j.registro = comTexto;
+  }
   juntos.sort((a, b) => a.melhorPosicao - b.melhorPosicao);
   memoria?.lembrarTextos(textos);
   if (guardarAcordaos) memoria?.lembrar(juntos);
