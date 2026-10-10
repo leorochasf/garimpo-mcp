@@ -276,7 +276,7 @@ class Ida {
   async lerAviso(limite = LIMITE_AVISO): Promise<void> {
     const r = this.resposta;
     const tipo = r.headers.get("content-type") ?? "";
-    if (!tipo.includes("text") && !tipo.includes("json")) return;
+    if (!tipo.includes("text") && !tipo.includes("json") && !tipo.includes("xhtml")) return;
     if (Number(r.headers.get("content-length")) > limite || !r.body) return;
     const leitor = (this.leitor = r.body.getReader());
     let total = 0;
@@ -297,7 +297,8 @@ class Ida {
   }
 
   private textoLido(): string {
-    return new TextDecoder().decode(Buffer.concat(this.lidos));
+    const bytes = Buffer.concat(this.lidos);
+    return decodificar(bytes, this.resposta.headers.get("content-type") ?? "");
   }
 
   /** O `userMessage` de um corpo JSON curto (recusa do Falcão), já limpo; qualquer outra coisa = undefined. */
@@ -728,6 +729,22 @@ const CARREGADOR_DE_DESAFIO = /src=["'][^"']*\/tspd\//;
  * A página é de desafio ou de bloqueio? Com `soTitulo` (fonte que responde HTML), só o <title> conta; senão, a página
  * inteira, que nessas fontes nunca é conteúdo.
  */
+/**
+ * Texto no conjunto de caracteres que a resposta declara (cabeçalho Content-Type ou, na falta, meta charset / XML
+ * encoding nos primeiros bytes); sem declaração ou com nome desconhecido, UTF-8.
+ */
+function decodificar(bytes: Uint8Array, contentType: string): string {
+  const declarado =
+    /charset\s*=\s*["']?([\w.:-]+)/i.exec(contentType)?.[1] ??
+    /<meta[^>]+charset\s*=\s*["']?([\w.:-]+)/i.exec(Buffer.from(bytes.subarray(0, 1024)).toString("latin1"))?.[1] ??
+    /^<\?xml[^>]+encoding\s*=\s*["']([\w.:-]+)/i.exec(Buffer.from(bytes.subarray(0, 200)).toString("latin1"))?.[1];
+  try {
+    return new TextDecoder(declarado ?? "utf-8").decode(bytes);
+  } catch {
+    return new TextDecoder().decode(bytes);
+  }
+}
+
 function paginaDeBloqueio(html: string, soTitulo: boolean): "desafio" | "bloqueio" | undefined {
   const normal = (t: string) => t.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
   const onde = normal(soTitulo ? (/<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1] ?? "") : html);

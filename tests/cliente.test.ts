@@ -505,6 +505,25 @@ describe("recusa reconhecida pela página da fonte (desafio com HTTP 200) e pelo
     expect(chamadas).toHaveLength(1);
   });
 
+  it("página de desafio em ISO-8859-1 (charset no cabeçalho) numa fonte JSON: recusa, sem acento corrompido", async () => {
+    const { cliente } = clienteFalso([pagina("verificacao-de-seguranca-iso-8859-1.html", "text/html; charset=ISO-8859-1")]);
+    const e = await cliente.requisitar(JSON_URL).catch((x) => x);
+    expect(e).toBeInstanceOf(RecusaError);
+    expect(e.message).toMatch(/verificação anti-robô/);
+  });
+
+  it("página de desafio em ISO-8859-1 declarada só no meta charset: recusa", async () => {
+    const { cliente } = clienteFalso([pagina("verificacao-de-seguranca-iso-8859-1.html", "text/html")]);
+    expect(await cliente.requisitar(JSON_URL).catch((x) => x)).toBeInstanceOf(RecusaError);
+  });
+
+  it("desafio application/xhtml+xml (Just a moment) numa fonte JSON: recusa", async () => {
+    const { cliente } = clienteFalso([pagina("just-a-moment.xhtml", "application/xhtml+xml")]);
+    const e = await cliente.requisitar(JSON_URL).catch((x) => x);
+    expect(e).toBeInstanceOf(RecusaError);
+    expect(e.message).toMatch(/verificação anti-robô/);
+  });
+
   it("página bloqueada e carregador do desafio sem título, numa fonte JSON: recusa, cada uma com sua mensagem", async () => {
     const bloqueada = clienteFalso([pagina("pagina-bloqueada.html")]);
     const e1 = await bloqueada.cliente.requisitar(JSON_URL).catch((x) => x);
