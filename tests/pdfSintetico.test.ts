@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { lerParaConferir } from "../src/leitura.js";
+import { lerInteiroTeor, lerParaConferir, type OpcoesDeLeitura, TETO_DE_PAGINAS } from "../src/leitura.js";
 import {
   FRASES_DE_AUTORIA,
   LINHA_DE_CARIMBO,
@@ -23,37 +23,54 @@ beforeAll(async () => {
 afterAll(() => rm(pasta, { recursive: true, force: true }));
 
 /** Grava o PDF e lê pelo mesmo caminho da conferência: páginas e texto de cada uma. */
-async function ler(pdf: Uint8Array, nome: string) {
+async function ler(pdf: Uint8Array, nome: string, opcoes?: OpcoesDeLeitura) {
   const caminho = join(pasta, `${nome}.pdf`);
   await writeFile(caminho, pdf);
-  const lido = await lerParaConferir(caminho);
+  const lido = await lerParaConferir(caminho, opcoes);
   const textos = lido.unidades.map((u) => u.texto);
-  return { lido, textos, tudo: textos.join("\n") };
+  return { caminho, lido, textos, tudo: textos.join("\n") };
 }
 
+/** O fluxo do PDF como texto: o que a página desenha, antes de a leitura descartar a página quase sem texto. */
+const bruto = (pdf: Uint8Array) => Buffer.from(pdf).toString("latin1");
+
 describe("PDFs sintéticos de acórdão", () => {
-  it("pdfSoCarimbos: uma linha de assinatura por página, ~80 caracteres", async () => {
-    const { lido, textos } = await ler(pdfSoCarimbos(4), "carimbos");
-    expect(lido.totalDePaginas).toBe(4);
-    for (const t of textos) {
-      expect(t).toContain(LINHA_DE_CARIMBO);
-      expect(t.length).toBeLessThan(120);
-    }
+  it("pdfSoCarimbos: uma linha de assinatura por página, ~80 caracteres, que a leitura não conta como texto", async () => {
+    const pdf = pdfSoCarimbos(4);
+    for (let n = 1; n <= 4; n++) expect(bruto(pdf)).toContain(`${LINHA_DE_CARIMBO} - pagina ${n}`);
     expect(LINHA_DE_CARIMBO.length).toBeGreaterThan(70);
+    expect(LINHA_DE_CARIMBO.length).toBeLessThan(120);
+    // Página só com o carimbo é página sem texto extraível (G-10).
+    const { lido, textos } = await ler(pdf, "carimbos");
+    expect(lido.totalDePaginas).toBe(4);
+    expect(textos).toEqual(["", "", "", ""]);
   });
 
-  it("pdfMisto: páginas nativas primeiro, depois só carimbo", async () => {
-    const { lido, textos } = await ler(pdfMisto(3, 2), "misto");
+  it("pdfMisto: páginas nativas primeiro, depois só carimbo (sem texto), com o aviso de leitura em parte", async () => {
+    const pdf = pdfMisto(3, 2);
+    expect(bruto(pdf)).toContain(`${LINHA_DE_CARIMBO} - pagina 5`);
+    const { caminho, lido, textos } = await ler(pdf, "misto");
     expect(lido.totalDePaginas).toBe(5);
     expect(textos.slice(0, 3).every((t) => t.includes("(nativa)") && !t.includes(LINHA_DE_CARIMBO))).toBe(true);
-    expect(textos.slice(3).every((t) => t.includes(LINHA_DE_CARIMBO))).toBe(true);
+    // As páginas de carimbo são páginas sem texto extraível; 2 de 5 passa da fração e o PDF ganha o aviso (G-10).
+    expect(textos.slice(3)).toEqual(["", ""]);
+    const { avisos } = await lerInteiroTeor(caminho);
+    expect(avisos.find((a) => a.startsWith("Leitura em parte"))).toContain("2 de 5 páginas");
   });
 
-  it("pdfMuitasPaginas: milhares de páginas curtas", async () => {
-    const { lido, textos } = await ler(pdfMuitasPaginas(3000), "muitas");
+  it("pdfMuitasPaginas: milhares de páginas curtas; a leitura para no teto de páginas (G-11)", async () => {
+    const pdf = pdfMuitasPaginas(3000);
+    expect(bruto(pdf)).toContain("(Pagina 1 de 3000.)");
+    expect(bruto(pdf)).toContain("(Pagina 3000 de 3000.)");
+    // Relógio parado: só o teto de páginas corta, nunca o de tempo, mesmo em máquina lenta.
+    const { lido, textos } = await ler(pdf, "muitas", { agora: () => 0 });
     expect(lido.totalDePaginas).toBe(3000);
-    expect(textos[0]).toContain("Pagina 1 de 3000");
-    expect(textos[2999]).toContain("Pagina 3000 de 3000");
+    expect(TETO_DE_PAGINAS).toBe(1000);
+    expect(lido.naoLidas).toEqual(Array.from({ length: 2000 }, (_, k) => 1001 + k));
+    // As 1.000 lidas têm uma linha curta cada: abaixo do limiar, são páginas sem texto, não páginas não lidas.
+    expect(lido.unidades.slice(0, 1000).some((u) => u.naoLida)).toBe(false);
+    expect(lido.unidades.slice(1000).every((u) => u.naoLida)).toBe(true);
+    expect(textos.every((t) => t === "")).toBe(true);
   }, 60_000);
 
   it("pdfEmentaPadronizada: os quatro títulos, na ordem", async () => {

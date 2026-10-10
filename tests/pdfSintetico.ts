@@ -99,7 +99,10 @@ export function pdfMisto(nativas: number, carimbos: number): Uint8Array<ArrayBuf
   ]);
 }
 
-/** PDF com `paginas` páginas de uma linha curta cada, barato de gerar (milhares de páginas, G-11). */
+/**
+ * PDF com `paginas` páginas de uma linha curta cada, barato de gerar (milhares de páginas, G-11). A linha fica abaixo
+ * do limiar de leitura: cada página lida é página sem texto.
+ */
 export function pdfMuitasPaginas(paginas: number): Uint8Array<ArrayBuffer> {
   return pdfSintetico(Array.from({ length: paginas }, (_, i) => [`Pagina ${i + 1} de ${paginas}.`]));
 }
@@ -144,6 +147,9 @@ export function pdfComDispositivoECertidao(camaraDoFecho = 3): Uint8Array<ArrayB
   ]);
 }
 
+/** Linha genérica de enchimento: leva a página acima do limiar de leitura, sem título e sem mudar o sentido da passagem. */
+const ENCHIMENTO = "Texto ficticio de enchimento do inteiro teor, em linguagem comum e sem dado real, para a pagina contar como lida.";
+
 /** A passagem de cada sinal de "quem disse" (ticket 08), uma frase marcadora por sinal. */
 export const FRASES_DE_AUTORIA = {
   negada: "Nao se admite a tese de que o negocio generico e nulo por vicio de forma.",
@@ -157,15 +163,16 @@ export const FRASES_DE_AUTORIA = {
 /**
  * PDF com uma passagem para cada sinal de "quem disse": negação ("não …" antes), alegação da parte, ementa transcrita
  * com fecho entre parênteses, voto divergente sem título e "ainda que assim não fosse". Cada frase está em
- * FRASES_DE_AUTORIA, numa página própria, para o teste apontar a que quiser.
+ * FRASES_DE_AUTORIA, numa página própria (com uma linha de enchimento, para a página passar do limiar de leitura),
+ * para o teste apontar a que quiser.
  */
 export function pdfComSinaisDeAutoria(): Uint8Array<ArrayBuffer> {
   return pdfSintetico([
-    ["RELATORIO", FRASES_DE_AUTORIA.negada],
-    ["RELATORIO", FRASES_DE_AUTORIA.alegacaoDaParte],
-    ["FUNDAMENTACAO", FRASES_DE_AUTORIA.ementaTranscrita],
-    [FRASES_DE_AUTORIA.votoDivergente],
-    ["FUNDAMENTACAO", FRASES_DE_AUTORIA.hipotetica],
+    ["RELATORIO", FRASES_DE_AUTORIA.negada, ENCHIMENTO],
+    ["RELATORIO", FRASES_DE_AUTORIA.alegacaoDaParte, ENCHIMENTO],
+    ["FUNDAMENTACAO", FRASES_DE_AUTORIA.ementaTranscrita, ENCHIMENTO],
+    [FRASES_DE_AUTORIA.votoDivergente, ENCHIMENTO],
+    ["FUNDAMENTACAO", FRASES_DE_AUTORIA.hipotetica, ENCHIMENTO],
   ]);
 }
 
