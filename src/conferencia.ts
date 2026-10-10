@@ -548,6 +548,24 @@ function fechoDeEmenta(texto: string, b: number): string | undefined {
   return RELATOR.test(dentro) && DATA.test(dentro) ? dentro.replace(/\s+/g, " ") : undefined;
 }
 
+/** Janela antes da passagem (sem passar do título da seção) onde se procura a fórmula de divergência. */
+const JANELA_DA_DIVERGENCIA = 3000;
+/** Fórmulas com que um julgador abre a divergência; "divergência" sozinha não conta. */
+const DIVERGENCIA = palavra([
+  "divirjo",
+  "dissinto",
+  "ous[oa]\\s+divergir",
+  "v[eê]nia\\s+para\\s+divergir",
+  "(?:inauguro|abro|instauro)\\s+(?:a\\s+)?diverg[eê]ncia",
+  "voto\\s+divergente",
+]);
+/** Proclamação de julgamento unânime; e o que mostra que não foi. */
+const UNANIME = palavra(["(?:por|[àa])\\s+unanimidade"]);
+const NAO_UNANIME = palavra([
+  "por\\s+maioria",
+  "vencid[oa]s?\\s+(?:o|a|os|as)\\s+(?:eminente|relator|relatora|desembargador|desembargadora|ministro|ministra|ju[ií]z|ju[ií]za)",
+]);
+
 /** O texto depois da última pontuação dada, ou o texto todo se não houver nenhuma. */
 function depoisDaUltima(texto: string, pontuacao: RegExp): string {
   const ultimo = [...texto.matchAll(pontuacao)].pop();
@@ -602,6 +620,15 @@ function sinalNoInteiroTeor(
   const fecho = ligados.ementaTranscrita && fechoDeEmenta(texto, b);
   if (fecho) {
     sinais.push(`logo depois da passagem há o fecho "${fecho}", como o de ementa de outro julgado transcrita`);
+  }
+  const inicioDaSecao = secoes.identificada ? secoes.titulos[0].inicio : 0;
+  const divergencia =
+    ligados.divergencia && ultima(texto.slice(Math.max(inicioDaSecao, a - JANELA_DA_DIVERGENCIA), b), DIVERGENCIA);
+  if (divergencia && !(texto.search(UNANIME) >= 0 && texto.search(NAO_UNANIME) < 0)) {
+    sinais.push(
+      `antes da passagem ou nela há a fórmula de divergência "${divergencia}", e o acórdão não se diz unânime: pode ser de ` +
+        "um voto divergente sem título",
+    );
   }
   if (!sinais.length) return undefined;
   return `${fortes.length ? "ATENÇÃO, pode" : "pode"} ser de outro autor: ${sinais.join("; ")}`;

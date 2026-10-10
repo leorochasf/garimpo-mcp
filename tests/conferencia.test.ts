@@ -771,4 +771,42 @@ describe("conferência de citação — sinais de \"quem disse\" (G-08), desliga
     const r = conferirNoInteiroTeor(inteiroTeor([pagina]), citar("O prazo generico e de cinco anos"), so("ementaTranscrita"));
     expect(sinal(r)).toBeUndefined();
   });
+
+  it("divergência ligada: fórmula de divergência antes, em acórdão que não se diz unânime, vira sinal", async () => {
+    const leitura = await lerPdf(pdfComSinaisDeAutoria());
+    const r = conferirNoInteiroTeor(
+      leitura,
+      citar("para negar provimento, por entender valido o negocio generico"),
+      so("divergencia"),
+    );
+    expect(sinal(r)).toMatch(
+      /; antes da passagem ou nela há a fórmula de divergência "Divirjo", e o acórdão não se diz unânime: pode ser de um voto divergente sem título$/,
+    );
+  });
+
+  it("divergência ligada: proclamação por maioria não impede o sinal", () => {
+    const r = conferirNoInteiroTeor(
+      inteiroTeor(["VOTO\nPeco venia para divergir, pois o prazo generico e de cinco anos.\nAcordam, por maioria, em negar provimento."]),
+      citar("o prazo generico e de cinco anos"),
+      so("divergencia"),
+    );
+    expect(sinal(r)).toMatch(/fórmula de divergência "venia para divergir"/);
+  });
+
+  it("divergência ligada: acórdão unânime com a palavra \"divergência\" não vira sinal (só o aviso do relatório)", async () => {
+    const leitura = await lerPdf(pdfUnanimeComDivergencia());
+    const r = conferirNoInteiroTeor(leitura, citar("Ha divergencia na jurisprudencia sobre o tema"), so("divergencia"));
+    expect(sinal(r)).toBe(avisoDoRelatorio(1));
+  });
+
+  it("divergência ligada: fórmula de divergência em acórdão unânime (o relator diverge da sentença) não vira sinal", () => {
+    const r = conferirNoInteiroTeor(
+      inteiroTeor([
+        "VOTO\nDivirjo da sentenca, pois o prazo generico e de cinco anos.\nAcordam os Magistrados, por unanimidade, em dar provimento.",
+      ]),
+      citar("o prazo generico e de cinco anos"),
+      so("divergencia"),
+    );
+    expect(sinal(r)).toBeUndefined();
+  });
 });
