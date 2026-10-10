@@ -59,10 +59,11 @@ de decisão e sem nome de parte.
   bruta. A ferramenta não busca por nome de parte.
 - **Decidido pelo dono em 2026-10-09:** item 1, se o uso cabe em "não comerciais" (3.3) — o Garimpo é open source
   (licença MIT) e sem cobrança; nas palavras do dono: "garimpo é opensource sem cobrança".
-- **Pendências do dono (bloqueiam a publicação, não o código):**
+- **Decidido pelo dono em 2026-10-09:** item 3, dar ciência ao CNJ quando o Garimpo for publicado (3.9) — não dar
+  ciência ao CNJ; nas palavras do dono: "nao avisar".
+- **Pendência do dono (bloqueia a publicação, não o código):**
   2. o alcance de "não distribuir [...] qualquer informação derivada dela" (3.8) para uma ferramenta que mostra o dado
-     ao próprio usuário;
-  3. dar ciência ao CNJ quando o Garimpo for publicado (3.9).
+     ao próprio usuário.
 
 ## DJEN (comunicações processuais do CNJ)
 

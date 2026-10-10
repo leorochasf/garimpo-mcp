@@ -99,10 +99,10 @@ precedentes qualificados das buscas, a situação na fonte do tema ou IAC do STJ
   esperado ou marcação HTML nos textos. Tese firmada e questão submetida são copiadas da fonte (só quebra de linha
   CRLF → LF e espaço das pontas); nada é escrito à mão. Guarda o sha256 de cada arquivo baixado.
 - **O que fica de fora e por quê:** Controvérsia, SIRDR e PUIL do mesmo arquivo (não são o que o art. 927, III, usa);
-  os campos de anotação da fonte; o enunciado das súmulas (a fonte só traz os números); o STF, cuja inclusão depende
-  de decisão do dono (sem licença ou termo do tribunal verificados). A **situação na fonte** é a situação processual
-  como o STJ escreve ("Afetado", "Trânsito em Julgado", "Cancelado"…): nunca vira "vigente" ou "superado" e nunca muda
-  o inciso do art. 927.
+  os campos de anotação da fonte; o enunciado das súmulas (a fonte só traz os números); o STF, cuja inclusão foi
+  aprovada pelo dono em 2026-10-09 e ainda não foi feita (sem licença ou termo do tribunal verificados). A **situação
+  na fonte** é a situação processual como o STJ escreve ("Afetado", "Trânsito em Julgado", "Cancelado"…): nunca vira
+  "vigente" ou "superado" e nunca muda o inciso do art. 927.
 
 `busca_direta`, `busca_ampla`, `obter_ementa`, `ler_inteiro_teor`, `conferir_citacao`, `consultar_precedente` e `listar_tribunais` são declaradas ao cliente como
 ferramentas que só leem (as duas buscas, como ferramentas que consultam serviço externo); `obter_inteiro_teor` não, porque grava

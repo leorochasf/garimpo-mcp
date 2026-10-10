@@ -19,14 +19,21 @@ STF (repercussão geral, súmulas, súmulas vinculantes) e súmulas do STJ ficam
 tribunal (só a Lei 9.610/98, art. 8º, IV, e a proteção de compilação não foi verificada), as súmulas não têm formato
 legível por máquina, e o STF recusa (403) cliente que se identifica como o Garimpo. Incluí-los é decisão do dono.
 
+**Decisão do dono sobre o STF (2026-10-09; o dono aprovou a recomendação do ticket 04 do B8):** (a) as teses de
+repercussão geral entram por exportação manual do mantenedor no navegador, a cada versão; (b) súmulas e súmulas
+vinculantes entram lidas das telas HTML pelo mantenedor; ambas com fundamento declarado no art. 8º, IV, da Lei
+9.610/98. (c) Ler o STF com User-Agent de navegador fica para o bloco do STF (4º da ordem do dono), sem decisão agora.
+A implementação de (a) e (b) é o ticket 06 do B8, que começa pelo que falta verificar. Súmulas do STJ seguem fora.
+
 ## Opções consideradas
 
 - Download no computador do usuário: rejeitado agora; a licença permite redistribuir, e a fotografia cumpre a consulta
   sem rede sem pôr o IP do usuário em jogo. Atualização local fica para ticket próprio, se a defasagem atrapalhar.
-- STF apoiado só no art. 8º, IV: não decidido pelo delegado; vai ao dono.
-- Ler o STF com user-agent de navegador: **pendente do dono**, não decidido pelo delegado. A regra 3 do CLAUDE.md
-  (alterada pelo dono em 2026-10-08) permite contornar bloqueio e trocar o User-Agent, com a meta de máxima cobertura
-  sem ban de IP; se e como isso se aplica ao STF fica no ticket do STF (B8, ticket 04).
+- STF apoiado só no art. 8º, IV: não decidido pelo delegado; foi ao dono, que o aprovou em 2026-10-09 (exportação
+  manual de RG e leitura das telas de súmulas e SV pelo mantenedor; ver acima).
+- Ler o STF com user-agent de navegador: não decidido pelo delegado; o dono, em 2026-10-09, deixou para o bloco do STF
+  (4º da ordem do dono), sem decisão agora. A regra 3 do CLAUDE.md (alterada pelo dono em 2026-10-08) permite
+  contornar bloqueio e trocar o User-Agent, com a meta de máxima cobertura sem ban de IP.
 - Agrupar situações em "vigente / não vigente": rejeitado; seria deduzir vigência.
 - Incluir Controvérsia, SIRDR e PUIL do mesmo CSV: rejeitado agora; não são o que o art. 927, III, usa (Controvérsia
   e SIRDR confundem quem lê; PUIL pode entrar depois sem mudar o formato).
