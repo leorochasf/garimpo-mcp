@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, readFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -113,6 +113,32 @@ describe("busca guardada com as tabelas de precedentes da janela que responde", 
     expect(trocada.tabelaDoStf.dataDaObtencao).toBe("2026-10-10");
 
     expect(chamadas).toHaveLength(1);
+  });
+
+  it("busca guardada no formato anterior (sem as teses do site): não atribui o enquadramento antigo à fotografia nova; busca de novo", async () => {
+    const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "guardada-stf-antiga-"));
+    const { cliente, chamadas } = siteQueConta();
+    const busca = { tribunal: "stf", texto: "exemplo" };
+
+    const antiga = await chamar(await janela(cliente, dados, await tabelaStf("2026-10-09T12:00:00.000Z")), "busca_direta", busca);
+    expect(antiga.qualificados[0].enquadramento927.avisoSituacao).toMatch(/Trânsito em Julgado.*2026-10-09/);
+    await esperarBuscaNoDisco(dados);
+    // Simula o arquivo gravado pela versão anterior: mesmo formato, sem tesesDoSite.
+    const pasta = join(dados, "memoria", "buscas-1");
+    for (const nome of (await readdir(pasta)).filter((n) => n.endsWith(".json"))) {
+      const { tesesDoSite, ...resto } = JSON.parse(await readFile(join(pasta, nome), "utf8"));
+      expect(tesesDoSite).toBeDefined();
+      await writeFile(join(pasta, nome), JSON.stringify(resto));
+    }
+
+    const outra = await tabelaStf("2026-10-10T08:00:00.000Z", "<td>Trânsito em Julgado</td>", "<td>Cancelado</td>");
+    const depois = await chamar(await janela(cliente, dados, outra), "busca_direta", busca);
+    const e = depois.qualificados[0].enquadramento927;
+    expect(e.avisoSituacao).toMatch(/situação na fonte: "Cancelado" \(tabela de precedentes do STF de 2026-10-10\)/);
+    expect(JSON.stringify(e)).not.toMatch(/2026-10-09|Trânsito em Julgado/);
+    expect(depois.tabelaDoStf.dataDaObtencao).toBe("2026-10-10");
+    expect(depois.buscaGuardada).toBeUndefined();
+    expect(chamadas).toHaveLength(2);
   });
 
   it("busca ampla: a busca guardada também recebe a tabela da janela que responde", async () => {

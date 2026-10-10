@@ -158,8 +158,10 @@ export async function lerBuscaGuardada(
   if (ehDoFalcao(p.tribunal)) return lerBuscaGuardadaNoFalcao(memoria, p);
   const { tribunal, chave, cobertura } = pedido(p);
   const guardada = await memoria.obterBusca(chave);
-  if (!guardada) return undefined;
+  // Sem as teses do site (gravada antes delas), o enquadramento não pode ser refeito com as tabelas desta janela: vale como ausente.
+  if (!guardada?.busca.tesesDoSite) return undefined;
   const { busca, obtidoEm } = guardada;
+  const tesesDoSite = busca.tesesDoSite!;
   return {
     obtidoEm,
     resultado: {
@@ -169,13 +171,11 @@ export async function lerBuscaGuardada(
       tribunal,
       cabecalhoDeCobertura: cobertura(busca.registrosDoSite),
       acordaos: busca.acordaos.map((a) => a.registro),
-      // O enquadramento é refeito com as tabelas desta janela, como na busca nova; guardada sem as teses, fica o gravado.
-      qualificados: busca.tesesDoSite
-        ? busca.qualificados.map((q, i) => ({
-            ...q,
-            enquadramento927: enquadrar(tribunal, q.tipo, q.numero, busca.tesesDoSite![i] ?? undefined, tabela, tabelaStf),
-          }))
-        : busca.qualificados,
+      // O enquadramento é refeito com as tabelas desta janela, como na busca nova.
+      qualificados: busca.qualificados.map((q, i) => ({
+        ...q,
+        enquadramento927: enquadrar(tribunal, q.tipo, q.numero, tesesDoSite[i] ?? undefined, tabela, tabelaStf),
+      })),
       ressalvaQualificados: RESSALVA_DIRETA,
       avisos: [...busca.avisos],
     },
