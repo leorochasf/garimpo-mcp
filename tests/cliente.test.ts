@@ -87,8 +87,11 @@ describe("cliente — travas de uso responsável", () => {
 
   describe("corpo sem fim e prazo máximo", () => {
     const codificar = (t: string) => new TextEncoder().encode(t);
-    /** Resolve com "preso" se a promessa não terminar a tempo (sinal nítido em vez de estourar o teste). */
-    const preso = <T>(p: Promise<T>, ms = 300) =>
+    /**
+     * Resolve com "preso" se a promessa não terminar a tempo (sinal nítido em vez de estourar o teste). Folgado: com
+     * a máquina carregada, 300 ms reais podiam vencer o prazo de 30 ms dos casos e com o corpo que chega aos poucos.
+     */
+    const preso = <T>(p: Promise<T>, ms = 5_000) =>
       Promise.race([p, new Promise<"preso">((r) => setTimeout(() => r("preso"), ms))]);
 
     it("sem Content-Length, corpo sem fim: só o começo é inspecionado e os bytes chegam inteiros a quem lê", async () => {
@@ -260,40 +263,53 @@ describe("cliente — travas de uso responsável", () => {
     expect(USER_AGENT).toMatch(/^Garimpo\//);
   });
 
+  /**
+   * Servidor que segura cada chamada até o teste soltar, sem relógio: o teste espera haver 2 presas antes de soltar
+   * uma. Com 50 ms reais por chamada, a máquina carregada demorava mais que isso para dar a 2ª vaga e o pico saía 1.
+   */
+  function servidorQueSegura() {
+    const conta = { ativas: 0, pico: 0 };
+    const presas: (() => void)[] = [];
+    const fetchSegurado = (async () => {
+      conta.ativas++;
+      conta.pico = Math.max(conta.pico, conta.ativas);
+      await new Promise<void>((r) => presas.push(r));
+      conta.ativas--;
+      return respostaJson({});
+    }) as typeof fetch;
+    const tique = () => new Promise((r) => setTimeout(r, 5));
+    /** Solta as chamadas uma a uma, sempre com 2 presas ao mesmo tempo (ou as que faltam). */
+    async function soltarUmaAUma(total: number) {
+      for (let soltas = 0; soltas < total; soltas++) {
+        while (presas.length < Math.min(2, total - soltas)) await tique();
+        presas.shift()!();
+      }
+    }
+    return { conta, fetchSegurado, soltarUmaAUma };
+  }
+
   it("nunca passa de 2 chamadas simultâneas", async () => {
-    let ativas = 0;
-    let pico = 0;
-    const cliente = new Cliente({
-      nome: "O site",
-      fetch: (async () => {
-        ativas++;
-        pico = Math.max(pico, ativas);
-        await new Promise((r) => setTimeout(r, 50));
-        ativas--;
-        return respostaJson({});
-      }) as typeof fetch,
-    });
-    await Promise.all(Array.from({ length: 10 }, () => cliente.requisitar("https://exemplo.test/x").then((r) => r.text())));
-    expect(pico).toBe(2);
+    const { conta, fetchSegurado, soltarUmaAUma } = servidorQueSegura();
+    const cliente = new Cliente({ nome: "O site", fetch: fetchSegurado });
+    const todas = Promise.all(
+      Array.from({ length: 10 }, () => cliente.requisitar("https://exemplo.test/x").then((r) => r.text())),
+    );
+    await soltarUmaAUma(10);
+    await todas;
+    expect(conta.pico).toBe(2);
   });
 
   it("o limite de 2 simultâneas é do processo inteiro: site e tribunais somados", async () => {
-    let ativas = 0;
-    let pico = 0;
-    const fetchContado = (async () => {
-      ativas++;
-      pico = Math.max(pico, ativas);
-      await new Promise((r) => setTimeout(r, 50));
-      ativas--;
-      return respostaJson({});
-    }) as typeof fetch;
-    const site = new Cliente({ nome: "O JurisprudênciaIA", fetch: fetchContado });
-    const stj = new Cliente({ nome: "O STJ", fetch: fetchContado });
-    const tse = new Cliente({ nome: "O TSE", fetch: fetchContado });
-    await Promise.all(
+    const { conta, fetchSegurado, soltarUmaAUma } = servidorQueSegura();
+    const site = new Cliente({ nome: "O JurisprudênciaIA", fetch: fetchSegurado });
+    const stj = new Cliente({ nome: "O STJ", fetch: fetchSegurado });
+    const tse = new Cliente({ nome: "O TSE", fetch: fetchSegurado });
+    const todas = Promise.all(
       [site, stj, tse].flatMap((c) => Array.from({ length: 4 }, () => c.requisitar("https://exemplo.test/x").then((r) => r.text()))),
     );
-    expect(pico).toBe(2);
+    await soltarUmaAUma(12);
+    await todas;
+    expect(conta.pico).toBe(2);
   });
 
   it("depois da recusa final, nenhuma chamada ao serviço sai até a pausa vencer: nem a da fila nem a nova", async () => {
