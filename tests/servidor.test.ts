@@ -2378,15 +2378,29 @@ describe("diagnóstico dos freios", () => {
     expect(resposta.resumo).not.toMatch(/recusa sistemática/);
   });
 
-  it("recusas de mais de 24 h atrás não contam para o indício", async () => {
+  it("recusas de mais de 24 h atrás saem das últimas 24 h, mas o disjuntor com prova recusada mantém o indício", async () => {
+    for (const aberturas of [2, 3]) {
+      const { resposta } = await diagnosticar(
+        estadoCom({ "jurisprudenciaia": pausado(aberturas) }, [
+          { servico: "jurisprudenciaia", em: AGORA - 30 * HORA, tipo: "recusou" },
+          { servico: "jurisprudenciaia", em: AGORA - 25 * HORA, tipo: "recusou-a-prova" },
+        ]),
+      );
+      const [fonte] = resposta.fontes;
+      expect(fonte).toMatchObject({ pausasSeguidas: aberturas, indicioDeRecusaSistematica: true });
+      expect(fonte.explicacao).not.toMatch(/Parece uma rajada|costuma passar/);
+      expect(resposta.ultimas24h).toHaveLength(0);
+    }
+  });
+
+  it("uma pausa só, com a recusa de mais de 24 h atrás: parece rajada, sem indício", async () => {
     const { resposta } = await diagnosticar(
-      estadoCom({ "jurisprudenciaia": pausado(2) }, [
-        { servico: "jurisprudenciaia", em: AGORA - 30 * HORA, tipo: "recusou" },
-        { servico: "jurisprudenciaia", em: AGORA - HORA, tipo: "recusou-a-prova" },
+      estadoCom({ "jurisprudenciaia": pausado(1) }, [
+        { servico: "jurisprudenciaia", em: AGORA - 30 * HORA, tipo: "recusou-a-prova" },
       ]),
     );
     expect(resposta.fontes[0].indicioDeRecusaSistematica).toBeUndefined();
-    expect(resposta.ultimas24h).toHaveLength(1);
+    expect(resposta.fontes[0].explicacao).toMatch(/Parece uma rajada/);
   });
 
   it("pausa preventiva do Falcão: até quando e o restante informado, sem chamar como recusa", async () => {

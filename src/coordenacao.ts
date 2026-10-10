@@ -747,11 +747,10 @@ function fonteDoDisjuntor(
   agora: number,
 ): FonteNoDiagnostico | undefined {
   if (d.pausa) {
-    // Sem linhas da fonte no histórico (estado de versão anterior), o próprio disjuntor basta: 2 aberturas seguidas
-    // só acontecem com a chamada de prova recusada, sem prova aceita no meio.
-    const indicio =
-      indicioDeRecusaSistematica(historico, servico, agora) ||
-      (d.aberturas >= RECUSAS_PARA_INDICIO && !historico.some((o) => o.servico === servico));
+    // O próprio disjuntor basta, mesmo com as recusas fora das últimas 24 h ou sem linhas da fonte no histórico
+    // (estado de versão anterior): 2 aberturas seguidas só acontecem com a chamada de prova recusada, sem prova
+    // aceita no meio.
+    const indicio = indicioDeRecusaSistematica(historico, servico, agora) || d.aberturas >= RECUSAS_PARA_INDICIO;
     const vigente = agora < d.pausa.ate;
     const leitura = indicio
       ? `Indício de recusa sistemática: ao menos ${RECUSAS_PARA_INDICIO} recusas seguidas, uma delas na chamada de ` +
