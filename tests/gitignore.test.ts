@@ -12,8 +12,9 @@ function ignorado(caminho: string): boolean {
 }
 
 describe(".gitignore", () => {
-  it("ignora .codex/ e .overclock-app/", () => {
+  it("ignora .codex/, .grok/ e .overclock-app/", () => {
     expect(ignorado(".codex/hooks.json")).toBe(true);
+    expect(ignorado(".grok/qualquer.json")).toBe(true);
     expect(ignorado(".overclock-app/qualquer.txt")).toBe(true);
     expect(ignorado("entrada-stf/RepercussaoGeral.xls")).toBe(true);
   });
