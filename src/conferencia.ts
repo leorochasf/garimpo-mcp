@@ -616,7 +616,8 @@ const TITULO_DA_EMENTA = /^(?:(?:I{1,3}|IV)\s*[.)\u2013\u2014-]\s*)?([\p{L}\p{M}
 
 /**
  * Fórmula de abertura do dispositivo, no começo da linha ou da frase ("Ante o exposto", "Pelo exposto", "Isto posto",
- * "Com essas considerações"…); no meio da frase ("o autor, ante o exposto na inicial") não conta.
+ * "Com essas considerações"…); no meio da frase ("o autor, ante o exposto na inicial") não conta, nem no começo de uma
+ * linha que continua a frase da anterior (ver CONTINUA_A_FRASE).
  */
 const DISPOSITIVO = new RegExp(
   "(?<=^[ \\t]*|[.!?]\\s+)(?:" +
@@ -631,6 +632,12 @@ const DISPOSITIVO = new RegExp(
   "gimu",
 );
 
+/**
+ * O que, no fim do texto antes da fórmula, mostra que a frase continua (vírgula, ponto e vírgula, letra minúscula,
+ * algarismo ou hífen): a quebra de linha ali é só diagramação, não começo de frase.
+ */
+const CONTINUA_A_FRASE = /[,;\p{Ll}\p{N}-]\s*$/u;
+
 /** Seções de voto: a parte delas antes da fórmula do dispositivo é a fundamentação. */
 const VOTOS: Secao[] = ["voto", "voto-vista", "voto vencido", "voto vogal"];
 
@@ -644,7 +651,9 @@ function marcasDoJulgado(texto: string, paginaEm: (i: number) => number): Marcas
   return {
     titulos: titulosDeSecao(texto, paginaEm),
     daEmenta,
-    dispositivos: [...texto.matchAll(DISPOSITIVO)].map((m) => m.index),
+    dispositivos: [...texto.matchAll(DISPOSITIVO)]
+      .filter((m) => !CONTINUA_A_FRASE.test(texto.slice(Math.max(0, m.index - 80), m.index)))
+      .map((m) => m.index),
   };
 }
 

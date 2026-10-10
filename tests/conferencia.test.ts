@@ -605,6 +605,10 @@ describe("conferência de citação — posição no julgado (G-09)", () => {
   it.each([
     ["título da ementa padronizada fora da ementa (no voto)", `VOTO\nQuestão em discussão\nNo merito, ${FRASE}.`],
     ["\"ante o exposto\" no meio da frase do voto", `VOTO\nO autor, ante o exposto na inicial, pede algo. No merito, ${FRASE}.`],
+    [
+      "\"ante o exposto\" no começo de linha que continua a frase (quebra depois da vírgula)",
+      `VOTO\nO autor,\nante o exposto na inicial, insiste. No merito, ${FRASE}.\nAnte o exposto, nego provimento.`,
+    ],
   ])("%s: não muda a posição (fundamentação do voto)", (_caso, pagina) => {
     const r = conferirNoInteiroTeor(inteiroTeor([pagina]), citar(FRASE));
     expect(posicoes(r).posicoes).toEqual([{ secao: "voto", subparte: "fundamentação" }]);
