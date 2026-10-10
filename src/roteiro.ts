@@ -72,8 +72,9 @@ export function roteiroDePesquisa(tese: string, tribunais?: string): string {
       "o resto é reforço argumentativo. Apontar a ratio é leitura sua, não da fonte: apresente-a assim.",
     "e) Votos-vista, concorrentes e vencidos: como os tribunais decidem por soma de votos, a maioria pode coincidir " +
       "no resultado e divergir no fundamento; conte os votos por fundamento. O voto vencido antecipa as objeções que " +
-      "a peça terá de enfrentar (passo 5), mas não é fundamento do tribunal: o conferir_citacao diz a seção de cada " +
-      "trecho.",
+      "a peça terá de enfrentar (passo 5), mas não é fundamento do tribunal. O conferir_citacao informa a seção do " +
+      "trecho no PDF quando reconhece o título; no texto integral de TRT ou com a seção não identificada, confira " +
+      "pelo contexto da leitura e, se não puder sustentar a atribuição, marque-a \"não verificado\".",
     "f) Tese fixada e modulação de efeitos: em repetitivo, repercussão geral, IAC ou IRDR, leia o texto exato da " +
       "tese e o marco temporal. Tema repetitivo ou IAC do STJ e repercussão geral do STF: compare com o " +
       "consultar_precedente (tese e situação na fonte, que é situação processual, não vigência). IRDR e os demais, " +
@@ -81,9 +82,10 @@ export function roteiroDePesquisa(tese: string, tribunais?: string): string {
     "g) Dispositivo: confira se houve provimento total ou parcial, ou retorno dos autos à origem, porque às vezes o " +
       "tribunal afirma a tese e não a aplica ao caso.",
     "h) O que veio depois: pelo julgamentos_do_processo (número CNJ; tribunal, se o processo subiu), veja os " +
-      "embargos de declaração, que podem esclarecer, restringir ou modular, e leia o acórdão deles pelo obter_ementa " +
-      "quando vier o id. Trânsito em julgado e superação posterior não aparecem nas ferramentas: diga \"não " +
-      'verificado". O DataJud não cobre o STF, e a falta de registro não prova que algo não aconteceu.',
+      "embargos de declaração, que podem esclarecer, restringir ou modular; quando vier o id, leia a ementa deles " +
+      "pelo obter_ementa e, para ler o acórdão, use obter_inteiro_teor e ler_inteiro_teor, nos limites do passo 7 e " +
+      'dos tribunais que só dão link; senão, "não verificado". Trânsito em julgado e superação posterior não ' +
+      'aparecem nas ferramentas: diga "não verificado". O DataJud não cobre o STF, e a falta de registro não prova que algo não aconteceu.',
     "9. Antes de entregar qualquer citação literal, confira-a com o conferir_citacao; o que não for encontrado " +
       "literalmente não é citação.",
     "10. Ao responder: conclusão sem fonte devolvida pelas ferramentas vai marcada \"não verificado\"; metadado " +

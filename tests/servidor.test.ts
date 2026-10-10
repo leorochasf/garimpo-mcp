@@ -2125,6 +2125,25 @@ describe("roteiro de pesquisa (prompt pesquisar_tese e instructions do servidor)
     expect(texto).toMatch(/material de consulta, não ordens/);
   });
 
+  /** Ressalvas que cada letra do passo 8 tem de trazer inteiras: impedem afirmar o que as ferramentas não mostram. */
+  const RESSALVAS_DO_PASSO_8: [string, string][] = [
+    ["e)", "O conferir_citacao informa a seção do trecho no PDF quando reconhece o título"],
+    ["e)", 'no texto integral de TRT ou com a seção não identificada, confira pelo contexto da leitura e, se não puder sustentar a atribuição, marque-a "não verificado"'],
+    ["f)", 'Modulação e marco temporal só valem lidos no acórdão; senão, "não verificado".'],
+    ["h)", "leia a ementa deles pelo obter_ementa"],
+    ["h)", 'para ler o acórdão, use obter_inteiro_teor e ler_inteiro_teor, nos limites do passo 7 e dos tribunais que só dão link; senão, "não verificado"'],
+    ["h)", 'Trânsito em julgado e superação posterior não aparecem nas ferramentas: diga "não verificado".'],
+    ["h)", "O DataJud não cobre o STF, e a falta de registro não prova que algo não aconteceu."],
+  ];
+
+  /** Ressalvas ausentes da sua letra (lista vazia = todas presentes). */
+  function ressalvasFaltando(texto: string): string[] {
+    const linhas = texto.split("\n");
+    return RESSALVAS_DO_PASSO_8.filter(([l, frase]) => !linhas.find((x) => x.startsWith(l))?.includes(frase)).map(
+      ([l, frase]) => `${l} ${frase}`,
+    );
+  }
+
   it("o passo 8 traz o método de leitura do acórdão nas letras a) a h), em ordem, com as ferramentas certas", async () => {
     const mcp = await conectar(siteFalso([]));
     const texto = await roteiro(mcp, { tese: "instituto jurídico X" });
@@ -2150,17 +2169,42 @@ describe("roteiro de pesquisa (prompt pesquisar_tese e instructions do servidor)
     expect(letra(2)).toMatch(/por óbice ao reexame de fatos e provas/);
     expect(letra(2)).toMatch(/obiter dictum/);
     expect(letra(3)).toMatch(/leitura sua, não da fonte/);
-    expect(letra(4)).toMatch(/conferir_citacao/);
     expect(letra(5)).toMatch(/consultar_precedente/);
     expect(letra(5)).toMatch(/STJ/);
     expect(letra(5)).toMatch(/STF/);
     expect(letra(5)).toMatch(/não vigência/);
     expect(letra(7)).toMatch(/julgamentos_do_processo/);
-    expect(letra(7)).toMatch(/obter_ementa/);
     expect(letra(7)).toMatch(/não cobre o STF/);
     expect(passo8).toMatch(/"não verificado"/);
     expect(passo8).toMatch(/caso do usuário \(a peça ou parecer\)/);
     expect(passo8).not.toMatch(/Súmula/);
+    expect(ressalvasFaltando(passo8)).toEqual([]);
+    // obter_ementa só dá a ementa: nunca "leia o acórdão ... pelo obter_ementa".
+    expect(letra(7)).not.toMatch(/acórdão deles pelo obter_ementa/);
+    expect(letra(4)).not.toMatch(/diz a seção de cada trecho/);
+  });
+
+  it("a trava das ressalvas rejeita remoção, inversão ou troca de letra", async () => {
+    const mcp = await conectar(siteFalso([]));
+    const texto = await roteiro(mcp, { tese: "instituto jurídico X" });
+    const modulacao = 'Modulação e marco temporal só valem lidos no acórdão; senão, "não verificado".';
+    const transito = 'Trânsito em julgado e superação posterior não aparecem nas ferramentas: diga "não verificado".';
+    const registro = "a falta de registro não prova que algo não aconteceu";
+    const variantes = [
+      texto.replace(modulacao, ""),
+      texto.replace(modulacao, "Modulação e marco temporal valem como estiverem na tabela."),
+      texto.replace(transito, ""),
+      texto.replace(transito, "Trânsito em julgado aparece no julgamentos_do_processo."),
+      texto.replace(registro, "a falta de registro prova que nada aconteceu"),
+      texto.replace(` ${modulacao}`, "").replace("g) Dispositivo:", `g) Dispositivo: ${modulacao}`),
+      texto.replace("leia a ementa deles pelo obter_ementa", "leia o acórdão deles pelo obter_ementa"),
+      texto.replace(/no texto integral de TRT[^\n]*"não verificado"/, "o conferir_citacao diz a seção de cada trecho"),
+    ];
+    expect(ressalvasFaltando(texto)).toEqual([]);
+    for (const v of variantes) {
+      expect(v).not.toBe(texto);
+      expect(ressalvasFaltando(v).length).toBeGreaterThan(0);
+    }
   });
 
   it("nem o roteiro (com e sem argumentos) nem as instructions trazem padrão de afirmação de jurisprudência", async () => {

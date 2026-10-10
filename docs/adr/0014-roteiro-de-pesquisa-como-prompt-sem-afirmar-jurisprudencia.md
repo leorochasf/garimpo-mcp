@@ -33,3 +33,9 @@ letras a) a h) (certidão, relatório, admissibilidade, ratio, votos, tese e mod
 ligadas às ferramentas que existem, e as `instructions` ganharam uma frase no fim, para quem não abre o prompt. É a
 única mudança no texto aprovado das `instructions`; o teste de igualdade exata foi atualizado junto. O exemplo do dono
 que citava súmula com número virou "por óbice ao reexame de fatos e provas", pela regra deste ADR.
+
+Ajustes de exatidão depois da revisão (2026-10-09), feitos sem o dono e pendentes da conferência dele: corrigem
+promessas sobre ferramentas que vieram da adaptação do agente, não do método do dono. Na letra e, o conferir_citacao
+só informa a seção no PDF quando reconhece o título; no texto integral de TRT ou sem seção identificada, a atribuição
+se confere pelo contexto da leitura, senão "não verificado". Na letra h, o obter_ementa só dá a ementa dos embargos;
+o acórdão deles se lê pelo obter_inteiro_teor e ler_inteiro_teor, nos limites do passo 7, senão "não verificado".
