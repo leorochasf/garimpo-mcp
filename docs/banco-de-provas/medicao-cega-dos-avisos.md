@@ -102,15 +102,18 @@ testa o aviso do órgão. Um item pode ter os dois. O `id` é um código sem sen
   tudo), mas o relatório traz uma linha "Atenção": confirme com os rotuladores que não foi cópia, senão o kappa não vale.
 - `desempate.json` com JSON inválido → o script para com erro claro; só a ausência do arquivo significa "sem desempate".
 - Concordância baixa entre os rotuladores → o aviso está mal definido, não é o programa que está ruim: reescreva a
-  pergunta da tabela acima antes de medir de novo. Corte de kappa: **a decidir pelo dono**.
+  pergunta da tabela acima antes de medir de novo. Corte de kappa: padrão recomendado **0,6**, a confirmar pelo dono.
 - Citação que o programa não acha no PDF → fica fora dos avisos de passagem e é contada à parte no relatório.
 
 ## Decisão que fica para o dono (ticket 10, DQ-23)
 
 Pergunta: **para cada aviso, qual o limiar mínimo para ligar?**
 
-Recomendação já registrada no ticket 10, a confirmar: ligar só o aviso com **acerto quando avisa ≥ 90%** e **falso aviso
-em frase limpa ≤ 5%**, na **validação**; os demais ficam desligados, com a taxa ruim publicada. O alcance também pesa,
+**Estado em 2026-10-10:** o dono respondeu "não sei" a esta pergunta. Não há limiar decidido pelo dono. Vale como **padrão
+recomendado, a confirmar pelo dono**: ligar um aviso só se, na medição cega e dupla, ele **acertar quando avisa ≥ 90%** e
+**avisar à toa em frase limpa ≤ 5%**, com **concordância entre os dois rotuladores kappa ≥ 0,6**, tudo na **validação**.
+Os seis avisos continuam **DESLIGADOS** até a medição existir; ela precisa de dois rotuladores humanos, que ainda não há.
+Os demais ficam desligados, com a taxa ruim publicada. O alcance também pesa,
 mas um aviso de alcance baixo e acerto alto ainda ajuda (avisa pouco, avisa certo): decidir se há piso de alcance.
 
 | Aviso | Acerto quando avisa | Alcance | Falso aviso em frase limpa | Concordância (kappa) | Limiar do dono | Ligar? |
