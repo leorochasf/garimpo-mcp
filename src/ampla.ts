@@ -594,12 +594,12 @@ function ajustarAoTeto<T>(
   const avisosBase = r.avisos;
   const listaBase = r.cabecalhoDeCobertura.listaCortada;
   const mostradosBase = r.cabecalhoDeCobertura.porTribunal.map((l) => l.mostrados);
-  const montar = (tam: number, n: number): ResultadoAmplo => {
+  const montar = (tam: number, n: number, medindo = false): ResultadoAmplo => {
     // O corte pega os n de maior aderência; só então a ordem de apresentação (data) se aplica aos que ficam.
     const porOrdem = ordenar(apresentados.slice(0, n));
     const itens = porOrdem.itens.map((x) => itemDe(x, tam));
     const semData =
-      porOrdem.semData === 0
+      medindo || porOrdem.semData === 0
         ? []
         : [
             porOrdem.semData === 1
@@ -623,18 +623,24 @@ function ajustarAoTeto<T>(
     };
   };
   // Mede o texto final: os campos que o servidor acrescenta (tabelas, aviso de natureza jurídica) contam.
-  const cabe = (x: ResultadoAmplo) => JSON.stringify({ ...x, ...acrescimos?.(x) }).length <= TETO_DA_RESPOSTA;
-  const cheia = montar(tamanho, apresentados.length);
-  if (cabe(cheia)) return cheia;
+  // O corte é decidido uma vez, igual nas duas ordens: mede-se sem o aviso de datas ausentes e reserva-se o espaço
+  // do pior caso dele (todos os acórdãos sem data), que nunca é excedido — assim a ordem não muda quem entra.
+  const reservaDoAviso = JSON.stringify(
+    `Ordem por data: ${apresentados.length} acórdãos sem data foram para o fim da lista.`,
+  ).length + 1;
+  const cabe = (tam: number, n: number) => {
+    const x = montar(tam, n, true);
+    return JSON.stringify({ ...x, ...acrescimos?.(x) }).length + reservaDoAviso <= TETO_DA_RESPOSTA;
+  };
+  if (cabe(tamanho, apresentados.length)) return montar(tamanho, apresentados.length);
   for (const tam of [80, 60, TRECHO_MINIMO].filter((t) => t < tamanho)) {
-    const encurtada = montar(tam, apresentados.length);
-    if (cabe(encurtada)) return encurtada;
+    if (cabe(tam, apresentados.length)) return montar(tam, apresentados.length);
   }
   const tam = Math.min(tamanho, TRECHO_MINIMO);
   let [baixo, alto] = [0, apresentados.length - 1];
   while (baixo < alto) {
     const meio = Math.ceil((baixo + alto) / 2);
-    if (cabe(montar(tam, meio))) baixo = meio;
+    if (cabe(tam, meio)) baixo = meio;
     else alto = meio - 1;
   }
   return montar(tam, baixo);

@@ -548,6 +548,41 @@ describe("erro nunca vira lista vazia (busca ampla)", () => {
     expect(r.acordaos.length).toBeGreaterThan(0);
   });
 
+  // Acórdãos sem data: o aviso de datas ausentes não pode mudar o corte (mesmo conjunto de IDs nas duas ordens).
+  for (const folga of [35, 77, 84, 91]) it(`folga ${folga}: pior caso sem data nos acórdãos: ordem por data e por aderência mostram os mesmos IDs e cabem em 25 mil`, async () => {
+    const link = (i: number) => `https://jurisprudencia.tribunal-exemplo.invalid/consulta/inteiro-teor/documento?id=${String(i).padStart(10, "0")}`;
+    const formulacoes = ["dano moral coletivo", "dano moral difuso", "dano moral transindividual"];
+    // Um site por chamada, como duas chamadas independentes da ferramenta.
+    const novoSite = () => new Cliente({
+      nome: "O site",
+      esperar: async () => {},
+      fetch: (async (url: string, init: RequestInit) => {
+        const tribunal = String(url).match(/tribunais\/(\w+)\/search/)![1];
+        if (tribunal === "tjmg" || tribunal === "tjpr") throw new TypeError("fetch failed");
+        const chave = String(formulacoes.indexOf(JSON.parse(String(init.body)).query));
+        return respostaJson({
+          results: Array.from({ length: 100 }, (_, i) => ({
+            id: `${tribunal}${chave}${String(i).padStart(9, "0")}`,
+            texto_ementa: `EMENTA: APELAÇÃO CÍVEL. EXEMPLO FICTÍCIO ${tribunal}-${i}. ${"Texto fictício de ementa. ".repeat(150)}`,
+            sigla_classe: "ApCiv",
+            numero_processo: `50${String(i).padStart(5, "0")}-${chave}1.2024.8.21.0001`,
+            orgao_julgador: "Décima Segunda Câmara Cível" + "x".repeat(folga),
+            link_pdf: link(i),
+          })),
+        });
+      }) as typeof fetch,
+    });
+    const pedido = { formulacoes, tribunais: ["tjrs", "stj", "tjsp", "tjmg", "tjpr"], maximo: 200 };
+    const padrao = await ampla(novoSite(), pedido);
+    const porData = await ampla(novoSite(), { ...pedido, ordem: "data" });
+
+    expect(padrao.texto.length).toBeLessThanOrEqual(25_000);
+    expect(porData.texto.length).toBeLessThanOrEqual(25_000);
+    const ids = (t: string) => JSON.parse(t).acordaos.map((a: { id: string }) => a.id).sort();
+    expect(ids(porData.texto).length).toBeGreaterThan(0);
+    expect(ids(porData.texto)).toEqual(ids(padrao.texto));
+  });
+
   it("ordem: \"data\" apresenta do julgamento mais antigo ao mais recente; outro valor é recusado", async () => {
     const site = siteQueResponde(() =>
       respostaJson({
