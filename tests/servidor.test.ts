@@ -506,6 +506,48 @@ describe("erro nunca vira lista vazia (busca ampla)", () => {
     return { isError: r.isError, texto: r.content[0].text };
   }
 
+  // Folgas de tamanho de campo diferentes: o corte cai em pontos diferentes; sem o aviso na medida, estas 4 estouram (25.023 a 25.126).
+  for (const folga of [0, 75, 125, 250]) it(`folga ${folga}: 3 formulações × 5 tribunais, 2 com falha, maximo 200: o texto final da ferramenta (com o aviso de natureza jurídica) cabe em 25 mil caracteres e diz o corte`, async () => {
+    const link = (i: number) => `https://jurisprudencia.tribunal-exemplo.invalid/consulta/inteiro-teor/documento?id=${String(i).padStart(10, "0")}`;
+    const formulacoes = ["dano moral coletivo", "dano moral difuso", "dano moral transindividual"];
+    const site = new Cliente({
+      nome: "O site",
+      esperar: async () => {},
+      fetch: (async (url: string, init: RequestInit) => {
+        const tribunal = String(url).match(/tribunais\/(\w+)\/search/)![1];
+        if (tribunal === "tjmg") throw new TypeError("fetch failed");
+        if (tribunal === "tjpr") return new Response("indisponível", { status: 503 });
+        const chave = String(formulacoes.indexOf(JSON.parse(String(init.body)).query));
+        return respostaJson({
+          results: Array.from({ length: 100 }, (_, i) => ({
+            id: `${tribunal}${chave}${String(i).padStart(9, "0")}`,
+            texto_ementa: `EMENTA: APELAÇÃO CÍVEL. EXEMPLO FICTÍCIO ${tribunal}-${i}. ${"Texto fictício de ementa. ".repeat(150)}`,
+            sigla_classe: "ApCiv",
+            numero_processo: `50${String(i).padStart(5, "0")}-${chave}1.2024.8.21.0001`,
+            orgao_julgador: "Décima Segunda Câmara Cível" + "x".repeat(folga),
+            data_julgamento: "2024-01-02T00:00:00.000Z",
+            link_pdf: link(i),
+          })),
+          rg: Array.from({ length: 30 }, (_, i) => ({
+            numero: 1000 + i,
+            tese_firmada: "Tese fictícia de repercussão geral, longa como as reais. ".repeat(80),
+            orgao_julgador: "Tribunal Pleno",
+            numero_processo_paradigma: `RE ${1_000_000 + i}`,
+            link: link(900 + i),
+          })),
+        });
+      }) as typeof fetch,
+    });
+    const { isError, texto } = await ampla(site, { formulacoes, tribunais: ["tjrs", "stj", "tjsp", "tjmg", "tjpr"], maximo: 200 });
+
+    expect(isError).toBeFalsy();
+    expect(texto.length).toBeLessThanOrEqual(25_000);
+    const r = JSON.parse(texto);
+    expect(r.avisoNaturezaJuridica).toMatch(/base não oficial/);
+    expect(r.cabecalhoDeCobertura.listaCortada).toMatch(/25 mil caracteres.*repita com menos tribunais ou formulações/);
+    expect(r.acordaos.length).toBeGreaterThan(0);
+  });
+
   it("ordem: \"data\" apresenta do julgamento mais antigo ao mais recente; outro valor é recusado", async () => {
     const site = siteQueResponde(() =>
       respostaJson({

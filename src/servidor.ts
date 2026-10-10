@@ -8,7 +8,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { Cliente, PausaPreventivaError, RecusaError, VERSAO } from "./cliente.js";
 import { buscaDireta, ementaAparentementeIncompleta } from "./busca.js";
-import { buscaAmpla } from "./ampla.js";
+import { buscaAmpla, type ResultadoAmplo } from "./ampla.js";
 import {
   type CoordenacaoEmArquivo,
   coordenacaoPadrao,
@@ -523,8 +523,10 @@ export function criarServidor(
         conferirDatas(args);
         args.formulacoes = args.formulacoes.map(conferirFormulacao);
         const filtrosLocais = lerFiltrosLocais({ deveConter, naoPodeConter });
-        const r = await buscaAmpla(site, { ...args, ...filtrosLocais }, memoria, { tabela, tabelaStf, falcao });
-        return comAvisoNaturezaJuridica({ ...r, ...comATabela(r.qualificados, { curta: true }) }, args.tribunais);
+        // Tabelas e aviso de natureza jurídica entram na resposta final: a busca mede o teto com eles.
+        const acrescimos = (r: ResultadoAmplo) => ({ ...comATabela(r.qualificados, { curta: true }), avisoNaturezaJuridica: avisoDasFontes(args.tribunais) });
+        const r = await buscaAmpla(site, { ...args, ...filtrosLocais }, memoria, { tabela, tabelaStf, falcao, acrescimos });
+        return json({ ...r, ...acrescimos(r) });
       } catch (e) {
         return erro(e);
       }
