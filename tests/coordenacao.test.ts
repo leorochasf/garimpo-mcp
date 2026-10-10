@@ -28,9 +28,12 @@ afterEach(() => rm(pasta, { recursive: true, force: true }));
 
 const tique = (ms = 30) => new Promise((r) => setTimeout(r, ms));
 const vagasNaPasta = async () => (await readdir(protecao)).filter((n) => /^vaga-\d+\.json$/.test(n)).sort();
-/** A liberação da vaga termina em segundo plano: espera os arquivos de vaga sumirem, por até 5 s. */
+/**
+ * A liberação da vaga termina em segundo plano: espera os arquivos de vaga sumirem. Sem prazo em tempo real (5 s podiam
+ * não bastar com a máquina carregada); vaga que nunca volta estoura o prazo do teste.
+ */
 async function vagasDepoisDaLiberacao() {
-  for (let i = 0; i < 250 && (await vagasNaPasta()).length; i++) await tique(20);
+  while ((await vagasNaPasta()).length) await tique(20);
   return vagasNaPasta();
 }
 
@@ -74,7 +77,9 @@ function clienteNaPasta(
 const donoVivo = () =>
   JSON.stringify({ pid: process.pid, maquina: hostname(), aquisicao: randomUUID(), desde: new Date().toISOString() });
 
-describe("vagas em arquivo", () => {
+// Arquivos reais da coordenação: com outra suíte rodando ao lado, um caso já levou 8 s. O prazo folgado só serve
+// para pegar teste travado; nenhum caso daqui mede tempo real.
+describe("vagas em arquivo", { timeout: 90_000 }, () => {
   it("fim do corpo, cancelamento e PDF lido até o fim encerram a aquisição", async () => {
     const pdf = () => new Response(pdfSintetico([["Texto."]]), { headers: { "content-type": "application/pdf" } });
     const { cliente } = clienteNaPasta([() => respostaJson({ a: 1 }), () => respostaJson({ b: 2 }), pdf]);
@@ -160,7 +165,7 @@ describe("vagas em arquivo", () => {
   });
 });
 
-describe("rede parada", () => {
+describe("rede parada", { timeout: 90_000 }, () => {
   const estado = () => join(protecao, "estado.json");
 
   async function lerPdfLocal() {

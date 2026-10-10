@@ -57,7 +57,9 @@ const erroDe = (p: Promise<Response>) => p.then(
   (e: Error) => e,
 );
 
-describe("disjuntor compartilhado entre janelas", () => {
+// O relógio é falso, mas cada chamada passa pelos arquivos reais da coordenação: com outra suíte rodando ao lado, o
+// teste das 8 provas levou mais de 20 s. O prazo folgado só serve para pegar teste travado.
+describe("disjuntor compartilhado entre janelas", { timeout: 90_000 }, () => {
   it("429 isolado: as outras chamadas, também da outra janela, esperam a única nova tentativa e seguem quando ela é aceita", async () => {
     const relogio = { agora: INICIO };
     let soltarNovaTentativa!: (r: Response) => void;
