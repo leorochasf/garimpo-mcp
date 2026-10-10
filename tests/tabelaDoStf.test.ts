@@ -180,6 +180,34 @@ describe("listas de qualificados do STF com a tabela do STF", () => {
     expect(dado.tabelaDoStf.dataDaObtencao).toBe("2026-10-09");
   });
 
+  it("súmula vinculante na busca_ampla: inciso e a marca da tabela no lugar do aviso do site", async () => {
+    const mcp = await conectar(
+      siteQueResponde({ results: [], sumulas_vinc: [{ id: "1", numero: "2", enunciado: "Enunciado fictício." }] }),
+      await tabelaSintetica(),
+    );
+    const r = (await mcp.callTool({
+      name: "busca_ampla",
+      arguments: { formulacoes: ["exemplo um", "exemplo dois"], tribunais: ["stf"] },
+    })) as { content: { text: string }[] };
+    expect(JSON.parse(r.content[0].text).qualificados[0].enquadramento927).toBe(
+      "art. 927, II; marca na lista do STF em 2026-10-09: cancelada",
+    );
+  });
+
+  it("tese do site igual à da tabela salvo espaço interno: sem aviso de divergência", async () => {
+    const mcp = await conectar(
+      siteQueResponde({
+        results: [],
+        rg: [{ id: "2", numero: "1", tese_firmada: 'Tese fictícia do tema um,  "com aspas" & e comercial. Segunda linha da tese.' }],
+      }),
+      await tabelaSintetica(),
+    );
+    const r = (await mcp.callTool({ name: "busca_direta", arguments: { tribunal: "stf", texto: "exemplo" } })) as {
+      content: { text: string }[];
+    };
+    expect(JSON.parse(r.content[0].text).qualificados[0].enquadramento927.notas).toEqual([]);
+  });
+
   it("tabela do STF vazia: listas como antes, sem o campo da tabela", async () => {
     const vazia = gerarTabelaStf({ paginasDeSumula: [] }, "2026-10-09T13:00:00.000Z");
     const mcp = await conectar(siteQueResponde({ results: [], sumulas_vinc: [{ id: "1", numero: "2" }] }), vazia);

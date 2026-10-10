@@ -162,7 +162,8 @@ function linhasDeRg(a: ArquivoDoMantenedor): LinhaDoStf[] {
     [...m[1].matchAll(/<t([dh])\b[^>]*>([\s\S]*?)<\/t\1>/gi)].map((c) => textoDeHtml(c[2])),
   );
   const [cabecalho, ...corpo] = linhas;
-  const lido = cabecalho?.map(desfazerDuplaCodificacao);
+  const corrigida = CABECALHO_RG.indexOf(COLUNA_CORRIGIDA);
+  const lido = cabecalho?.map((c, i) => (i === corrigida ? desfazerDuplaCodificacao(c) : c));
   if (!lido || lido.join("|") !== CABECALHO_RG.join("|")) {
     throw new ParadaDoGerador(
       `${a.nome}: cabeçalho diferente do esperado. Esperado: ${CABECALHO_RG.join(" | ")}. Veio: ${lido?.join(" | ") ?? "(nenhuma tabela)"}.`,

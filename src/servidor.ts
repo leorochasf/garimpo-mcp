@@ -54,10 +54,10 @@ import {
 } from "./tabelaDePrecedentes.js";
 import {
   consultarPrecedenteStf,
+  dataDaTabelaStf,
   reforcoDoStf,
   sobreATabelaDoStf,
   type TabelaDoStf,
-  type TipoNoStf,
   TIPOS_NO_STF,
 } from "./tabelaDoStf.js";
 
@@ -268,13 +268,15 @@ export function criarServidor(
 
   /** Atribuição e datas da tabela, quando ela reforçou algum tema ou IAC do STJ da lista de qualificados. */
   const comATabela = (qualificados: { tribunal: string; tipo: string; numero?: string }[], { curta = false } = {}) => {
-    const doStf = tabelaStf && qualificados.find((q) => reforcoDoStf(tabelaStf, q.tribunal, q.tipo, q.numero));
+    // Com tipos do STF obtidos em dias diferentes, vale a data mais antiga (a idade nunca sai menor que a real).
+    const doStf = tabelaStf && TIPOS_NO_STF.filter((tipo) => qualificados.some((q) => q.tipo === tipo && reforcoDoStf(tabelaStf, q.tribunal, q.tipo, q.numero)))
+      .sort((a, b) => dataDaTabelaStf(tabelaStf, a).localeCompare(dataDaTabelaStf(tabelaStf, b)))[0];
     return {
       ...(tabela && qualificados.some((q) => reforcoDaTabela(tabela, q.tribunal, q.tipo, q.numero))
         ? { tabelaDePrecedentes: sobreATabela(tabela, (agora ?? Date.now)(), { curta }) }
         : {}),
       ...(tabelaStf && doStf
-        ? { tabelaDoStf: sobreATabelaDoStf(tabelaStf, doStf.tipo as TipoNoStf, (agora ?? Date.now)(), { curta }) }
+        ? { tabelaDoStf: sobreATabelaDoStf(tabelaStf, doStf, (agora ?? Date.now)(), { curta }) }
         : {}),
     };
   };

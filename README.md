@@ -111,10 +111,16 @@ geral, as súmulas e as súmulas vinculantes, para o `consultar_precedente` (tri
 listas nas buscas.
 
 - **Fonte e fundamento:** o STF não publica termo de uso nem licença para esses dados (não encontrados em
-  2026-10-09; a Resolução STF nº 774/2022, do programa Corte Aberta, não trata de licença). A inclusão foi decidida
-  pelo dono em 2026-10-09 com fundamento na Lei 9.610/98, art. 8º, IV ("não são objeto de proteção como direitos
-  autorais ... decisões judiciais e demais atos oficiais"). Toda resposta que usa a tabela traz a atribuição, o
-  fundamento e a data em que os arquivos foram obtidos.
+  2026-10-09). A Resolução STF nº 774/2022, que institui o programa Corte Aberta, não trata de licença nem proíbe
+  reuso; prevê "permitir a livre exportação dos dados brutos ou semiestruturados" (art. 5º, II) — lida em 2026-10-09
+  na cópia que o STJ publica (`stj.jus.br/internet_docs/biblioteca/clippinglegislacao/Res_774_2022_STF.pdf`), porque
+  o site do STF recusou o acesso. A inclusão foi decidida pelo dono em 2026-10-09 com fundamento na Lei 9.610/98,
+  art. 8º, IV ("não são objeto de proteção como direitos autorais ... decisões judiciais e demais atos oficiais").
+  A mesma lei protege compilações que, "por sua seleção, organização ou disposição de seu conteúdo, constituam uma
+  criação intelectual" (art. 7º, XIII), mas essa proteção "não abarca os dados ou materiais em si mesmos" (§ 2º);
+  a tabela guarda os dados, no formato do próprio Garimpo (texto conferido no planalto.gov.br em 2026-10-09; a
+  aplicação ao caso é decisão do dono, não parecer). Toda resposta que usa a tabela traz a atribuição, o fundamento
+  e a data em que os arquivos foram obtidos.
 - **Como é gerada:** o portal do STF recusa (HTTP 403) o Garimpo, que se identifica como ele mesmo, e o Garimpo não
   se passa por navegador ali. Por isso o **mantenedor** obtém os arquivos no próprio navegador, a cada versão, e os
   põe na pasta `entrada-stf/` (fora do git):
@@ -127,7 +133,7 @@ listas nas buscas.
   - `sumulas/*.html` (opcional): a página de cada súmula cujo enunciado deve entrar, aberta pelo link da lista.
 
   Depois roda `npx vite-node scripts/rodarGeradorStf.ts`, que não usa a internet: lê esses arquivos, guarda o sha256
-  e a data de cada um e grava a tabela de uma vez; para, sem trocar a tabela anterior, em cabeçalho diferente do
+  e a data de cada um (a data de modificação do arquivo, que o navegador marca no download: não edite os arquivos) e grava a tabela de uma vez; para, sem trocar a tabela anterior, em cabeçalho diferente do
   esperado, rótulo fora da forma, número repetido ou arquivo sem linhas. O texto sai do HTML por regra fixa; a única
   correção é a acentuação da coluna "Há Repercussão", que o STF exporta duplamente codificada. Arquivo que falta
   deixa aquela parte vazia, e a resposta diz que a tabela não a tem.

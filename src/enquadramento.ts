@@ -141,7 +141,11 @@ function comReforcoDoStf(
   if (reforco?.tribunal !== "stf") return r;
   if (!reforco.linha) return { ...r, curto: `${r.curto}; não consta na tabela do STF de ${reforco.data}` };
   const situacao = situacaoDaTabela(reforco, tipo);
-  return { completo: { ...r.completo, avisoSituacao: situacao.completa }, curto: `${r.curto}; ${situacao.curta}` };
+  // Classificado, a forma curta da regra é o aviso de situação do site, que a tabela substitui; senão, é o motivo.
+  const curto = r.completo.inciso === "não classificado"
+    ? `${r.curto}; ${situacao.curta}`
+    : `art. 927, ${r.completo.inciso}; ${situacao.curta}`;
+  return { completo: { ...r.completo, avisoSituacao: situacao.completa }, curto };
 }
 
 /** Situação na fonte literal, com a data da tabela; nunca traduzida para vigência. */
@@ -185,9 +189,12 @@ function notasDoReforco(q: QualificadoParaEnquadrar, r: ReforcoDaTabela): string
         "precedente, não a vigência",
     );
   }
-  const doSite = textoComparavel(q.tese);
+  // A tese do STF sai do HTML por regra fixa: lá, espaço interno não conta como divergência.
+  const comparavelNaTabela = (t: string | undefined) =>
+    r.tribunal === "stf" ? textoComparavel(t).replace(/\s+/g, " ") : textoComparavel(t);
+  const doSite = comparavelNaTabela(q.tese);
   const daFonte = r.linha.teseFirmada;
-  if (doSite && daFonte && doSite !== textoComparavel(daFonte)) {
+  if (doSite && daFonte && doSite !== comparavelNaTabela(daFonte)) {
     notas.push(
       `a tese informada pelo site difere da tese firmada na ${daTabela(r)}, que é o texto da fonte oficial naquela ` +
         `data (o Garimpo não afirma qual vale hoje): "${daFonte}"`,
