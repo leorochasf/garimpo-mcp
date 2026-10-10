@@ -188,6 +188,8 @@ export async function buscaNoFalcao(
   const brutos: unknown[] = [];
   const avisos: string[] = [];
   let total: number | undefined;
+  let totalDaPagina1: number | undefined;
+  let totalMudou = false;
   let completa = true;
   for (let pagina = 0; pagina * POR_PAGINA < limite; pagina++) {
     let json: unknown;
@@ -202,11 +204,28 @@ export async function buscaNoFalcao(
       break;
     }
     const { documentos, quantidadeTotal } = json as { documentos: unknown[]; quantidadeTotal?: unknown };
-    if (typeof quantidadeTotal === "number" && Number.isFinite(quantidadeTotal)) total = quantidadeTotal;
+    if (typeof quantidadeTotal === "number" && Number.isFinite(quantidadeTotal)) {
+      if (pagina === 0) totalDaPagina1 = quantidadeTotal;
+      else if (totalDaPagina1 !== undefined && quantidadeTotal !== totalDaPagina1 && !totalMudou) {
+        totalMudou = true;
+        avisos.push(
+          `O total do Falcão mudou entre as páginas (${totalDaPagina1} na 1ª, ${quantidadeTotal} na ${pagina + 1}ª): ` +
+            "lista possivelmente incompleta.",
+        );
+      }
+      total = quantidadeTotal;
+    }
     brutos.push(...documentos);
     if (documentos.length < POR_PAGINA) break;
   }
-  const recebidos = brutos.slice(0, limite);
+  const { unicos, repetidos } = tirarRepetidos(brutos);
+  if (repetidos) {
+    avisos.push(
+      `${repetidos} acórdão(s) repetido(s) entre as páginas do Falcão ficaram só uma vez: lista possivelmente incompleta.`,
+    );
+  }
+  const consistente = !totalMudou && !repetidos;
+  const recebidos = unicos.slice(0, limite);
   const { acordaos, textos, descartados, divergencias, integraisIguaisAEmenta } = normalizarDoFalcao(tribunal, recebidos);
   if (descartados) {
     avisos.push(
@@ -238,7 +257,7 @@ export async function buscaNoFalcao(
   juntos.sort((a, b) => a.melhorPosicao - b.melhorPosicao);
   memoria?.lembrarTextos(textos);
   if (guardarAcordaos) memoria?.lembrar(juntos);
-  if (completa) {
+  if (completa && consistente) {
     memoria?.guardarBusca(chaveNoFalcao(p), {
       registrosDoSite: recebidos.length,
       acordaos: juntos.map(({ ids, registro }) => ({ ids, registro })),
@@ -251,12 +270,31 @@ export async function buscaNoFalcao(
   return {
     tribunal,
     fonte: ROTULO_FALCAO,
-    cabecalhoDeCobertura: coberturaNoFalcao(total, recebidos.length, juntos.length, limite),
+    cabecalhoDeCobertura:
+      coberturaNoFalcao(total, recebidos.length, juntos.length, limite) +
+      (consistente ? "" : " Lista possivelmente incompleta: as páginas do Falcão vieram inconsistentes (ver avisos)."),
     acordaos: juntos.map((a) => a.registro),
     qualificados: [],
     ressalvaQualificados: RESSALVA_FALCAO,
     avisos: gravacao ? [...avisos, gravacao] : avisos,
   };
+}
+
+/** Mesmo idDocumentoAcordao duas vezes: fica o primeiro; só conta e avisa, nunca pede de novo. */
+function tirarRepetidos(brutos: unknown[]): { unicos: unknown[]; repetidos: number } {
+  const vistos = new Set<string>();
+  const unicos: unknown[] = [];
+  let repetidos = 0;
+  for (const d of brutos) {
+    const id = texto((d as Bruto | null)?.idDocumentoAcordao);
+    if (id !== undefined && vistos.has(id)) {
+      repetidos++;
+      continue;
+    }
+    if (id !== undefined) vistos.add(id);
+    unicos.push(d);
+  }
+  return { unicos, repetidos };
 }
 
 async function pedirPagina(cliente: Cliente, tribunal: string, p: ParametrosBusca, pagina: number): Promise<unknown> {
