@@ -40,8 +40,9 @@ const CREDENCIAIS = [
   /\bxox[baprs]-[A-Za-z0-9-]{10,}/,
   /\bBearer\s+[A-Za-z0-9._~+/=-]{20,}/,
   /(?:password|senha|token|secret|api[_-]?key)["']?\s*[:=]\s*["'][^"'\s]{8,}["']/i,
-  // Sem aspas (YAML/.env): valor literal longo com algum dígito; referência a variável (${VAR}, $VAR, process.env, <modelo>) não conta.
-  /(?:password|senha|token|secret|api[_-]?key)["']?[ \t]*[:=][ \t]*(?![$<{"'\s]|process\.env)(?=[^\s#]*\d)[^\s#"']{12,}[ \t]*(?:#.*)?$/im,
+  // Sem aspas (YAML/.env): valor literal de 8+ caracteres, com ou sem dígito (mesmo mínimo do caso com aspas);
+  // referência a variável (${VAR}, $VAR, process.env, <modelo>), vazio e booleano/nulo não contam.
+  /(?:password|senha|token|secret|api[_-]?key)["']?[ \t]*[:=][ \t]*(?![$<{"'\s#]|process\.env|(?:true|false|null|none|yes|no)\b)[^\s#"']{8,}[ \t]*(?:#.*)?$/im,
 ];
 
 type Regra = "formato STJ" | "formato CNJ" | "número real conhecido" | "caminho local" | "e-mail" | "credencial";
@@ -79,6 +80,9 @@ describe("achar (casos montados em memória, pedaços concatenados para o arquiv
     ["credencial", 'senha = "' + "x".repeat(10) + '"'],
     ["credencial", "api_key: " + "abc123".repeat(4)],
     ["credencial", "token=" + "Zx9".repeat(6) + "  # comentário"],
+    ["credencial", "password: " + "a".repeat(24)],
+    ["credencial", "senha: " + "Abcdefgh"],
+    ["credencial", "SECRET=" + "x".repeat(8)],
     ["formato CNJ", "processo 3333333-" + "44.2022.8.09.0001"],
   ];
 
@@ -96,6 +100,11 @@ describe("achar (casos montados em memória, pedaços concatenados para o arquiv
       "password: $SENHA_DO_BANCO_1",
       "token: process.env.TOKEN_DA_API_2",
       "senha: <preencha-aqui-12345>",
+      "password: ${" + "SENHA_DO_BANCO}",
+      "token: " + "false",
+      "secret: " + "null  # sem valor",
+      "api_key:",
+      "senha:   # vazia",
       "pasta do projeto: ./dados/inteiro-teor",
     ].join("\n");
     expect(achar(limpo)).toEqual([]);
