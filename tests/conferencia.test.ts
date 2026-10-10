@@ -645,7 +645,7 @@ describe("conferência de citação — posição no julgado (G-09)", () => {
   });
 });
 
-describe("conferência de citação — sinais de \"quem disse\" (G-08), desligados por padrão", () => {
+describe("conferência de citação — sinais de \"quem disse\" (G-08), desligados por padrão e ligados um a um", () => {
   async function lerPdf(bytes: Uint8Array): Promise<InteiroTeorParaConferir> {
     const pasta = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-quem-disse-"));
     const caminho = join(pasta, "acordao-ficticio.pdf");
@@ -714,6 +714,34 @@ describe("conferência de citação — sinais de \"quem disse\" (G-08), desliga
     ],
   ])("negação ligada: \"não\" que nega outra coisa (%s) não vira sinal", (_caso, pagina) => {
     const r = conferirNoInteiroTeor(inteiroTeor([pagina]), citar("o negocio generico e nulo por vicio de forma"), so("negacao"));
+    expect(sinal(r)).toBeUndefined();
+  });
+
+  it("alegação da parte ligada: parte com verbo de alegação antes, na mesma frase, vira sinal", async () => {
+    const leitura = await lerPdf(pdfComSinaisDeAutoria());
+    const r = conferirNoInteiroTeor(leitura, citar("o prazo generico seria decenal"), so("alegacaoDaParte"));
+    expect(sinal(r)).toMatch(
+      /; antes da passagem, na mesma frase, há "O apelante sustenta": pode ser alegação da parte, não fundamento do tribunal$/,
+    );
+  });
+
+  it("alegação da parte ligada: verbo antes da parte (\"Alega a defesa que\") também vira sinal", () => {
+    const r = conferirNoInteiroTeor(
+      inteiroTeor(["VOTO\nAlega a defesa que o prazo generico seria decenal."]),
+      citar("o prazo generico seria decenal"),
+      so("alegacaoDaParte"),
+    );
+    expect(sinal(r)).toBe(
+      'pode ser de outro autor: antes da passagem, na mesma frase, há "Alega a defesa": pode ser alegação da parte, ' +
+        "não fundamento do tribunal",
+    );
+  });
+
+  it.each([
+    ["\"sustenta\" na fundamentação do relator", "VOTO\nO entendimento que este relator sustenta e que o prazo generico seria decenal."],
+    ["alegação em outra frase", "VOTO\nO apelante sustenta a nulidade. Entendo que o prazo generico seria decenal."],
+  ])("alegação da parte ligada: %s não vira sinal", (_caso, pagina) => {
+    const r = conferirNoInteiroTeor(inteiroTeor([pagina]), citar("o prazo generico seria decenal"), so("alegacaoDaParte"));
     expect(sinal(r)).toBeUndefined();
   });
 });

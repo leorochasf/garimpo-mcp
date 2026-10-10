@@ -517,6 +517,18 @@ const JANELA_DA_NEGACAO = 40;
 /** Negações que invertem o que vem logo depois; "nao" para o PDF que perdeu o til. */
 const NEGACAO = palavra(["n[aã]o", "nem", "nunca", "jamais"]);
 
+/** As partes do processo, pelo nome que recebem no acórdão. */
+const PARTES =
+  "(?:o|a|os|as)\\s+(?:parte\\s+)?(?:apelante|apelad[oa]|recorrente|recorrid[oa]|agravante|agravad[oa]|embargante|" +
+  "embargad[oa]|impetrante|impetrad[oa]|autor|autora|r[ée]u|r[ée]|requerente|requerid[oa]|reclamante|reclamad[oa]|" +
+  "exequente|executad[oa]|demandante|demandad[oa]|acusad[oa]|defesa|parte)s?";
+/** Verbos de alegação, em qualquer flexão ("sustenta", "alegou", "aduzem"…). */
+const ALEGA = "(?:sustent|aleg|aduz|argument|afirm|defend|assever|pretend|insist|pugn|postul|argu)\\p{L}*";
+/** Parte e verbo de alegação, em qualquer ordem: "o apelante, em suas razões, sustenta" ou "alega a defesa". */
+const ALEGACAO = palavra([`${PARTES}(?![\\p{L}\\p{N}])[^.!?;]{0,40}?(?<![\\p{L}\\p{N}])${ALEGA}`, `${ALEGA}\\s+${PARTES}`]);
+/** Janela antes da passagem onde se procura a alegação da parte, na mesma frase. */
+const JANELA_DA_ALEGACAO = 200;
+
 /** O texto depois da última pontuação dada, ou o texto todo se não houver nenhuma. */
 function depoisDaUltima(texto: string, pontuacao: RegExp): string {
   const ultimo = [...texto.matchAll(pontuacao)].pop();
@@ -559,6 +571,14 @@ function sinalNoInteiroTeor(
     ligados.negacao && ultima(depoisDaUltima(texto.slice(Math.max(0, a - JANELA_DA_NEGACAO), a), /[.!?;:,]/g), NEGACAO);
   if (negacao) {
     sinais.push(`logo antes da passagem, na mesma oração, há a negação "${negacao}": o sentido pode estar invertido`);
+  }
+  const alegacao =
+    ligados.alegacaoDaParte &&
+    ultima(depoisDaUltima(texto.slice(Math.max(0, a - JANELA_DA_ALEGACAO), a), /[.!?;]/g), ALEGACAO);
+  if (alegacao) {
+    sinais.push(
+      `antes da passagem, na mesma frase, há "${alegacao}": pode ser alegação da parte, não fundamento do tribunal`,
+    );
   }
   if (!sinais.length) return undefined;
   return `${fortes.length ? "ATENÇÃO, pode" : "pode"} ser de outro autor: ${sinais.join("; ")}`;
