@@ -61,19 +61,19 @@ const teses: TeseDoBanco[] = Array.from({ length: 3 }, (_, i) => ({
 
 describe("paradigma: leitura e conferência", () => {
   it("lê classe e número; sem número reconhecível não é paradigma identificado", () => {
-    expect(lerParadigma("REsp 1604412")).toEqual({ texto: "REsp 1604412", sigla: "REsp", numero: "1604412" });
+    expect(lerParadigma("REsp 1234567")).toEqual({ texto: "REsp 1234567", sigla: "REsp", numero: "1234567" });
     expect(lerParadigma("RE 559.937")).toMatchObject({ sigla: "RE", numero: "559937" });
     expect(lerParadigma("sem processo")).toBeUndefined();
     expect(lerParadigma("REsp")).toBeUndefined();
   });
 
   it("confere o número do acórdão do site com pontos, UF e zeros, e a classe quando o site a traz", () => {
-    const p = lerParadigma("REsp 1604412")!;
-    expect(ehOParadigma("REsp 1.604.412/SP", p)).toBe(true);
-    expect(ehOParadigma("1604412", p)).toBe(true);
-    expect(ehOParadigma("AREsp 1604412", p)).toBe(false);
-    expect(ehOParadigma("REsp 1604413", p)).toBe(false);
-    expect(ehOParadigma("0001234-56.2019.8.26.0000", p)).toBe(false);
+    const p = lerParadigma("REsp 1234567")!;
+    expect(ehOParadigma("REsp 1.234.567/SP", p)).toBe(true);
+    expect(ehOParadigma("1234567", p)).toBe(true);
+    expect(ehOParadigma("AREsp 1234567", p)).toBe(false);
+    expect(ehOParadigma("REsp 1234568", p)).toBe(false);
+    expect(ehOParadigma("0000123-45.2019.8.99.0000", p)).toBe(false);
   });
 
   it("dá a posição (1 = primeiro) ou nada", () => {

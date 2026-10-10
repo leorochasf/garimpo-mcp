@@ -101,7 +101,7 @@ export function lerParadigma(texto: string): Paradigma | undefined {
 const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 /**
- * O número do acórdão que o site devolveu ("REsp 1.943.695/TO", "1543951") é o do paradigma? Mesmo número e, quando o
+ * O número do acórdão que o site devolveu ("REsp 1.234.567/TO", "1234567") é o do paradigma? Mesmo número e, quando o
  * site traz a classe, a mesma classe: "AREsp 1234" não é o "REsp 1234".
  */
 export function ehOParadigma(numeroDoAcordao: string, p: Paradigma): boolean {
