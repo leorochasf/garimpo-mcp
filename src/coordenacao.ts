@@ -14,7 +14,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 import { readFileSync, unlinkSync } from "node:fs";
-import { link, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { access, link, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { homedir, hostname } from "node:os";
 import { join } from "node:path";
 import {
@@ -28,7 +28,16 @@ import {
   type Resultado,
   type Saida,
 } from "./disjuntor.js";
-import { anotarRestante, decidirFreio, type Freio, freioValido, type RestanteLido, temFreio } from "./freio.js";
+import {
+  anotarRestante,
+  decidirFreio,
+  type Freio,
+  freioValido,
+  RESERVA_DO_FREIO,
+  type RestanteLido,
+  temFreio,
+} from "./freio.js";
+import { diaEHora } from "./memoria.js";
 
 /** Libera a vaga ocupada (termina quando ela está livre); chamar mais de uma vez não faz nada. */
 export type Liberar = () => Promise<void>;
@@ -321,6 +330,8 @@ export class CoordenacaoEmArquivo implements Coordenacao {
   /** Acorda quem espera vaga neste processo assim que uma vaga daqui é liberada. */
   private avisarLiberacao: () => void = () => {};
   private liberacao = this.novaLiberacao();
+  /** Última vez que esta janela não conseguiu anotar um resultado no estado. */
+  private falhaAoGravar?: { em: number; motivo: string };
 
   constructor(opcoes: OpcoesCoordenacao = {}) {
     this.protecao = join(opcoes.pasta ?? pastaDeDados(), "protecao");
@@ -395,7 +406,7 @@ export class CoordenacaoEmArquivo implements Coordenacao {
   }
 
   async anotar(servico: string, chamada: Chamada, saida: Saida, r: Resultado, agora: () => number) {
-    return this.comTrava(async () => {
+    return this.lembrarFalha(() => this.comTrava(async () => {
       const estado = await this.lerEstado(true);
       const atual = estado.disjuntores[servico];
       const novo = aplicarResultado(atual, chamada, saida, r, agora(), servico);
@@ -410,12 +421,12 @@ export class CoordenacaoEmArquivo implements Coordenacao {
         await this.gravarEstado(estado);
       }
       return novo?.pausa;
-    });
+    }));
   }
 
   async anotarFreio(servico: string, chamada: Chamada, lido: RestanteLido, agora: () => number): Promise<void> {
     if (!temFreio(servico)) return;
-    await this.comTrava(async () => {
+    await this.lembrarFalha(() => this.comTrava(async () => {
       const estado = await this.lerEstado(true);
       const atual = estado.freios?.[servico];
       const novo = anotarRestante(atual, chamada, lido, agora());
@@ -423,7 +434,44 @@ export class CoordenacaoEmArquivo implements Coordenacao {
         estado.freios = { ...estado.freios, [servico]: novo };
         await this.gravarEstado(estado);
       }
-    });
+    }));
+  }
+
+  /**
+   * "Por que parou?" sem chamar ninguém: lê o estado guardado (sem criá-lo) e explica, fonte por fonte, a pausa, o
+   * restante informado e as ocorrências das últimas 24 h. Estado ilegível vira a resposta de rede parada, sem erro.
+   */
+  async diagnosticar(): Promise<DiagnosticoDosFreios> {
+    const agora = this.agora();
+    const avisoDeGravacao = this.falhaAoGravar && avisoDeFalha(this.falhaAoGravar);
+    let estado: Estado | undefined;
+    try {
+      estado = await this.lerEstadoGuardado();
+    } catch (e) {
+      if (!(e instanceof RedeParadaError)) throw e;
+      return { semRede: SEM_REDE, redeParada: true, resumo: e.message, ...(avisoDeGravacao && { avisoDeGravacao }) };
+    }
+    return { ...explicar(estado, agora), ...(avisoDeGravacao && { avisoDeGravacao }) };
+  }
+
+  /** Guarda a última falha ao anotar um resultado (ele não chegou ao estado): o diagnóstico avisa. */
+  private async lembrarFalha<T>(fazer: () => Promise<T>): Promise<T> {
+    try {
+      return await fazer();
+    } catch (e) {
+      this.falhaAoGravar = { em: this.agora(), motivo: (e as Error).message };
+      throw e;
+    }
+  }
+
+  /** O estado como está no disco; ausente = undefined, sem criá-lo. */
+  private async lerEstadoGuardado(): Promise<Estado | undefined> {
+    try {
+      await access(this.estado);
+    } catch (e) {
+      if (codigo(e) === "ENOENT") return undefined;
+    }
+    return this.lerEstado();
   }
 
   private novaLiberacao(): Promise<void> {
@@ -582,6 +630,170 @@ export class CoordenacaoEmArquivo implements Coordenacao {
       throw ehPermissao(e) ? semPermissao(this.estado) : e;
     }
   }
+}
+
+/** A resposta do diagnostico_dos_freios, em linguagem de leigo. */
+export interface DiagnosticoDosFreios {
+  semRede: string;
+  resumo: string;
+  redeParada?: true;
+  fontes?: FonteNoDiagnostico[];
+  ultimas24h?: { servico: string; quando: string; oQueHouve: string; ferramenta?: string }[];
+  avisoDeGravacao?: string;
+}
+
+export interface FonteNoDiagnostico {
+  servico: string;
+  situacao: string;
+  ate?: string;
+  explicacao: string;
+  /** Pausas por recusa seguidas, sem chamada de prova aceita (a dobra da pausa). */
+  pausasSeguidas?: number;
+  indicioDeRecusaSistematica?: true;
+  restanteInformado?: number;
+  reservaDoFreio?: number;
+}
+
+const SEM_REDE =
+  "Esta resposta não chamou nenhuma fonte: só leu o estado de proteção guardado neste computador, comum a todas as " +
+  "janelas do Garimpo.";
+const DIA_MS = 24 * 60 * 60_000;
+
+/**
+ * Limiar do indício de recusa sistemática, do autor de origem e ainda sem ajuste próprio (ticket b15/23): nas últimas
+ * 24 h, depois da última chamada aceita, ao menos 2 recusas finais, uma delas na chamada de prova, que é uma única
+ * chamada depois da pausa (pouco tráfego). Um sucesso no meio desfaz.
+ */
+export const RECUSAS_PARA_INDICIO = 2;
+
+export function indicioDeRecusaSistematica(historico: readonly Ocorrencia[], servico: string, agora: number): boolean {
+  const doServico = historico.filter((o) => o.servico === servico);
+  const depoisDoSucesso = doServico.slice(doServico.map((o) => o.tipo).lastIndexOf("aceitou") + 1);
+  const recusas = depoisDoSucesso
+    .filter((o) => o.em >= agora - DIA_MS && (o.tipo === "recusou" || o.tipo === "recusou-a-prova"));
+  return recusas.length >= RECUSAS_PARA_INDICIO && recusas.some((o) => o.tipo === "recusou-a-prova");
+}
+
+const O_QUE_HOUVE: Record<TipoDeOcorrencia, string> = {
+  "pediu-espera": "pediu para esperar (primeiro 429/503); o Garimpo esperou para fazer uma única nova tentativa",
+  recusou: "recusa final: a fonte foi pausada em todas as janelas",
+  "recusou-a-prova": "recusou a chamada de prova feita depois da pausa: a pausa recomeçou, dobrada",
+  adiou: "pediu para esperar mais que o teto do Garimpo (não é recusa): a fonte ficou adiada",
+  aceitou: "aceitou de novo a chamada: a fonte voltou",
+};
+
+function explicar(estado: Estado | undefined, agora: number): DiagnosticoDosFreios {
+  const historico = estado?.historico ?? [];
+  const recentes = historico.filter((o) => o.em >= agora - DIA_MS);
+  const fontes: FonteNoDiagnostico[] = [];
+  for (const [servico, d] of Object.entries(estado?.disjuntores ?? {})) {
+    const fonte = fonteDoDisjuntor(servico, d, historico, agora);
+    if (fonte) fontes.push(fonte);
+  }
+  for (const [servico, f] of Object.entries(estado?.freios ?? {})) {
+    if (f.pausaAte !== undefined) fontes.push(fonteDoFreio(servico, f, f.pausaAte, agora));
+  }
+  const sistematicas = fontes.filter((f) => f.indicioDeRecusaSistematica).map((f) => f.servico);
+  const recusas = recentes.filter((o) => o.tipo === "recusou" || o.tipo === "recusou-a-prova").length;
+  const resumo =
+    (fontes.length
+      ? `Fontes com chamadas paradas agora: ${fontes.map((f) => f.servico).join(", ")} (detalhes em "fontes").`
+      : "Nenhuma fonte está pausada agora: as chamadas podem sair.") +
+    (sistematicas.length
+      ? ` Indício de recusa sistemática em: ${sistematicas.join(", ")} (esperar provavelmente não resolve).`
+      : "") +
+    (recusas ? ` Recusas finais nas últimas 24 h: ${recusas}.` : "");
+  return {
+    semRede: SEM_REDE,
+    resumo,
+    fontes,
+    ultimas24h: recentes
+      .slice()
+      .reverse()
+      .map((o) => ({
+        servico: o.servico,
+        quando: diaEHora(o.em),
+        oQueHouve: O_QUE_HOUVE[o.tipo],
+        ...(o.ferramenta && { ferramenta: o.ferramenta }),
+      })),
+  };
+}
+
+function fonteDoDisjuntor(
+  servico: string,
+  d: Disjuntor,
+  historico: readonly Ocorrencia[],
+  agora: number,
+): FonteNoDiagnostico | undefined {
+  if (d.pausa) {
+    const indicio = indicioDeRecusaSistematica(historico, servico, agora);
+    const vigente = agora < d.pausa.ate;
+    const leitura = indicio
+      ? `Indício de recusa sistemática: ${RECUSAS_PARA_INDICIO} ou mais recusas nas últimas 24 h, uma delas na chamada ` +
+        "de prova (uma única chamada, depois da pausa), sem nenhuma chamada aceita no meio. Parece que a fonte recusa o " +
+        "programa, não uma rajada sua: esperar a pausa provavelmente não resolve. Não insista; se precisar do " +
+        "conteúdo, consulte a fonte pelo navegador. É indício, não certeza."
+      : "Parece uma rajada: a pausa costuma passar. Insistir antes da hora não adianta, a chamada nem sai.";
+    return {
+      servico,
+      situacao: vigente ? "pausada" : "aguardando a chamada de prova",
+      ...(vigente && { ate: diaEHora(d.pausa.ate) }),
+      explicacao:
+        (vigente
+          ? `Disjuntor aberto por recusa: nenhuma chamada a esta fonte sai, em todas as janelas, até ` +
+            `${diaEHora(d.pausa.ate)}. Depois, uma única chamada de prova confere se ela voltou a aceitar. `
+          : "A pausa venceu: o próximo pedido seu faz a chamada de prova; aceita, as chamadas voltam; recusada, a " +
+            "pausa recomeça dobrada. ") +
+        `${leitura} Aviso da recusa: ${d.pausa.aviso}`,
+      ...(d.aberturas > 0 && { pausasSeguidas: d.aberturas }),
+      ...(indicio && { indicioDeRecusaSistematica: true as const }),
+    };
+  }
+  if (d.adiada && agora < d.adiada.ate) {
+    return {
+      servico,
+      situacao: "adiada pela fonte",
+      ate: diaEHora(d.adiada.ate),
+      explicacao:
+        `Não é recusa: a fonte pediu para esperar até ${diaEHora(d.adiada.ate)}. Depois, a primeira chamada é a ` +
+        "nova tentativa.",
+    };
+  }
+  if (d.espera && agora < d.espera.ate) {
+    return {
+      servico,
+      situacao: "esperando a nova tentativa",
+      ate: diaEHora(d.espera.ate),
+      explicacao:
+        "A fonte pediu para esperar (429/503). Todas as janelas esperam; só a chamada recusada faz a única nova " +
+        "tentativa. Recusada de novo, a fonte é pausada.",
+    };
+  }
+  return undefined;
+}
+
+function fonteDoFreio(servico: string, f: Freio, pausaAte: number, agora: number): FonteNoDiagnostico {
+  const vigente = agora < pausaAte;
+  return {
+    servico,
+    situacao: vigente ? "pausa preventiva" : "aguardando a chamada que confere o limite",
+    ...(vigente && { ate: diaEHora(pausaAte) }),
+    explicacao:
+      "Não é recusa: a própria fonte informa quantos pedidos restam, e o restante chegou à reserva de segurança do " +
+      "Garimpo (passar do limite bloqueia o IP por horas). " +
+      (vigente
+        ? `Nenhuma chamada sai até ${diaEHora(pausaAte)}; depois, a primeira confere o limite antes de liberar as outras.`
+        : "A pausa venceu: o próximo pedido seu faz uma única chamada, que confere o limite antes de liberar as outras."),
+    ...(f.restante !== undefined && { restanteInformado: f.restante }),
+    reservaDoFreio: RESERVA_DO_FREIO,
+  };
+}
+
+function avisoDeFalha(f: { em: number; motivo: string }): string {
+  return (
+    `Em ${diaEHora(f.em)}, esta janela não conseguiu gravar no estado de proteção o resultado de uma chamada (por ` +
+    `exemplo, uma recusa): as outras janelas podem não saber dessa recusa nem da pausa. Motivo: ${f.motivo}`
+  );
 }
 
 /** A ordem do freio na linguagem do cliente; "sai" mantém a ordem do disjuntor. */

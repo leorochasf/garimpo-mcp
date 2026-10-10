@@ -1,10 +1,11 @@
 import { createHash } from "node:crypto";
-import { mkdtemp, readdir, readFile, rm, truncate, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rm, truncate, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { describe, expect, it, vi } from "vitest";
 import { Cliente, VERSAO } from "../src/cliente.js";
+import { CoordenacaoEmArquivo } from "../src/coordenacao.js";
 import { criarServidor, type OpcoesServidor } from "../src/servidor.js";
 import { clienteFalso, fixture, respostaJson } from "./apoio.js";
 import { pdfSintetico, type TextoPosicionado } from "./pdfSintetico.js";
@@ -75,9 +76,10 @@ describe("servidor MCP", () => {
       ["consultar_precedente", true, true],
       ["julgamentos_do_processo", true, true],
       ["listar_tribunais", true, false],
+      ["diagnostico_dos_freios", true, false],
     ] as const;
     // idempotentHint: só as de leitura que não gravam nada; obter/ler_inteiro_teor gravam recibo/arquivo e ficam sem a marca.
-    const idempotente = new Set(["busca_direta", "busca_ampla", "obter_ementa", "conferir_citacao", "consultar_precedente", "julgamentos_do_processo", "listar_tribunais"]);
+    const idempotente = new Set(["busca_direta", "busca_ampla", "obter_ementa", "conferir_citacao", "consultar_precedente", "julgamentos_do_processo", "listar_tribunais", "diagnostico_dos_freios"]);
 
     for (let i = 0; i < 2; i++) {
       const mcp = await conectar(siteFalso([]));
@@ -2297,5 +2299,137 @@ describe("aviso de acórdão recorrido no obter_ementa (pela porta)", () => {
     expect(embargos.avisoRecorrido).toMatch(/portal do TJTO/);
     expect(embargos.avisoRecorrido).not.toMatch(/não existe|não está na base/);
     expect(await ementa("tjto:2")).not.toHaveProperty("avisoRecorrido");
+  });
+});
+
+describe("diagnóstico dos freios", () => {
+  const HORA = 3_600_000;
+  const AGORA = Date.UTC(2026, 9, 10, 15);
+
+  /** Site e tribunais que reprovam o teste se chamados: o diagnóstico só lê o estado guardado. */
+  const semRede = (async () => {
+    throw new Error("o diagnóstico chamou a rede");
+  }) as typeof fetch;
+
+  async function diagnosticar(estado?: string) {
+    const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "diagnostico-"));
+    if (estado !== undefined) {
+      await mkdir(join(dados, "protecao"), { recursive: true });
+      await writeFile(join(dados, "protecao", "estado.json"), estado);
+    }
+    const site = new Cliente({ nome: "O site", esperar: async () => {}, fetch: semRede });
+    const mcp = await conectar(site, {
+      dados,
+      agora: () => AGORA,
+      coordenacao: new CoordenacaoEmArquivo({ pasta: dados, agora: () => AGORA }),
+    });
+    const r = (await mcp.callTool({ name: "diagnostico_dos_freios", arguments: {} })) as {
+      content: { text: string }[];
+      isError?: boolean;
+    };
+    expect(r.isError, r.content[0].text).toBeFalsy();
+    return { resposta: JSON.parse(r.content[0].text), protecao: join(dados, "protecao") };
+  }
+
+  const estadoCom = (disjuntores: object, historico: object[]) =>
+    JSON.stringify({ formato: "garimpo-protecao", versao: 2, pausas: {}, disjuntores, historico });
+  const pausado = (aberturas: number) => ({
+    geracao: aberturas * 2,
+    aberturas,
+    pausa: { ate: AGORA + 30 * 60_000, aviso: "O site recusou a chamada de prova (HTTP 429)." },
+  });
+
+  it("sem estado guardado: nenhuma fonte pausada, sem chamar ninguém e sem criar o estado", async () => {
+    const { resposta, protecao } = await diagnosticar();
+    expect(resposta.resumo).toMatch(/Nenhuma fonte está pausada/);
+    expect(resposta.semRede).toMatch(/não chamou nenhuma fonte/);
+    expect(resposta.fontes).toEqual([]);
+    await expect(readdir(protecao)).rejects.toThrow();
+  });
+
+  it("duas recusas em 24 h, uma delas a chamada de prova, sem sucesso no meio: indício de recusa sistemática", async () => {
+    const { resposta } = await diagnosticar(
+      estadoCom({ "jurisprudenciaia": pausado(2) }, [
+        { servico: "jurisprudenciaia", em: AGORA - 5 * HORA, tipo: "recusou", ferramenta: "busca_direta" },
+        { servico: "jurisprudenciaia", em: AGORA - HORA, tipo: "recusou-a-prova", ferramenta: "busca_ampla" },
+      ]),
+    );
+    const [fonte] = resposta.fontes;
+    expect(fonte).toMatchObject({ servico: "jurisprudenciaia", situacao: "pausada", indicioDeRecusaSistematica: true });
+    expect(fonte.explicacao).toMatch(/indício de recusa sistemática/i);
+    expect(fonte.explicacao).toMatch(/esperar .*não resolve/);
+    expect(resposta.resumo).toMatch(/recusa sistemática/);
+    expect(resposta.ultimas24h).toHaveLength(2);
+    expect(resposta.ultimas24h[0]).toMatchObject({ servico: "jurisprudenciaia", ferramenta: "busca_ampla" });
+  });
+
+  it("um sucesso desfaz: recusa, prova aceita e nova recusa é pausa comum, que costuma passar", async () => {
+    const { resposta } = await diagnosticar(
+      estadoCom({ "jurisprudenciaia": pausado(1) }, [
+        { servico: "jurisprudenciaia", em: AGORA - 6 * HORA, tipo: "recusou-a-prova" },
+        { servico: "jurisprudenciaia", em: AGORA - 5 * HORA, tipo: "aceitou" },
+        { servico: "jurisprudenciaia", em: AGORA - HORA, tipo: "recusou" },
+      ]),
+    );
+    const [fonte] = resposta.fontes;
+    expect(fonte).toMatchObject({ servico: "jurisprudenciaia", situacao: "pausada" });
+    expect(fonte.indicioDeRecusaSistematica).toBeUndefined();
+    expect(fonte.explicacao).toMatch(/costuma passar/);
+    expect(resposta.resumo).not.toMatch(/recusa sistemática/);
+  });
+
+  it("recusas de mais de 24 h atrás não contam para o indício", async () => {
+    const { resposta } = await diagnosticar(
+      estadoCom({ "jurisprudenciaia": pausado(2) }, [
+        { servico: "jurisprudenciaia", em: AGORA - 30 * HORA, tipo: "recusou" },
+        { servico: "jurisprudenciaia", em: AGORA - HORA, tipo: "recusou-a-prova" },
+      ]),
+    );
+    expect(resposta.fontes[0].indicioDeRecusaSistematica).toBeUndefined();
+    expect(resposta.ultimas24h).toHaveLength(1);
+  });
+
+  it("pausa preventiva do Falcão: até quando e o restante informado, sem chamar como recusa", async () => {
+    const estado = JSON.stringify({
+      formato: "garimpo-protecao",
+      versao: 2,
+      pausas: {},
+      disjuntores: {},
+      freios: { jt: { restante: 8, pausaAte: AGORA + 10 * 60_000 } },
+    });
+    const { resposta } = await diagnosticar(estado);
+    expect(resposta.fontes[0]).toMatchObject({ servico: "jt", situacao: "pausa preventiva", restanteInformado: 8 });
+    expect(resposta.fontes[0].explicacao).toMatch(/Não é recusa/);
+  });
+
+  it("a recusa que uma busca levou aparece no diagnóstico com o nome da ferramenta, e a fonte pausada", async () => {
+    const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "diagnostico-"));
+    const coordenacao = new CoordenacaoEmArquivo({ pasta: dados, agora: () => AGORA });
+    const site = new Cliente({
+      nome: "O site",
+      vagas: coordenacao,
+      agora: () => AGORA,
+      esperar: async () => {},
+      fetch: (async () => new Response("", { status: 429 })) as typeof fetch,
+    });
+    const mcp = await conectar(site, { dados, agora: () => AGORA, coordenacao });
+    const busca = (await mcp.callTool({
+      name: "busca_direta",
+      arguments: { tribunal: "stj", texto: "termo de exemplo" },
+    })) as { isError?: boolean };
+    expect(busca.isError).toBe(true);
+
+    const r = (await mcp.callTool({ name: "diagnostico_dos_freios", arguments: {} })) as { content: { text: string }[] };
+    const resposta = JSON.parse(r.content[0].text);
+    expect(resposta.fontes[0]).toMatchObject({ servico: "jurisprudenciaia", situacao: "pausada", pausasSeguidas: 1 });
+    expect(resposta.ultimas24h.map((o: { ferramenta: string }) => o.ferramenta)).toEqual(["busca_direta", "busca_direta"]);
+    expect(r.content[0].text).not.toMatch(/termo de exemplo/);
+  });
+
+  it("estado ilegível: diz rede parada, estado de proteção ilegível, sem quebrar", async () => {
+    const { resposta } = await diagnosticar("{ isto não é o estado");
+    expect(resposta.redeParada).toBe(true);
+    expect(resposta.resumo).toMatch(/Rede parada/);
+    expect(resposta.resumo).toMatch(/estado compartilhado de proteção .*ilegível/);
   });
 });

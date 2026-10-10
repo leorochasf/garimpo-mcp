@@ -308,4 +308,43 @@ describe("histórico de recusas", { timeout: 90_000 }, () => {
     expect(historico[0].em).toBe(2);
     expect(historico.at(-1)).toEqual({ servico: "exemplo.test", em: 1_000_000, tipo: "recusou" });
   });
+
+  it("o diagnóstico avisa quando uma recusa não pôde ser gravada no estado; estado ilegível vira rede parada, sem quebrar", async (ctx) => {
+    if (process.platform !== "win32" && process.getuid?.() === 0) ctx.skip(); // root grava mesmo sem permissão
+    const { cliente: primeiro } = clienteNaPasta([() => respostaJson({})]);
+    await (await primeiro.requisitar("https://exemplo.test/a")).text();
+    const usuario = userInfo().username;
+    const negar = () =>
+      process.platform === "win32"
+        ? execFileSync("icacls", [protecao, "/deny", `${usuario}:(W)`], { stdio: "ignore" })
+        : execFileSync("chmod", ["555", protecao]);
+    const devolver = () =>
+      process.platform === "win32"
+        ? execFileSync("icacls", [protecao, "/remove:d", usuario], { stdio: "ignore" })
+        : execFileSync("chmod", ["755", protecao]);
+    const coordenacao = new CoordenacaoEmArquivo({ pasta });
+    const cliente = new Cliente({
+      nome: "O site",
+      vagas: coordenacao,
+      esperar: async () => {},
+      fetch: (async () => {
+        negar(); // a pasta fica sem gravação depois de a chamada sair: a recusa não chega ao estado
+        return recusa();
+      }) as typeof fetch,
+    });
+    try {
+      await cliente.requisitar("https://exemplo.test/b").catch(() => {});
+      const d = await coordenacao.diagnosticar();
+      expect(d.avisoDeGravacao).toMatch(/não conseguiu gravar/);
+      expect(d.avisoDeGravacao).toMatch(/outras janelas podem não saber/);
+    } finally {
+      devolver();
+    }
+
+    await writeFile(join(protecao, "estado.json"), "{ isto não é o estado");
+    const ilegivel = await new CoordenacaoEmArquivo({ pasta }).diagnosticar();
+    expect(ilegivel.redeParada).toBe(true);
+    expect(ilegivel.resumo).toMatch(/Rede parada: o estado compartilhado de proteção do Garimpo está ilegível/);
+    expect(await readFile(join(protecao, "estado.json"), "utf8")).toBe("{ isto não é o estado");
+  });
 });

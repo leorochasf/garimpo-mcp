@@ -9,7 +9,7 @@ import { z } from "zod";
 import { Cliente, VERSAO } from "./cliente.js";
 import { buscaDireta, ementaAparentementeIncompleta } from "./busca.js";
 import { buscaAmpla } from "./ampla.js";
-import { pastaDeDados } from "./coordenacao.js";
+import { type CoordenacaoEmArquivo, coordenacaoPadrao, naFerramenta, pastaDeDados } from "./coordenacao.js";
 import { lerFiltrosLocais, listaJson } from "./filtroLocal.js";
 import { conferirNaEmenta, conferirNoInteiroTeor, conferirNoTextoIntegral, lerCitacao, naoVerificavel } from "./conferencia.js";
 import {
@@ -257,6 +257,8 @@ export interface OpcoesServidor {
   precedentesStj?: Cliente;
   /** Cliente do portal do STF, consultado ao vivo pelo consultar_precedente (ADR-0020). */
   precedentesStf?: Cliente;
+  /** Estado de proteção que o diagnostico_dos_freios lê (padrão: o de todos os clientes do processo). */
+  coordenacao?: CoordenacaoEmArquivo;
 }
 
 export function criarServidor(
@@ -274,9 +276,13 @@ export function criarServidor(
     falcao = clienteDoFalcao(),
     precedentesStj = clienteDosPrecedentes("stj"),
     precedentesStf = clienteDosPrecedentes("stf"),
+    coordenacao,
   }: OpcoesServidor = {},
 ): McpServer {
   const servidor = new McpServer({ name: "garimpo", version: VERSAO }, { instructions: INSTRUCTIONS });
+  /** Registra a ferramenta com o nome dela anotado nas recusas que levar (o histórico do diagnostico_dos_freios). */
+  const registrar = ((nome: string, config: never, fazer: (...a: unknown[]) => unknown) =>
+    servidor.registerTool(nome, config, ((...a: unknown[]) => naFerramenta(nome, () => fazer(...a))) as never)) as typeof servidor.registerTool;
   // GARIMPO_SEM_MEMORIA=1 desliga só a memória em disco (a janela guarda enquanto está aberta), nunca o freio.
   const memoria = new Memoria({
     dados: process.env.GARIMPO_SEM_MEMORIA === "1" ? undefined : (dados ?? pastaDeDados()),
@@ -304,7 +310,7 @@ export function criarServidor(
     };
   };
 
-  servidor.registerTool(
+  registrar(
     "busca_direta",
     {
       title: "Busca direta",
@@ -354,7 +360,7 @@ export function criarServidor(
     },
   );
 
-  servidor.registerTool(
+  registrar(
     "busca_ampla",
     {
       title: "Busca ampla",
@@ -431,7 +437,7 @@ export function criarServidor(
     },
   );
 
-  servidor.registerTool(
+  registrar(
     "obter_ementa",
     {
       title: "Obter ementa",
@@ -470,7 +476,7 @@ export function criarServidor(
     },
   );
 
-  servidor.registerTool(
+  registrar(
     "obter_inteiro_teor",
     {
       title: "Obter inteiro teor oficial",
@@ -516,7 +522,7 @@ export function criarServidor(
     },
   );
 
-  servidor.registerTool(
+  registrar(
     "ler_inteiro_teor",
     {
       title: "Ler inteiro teor",
@@ -572,7 +578,7 @@ export function criarServidor(
     },
   );
 
-  servidor.registerTool(
+  registrar(
     "conferir_citacao",
     {
       title: "Conferir citação",
@@ -731,7 +737,7 @@ export function criarServidor(
     },
   );
 
-  servidor.registerTool(
+  registrar(
     "consultar_precedente",
     {
       title: "Consultar precedente (portais do STJ e do STF, tabela como plano B)",
@@ -821,7 +827,7 @@ export function criarServidor(
     },
   );
 
-  servidor.registerTool(
+  registrar(
     "julgamentos_do_processo",
     {
       title: "Julgamentos do processo",
@@ -870,7 +876,7 @@ export function criarServidor(
     },
   );
 
-  servidor.registerTool(
+  registrar(
     "listar_tribunais",
     {
       title: "Listar tribunais",
@@ -897,6 +903,23 @@ export function criarServidor(
           ...(t.inteiroTeor === "texto" ? { motivo: INTEIRO_TEOR_TRT } : {}),
         })),
       ),
+  );
+
+  registrar(
+    "diagnostico_dos_freios",
+    {
+      title: "Diagnóstico dos freios (por que parou?)",
+      description:
+        "Explica por que uma fonte parou de responder, sem chamar fonte nenhuma: só lê o estado de proteção guardado " +
+        "neste computador. Fonte por fonte: se está pausada e até quando, se é pausa preventiva (com o restante que a " +
+        "fonte informou), as recusas e retomadas das últimas 24 h (sem termo de busca nem número de processo) e se há " +
+        "indício de recusa sistemática (esperar não resolve) ou se parece rajada (a pausa costuma passar). Avisa também " +
+        "quando a rede está parada e quando esta janela não conseguiu gravar uma recusa. Use quando uma chamada falhar " +
+        "por recusa ou pausa, antes de tentar de novo.",
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+      inputSchema: {},
+    },
+    async () => json(await (coordenacao ?? coordenacaoPadrao()).diagnosticar()),
   );
 
   servidor.registerResource(
