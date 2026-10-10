@@ -34,6 +34,7 @@ import {
   recusaDaRodada,
   TOPO,
 } from "./montarRodadaDeProvas.js";
+import { criarGravador, rodadaCompleta, saidaInvalida } from "./seguroDaRodada.js";
 
 const ESPACO_ENTRE_CHAMADAS_MS = 10_000;
 const MARGEM_DO_TETO = 2;
@@ -48,7 +49,7 @@ const saida = resolve(pasta ?? ".");
 const dormir = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const gravar = (caminho: string, valor: unknown) => writeFileSync(caminho, JSON.stringify(valor, null, 1));
 
-const recusa = recusaDaRodada({ saida: pasta, aoVivo: process.argv.includes("--ao-vivo") }, (c) => existsSync(join(saida, c)));
+const recusa = saidaInvalida(pasta) ?? recusaDaRodada({ saida: pasta, aoVivo: process.argv.includes("--ao-vivo") }, (c) => existsSync(join(saida, c)));
 if (recusa) {
   console.error(`NÃO RODA: ${recusa}`);
   process.exit(1);
@@ -81,53 +82,24 @@ if (ordem.tipo !== "sai") {
   process.exit(2);
 }
 
-interface Registro {
-  seq: number;
-  consulta: string;
-  tribunal: string;
-  corpoEnviado: string;
-  inicio: string;
-  ms?: number;
-  status?: number;
-  resposta?: string;
-  erroDeRede?: string;
-}
 let consultaAtual = "";
-let seq = 0;
 let chamadas = 0;
 const hosts = new Map<string, number>();
 const recusas: { consulta: string; status: number }[] = [];
 
-async function gravador(url: string | URL | Request, init: RequestInit = {}): Promise<Response> {
-  const u = String(url);
-  const m = u.match(PERMITIDA);
-  if (!m) throw new Error(`rodarRodadaDeProvas: chamada fora da busca do site bloqueada: ${u}`);
-  if (chamadas >= rodada.teto) throw new Error(`rodarRodadaDeProvas: teto de ${rodada.teto} chamadas atingido; nada mais sai`);
-  chamadas++;
-  gravar(join(saida, "estado.json"), { ...estado, parcial: true, chamadasAoSite: chamadas });
-  const host = new URL(u).host;
-  hosts.set(host, (hosts.get(host) ?? 0) + 1);
-  const r: Registro = { seq: ++seq, consulta: consultaAtual, tribunal: m[1], corpoEnviado: String(init.body), inicio: new Date().toISOString() };
-  const t0 = performance.now();
-  try {
-    const resposta = await fetch(url, init);
-    const texto = await resposta.text();
-    r.ms = Math.round(performance.now() - t0);
-    r.status = resposta.status;
-    r.resposta = texto;
-    if ([403, 429, 503].includes(resposta.status)) recusas.push({ consulta: consultaAtual, status: resposta.status });
-    const cabecalhos = new Headers(resposta.headers);
-    cabecalhos.delete("content-encoding");
-    cabecalhos.delete("content-length");
-    return new Response(texto, { status: resposta.status, statusText: resposta.statusText, headers: cabecalhos });
-  } catch (e) {
-    r.ms = Math.round(performance.now() - t0);
-    r.erroDeRede = `${(e as Error).name}: ${(e as Error).message}`;
-    throw e;
-  } finally {
-    gravar(join(saida, "gravacao", `${String(r.seq).padStart(3, "0")}-${consultaAtual}.json`), r);
-  }
-}
+const gravador = criarGravador({
+  fetch,
+  permitida: PERMITIDA,
+  teto: rodada.teto,
+  consultaAtual: () => consultaAtual,
+  gravarRegistro: (r) => gravar(join(saida, "gravacao", `${String(r.seq).padStart(3, "0")}-${r.consulta}.json`), r),
+  aoContar: (n) => {
+    chamadas = n;
+    gravar(join(saida, "estado.json"), { ...estado, parcial: true, chamadasAoSite: chamadas });
+  },
+  aoRecusa: (consulta, status) => recusas.push({ consulta, status }),
+  hosts,
+});
 
 const site = new Cliente({ nome: "O JurisprudênciaIA", fetch: gravador as typeof fetch });
 const resultados: Record<string, unknown>[] = [];
@@ -179,7 +151,12 @@ Object.assign(estado, {
   recusasDoSite: recusas,
   motivoDaParada: parou,
   consultasFeitas: resultados.length,
-  completa: !parou && rodada.principais.length + ausentes.length <= resultados.length,
+  completa: rodadaCompleta({
+    parou,
+    principais: rodada.principais.map((c) => c.id),
+    verificacoes: ausentes.map((c) => c.id),
+    resultados: resultados as { id: string; erro?: string }[],
+  }),
   foraDoTopo: `topo = ${TOPO} primeiros`,
 });
 gravar(join(saida, "estado.json"), estado);

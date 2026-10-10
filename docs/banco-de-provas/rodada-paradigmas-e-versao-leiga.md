@@ -138,7 +138,7 @@ devolvidos): são dois pedidos que o site entende de modo bem diferente; isso n�
 ## 3. O que esta rodada **não** prova
 
 - Não prova precisão de nada (ver as ressalvas acima).
-- O texto oficial da tese **infla** a cobertura de paradigma; o número real do usuário é menor.
+- O texto oficial da tese **provavelmente infla** a cobertura de paradigma (hipótese: o usuário real escreve de outro jeito e o número seria menor). O desempenho com formulações de usuário real **não foi medido**.
 - Os paradigmas vêm da tabela oficial **sem** revisão do dono; "um único processo paradigma legível" foi o critério
   conservador do agente, não decisão do dono.
 - Não prova que o site "não tem" os três acórdãos que ficaram ausentes (ver a ressalva em 1).
