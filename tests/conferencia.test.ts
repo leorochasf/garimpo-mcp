@@ -666,7 +666,7 @@ describe("conferência de citação — posição no julgado (G-09)", () => {
   it.each(["Voto", "Voto-vista", "Voto vogal", "VOTO"])(
     "título \"%s\" logo antes de \"Ante o exposto\": a fórmula abre o dispositivo (o título não continua a frase)",
     (titulo) => {
-      const r = conferirNoInteiroTeor(inteiroTeor([`${titulo}\nAnte o exposto, ${FRASE}.`]), citar(FRASE));
+      const r = conferirNoInteiroTeor(inteiroTeor([`${titulo}\nAnte o exposto, nego provimento: ${FRASE}.`]), citar(FRASE));
       expect(posicoes(r).posicoes[0].subparte).toBe("dispositivo");
     },
   );
@@ -719,6 +719,44 @@ describe("conferência de citação — posição no julgado (G-09)", () => {
   ])("%s", (_caso, pagina, subparte) => {
     const r = conferirNoInteiroTeor(inteiroTeor([pagina]), citar(FRASE));
     expect(posicoes(r).posicoes).toEqual([{ secao: "voto", subparte }]);
+  });
+
+  /** A mesma página lida como PDF e como texto integral do Falcão: a posição tem de sair igual nas duas fontes. */
+  const NAS_DUAS_FONTES: [string, (pagina: string) => ResultadoDaFonte][] = [
+    ["PDF", (pagina) => conferirNoInteiroTeor(inteiroTeor([pagina]), citar(FRASE))],
+    ["texto integral do Falcão", (pagina) => conferirNoTextoIntegral(pagina, citar(FRASE))],
+  ];
+  const SENTENCA_LONGA = "A fundamentacao transcrita examina os requisitos genericos da demanda. ".repeat(6);
+
+  describe.each(NAS_DUAS_FONTES)("revisão Codex da posição no julgado — %s", (_fonte, conferir) => {
+    it.each([
+      [
+        "sentença longa transcrita entre aspas: a última fórmula é da transcrição, não do voto",
+        `VOTO\nTranscrevo a sentenca: “${SENTENCA_LONGA}\nAnte o exposto, julgo procedente o pedido.”\n` +
+          `Retomando o meu voto, ${FRASE}.\nPor esses fundamentos, nego provimento ao recurso.`,
+      ],
+      [
+        "\"Ante o exposto na inicial\" não abre dispositivo",
+        `VOTO\nFundamentos genericos.\nAnte o exposto na inicial, o autor insiste que ${FRASE}.\nO pedido deve ser rejeitado pelas razoes acima.`,
+      ],
+    ])("%s: voto sem subparte", (_caso, pagina) => {
+      expect(posicoes(conferir(pagina)).posicoes).toEqual([{ secao: "voto", subparte: undefined }]);
+    });
+
+    it.each([
+      ["ACÓRDÃO", "ACÓRDÃO\nAcordam os julgadores ficticios em negar provimento."],
+      ["EMENTA", "EMENTA\nIII. Razões de decidir\n3. Os julgadores ficticios negaram provimento."],
+    ])("%s transcrita dentro do voto, depois de anúncio: não troca a seção nem dá subparte", (_titulo, transcrito) => {
+      const pagina = `VOTO\nCito o precedente:\n${transcrito}\nRetomando o meu voto, ${FRASE}.\nAnte o exposto, nego provimento ao recurso.`;
+      expect(posicoes(conferir(pagina)).posicoes).toEqual([{ secao: "voto", subparte: undefined }]);
+    });
+
+    it("transcrição fechada e dispositivo próprio inequívoco depois dela: continua dispositivo", () => {
+      const pagina =
+        `VOTO\nTranscrevo a sentenca: “${SENTENCA_LONGA}\nAnte o exposto, julgo procedente o pedido.”\n` +
+        `Retomando o meu voto, a tese e outra.\nAnte o exposto, nego provimento: ${FRASE}.`;
+      expect(posicoes(conferir(pagina)).posicoes).toEqual([{ secao: "voto", subparte: "dispositivo" }]);
+    });
   });
 
   it("na ementa do JurisprudênciaIA não há subparte: o campo não aparece", () => {

@@ -757,6 +757,12 @@ interface TituloDeSecao {
   pagina: number;
 }
 
+/** O que `titulosDeSecao` acha: os títulos e onde um "EMENTA"/"ACÓRDÃO" transcrito dentro do voto foi descartado. */
+interface TitulosAchados {
+  titulos: TituloDeSecao[];
+  transcricoes: number[];
+}
+
 /** Seções com aviso forte: o texto nelas costuma não ser fundamento do tribunal. Indício, nunca autoria. */
 const AVISO_DA_SECAO: Partial<Record<Secao, (t: TituloDeSecao) => string>> = {
   relatório: (t) =>
@@ -801,8 +807,9 @@ const TRANSCREVEM_DECISOES: Secao[] = ["relatório", "voto vencido"];
  * no começo do documento — 1º título, antes de qualquer linha de corpo que feche frase e sem a linha anterior
  * anunciar transcrição ("assim decidiu:", "in verbis"): fora disso, costuma ser a ementa de outro julgado transcrita.
  */
-function titulosDeSecao(texto: string, paginaEm: (i: number) => number): TituloDeSecao[] {
+function titulosDeSecao(texto: string, paginaEm: (i: number) => number): TitulosAchados {
   const titulos: TituloDeSecao[] = [];
+  const transcricoes: number[] = [];
   let corpoAntes = false;
   let linhaDeAntes = "";
   for (const m of texto.matchAll(/^[^\n]+$/gm)) {
@@ -827,12 +834,18 @@ function titulosDeSecao(texto: string, paginaEm: (i: number) => number): TituloD
     const secao = SECOES[chave] ?? (maiusculas && chave.startsWith("VOTOVENCIDO") ? "voto vencido" : undefined);
     if (!secao) continue;
     const anterior = titulos[titulos.length - 1];
-    if ((secao === "ementa" || secao === "acórdão") && anterior && TRANSCREVEM_DECISOES.includes(anterior.secao)) {
-      continue;
+    if ((secao === "ementa" || secao === "acórdão") && anterior) {
+      if (TRANSCREVEM_DECISOES.includes(anterior.secao)) continue;
+      // No voto, o título só é transcrição se a linha de antes anuncia: sem o anúncio, segue valendo como título.
+      if (VOTOS.includes(anterior.secao) && ANUNCIA_TRANSCRICAO.test(`${linhaAnterior}
+`)) {
+        transcricoes.push(m.index);
+        continue;
+      }
     }
     titulos.push({ inicio: m.index, secao, titulo, pagina: paginaEm(m.index) });
   }
-  return titulos;
+  return { titulos, transcricoes };
 }
 
 /** As seções por que passa o intervalo [a, b): a do último título antes dele (se houver) e as que se abrem nele. */
@@ -860,6 +873,11 @@ function juntarNomes(nomes: string[], atravessa: string): string {
 /** Os títulos de seção e as marcas de subparte do acórdão, achados uma vez por fonte. */
 interface MarcasDoJulgado {
   titulos: TituloDeSecao[];
+  /**
+   * Onde um "EMENTA"/"ACÓRDÃO" anunciado como transcrição abriu dentro de um voto: não é seção, mas o voto depois dele
+   * não se distingue da decisão transcrita, e a subparte nele é omitida.
+   */
+  transcricoes: number[];
   /** Títulos da ementa padronizada ("I. Caso em exame"…), onde quer que estejam; só valem dentro da ementa. */
   daEmenta: { inicio: number; nome: string }[];
   /**
@@ -916,10 +934,11 @@ function aspasAbertas(trecho: string): boolean {
 
 /**
  * A fórmula abre o dispositivo sem dúvida: começa parágrafo (no começo da linha, depois de linha em branco, de título
- * de seção ou de linha que fecha frase) e nada nos 200 caracteres antes anuncia transcrição. Na dúvida, não: a
+ * de seção ou de linha que fecha frase), nada nos 200 caracteres antes anuncia transcrição e não há aspas abertas
+ * desde o começo da seção. Na dúvida, não: a
  * subparte é omitida, nunca adivinhada.
  */
-function inequivoca(texto: string, i: number, fimDeTitulo: Set<number>): boolean {
+function inequivoca(texto: string, i: number, fimDeTitulo: Set<number>, titulos: TituloDeSecao[]): boolean {
   const inicioDaLinha = texto.lastIndexOf("\n", i - 1);
   if (texto.slice(inicioDaLinha + 1, i).trim()) return false;
   const antes = texto.slice(0, Math.max(0, inicioDaLinha));
@@ -927,7 +946,20 @@ function inequivoca(texto: string, i: number, fimDeTitulo: Set<number>): boolean
   const comecaParagrafo =
     inicioDaLinha < 0 || !linhaAnterior.trim() || fimDeTitulo.has(inicioDaLinha) || FECHA_FRASE.test(linhaAnterior);
   const janela = texto.slice(Math.max(0, i - 200), i);
-  return comecaParagrafo && !ANUNCIA_TRANSCRICAO.test(janela) && !aspasAbertas(janela);
+  // As aspas contam desde o início da seção: a transcrição longa abre muito antes dos 200 caracteres da janela.
+  const inicioDaSecao = titulos.filter((t) => t.inicio <= i).pop()?.inicio ?? 0;
+  return comecaParagrafo && !ANUNCIA_TRANSCRICAO.test(janela) && !aspasAbertas(texto.slice(inicioDaSecao, i));
+}
+
+/**
+ * O que a fórmula decide: logo depois dela (e da vírgula), um verbo de decisão — "nego provimento", "dou provimento",
+ * "julgo", "conheço", "voto por…", "nega-se…". "Ante o exposto na inicial, o autor insiste" não decide: na dúvida, não.
+ */
+const CONTINUACAO_DECISORIA =
+  /^\s*[,:;]?\s*(?:eu\s*,?\s*)?(?:n[ãa]o\s+)?(?:nego|dou|julgo|conhe(?:ç|c\p{M})o|voto|acolho|rejeito|provejo|desprovejo|mantenho|reformo|declaro|determino|(?:nega|d[áa]|conhece|julga|acolhe|rejeita|mant[ée]m|reforma|prov[êe])-se|d[êe]-se|negue-se|deixo\s+de)(?![\p{L}\p{N}])/iu;
+
+function continuaDecidindo(texto: string, depoisDaFormula: number): boolean {
+  return CONTINUACAO_DECISORIA.test(texto.slice(depoisDaFormula, depoisDaFormula + 80));
 }
 
 /** Seções de voto: a parte delas antes da fórmula do dispositivo é a fundamentação. */
@@ -940,15 +972,17 @@ function marcasDoJulgado(texto: string, paginaEm: (i: number) => number): Marcas
     const nome = titulo ? SUBPARTES_DA_EMENTA[semAcentos(titulo[1]).toLowerCase()] : undefined;
     if (nome) daEmenta.push({ inicio: m.index, nome });
   }
-  const titulos = titulosDeSecao(texto, paginaEm);
+  const { titulos, transcricoes } = titulosDeSecao(texto, paginaEm);
   // A linha de título de seção é limite: a letra minúscula do fim dela ("Voto vogal") não continua a frase.
   const fimDeTitulo = new Set(titulos.map((t) => texto.indexOf("\n", t.inicio)));
   return {
     titulos,
+    transcricoes,
     daEmenta,
     dispositivos: [...texto.matchAll(DISPOSITIVO)].map((m) => ({
       inicio: m.index,
-      inequivoca: inequivoca(texto, m.index, fimDeTitulo),
+      inequivoca:
+        continuaDecidindo(texto, m.index + m[0].length) && inequivoca(texto, m.index, fimDeTitulo, titulos),
     })),
   };
 }
@@ -958,7 +992,7 @@ function marcasDoJulgado(texto: string, paginaEm: (i: number) => number): Marcas
  * último título da ementa padronizada antes da passagem; no voto, pela última fórmula de dispositivo da seção, só se
  * inequívoca: "dispositivo" depois dela e "fundamentação" antes. Fora disso, nenhuma: a posição não se inventa.
  */
-function subparteEm({ titulos, daEmenta, dispositivos }: MarcasDoJulgado, a: number, b: number): string | undefined {
+function subparteEm({ titulos, transcricoes, daEmenta, dispositivos }: MarcasDoJulgado, a: number, b: number): string | undefined {
   const secoes = secoesEm(titulos, a, b);
   if (!secoes.identificada || secoes.titulos.length !== 1) return undefined;
   const [titulo] = secoes.titulos;
@@ -972,6 +1006,7 @@ function subparteEm({ titulos, daEmenta, dispositivos }: MarcasDoJulgado, a: num
   }
   if (!VOTOS.includes(titulo.secao)) return undefined;
   const fim = titulos.find((t) => t.inicio > titulo.inicio)?.inicio ?? Infinity;
+  if (transcricoes.some((t) => naSecao(t) && t < fim)) return undefined;
   const ultima = dispositivos.filter((d) => naSecao(d.inicio) && d.inicio < fim).pop();
   if (!ultima?.inequivoca) return undefined;
   if (ultima.inicio <= a) return "dispositivo";
@@ -1550,7 +1585,7 @@ export function avisoDeOrgaoDoFecho(
   // Onde começa cada unidade (página ou parte) depois da primeira, no texto juntado.
   let soma = 0;
   const fronteiras = textos.slice(0, -1).map((t) => (soma += t.length + 1));
-  const titulos = titulosDeSecao(texto, () => 0);
+  const { titulos } = titulosDeSecao(texto, () => 0);
   const comparavel = dobrado(texto);
   const lidos = formulasDoFecho(registro.tribunal).flatMap(({ formula, orgao }) =>
     [...comparavel.matchAll(formula)].flatMap((m) => {
