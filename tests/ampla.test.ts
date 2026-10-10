@@ -702,7 +702,10 @@ describe("cabeçalho de cobertura da busca ampla", () => {
 
     const r = await buscaAmpla(cliente, { formulacoes: ["a", "bb", "ccc"], tribunais: ["stj"], maximo: 200 });
 
-    expect(r.cabecalhoDeCobertura.listaCortada).toBe("mostrando 200 de 300; limite não é amostra (os primeiros por aderência, não um retrato do todo); 200 é o máximo por resposta");
+    // 200 itens não cabem em 25 mil caracteres: o corte é pelo teto da resposta, não por "peça maximo maior".
+    expect(JSON.stringify(r).length).toBeLessThan(25_000);
+    expect(r.cabecalhoDeCobertura.listaCortada).toMatch(new RegExp(`^mostrando ${r.mostrados} de 300; .*25 mil caracteres`));
+    expect(r.cabecalhoDeCobertura.listaCortada).not.toMatch(/peça maximo maior/);
   });
 });
 
@@ -1167,5 +1170,62 @@ describe("campos que o site não mandou (faltam) na busca ampla", () => {
     expect(r.estimativa).toMatch(/até 9 chamadas/);
     expect(r.cabecalhoDeCobertura.listaCortada).toMatch(/limite não é amostra/);
     expect(JSON.stringify(r).length).toBeLessThan(25_000);
+  });
+});
+
+describe("correções da revisão: junção entre formulações, teto de tamanho e ressalva da grafia", () => {
+  it("TRT: cópia sem texto numa formulação e com texto noutra: o item mostrado é o de texto real", async () => {
+    const ementa = "<p>INTERVALO INTRAJORNADA. Texto ficticio de ementa.</p>";
+    const comum = { numeroProcesso: "0000701-00.2024.5.03.0001", ementa, tribunal: "trt3" };
+    const falcao = falcaoFalso((url) =>
+      url.searchParams.get("texto") === "primeira"
+        ? pagina([documento({ ...comum, idDocumentoAcordao: "50000021", textoAcordao: ementa })])
+        : pagina([
+            documento({ ...comum, idDocumentoAcordao: "50000022", textoAcordao: "<p>RECORRENTE: PARTE FICTICIA A. Acórdão inteiro fictício, bem maior que a ementa.</p>" }),
+          ]),
+    );
+    const { cliente } = siteFalso(() => respostaJson({ results: [] }));
+    const r = await buscaAmpla(cliente, { formulacoes: ["primeira", "segunda"], tribunais: ["trt3"] }, undefined, { falcao: falcao.cliente });
+    expect(r.acordaos.map((a) => [a.id, a.formulacoes])).toEqual([["trt3:50000022", 2]]);
+  });
+
+  it("5 tribunais × 3 formulações, 2 com falhas, maximo padrão (50): a resposta inteira cabe em 25 mil caracteres e diz o corte", async () => {
+    const { cliente: base } = siteRealista();
+    const cliente = new (class extends Cliente {
+      requisitar(url: string, init: RequestInit = {}): Promise<Response> {
+        if (url.includes("/tribunais/tjmg/")) return Promise.reject(new Error("Não foi possível falar com O site (x). Verifique a conexão."));
+        if (url.includes("/tribunais/tjpr/")) return Promise.reject(new ErroHttp("O site respondeu com erro HTTP 503 para u.", 503));
+        return base.requisitar(url, init);
+      }
+    })({ nome: "O site", esperar: async () => {} });
+    const r = await buscaAmpla(cliente, { formulacoes: FORMULACOES_REALISTAS, tribunais: ["tjrs", "stj", "tjsp", "tjmg", "tjpr"] });
+    expect(JSON.stringify(r).length).toBeLessThan(25_000);
+    expect(r.acordaos.length).toBe(r.mostrados);
+    expect(r.acordaos.length).toBeGreaterThan(0);
+  });
+
+  it("maximo 200 com 5 tribunais e falhas: continua < 25 mil, com o corte e como pedir o resto", async () => {
+    const { cliente: base } = siteRealista();
+    const cliente = new (class extends Cliente {
+      requisitar(url: string, init: RequestInit = {}): Promise<Response> {
+        if (url.includes("/tribunais/tjmg/")) return Promise.reject(new Error("Não foi possível falar com O site (x). Verifique a conexão."));
+        return base.requisitar(url, init);
+      }
+    })({ nome: "O site", esperar: async () => {} });
+    const r = await buscaAmpla(cliente, { formulacoes: FORMULACOES_REALISTAS, tribunais: ["tjrs", "stj", "tjsp", "tjmg", "tjpr"], maximo: 200 });
+    expect(JSON.stringify(r).length).toBeLessThan(25_000);
+    expect(r.acordaos.length).toBe(r.mostrados);
+    expect(r.cabecalhoDeCobertura.listaCortada).toMatch(/25 mil caracteres/);
+    expect(r.cabecalhoDeCobertura.listaCortada).toMatch(/tribunais|formulações/);
+    const somaPorTribunal = r.cabecalhoDeCobertura.porTribunal.reduce((s, l) => s + (l.mostrados ?? 0), 0);
+    expect(somaPorTribunal).toBe(r.acordaos.length);
+  });
+
+  it("relator com limitePorBusca 1 e 1 resultado: lista cheia, sem alarme de grafia; limite 100 com 1 resultado alarma", async () => {
+    const { cliente } = siteFalso(() => respostaJson({ results: [bruto("unico", 0.9)] }));
+    const cheia = await buscaAmpla(cliente, { formulacoes: ["tese x"], tribunais: ["stj"], relator: "Fulano", limitePorBusca: 1 });
+    expect(cheia.cabecalhoDeCobertura.ressalvaDaGrafia).toBeUndefined();
+    const pouca = await buscaAmpla(cliente, { formulacoes: ["tese x"], tribunais: ["stj"], relator: "Fulano" });
+    expect(pouca.cabecalhoDeCobertura.ressalvaDaGrafia).toMatch(/grafia/);
   });
 });

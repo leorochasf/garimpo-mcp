@@ -295,6 +295,24 @@ describe("busca direta num TRT pelo Falcão", () => {
     expect(texto("50000003")).toMatch(/RECORRENTE: PARTE FICTICIA A/);
   });
 
+  it("cópias equivalentes na ordem sem texto, texto vazio, texto real: a mostrada é a de texto real", async () => {
+    const ementa = "<p>INTERVALO INTRAJORNADA. Texto ficticio de ementa.</p>";
+    const comum = { numeroProcesso: "0000701-00.2024.5.03.0001", ementa };
+    const { mcp } = await conectar(
+      siteFalso().cliente,
+      falcaoFalso(() =>
+        pagina([
+          documento({ ...comum, idDocumentoAcordao: "50000011", textoAcordao: ementa }),
+          documento({ ...comum, idDocumentoAcordao: "50000012", textoAcordao: "" }),
+          documento({ ...comum, idDocumentoAcordao: "50000013", textoAcordao: "<p>RECORRENTE: PARTE FICTICIA A. Acórdão inteiro fictício, bem maior que a ementa.</p>" }),
+        ]),
+      ).cliente,
+    );
+    const r = await chamar(mcp, "busca_direta", { tribunal: "trt3", texto: "intervalo intrajornada" });
+    expect(r.isError).toBe(false);
+    expect((r.dado.acordaos as { id: string }[]).map((a) => a.id)).toEqual(["trt3:50000013"]);
+  });
+
   it("sem aviso quando o texto integral é maior que a ementa", async () => {
     const { mcp } = await conectar(siteFalso().cliente, falcaoFalso().cliente);
     const r = await chamar(mcp, "busca_direta", { tribunal: "trt3", texto: "intervalo intrajornada" });

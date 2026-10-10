@@ -241,6 +241,10 @@ export async function buscaAmpla(
   const porFormulacao = p.formulacoes.map(() => ({ respostas: 0, acordaos: 0 }));
   // Acórdãos que vieram de busca feita no site agora: só eles vão para a memória com a data de hoje.
   const doSiteAgora = new Set<string>();
+  // Para a ressalva da grafia: registros recebidos somando as buscas (antes de juntar equivalentes) e se alguma veio
+  // cheia (tantos quanto o limite efetivo dela): lista cheia é explicada pelo limite, não pelo filtro.
+  let recebidos = 0;
+  let algumaCheia = false;
   const parametros = (t: (typeof tarefas)[number]): ParametrosBusca => ({
     tribunal: t.tribunal,
     texto: t.texto,
@@ -263,6 +267,8 @@ export async function buscaAmpla(
     } else {
       for (const a of r.acordaos) doSiteAgora.add(a.id);
     }
+    recebidos += r.acordaos.length;
+    if (r.acordaos.length >= (parametros(t).limite ?? 100)) algumaCheia = true;
     porFormulacao[t.f].respostas++;
     porFormulacao[t.f].acordaos += r.acordaos.length;
     qualificados.push({ tribunal: t.tribunal, formulacao: t.f, qualificados: r.qualificados });
@@ -384,6 +390,14 @@ export async function buscaAmpla(
   // Cópias do mesmo acórdão achadas em buscas diferentes viram um acórdão só (mesmo tribunal, data e ementa,
   // sem números de processo que se contradigam).
   const juncao = juntarEquivalentes([...juntos.values()]);
+  // Entre cópias equivalentes, o acórdão mostrado é o que tem texto integral real (como na busca do Falcão); a outra
+  // cópia segue alcançável pelo próprio id, com o texto dela.
+  const porIdDaCopia = new Map([...juntos.values()].map((o) => [o.registro.id, o.registro]));
+  for (const j of juncao.acordaos) {
+    if (!j.registro.motivoSemTextoIntegral) continue;
+    const comTexto = j.ids.map((id) => porIdDaCopia.get(id)).find((r) => r && !r.motivoSemTextoIntegral);
+    if (comTexto) j.registro = comTexto;
+  }
   // Só as cópias vindas do site agora ganham a data de hoje; as de buscas guardadas já estão na memória com a delas.
   memoria?.lembrar(
     juncao.acordaos
@@ -470,7 +484,7 @@ export async function buscaAmpla(
       `filtro; ${semEmenta.size} sem ementa para conferir): a lista está vazia por causa do filtro, não por falta de ` +
       "acórdãos achados; afrouxe ou retire o filtro local.";
   }
-  const grafia = ressalvaSePoucos(nomesDoFiltro(p), ordenados.length);
+  const grafia = algumaCheia ? undefined : ressalvaSePoucos(nomesDoFiltro(p), recebidos);
   if (grafia) cabecalho.ressalvaDaGrafia = grafia;
   // Com filtro local, conta só os que passaram por ele: o que o filtro tirou não é lista cortada.
   if (mostrados.length < sobreviventes.length) {
@@ -499,7 +513,25 @@ export async function buscaAmpla(
     }
   }
   const estimativa = estimar(noSite.length);
-  return {
+  const itemDe = ({ acordao: a, formulacoes }: (typeof apresentados)[number], tamanhoDoTrecho: number): ItemAmplo => {
+    const ementa = a.ementa.replace(/^\s*ementa\b\s*[:.\-–—]?\s*/i, "");
+    const faltam = camposAusentes(a);
+    const item: ItemAmplo = {
+      id: a.id,
+      numero: a.numero,
+      tribunal: a.tribunal,
+      data: a.dataJulgamento,
+      orgao: a.orgao,
+      trecho: trecho(ementa, p.formulacoes, tamanhoDoTrecho),
+      link: a.link ?? a.linkConsulta,
+      formulacoes,
+      ...(faltam.length && { faltam }),
+      ...(comTrt && { fonte: infoTribunal(a.tribunal)?.fonte }),
+    };
+    if (!ementa.trim() && ehDoFalcao(a.tribunal)) item.trecho = "sem ementa no Falcão";
+    return item;
+  };
+  const resultado: ResultadoAmplo = {
     ...(estimativa && { estimativa }),
     buscasFeitas: feitas,
     buscasPlanejadas: tarefas.length,
@@ -507,24 +539,7 @@ export async function buscaAmpla(
     totalAcordaos: ordenados.length,
     mostrados: mostrados.length,
     cabecalhoDeCobertura: cabecalho,
-    acordaos: apresentados.map(({ acordao: a, formulacoes }) => {
-      const ementa = a.ementa.replace(/^\s*ementa\b\s*[:.\-–—]?\s*/i, "");
-      const faltam = camposAusentes(a);
-      const item: ItemAmplo = {
-        id: a.id,
-        numero: a.numero,
-        tribunal: a.tribunal,
-        data: a.dataJulgamento,
-        orgao: a.orgao,
-        trecho: trecho(ementa, p.formulacoes, tamanho),
-        link: a.link ?? a.linkConsulta,
-        formulacoes,
-        ...(faltam.length && { faltam }),
-        ...(comTrt && { fonte: infoTribunal(a.tribunal)?.fonte }),
-      };
-      if (!ementa.trim() && ehDoFalcao(a.tribunal)) item.trecho = "sem ementa no Falcão";
-      return item;
-    }),
+    acordaos: [],
     // Texto do qualificado em 120 caracteres para caber o enquadramento927 curto (decisão do dono, 2026-10-08).
     qualificados: juntarQualificados(qualificados, { tamanhoTexto: 120, tabela, tabelaStf }),
     ressalvaQualificados:
@@ -539,6 +554,7 @@ export async function buscaAmpla(
     }),
     avisos,
   };
+  return ajustarAoTeto(resultado, apresentados, itemDe, tamanho, sobreviventes.length);
 }
 
 /** Motivo de uma busca que não deu resposta (nunca chamada para busca vazia, que deu resposta). */
@@ -553,4 +569,58 @@ function motivoDaNaoFeita(naoExecutada: "teto" | "pausa" | undefined): string {
   if (naoExecutada === "teto") return `não executada (teto de ${PAGINAS_DO_FALCAO_POR_CHAMADA} páginas do Falcão por chamada)`;
   if (naoExecutada === "pausa") return "não executada (pausa preventiva do Falcão)";
   return "não feita (a busca parou na recusa)";
+}
+
+/** Teto de caracteres da resposta inteira (JSON final): avisos, cobertura e qualificados contam, não só os itens. */
+const TETO_DA_RESPOSTA = 25_000;
+/** Menor trecho a que o teto reduz antes de começar a tirar itens. */
+const TRECHO_MINIMO = 40;
+
+/**
+ * Faz a resposta caber no teto: primeiro encurta os trechos, depois tira itens do fim da lista (os de menor
+ * aderência) e diz o corte e como pedir o resto. Abaixo do teto, a resposta sai como veio.
+ */
+function ajustarAoTeto(
+  r: ResultadoAmplo,
+  apresentados: readonly unknown[],
+  itemDe: (x: never, tamanho: number) => ItemAmplo,
+  tamanho: number,
+  sobreviventes: number,
+): ResultadoAmplo {
+  const avisosBase = r.avisos;
+  const listaBase = r.cabecalhoDeCobertura.listaCortada;
+  const mostradosBase = r.cabecalhoDeCobertura.porTribunal.map((l) => l.mostrados);
+  const montar = (tam: number, n: number): ResultadoAmplo => {
+    const itens = (apresentados as never[]).slice(0, n).map((x) => itemDe(x, tam));
+    const porTribunal = r.cabecalhoDeCobertura.porTribunal.map((l, i) =>
+      mostradosBase[i] === undefined ? l : { ...l, mostrados: itens.filter((x) => x.tribunal === l.tribunal).length },
+    );
+    const cortada = n < apresentados.length;
+    const listaCortada = cortada
+      ? `mostrando ${n} de ${sobreviventes}; resposta limitada a cerca de ${TETO_DA_RESPOSTA / 1000} mil caracteres; ` +
+        "para ver o resto, repita com menos tribunais ou formulações por chamada (as buscas já feitas voltam da memória)"
+      : listaBase;
+    return {
+      ...r,
+      mostrados: n,
+      acordaos: itens,
+      cabecalhoDeCobertura: { ...r.cabecalhoDeCobertura, porTribunal, ...(listaCortada && { listaCortada }) },
+      avisos: tam < tamanho ? [...avisosBase, `Trechos encurtados para ${tam} caracteres para a resposta caber em ${TETO_DA_RESPOSTA / 1000} mil caracteres.`] : avisosBase,
+    };
+  };
+  const cabe = (x: ResultadoAmplo) => JSON.stringify(x).length <= TETO_DA_RESPOSTA;
+  const cheia = montar(tamanho, apresentados.length);
+  if (cabe(cheia)) return cheia;
+  for (const tam of [80, 60, TRECHO_MINIMO].filter((t) => t < tamanho)) {
+    const encurtada = montar(tam, apresentados.length);
+    if (cabe(encurtada)) return encurtada;
+  }
+  const tam = Math.min(tamanho, TRECHO_MINIMO);
+  let [baixo, alto] = [0, apresentados.length - 1];
+  while (baixo < alto) {
+    const meio = Math.ceil((baixo + alto) / 2);
+    if (cabe(montar(tam, meio))) baixo = meio;
+    else alto = meio - 1;
+  }
+  return montar(tam, baixo);
 }

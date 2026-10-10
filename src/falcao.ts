@@ -260,7 +260,7 @@ export async function buscaNoFalcao(
     acordaos.map((registro, posicao) => ({ registro, formulacoes: new Set<number>(), melhorPosicao: posicao })),
   );
   // Entre cópias equivalentes, o acórdão mostrado é o que tem texto integral real, não o que só repete a ementa;
-  // a outra cópia segue alcançável pelo próprio id.
+  // a outra cópia segue alcançável pelo próprio id. Sem texto real = só a ementa repetida ou texto vazio.
   const porIdDoRegistro = new Map(acordaos.map((registro) => [registro.id, registro]));
   for (const j of juntos) {
     if (!j.registro.motivoSemTextoIntegral) continue;
@@ -346,6 +346,9 @@ type Bruto = Record<string, unknown>;
 /** Motivo gravado no acórdão cujo "texto integral" do Falcão é só a ementa repetida. */
 const MOTIVO_INTEGRAL_IGUAL_A_EMENTA = "texto integral do Falcão igual à ementa";
 
+/** Motivo gravado no acórdão cujo "texto integral" do Falcão veio vazio (mesma frase que a leitura usa para o texto vazio). */
+const MOTIVO_INTEGRAL_VAZIO = "o texto integral veio vazio do Falcão";
+
 /** Normaliza os documentos do Falcão: acórdão (sem o texto integral) e, à parte, o texto integral convertido. */
 export function normalizarDoFalcao(tribunal: string, documentos: unknown[]) {
   const acordaos: Acordao[] = [];
@@ -396,7 +399,10 @@ export function normalizarDoFalcao(tribunal: string, documentos: unknown[]) {
     const soAEmenta = !!ementa && ehSoAEmenta(integral, ementa);
     acordaos.push({
       ...acordao,
-      ...(soAEmenta && { motivoSemTextoIntegral: MOTIVO_INTEGRAL_IGUAL_A_EMENTA }),
+      // Texto real = convertido não vazio e que não é só a ementa; sem ele, o acórdão não é o preferido entre cópias.
+      ...(soAEmenta
+        ? { motivoSemTextoIntegral: MOTIVO_INTEGRAL_IGUAL_A_EMENTA }
+        : !integral && { motivoSemTextoIntegral: MOTIVO_INTEGRAL_VAZIO }),
       enquadramento927: enquadrarAcordao({ ...acordao, siglaClasse: sigla }),
     });
     if (soAEmenta) {
