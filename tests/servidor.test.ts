@@ -506,6 +506,24 @@ describe("erro nunca vira lista vazia (busca ampla)", () => {
     return { isError: r.isError, texto: r.content[0].text };
   }
 
+  it("ordem: \"data\" apresenta do julgamento mais antigo ao mais recente; outro valor é recusado", async () => {
+    const site = siteQueResponde(() =>
+      respostaJson({
+        results: [
+          { ...acordao("1"), data_julgamento: "2023-06-01T00:00:00.000Z" },
+          { ...acordao("2"), data_julgamento: "2015-02-03T00:00:00.000Z" },
+        ],
+      }),
+    );
+    const pedido = { formulacoes: ["responsabilidade civil"], tribunais: ["stj"] };
+
+    const porData = await ampla(site, { ...pedido, ordem: "data" });
+    expect(porData.isError).toBeFalsy();
+    expect(JSON.parse(porData.texto).acordaos.map((a: { id: string }) => a.id)).toEqual(["stj:2", "stj:1"]);
+    expect(JSON.parse((await ampla(site, { ...pedido, ordem: "aderencia" })).texto).acordaos.map((a: { id: string }) => a.id)).toEqual(["stj:1", "stj:2"]);
+    expect((await ampla(site, { ...pedido, ordem: "relevancia" })).isError).toBe(true);
+  });
+
   it("todas as buscas com erro comum: responde com erro e o motivo de cada busca, sem lista vazia", async () => {
     const r = await ampla(siteQueResponde(formatoDesconhecido), { formulacoes: ["tese a", "tese b"], tribunais: ["stj", "tjgo"] });
 

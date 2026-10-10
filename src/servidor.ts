@@ -492,6 +492,14 @@ export function criarServidor(
         tribunais: listaOuTexto(z.array(tribunal).min(1).max(5)).describe("Tribunais (até 5)"),
         limitePorBusca: z.number().int().min(1).max(100).optional().describe("Acórdãos por busca (padrão 100)"),
         maximo: z.number().int().min(1).max(200).optional().describe("Máximo de acórdãos na resposta (padrão 50)"),
+        ordem: z
+          .enum(["aderencia", "data"])
+          .optional()
+          .describe(
+            'Ordem da lista (padrão "aderencia"). "data": os mesmos acórdãos, escolhidos e cortados pelo máximo pela ' +
+              "aderência, do julgamento mais antigo ao mais recente, para ver mudança de entendimento; sem data vai ao " +
+              "fim, com aviso. Nenhuma chamada a mais",
+          ),
         ...filtros,
         // Conferidos dentro da ferramenta, como tribunal e datas: o erro precisa dizer o formato aceito.
         deveConter: z
