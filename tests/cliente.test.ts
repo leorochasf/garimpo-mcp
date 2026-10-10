@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { Cliente, RecusaError, USER_AGENT, Vagas } from "../src/cliente.js";
 import { clienteFalso, respostaJson } from "./apoio.js";
@@ -481,5 +482,77 @@ describe("cliente — travas de uso responsável", () => {
     }
     await juntas;
     expect(saidas).toEqual([1000, 20000, 24000]);
+  });
+});
+
+describe("recusa reconhecida pela página da fonte (desafio com HTTP 200) e pelo erro do parser", () => {
+  const desafio = (nome: string) => readFileSync(new URL(`./fixtures/desafios/${nome}`, import.meta.url));
+  const pagina = (nome: string, tipo = "text/html; charset=utf-8") => () =>
+    new Response(desafio(nome), { status: 200, headers: { "content-type": tipo } });
+  /** Fonte que responde JSON (o JurisprudênciaIA): página HTML no lugar é envelope, não conteúdo. */
+  const JSON_URL = "https://api.jurisprudenciaia.com.br/busca";
+
+  it("página de verificação com 200 numa fonte JSON: recusa, sem nova tentativa, e o serviço fica pausado", async () => {
+    const { cliente, chamadas, esperas } = clienteFalso([pagina("verificacao-de-seguranca.html"), respostaJson({})]);
+    const e = await cliente.requisitar(JSON_URL).catch((x) => x);
+    expect(e).toBeInstanceOf(RecusaError);
+    expect(e.message).toMatch(/não contorna/);
+    expect(e.message).toMatch(/pausadas em todas as janelas/);
+    expect(esperas).toEqual([]);
+    const depois = await cliente.requisitar(JSON_URL).catch((x) => x);
+    expect(depois).toBeInstanceOf(RecusaError);
+    expect(depois.message).toMatch(/não foi feita/);
+    expect(chamadas).toHaveLength(1);
+  });
+
+  it("página bloqueada e carregador do desafio sem título, numa fonte JSON: recusa, cada uma com sua mensagem", async () => {
+    const bloqueada = clienteFalso([pagina("pagina-bloqueada.html")]);
+    const e1 = await bloqueada.cliente.requisitar(JSON_URL).catch((x) => x);
+    expect(e1).toBeInstanceOf(RecusaError);
+    expect(e1.message).toMatch(/página de acesso bloqueado \(HTTP 200\)/);
+    const carregador = clienteFalso([pagina("carregador-tspd.html")]);
+    const e2 = await carregador.cliente.requisitar(JSON_URL).catch((x) => x);
+    expect(e2).toBeInstanceOf(RecusaError);
+    expect(e2.message).toMatch(/página de verificação anti-robô \(HTTP 200\)/);
+  });
+
+  it("o mesmo texto de bloqueio DENTRO da ementa JSON não é recusa: a resposta chega inteira", async () => {
+    const { cliente } = clienteFalso([pagina("ementa-com-texto-de-bloqueio.json", "application/json"), respostaJson({ ok: 1 })]);
+    const r = await cliente.requisitar(JSON_URL);
+    expect((await r.json()).resultados[0].ementa).toMatch(/ACESSO BLOQUEADO/);
+    expect(await (await cliente.requisitar(JSON_URL)).json()).toEqual({ ok: 1 });
+  });
+
+  it("PDF com a palavra captcha não é recusa", async () => {
+    const pdf = () =>
+      new Response(new TextEncoder().encode("%PDF-1.4\n(Verificação de segurança e captcha no texto da decisão)\n%%EOF"), {
+        status: 200,
+        headers: { "content-type": "application/pdf" },
+      });
+    const { cliente } = clienteFalso([pdf]);
+    const r = await cliente.requisitar("https://www.tjxx.jus.br/inteiro-teor/1.pdf");
+    expect(new TextDecoder().decode(await r.arrayBuffer())).toMatch(/captcha/);
+  });
+
+  it("portal HTML com título de desafio: recusa e serviço pausado", async () => {
+    const { cliente, chamadas } = clienteFalso([pagina("portal-com-titulo-de-desafio.html"), pagina("portal-com-ementa-de-bloqueio.html")]);
+    const url = "https://www.tjxx.jus.br/acordao?id=1";
+    const e = await cliente.requisitar(url).catch((x) => x);
+    expect(e).toBeInstanceOf(RecusaError);
+    expect(e.message).toMatch(/verificação anti-robô/);
+    expect((await cliente.requisitar(url).catch((x) => x)).message).toMatch(/não foi feita/);
+    expect(chamadas).toHaveLength(1);
+  });
+
+  it("portal HTML com texto de bloqueio só no conteúdo (título comum): não é recusa", async () => {
+    const { cliente } = clienteFalso([pagina("portal-com-ementa-de-bloqueio.html")]);
+    const r = await cliente.requisitar("https://www.tjxx.jus.br/acordao?id=1");
+    expect(await r.text()).toMatch(/ACESSO BLOQUEADO/);
+  });
+
+  it("página HTML grande numa fonte JSON não é lida como desafio, e chega inteira a quem lê", async () => {
+    const grande = `<html><head><title>Verificação de segurança</title></head><body>${"x".repeat(70_000)}</body></html>`;
+    const { cliente } = clienteFalso([() => new Response(grande, { headers: { "content-type": "text/html" } })]);
+    expect(await (await cliente.requisitar(JSON_URL)).text()).toBe(grande);
   });
 });

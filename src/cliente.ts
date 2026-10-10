@@ -273,14 +273,14 @@ class Ida {
    * O TSE responde "Excesso de requisições" no corpo, às vezes com status 200. Só o começo do corpo de texto
    * é lido (até LIMITE_AVISO bytes, mais o pedaço em curso) e fica guardado para quem ler a resposta.
    */
-  async lerAviso(): Promise<void> {
+  async lerAviso(limite = LIMITE_AVISO): Promise<void> {
     const r = this.resposta;
     const tipo = r.headers.get("content-type") ?? "";
     if (!tipo.includes("text") && !tipo.includes("json")) return;
-    if (Number(r.headers.get("content-length")) > LIMITE_AVISO || !r.body) return;
+    if (Number(r.headers.get("content-length")) > limite || !r.body) return;
     const leitor = (this.leitor = r.body.getReader());
     let total = 0;
-    while (!this.fim && total <= LIMITE_AVISO) {
+    while (!this.fim && total <= limite) {
       const { done, value } = await ler(leitor, this.controle.signal);
       if (done) this.fim = true;
       else {
@@ -288,7 +288,16 @@ class Ida {
         total += value.length;
       }
     }
-    this.excesso = this.fim && /excesso de requisi/i.test(new TextDecoder().decode(Buffer.concat(this.lidos)));
+    this.excesso = this.fim && total <= LIMITE_AVISO && /excesso de requisi/i.test(this.textoLido());
+  }
+
+  /** O corpo inteiro, se a leitura do começo chegou ao fim; senão, undefined. */
+  corpoPequeno(): string | undefined {
+    return this.fim ? this.textoLido() : undefined;
+  }
+
+  private textoLido(): string {
+    return new TextDecoder().decode(Buffer.concat(this.lidos));
   }
 
   /** O `userMessage` de um corpo JSON curto (recusa do Falcão), já limpo; qualquer outra coisa = undefined. */
@@ -296,7 +305,7 @@ class Ida {
     try {
       await this.lerAviso();
       if (!this.fim) return undefined;
-      const valor = JSON.parse(new TextDecoder().decode(Buffer.concat(this.lidos)))?.userMessage;
+      const valor = JSON.parse(this.textoLido())?.userMessage;
       return typeof valor === "string" ? textoExternoLimpo(valor) : undefined;
     } catch {
       return undefined;
@@ -595,6 +604,25 @@ export class Cliente {
   }
 
   /**
+   * Página de desafio ou de bloqueio que chega com HTTP 2xx: recusa, como o 403 (G-02). A marca só é procurada na
+   * página da fonte, nunca no conteúdo: numa fonte que não responde HTML, a página inteira (pequena) é o envelope;
+   * nas que respondem HTML, só o <title> de página pequena.
+   */
+  private barrarPaginaDeBloqueio(ida: Ida, servico: string): void {
+    const corpo = ida.corpoPequeno();
+    if (corpo === undefined) return;
+    const tipo = paginaDeBloqueio(corpo, (FORMATO_ESPERADO[servico] ?? "html") === "html");
+    if (!tipo) return;
+    const { status } = ida.resposta;
+    const pagina = tipo === "bloqueio" ? "de acesso bloqueado" : "de verificação anti-robô";
+    throw new RecusaError(
+      `${this.opcoes.nome} respondeu com uma página ${pagina} (HTTP ${status}) em vez do conteúdo. ` +
+        "O Garimpo não contorna bloqueios. Se precisar do conteúdo, abra o link no navegador.",
+      status,
+    );
+  }
+
+  /**
    * Faz um fetch, com a vaga já ocupada e a saída autorizada.
    * Bloqueio e 429/503 são decididos pelo status e cabeçalhos, antes de qualquer leitura do corpo;
    * só as demais respostas têm o começo do corpo lido em busca do aviso de excesso.
@@ -619,7 +647,11 @@ export class Cliente {
       });
       await anotarFreio(lerRestante(ida.resposta.headers));
       await this.barrarBloqueio(ida, url);
-      if (!pedeEspera(ida)) await ida.lerAviso();
+      if (!pedeEspera(ida)) {
+        const html = ida.resposta.ok && /html/i.test(ida.resposta.headers.get("content-type") ?? "");
+        await ida.lerAviso(html ? LIMITE_PAGINA_PEQUENA : LIMITE_AVISO);
+        if (html) this.barrarPaginaDeBloqueio(ida, servico);
+      }
       return ida;
     } catch (e) {
       ida.encerrar();
@@ -660,6 +692,40 @@ export function textoExternoLimpo(texto: string, maximo = 200): string {
     .replace(/\s+/g, " ")
     .trim();
   return limpo.length > maximo ? `${limpo.slice(0, maximo - 1).trimEnd()}…` : limpo;
+}
+
+/** Corpo HTML pequeno o bastante para ser página de desafio ou de bloqueio (bytes); maior que isso, é conteúdo. */
+const LIMITE_PAGINA_PEQUENA = 64 * 1024;
+
+/**
+ * O que cada serviço responde quando aceita (pelo nome no disjuntor). Fora daqui, o formato varia ou é HTML (inteiro
+ * teor dos tribunais, portais de precedentes): a marca de bloqueio só vale no <title>. Cada fonte nova declara o seu.
+ */
+const FORMATO_ESPERADO: Record<string, "json" | "html"> = {
+  jurisprudenciaia: "json",
+  datajud: "json",
+  djen: "json",
+  jt: "json",
+};
+
+/** Marcas da página, sem acento e em minúsculas: desafio de navegador ou página de bloqueio (não verificadas ao vivo). */
+const MARCAS_DE_BLOQUEIO: [RegExp, "desafio" | "bloqueio"][] = [
+  [/pagina bloqueada|acesso bloqueado/, "bloqueio"],
+  [/verificacao de seguranca|captcha|just a moment/, "desafio"],
+];
+
+/** Carregador do desafio do F5 (TSPD), que pode vir sem título. Só fora das fontes HTML. */
+const CARREGADOR_DE_DESAFIO = /src=["'][^"']*\/tspd\//;
+
+/**
+ * A página é de desafio ou de bloqueio? Com `soTitulo` (fonte que responde HTML), só o <title> conta; senão, a página
+ * inteira, que nessas fontes nunca é conteúdo.
+ */
+function paginaDeBloqueio(html: string, soTitulo: boolean): "desafio" | "bloqueio" | undefined {
+  const normal = (t: string) => t.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+  const onde = normal(soTitulo ? (/<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1] ?? "") : html);
+  for (const [marca, tipo] of MARCAS_DE_BLOQUEIO) if (marca.test(onde)) return tipo;
+  return !soTitulo && CARREGADOR_DE_DESAFIO.test(onde) ? "desafio" : undefined;
 }
 
 /** Desafio anti-robô conhecido (Cloudflare "managed", AWS WAF 202). */
