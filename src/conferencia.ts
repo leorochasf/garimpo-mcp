@@ -796,6 +796,9 @@ function ehLinhaDeCorpo(linha: string): boolean {
   return palavras >= PALAVRAS_DE_CORPO_SEGURO || !CARA_DE_CABECALHO.test(linha);
 }
 
+/** Linha que devolve o texto ao voto depois de uma decisão transcrita: "Retomando…", "Voltando ao caso…" ou fecho de aspas. */
+const RETOMADA_DO_VOTO = /^(?:retomando|voltando\s+ao\s+caso)\b|[”»"][ \t]*$/iu;
+
 /** Seções que um "EMENTA" ou "ACÓRDÃO" sozinho na linha não fecha: é a transcrição de outra decisão dentro delas. */
 const TRANSCREVEM_DECISOES: Secao[] = ["relatório", "voto vencido"];
 
@@ -812,6 +815,7 @@ function titulosDeSecao(texto: string, paginaEm: (i: number) => number): Titulos
   const transcricoes: number[] = [];
   let corpoAntes = false;
   let linhaDeAntes = "";
+  let transcrevendo = false;
   for (const m of texto.matchAll(/^[^\n]+$/gm)) {
     const titulo = m[0].trim();
     const linhaAnterior = linhaDeAntes;
@@ -826,6 +830,7 @@ function titulosDeSecao(texto: string, paginaEm: (i: number) => number): Titulos
       continue;
     }
     if (ehLinhaDeCorpo(titulo)) corpoAntes = true;
+    if (RETOMADA_DO_VOTO.test(titulo)) transcrevendo = false;
     if (titulo.length > 80) continue;
     const linha = titulo.normalize("NFC").replace(/\s*:$/, "");
     const maiusculas = /^[\p{Lu}\s-]+$/u.test(linha);
@@ -837,12 +842,15 @@ function titulosDeSecao(texto: string, paginaEm: (i: number) => number): Titulos
     if ((secao === "ementa" || secao === "acórdão") && anterior) {
       if (TRANSCREVEM_DECISOES.includes(anterior.secao)) continue;
       // No voto, o título só é transcrição se a linha de antes anuncia: sem o anúncio, segue valendo como título.
-      if (VOTOS.includes(anterior.secao) && ANUNCIA_TRANSCRICAO.test(`${linhaAnterior}
-`)) {
+      // Aberta a transcrição, os títulos seguintes ainda são dela até a retomada do voto.
+      if (VOTOS.includes(anterior.secao) && (transcrevendo || ANUNCIA_TRANSCRICAO.test(`${linhaAnterior}
+`))) {
+        transcrevendo = true;
         transcricoes.push(m.index);
         continue;
       }
     }
+    transcrevendo = false;
     titulos.push({ inicio: m.index, secao, titulo, pagina: paginaEm(m.index) });
   }
   return { titulos, transcricoes };

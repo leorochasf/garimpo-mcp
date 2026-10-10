@@ -751,6 +751,20 @@ describe("conferência de citação — posição no julgado (G-09)", () => {
       expect(posicoes(conferir(pagina)).posicoes).toEqual([{ secao: "voto", subparte: undefined }]);
     });
 
+    it("EMENTA seguida de ACÓRDÃO na mesma transcrição: o 2º título também é transcrito, a passagem fica no voto", () => {
+      const pagina =
+        `VOTO\nCito o precedente:\nEMENTA\nA tese do precedente tem diversos fundamentos.\nACÓRDÃO\n` +
+        `Acordam os julgadores ficticios em negar provimento.\nRetomando o meu voto, ${FRASE}.\nAnte o exposto, nego provimento ao recurso.`;
+      expect(posicoes(conferir(pagina)).posicoes).toEqual([{ secao: "voto", subparte: undefined }]);
+    });
+
+    it("transcrição fechada pela retomada: ACÓRDÃO sem anúncio depois dela volta a valer como título", () => {
+      const pagina =
+        `VOTO\nCito o precedente:\nEMENTA\nA tese do precedente tem diversos fundamentos.\n` +
+        `Retomando o meu voto, a tese e outra.\nACÓRDÃO\nAcordam os julgadores ficticios: ${FRASE}.`;
+      expect(posicoes(conferir(pagina)).posicoes).toEqual([{ secao: "acórdão", subparte: undefined }]);
+    });
+
     it("transcrição fechada e dispositivo próprio inequívoco depois dela: continua dispositivo", () => {
       const pagina =
         `VOTO\nTranscrevo a sentenca: “${SENTENCA_LONGA}\nAnte o exposto, julgo procedente o pedido.”\n` +
