@@ -176,7 +176,7 @@ interface Fonte {
   secao?(a: number, b: number): string;
   /** No inteiro teor e no texto integral: a subparte da seção em que fica o intervalo, se identificada. */
   subparte?(a: number, b: number): string | undefined;
-  sinal(a: number, b: number): string | undefined;
+  sinal(a: number, b: number, ligados: SinaisDeQuemDisse): string | undefined;
   /** Com supressão: se a cadeia de pedaços de a até b cabe na fonte (no PDF, até 3 páginas seguidas). */
   cadeiaAceita(a: number, b: number): boolean;
   /** Se a passagem [a, b) pode dar "difere só em maiúsculas/pontuação" (no PDF, não se tem hífen de fim de linha). */
@@ -280,7 +280,11 @@ function encadear(fonte: Fonte, n: Normalizado, pedacos: string[]): Intervalos |
 }
 
 /** O veredito e as posições do que foi achado, ou nada se a citação não está na fonte. */
-function conferir(fonte: Fonte, citacao: Citacao): ConferenciaFeita | undefined {
+function conferir(
+  fonte: Fonte,
+  citacao: Citacao,
+  ligados: SinaisDeQuemDisse = SINAIS_DE_QUEM_DISSE,
+): ConferenciaFeita | undefined {
   const achado = procurar(fonte, citacao);
   if (!achado) return undefined;
   const { literal, ocorrencias: achadas } = achado;
@@ -298,9 +302,9 @@ function conferir(fonte: Fonte, citacao: Citacao): ConferenciaFeita | undefined 
       citacao.comSupressao
         ? {
             local: fonte.onde(achada[0][0], achada[0][1]).local,
-            pedacos: achada.map(([a, b]) => posicao(fonte, a, b, literal)),
+            pedacos: achada.map(([a, b]) => posicao(fonte, a, b, literal, ligados)),
           }
-        : posicao(fonte, achada[0][0], achada[0][1], literal),
+        : posicao(fonte, achada[0][0], achada[0][1], literal, ligados),
     ),
     total: achado.total,
     equivalencias: literal ? equivalenciasUsadas(pares) : [],
@@ -324,8 +328,8 @@ function naoEncontrado(fonte: Fonte, citacao: Citacao): ConferenciaFeita {
   };
 }
 
-function posicao(fonte: Fonte, a: number, b: number, literal: boolean): Posicao {
-  const sinal = fonte.sinal(a, b);
+function posicao(fonte: Fonte, a: number, b: number, literal: boolean, ligados: SinaisDeQuemDisse): Posicao {
+  const sinal = fonte.sinal(a, b, ligados);
   const subparte = fonte.subparte?.(a, b);
   return {
     ...fonte.onde(a, b),
@@ -358,9 +362,14 @@ const fontesDoInteiroTeor = new WeakMap<InteiroTeorParaConferir, FonteDoInteiroT
 /**
  * Conferência no inteiro teor (ADR-0006): no texto corrido de todas as páginas do PDF, com a posição como página do
  * PDF, parte do ler_inteiro_teor e segmento. A quebra de página só é atravessada quando é limpa; com hífen de fim de
- * linha ou possível cabeçalho/rodapé no meio, no máximo uma passagem candidata, nunca confirmada.
+ * linha ou possível cabeçalho/rodapé no meio, no máximo uma passagem candidata, nunca confirmada. `ligados` escolhe os
+ * sinais de "quem disse" (G-08); o padrão é SINAIS_DE_QUEM_DISSE.
  */
-export function conferirNoInteiroTeor(leitura: InteiroTeorParaConferir, citacao: Citacao): ResultadoDaFonte {
+export function conferirNoInteiroTeor(
+  leitura: InteiroTeorParaConferir,
+  citacao: Citacao,
+  ligados: SinaisDeQuemDisse = SINAIS_DE_QUEM_DISSE,
+): ResultadoDaFonte {
   const semTexto = leitura.unidades.filter((t) => !t.texto).map((t) => t.pagina);
   if (semTexto.length === leitura.unidades.length) {
     return naoVerificavel(
@@ -370,7 +379,7 @@ export function conferirNoInteiroTeor(leitura: InteiroTeorParaConferir, citacao:
   }
   let fonte = fontesDoInteiroTeor.get(leitura);
   if (!fonte) fontesDoInteiroTeor.set(leitura, (fonte = fonteDoInteiroTeor(leitura)));
-  const feita = conferir(fonte, citacao);
+  const feita = conferir(fonte, citacao, ligados);
   if (feita) return feita;
   const candidata = passagemCandidata(fonte, citacao);
   const resultado: ConferenciaFeita = candidata
@@ -438,13 +447,40 @@ function fonteDoInteiroTeor(leitura: InteiroTeorParaConferir): FonteDoInteiroTeo
     },
     secao: (a, b) => nomeDaSecao(secoesEm(titulos, a, b)),
     subparte: (a, b) => subparteEm(marcas, a, b),
-    sinal: (a, b) => sinalNoInteiroTeor(texto, a, b, secoesEm(titulos, a, b)),
+    sinal: (a, b, ligados) => sinalNoInteiroTeor(texto, a, b, secoesEm(titulos, a, b), ligados),
     // Sem caixa e pontuação, o hífen de fim de linha viraria espaço e a palavra partida passaria por pontuação.
     soltaAceita: (a, b) => !HIFEN_DE_FIM_DE_LINHA.test(texto.slice(a, b)),
     cadeiaAceita: (a, b) => unidadeEm(b - 1).pagina - unidadeEm(a).pagina < MAXIMO_DE_PAGINAS_DA_SUPRESSAO,
     normalizados: new Map(),
   };
 }
+
+/**
+ * Sinais de "quem disse" (G-08), além dos de seção, aspas e marcador de transcrição: cada um tem interruptor próprio
+ * e só entra ligado depois de medido às cegas (G-75, ticket 10). Todos são sinal de outro autor — indício, nunca
+ * autoria nem juízo sobre a passagem.
+ */
+export interface SinaisDeQuemDisse {
+  /** "Não" (ou "nem", "nunca", "jamais") logo antes da passagem, na mesma oração: o sentido pode estar invertido. */
+  negacao: boolean;
+  /** Parte com verbo de alegação antes da passagem, na mesma frase ("o apelante sustenta que…"). */
+  alegacaoDaParte: boolean;
+  /** Fecho de ementa de outro julgado logo depois: parênteses com relator e data. */
+  ementaTranscrita: boolean;
+  /** Fórmula de divergência antes da passagem ("divirjo"…), em julgamento que não se diz unânime. */
+  divergencia: boolean;
+  /** Marca de raciocínio hipotético logo antes ("ainda que assim não fosse"): só a localização. */
+  raciocinioHipotetico: boolean;
+}
+
+/** Os interruptores de hoje: todos desligados até a medição (G-75). */
+export const SINAIS_DE_QUEM_DISSE: Readonly<SinaisDeQuemDisse> = Object.freeze({
+  negacao: false,
+  alegacaoDaParte: false,
+  ementaTranscrita: false,
+  divergencia: false,
+  raciocinioHipotetico: false,
+});
 
 /** Janela antes da passagem onde se procura a aspa que a abre. */
 const JANELA_DAS_ASPAS = 3000;
@@ -469,14 +505,41 @@ const MARCADORES = [
   "colaciono",
   "colaciona-se",
 ];
-const MARCADOR = new RegExp(`(?<![\\p{L}\\p{N}])(?:${MARCADORES.join("|")})(?![\\p{L}\\p{N}])`, "giu");
+const MARCADOR = palavra(MARCADORES);
+
+/** Palavra inteira, em qualquer caixa, de uma das formas dadas (expressões regulares). */
+function palavra(formas: string[]): RegExp {
+  return new RegExp(`(?<![\\p{L}\\p{N}])(?:${formas.join("|")})(?![\\p{L}\\p{N}])`, "giu");
+}
+
+/** Janela curta antes da passagem onde se procura a negação. */
+const JANELA_DA_NEGACAO = 40;
+/** Negações que invertem o que vem logo depois; "nao" para o PDF que perdeu o til. */
+const NEGACAO = palavra(["n[aã]o", "nem", "nunca", "jamais"]);
+
+/** O texto depois da última pontuação dada, ou o texto todo se não houver nenhuma. */
+function depoisDaUltima(texto: string, pontuacao: RegExp): string {
+  const ultimo = [...texto.matchAll(pontuacao)].pop();
+  return ultimo ? texto.slice(ultimo.index + ultimo[0].length) : texto;
+}
+
+/** A última ocorrência da expressão no texto, como está nele. */
+function ultima(texto: string, expressao: RegExp): string | undefined {
+  return [...texto.normalize("NFC").matchAll(expressao)].pop()?.[0];
+}
 
 /**
  * Sinal de outro autor no inteiro teor: a passagem no relatório ou num voto vencido (aviso forte, pelo título de
  * seção), entre aspas, ou com um marcador de transcrição ("in verbis", "confira-se"…) logo antes dela, copiado como
  * está na fonte. É indício, não autoria; a falta dele não prova nada.
  */
-function sinalNoInteiroTeor(texto: string, a: number, b: number, secoes: Secoes): string | undefined {
+function sinalNoInteiroTeor(
+  texto: string,
+  a: number,
+  b: number,
+  secoes: Secoes,
+  ligados: SinaisDeQuemDisse,
+): string | undefined {
   const sinais: string[] = [];
   const fortes = secoes.titulos.flatMap((t) => {
     const aviso = AVISO_DA_SECAO[t.secao];
@@ -491,6 +554,11 @@ function sinalNoInteiroTeor(texto: string, a: number, b: number, secoes: Secoes)
   const marcadores = [...texto.slice(Math.max(0, a - JANELA_DO_MARCADOR), a).normalize("NFC").matchAll(MARCADOR)];
   if (marcadores.length) {
     sinais.push(`logo antes da passagem há o marcador de transcrição "${marcadores[marcadores.length - 1][0]}"`);
+  }
+  const negacao =
+    ligados.negacao && ultima(depoisDaUltima(texto.slice(Math.max(0, a - JANELA_DA_NEGACAO), a), /[.!?;:,]/g), NEGACAO);
+  if (negacao) {
+    sinais.push(`logo antes da passagem, na mesma oração, há a negação "${negacao}": o sentido pode estar invertido`);
   }
   if (!sinais.length) return undefined;
   return `${fortes.length ? "ATENÇÃO, pode" : "pode"} ser de outro autor: ${sinais.join("; ")}`;

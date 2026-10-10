@@ -1,11 +1,23 @@
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { conferirNaEmenta, conferirNoInteiroTeor, conferirNoTextoIntegral, lerCitacao } from "../src/conferencia.js";
+import {
+  SINAIS_DE_QUEM_DISSE,
+  conferirNaEmenta,
+  conferirNoInteiroTeor,
+  conferirNoTextoIntegral,
+  lerCitacao,
+} from "../src/conferencia.js";
 import type { ConferenciaFeita, ResultadoDaFonte } from "../src/conferencia.js";
 import { lerParaConferir } from "../src/leitura.js";
 import type { InteiroTeorParaConferir } from "../src/leitura.js";
-import { pdfComDispositivoECertidao, pdfEmentaPadronizada } from "./pdfSintetico.js";
+import {
+  FRASES_DE_AUTORIA,
+  pdfComDispositivoECertidao,
+  pdfComSinaisDeAutoria,
+  pdfEmentaPadronizada,
+  pdfUnanimeComDivergencia,
+} from "./pdfSintetico.js";
 
 /** Ementa fictícia, sem processo real (regra 2). */
 const EMENTA =
@@ -630,5 +642,78 @@ describe("conferência de citação — posição no julgado (G-09)", () => {
   it("na ementa do JurisprudênciaIA não há subparte: o campo não aparece", () => {
     const r = conferirNaEmenta(`EMENTA FICTÍCIA. I. Caso em exame. 1. Para ${FRASE}.`, citar(FRASE));
     expect((r as ConferenciaFeita).ocorrencias[0]).not.toHaveProperty("subparte");
+  });
+});
+
+describe("conferência de citação — sinais de \"quem disse\" (G-08), desligados por padrão", () => {
+  async function lerPdf(bytes: Uint8Array): Promise<InteiroTeorParaConferir> {
+    const pasta = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-quem-disse-"));
+    const caminho = join(pasta, "acordao-ficticio.pdf");
+    await writeFile(caminho, bytes);
+    return lerParaConferir(caminho);
+  }
+  function inteiroTeor(paginas: string[]): InteiroTeorParaConferir {
+    return {
+      origem: "não conferida",
+      totalDePaginas: paginas.length,
+      totalDePartes: 1,
+      unidades: paginas.map((texto, i) => ({ pagina: i + 1, parte: 1, texto })),
+    };
+  }
+  const citar = (citacao: string) => lerCitacao(citacao, { reticenciasComoCorte: false });
+  /** O sinal de outro autor da 1ª ocorrência (a citação tem de ser achada literalmente). */
+  function sinal(r: ResultadoDaFonte): string | undefined {
+    expect(r.veredito).toBe("encontrado literalmente");
+    return (r as { ocorrencias: { sinalDeOutroAutor?: string }[] }).ocorrencias[0].sinalDeOutroAutor;
+  }
+  /** O aviso de hoje para a passagem no relatório aberto na página `pagina` do PDF. */
+  const avisoDoRelatorio = (pagina: number) =>
+    `ATENÇÃO, pode ser de outro autor: a passagem está no relatório (título "RELATORIO" na página ${pagina} do PDF), ` +
+    "que costuma reproduzir alegações das partes e decisões anteriores; não a cite como fundamento do tribunal sem " +
+    "conferir no PDF";
+
+  it("os cinco interruptores existem e nascem desligados", () => {
+    expect(SINAIS_DE_QUEM_DISSE).toEqual({
+      negacao: false,
+      alegacaoDaParte: false,
+      ementaTranscrita: false,
+      divergencia: false,
+      raciocinioHipotetico: false,
+    });
+  });
+
+  it.each([
+    ["negação", "o negocio generico e nulo por vicio de forma", 1],
+    ["alegação da parte", "o prazo generico seria decenal", 2],
+    ["ementa transcrita", "A prescricao da pretensao generica ocorre em tres anos", 2],
+    ["voto divergente", "para negar provimento, por entender valido o negocio generico", 2],
+    ["raciocínio hipotético", "o resultado seria o mesmo, pois o prazo ja estaria vencido", 2],
+  ])("desligados, a passagem de %s tem o mesmo aviso de hoje (só o do relatório)", async (_caso, citacao, pagina) => {
+    const leitura = await lerPdf(pdfComSinaisDeAutoria());
+    expect(sinal(conferirNoInteiroTeor(leitura, citar(citacao)))).toBe(avisoDoRelatorio(pagina));
+  });
+
+  /** Só o sinal pedido ligado. */
+  const so = (sinal: keyof typeof SINAIS_DE_QUEM_DISSE) => ({ ...SINAIS_DE_QUEM_DISSE, [sinal]: true });
+
+  it("negação ligada: \"não\" logo antes, na mesma oração, vira sinal (o sentido pode estar invertido)", async () => {
+    const leitura = await lerPdf(pdfComSinaisDeAutoria());
+    const r = conferirNoInteiroTeor(leitura, citar("o negocio generico e nulo por vicio de forma"), so("negacao"));
+    expect(sinal(r)).toBe(
+      `${avisoDoRelatorio(1)}; logo antes da passagem, na mesma oração, há a negação "Nao": o sentido pode estar ` +
+        "invertido",
+    );
+  });
+
+  it.each([
+    ["em outra frase", "VOTO\nNao ha custas. Por isso o negocio generico e nulo por vicio de forma."],
+    ["em outra oração (depois da vírgula)", "VOTO\nEmbora nao conste do pedido, o negocio generico e nulo por vicio de forma."],
+    [
+      "longe da passagem",
+      "VOTO\nNao resta duvida depois de longa e cuidadosa analise de toda a prova produzida nos autos que o negocio generico e nulo por vicio de forma.",
+    ],
+  ])("negação ligada: \"não\" que nega outra coisa (%s) não vira sinal", (_caso, pagina) => {
+    const r = conferirNoInteiroTeor(inteiroTeor([pagina]), citar("o negocio generico e nulo por vicio de forma"), so("negacao"));
+    expect(sinal(r)).toBeUndefined();
   });
 });
