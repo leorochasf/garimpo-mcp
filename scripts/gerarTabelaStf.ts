@@ -42,6 +42,8 @@ import { conferirComAAnterior, type OpcoesDaTrava } from "../src/tabelaDePrecede
 
 export const VERSAO_DO_GERADOR_STF = "1";
 export const DESTINO_PADRAO_STF = fileURLToPath(new URL("../dados/tabela-precedentes-stf.json", import.meta.url));
+/** Onde o relatório de mudanças (G-59) é gravado a cada geração da tabela empacotada. */
+export const PASTA_DO_RELATORIO_STF = fileURLToPath(new URL("../docs/tabela-mudancas/", import.meta.url));
 export const ENTRADA_PADRAO_STF = fileURLToPath(new URL("../entrada-stf/", import.meta.url));
 
 /** O gerador para: a tabela anterior fica como estava. */
@@ -95,7 +97,17 @@ export function gerarEGravarStf(
 ): TabelaDoStf {
   const momento = new Date(agora()).toISOString();
   const tabela = { ...gerarTabelaStf(lerEntrada(pasta), momento), conferidaEm: momento };
-  conferirComAAnterior(destino, tabela, trava, (m) => new ParadaDoGerador(m));
+  const proveniencia = [
+    ...Object.entries(tabela.fonte.paginas).map(([tipo, pagina]) => `página de ${tipo}: ${pagina}`),
+    ...tabela.arquivos.map((a) => `${a.parte}: ${a.nome} — obtido em ${a.obtidoEm} — sha256 ${a.sha256}`),
+  ];
+  conferirComAAnterior(
+    destino,
+    tabela,
+    { pastaDoRelatorio: destino === DESTINO_PADRAO_STF ? PASTA_DO_RELATORIO_STF : undefined, ...trava },
+    (m) => new ParadaDoGerador(m),
+    { nome: "stf", proveniencia },
+  );
   const provisorio = `${destino}.gerando`;
   writeFileSync(provisorio, `${JSON.stringify(tabela, null, 1)}\n`);
   renameSync(provisorio, destino);

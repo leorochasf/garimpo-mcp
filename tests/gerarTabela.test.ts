@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -12,7 +12,7 @@ import {
   URL_TEMAS,
   urlPermitida,
 } from "../scripts/gerarTabela.js";
-import { compararLinhas, motivoDaTrava } from "../src/tabelaDePrecedentes.js";
+import { compararLinhas, motivoDaTrava, relatorioDeMudancas } from "../src/tabelaDePrecedentes.js";
 import { clienteFalso } from "./apoio.js";
 
 const gravado = (nome: string) => readFileSync(new URL(`./fixtures/stj-precedentes/${nome}`, import.meta.url));
@@ -282,6 +282,48 @@ describe("gerador da tabela de precedentes — rede (fetch falso)", () => {
       expect(readFileSync(destino, "utf8")).toBe("tabela anterior");
     });
   });
+
+  describe("relatório de mudanças gravado ao gerar (G-59)", () => {
+    const pastaNova = () => mkdtempSync(join(process.env.GARIMPO_DADOS!, "garimpo-relatorio-"));
+    const anteriorEm = (pasta: string, mexer: (t: ReturnType<typeof gerarTabela>) => void) => {
+      const destino = join(pasta, "tabela.json");
+      const t = gerarTabela(conjunto(), "2026-10-01T00:00:00.000Z");
+      mexer(t);
+      writeFileSync(destino, JSON.stringify(t));
+      return destino;
+    };
+    const gerar = async (destino: string, opcoes: Parameters<typeof gerarEGravar>[3]) => {
+      const { cliente, agora } = comRelogio(respostas());
+      return gerarEGravar(cliente, destino, agora, opcoes);
+    };
+
+    it("grava docs-style AAAA-MM-DD-stj.md na pasta pedida, com as duas versões e a origem", async () => {
+      const pasta = pastaNova();
+      const destino = anteriorEm(pasta, (t) => (t.linhas[0].teseFirmada = "Tese antiga sintética."));
+      const tabela = await gerar(destino, { pastaDoRelatorio: join(pasta, "mudancas") });
+      const arquivo = join(pasta, "mudancas", `${tabela.geradaEm.slice(0, 10)}-stj.md`);
+      const texto = readFileSync(arquivo, "utf8");
+      expect(texto).toContain("Tese antiga sintética.");
+      expect(texto).toContain(tabela.linhas[0].teseFirmada!);
+      expect(texto).toContain(URL_TEMAS);
+    });
+
+    it("sem mudança: grava relatório 'sem mudanças'", async () => {
+      const pasta = pastaNova();
+      const destino = anteriorEm(pasta, () => {});
+      const tabela = await gerar(destino, { pastaDoRelatorio: join(pasta, "mudancas") });
+      expect(readFileSync(join(pasta, "mudancas", `${tabela.geradaEm.slice(0, 10)}-stj.md`), "utf8")).toMatch(/sem mudanças/i);
+    });
+
+    it("trava recusa: nenhum relatório gravado; primeira geração: nenhum relatório", async () => {
+      const pasta = pastaNova();
+      const destino = anteriorEm(pasta, (t) => t.linhas.push({ tipo: "tema repetitivo", numero: 9999 }));
+      await expect(gerar(destino, { pastaDoRelatorio: join(pasta, "mudancas") })).rejects.toThrow(/sumiram/);
+      expect(existsSync(join(pasta, "mudancas"))).toBe(false);
+      await gerar(join(pasta, "nova.json"), { pastaDoRelatorio: join(pasta, "mudancas") });
+      expect(existsSync(join(pasta, "mudancas"))).toBe(false);
+    });
+  });
 });
 
 describe("trava — comparação e limiares (puros, sintéticos)", () => {
@@ -302,5 +344,50 @@ describe("trava — comparação e limiares (puros, sintéticos)", () => {
 
   it("linha sumida sempre trava, mesmo sendo uma só", () => {
     expect(motivoDaTrava(compararLinhas(lista(500), lista(499)))).toMatch(/1 precedente/);
+  });
+});
+
+describe("relatório de mudanças entre versões (G-59, puro, sintético)", () => {
+  const meta = {
+    nome: "stj",
+    geradaEm: "2026-11-01T10:00:00.000Z",
+    geradaEmAnterior: "2026-10-01T10:00:00.000Z",
+    proveniencia: ["https://fonte.exemplo/temas.csv — coletado em 2026-11-01T09:59:00.000Z — sha256 abc123"],
+  };
+  const tema = (numero: number, extra: object = {}) => ({ tipo: "tema repetitivo", numero, situacao: "Julgado", teseFirmada: "Tese A.", ...extra });
+
+  it("tese mudada: item com as duas versões literais e a proveniência (URL, data)", () => {
+    const r = relatorioDeMudancas([tema(1), tema(2)], [tema(1, { teseFirmada: "Tese B,\nem duas linhas." }), tema(2)], meta);
+    expect(r).toContain("tema repetitivo 1");
+    expect(r).toContain("Tese A.");
+    expect(r).toContain("Tese B,");
+    expect(r).toContain("em duas linhas.");
+    expect(r).toContain("https://fonte.exemplo/temas.csv");
+    expect(r).toContain("2026-11-01T09:59:00.000Z");
+    expect(r).not.toContain("tema repetitivo 2");
+    expect(r).not.toMatch(/sem mudanças/i);
+  });
+
+  it("tema cancelado e súmula revista levam a marca correspondente", () => {
+    const r = relatorioDeMudancas(
+      [tema(7), { tipo: "súmula", numero: 3, situacao: "vigente" }],
+      [tema(7, { situacao: "Cancelado" }), { tipo: "súmula", numero: 3, situacao: "revista" }],
+      meta,
+    );
+    expect(r).toMatch(/tema repetitivo 7[\s\S]*Marca: tema cancelado/);
+    expect(r).toMatch(/súmula 3[\s\S]*Marca: súmula revista/);
+  });
+
+  it("linhas novas e removidas aparecem separadas; mudança sem marca não inventa marca", () => {
+    const r = relatorioDeMudancas([tema(1), tema(2)], [tema(2, { orgaoJulgador: "Corte" }), tema(3)], meta);
+    expect(r).toMatch(/Removidas \(1\)[\s\S]*tema repetitivo 1/);
+    expect(r).toMatch(/Adicionadas \(1\)[\s\S]*tema repetitivo 3/);
+    expect(r).not.toContain("Marca:");
+  });
+
+  it("sem mudança: diz 'sem mudanças' e ainda traz a proveniência", () => {
+    const r = relatorioDeMudancas([tema(1)], [tema(1)], meta);
+    expect(r).toMatch(/sem mudanças/i);
+    expect(r).toContain("https://fonte.exemplo/temas.csv");
   });
 });

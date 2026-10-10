@@ -35,6 +35,8 @@ export const INTERVALO_MS = 10_000;
 export const VERSAO_DO_GERADOR = "1";
 
 export const DESTINO_PADRAO = fileURLToPath(new URL("../dados/tabela-precedentes-stj.json", import.meta.url));
+/** Onde o relatório de mudanças (G-59) é gravado a cada geração da tabela empacotada. */
+export const PASTA_DO_RELATORIO = fileURLToPath(new URL("../docs/tabela-mudancas/", import.meta.url));
 
 /** O gerador para: a tabela anterior fica como estava. */
 export class ParadaDoGerador extends Error {
@@ -102,7 +104,17 @@ export async function gerarEGravar(
   const conjunto = await baixarConjunto(cliente, agora);
   const momento = new Date(agora()).toISOString();
   const tabela = { ...gerarTabela(conjunto, momento), conferidaEm: momento };
-  conferirComAAnterior(destino, tabela, trava, (m) => new ParadaDoGerador(`${m} Nada foi gravado; a tabela anterior continua.`));
+  const proveniencia = [
+    `página do conjunto: ${tabela.fonte.pagina}`,
+    ...tabela.arquivos.map((a) => `${a.url} — coletado em ${a.coletadoEm} — sha256 ${a.sha256}`),
+  ];
+  conferirComAAnterior(
+    destino,
+    tabela,
+    { pastaDoRelatorio: destino === DESTINO_PADRAO ? PASTA_DO_RELATORIO : undefined, ...trava },
+    (m) => new ParadaDoGerador(`${m} Nada foi gravado; a tabela anterior continua.`),
+    { nome: "stj", proveniencia },
+  );
   const provisorio = `${destino}.gerando`;
   writeFileSync(provisorio, `${JSON.stringify(tabela, null, 1)}\n`);
   renameSync(provisorio, destino);

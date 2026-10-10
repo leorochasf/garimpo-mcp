@@ -274,6 +274,28 @@ describe("gerador da tabela do STF — pasta de entrada e gravação", () => {
       expect(JSON.parse(readFileSync(pequena, "utf8")).conferidaEm).toBe(GERADA);
     });
 
+    it("relatório de mudanças (G-59): tese e súmula mudadas com as duas versões, a marca e a origem; só grava se a trava passa", () => {
+      const pasta = pastaDeEntrada();
+      const relatorios = join(mkdtempSync(join(process.env.GARIMPO_DADOS!, "relatorio-")), "mudancas");
+      const destino = gravarAnterior(pasta, (t) => {
+        const rg = t.linhas.find((l) => l.tipo === "repercussão geral")!;
+        rg.teseFirmada = "Tese antiga sintética.";
+        const sumula = t.linhas.find((l) => l.tipo === "súmula")!;
+        sumula.situacao = "vigente";
+      });
+      const nova = gerarEGravarStf(pasta, destino, agora, { pastaDoRelatorio: relatorios, limiares: { proporcao: 0.9, minimo: 20 } });
+      const texto = readFileSync(join(relatorios, `${GERADA.slice(0, 10)}-stf.md`), "utf8");
+      const rg = nova.linhas.find((l) => l.tipo === "repercussão geral")!;
+      expect(texto).toContain("Tese antiga sintética.");
+      expect(texto).toContain(rg.teseFirmada!.split("\n")[0]);
+      expect(texto).toContain(nova.arquivos[0].nome);
+      expect(texto).toContain(nova.arquivos[0].sha256);
+      const recusada = gravarAnterior(pasta, (t) => t.linhas.push({ tipo: "súmula", numero: 9999 } as never));
+      const outra = join(mkdtempSync(join(process.env.GARIMPO_DADOS!, "relatorio-")), "mudancas");
+      expect(() => gerarEGravarStf(pasta, recusada, agora, { pastaDoRelatorio: outra })).toThrow(/sumiram/);
+      expect(existsSync(outra)).toBe(false);
+    });
+
     it("tabela anterior ilegível: para", () => {
       const destino = destinoNovo();
       writeFileSync(destino, "tabela anterior");

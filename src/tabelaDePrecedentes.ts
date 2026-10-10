@@ -4,7 +4,8 @@
  * A consulta é pura: sem rede nem disco (a tabela é lida uma vez, no primeiro uso).
  */
 
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { enquadrarQualificado, type ReforcoDaTabela } from "./enquadramento.js";
 
 /** Rótulos que o Garimpo dá às listas do site; os mesmos aqui, para Tema N e IAC N nunca se trocarem. */
@@ -250,8 +251,8 @@ export function relatorioDeDiferencas(d: Diferencas): string {
   ].join("\n");
 }
 
-/** Linhas da tabela já gravada em `destino`; undefined se não há (primeira geração). Arquivo ilegível: erro. */
-export function lerLinhasAnteriores(destino: string): { tipo: string; numero: number }[] | undefined {
+/** A tabela já gravada em `destino` (linhas e quando foi gerada); undefined se não há (primeira geração). Arquivo ilegível: erro. */
+export function lerTabelaAnterior(destino: string): { linhas: { tipo: string; numero: number }[]; geradaEm?: string } | undefined {
   let texto: string;
   try {
     texto = readFileSync(destino, "utf8");
@@ -259,9 +260,90 @@ export function lerLinhasAnteriores(destino: string): { tipo: string; numero: nu
     if ((e as NodeJS.ErrnoException).code === "ENOENT") return undefined;
     throw e;
   }
-  const linhas = (JSON.parse(texto) as { linhas?: unknown }).linhas;
-  if (!Array.isArray(linhas)) throw new Error(`${destino} não tem a lista de linhas.`);
-  return linhas;
+  const tabela = JSON.parse(texto) as { linhas?: unknown; geradaEm?: unknown };
+  if (!Array.isArray(tabela.linhas)) throw new Error(`${destino} não tem a lista de linhas.`);
+  return { linhas: tabela.linhas, geradaEm: typeof tabela.geradaEm === "string" ? tabela.geradaEm : undefined };
+}
+
+// ——— Relatório de mudanças entre versões (G-59) ———
+
+type LinhaGenerica = { tipo: string; numero: number } & Record<string, unknown>;
+
+export interface MetaDoRelatorio {
+  /** Qual tabela: "stj" ou "stf" (entra no nome do arquivo). */
+  nome: string;
+  geradaEm: string;
+  geradaEmAnterior?: string;
+  /** De onde veio a versão nova: URL ou nome do arquivo, data e sha256, uma linha por origem. */
+  proveniencia: string[];
+}
+
+const MARCAS_DE_SITUACAO: { padrao: RegExp; masculino: string; feminino: string }[] = [
+  { padrao: /cancelad/i, masculino: "cancelado", feminino: "cancelada" },
+  { padrao: /revis/i, masculino: "revisado", feminino: "revista" },
+  { padrao: /supera/i, masculino: "superado", feminino: "superada" },
+  { padrao: /revogad/i, masculino: "revogado", feminino: "revogada" },
+];
+
+/** Marca da mudança de situação: só quando a situação mudou e a nova diz cancelado, revisado, superado ou revogado. */
+function marcaDaMudanca(antes: LinhaGenerica, depois: LinhaGenerica): string | undefined {
+  if (antes.situacao === depois.situacao || typeof depois.situacao !== "string") return undefined;
+  const marca = MARCAS_DE_SITUACAO.find((m) => m.padrao.test(depois.situacao as string));
+  if (!marca) return undefined;
+  if (depois.tipo.startsWith("súmula")) return `súmula ${marca.feminino}`;
+  return `${depois.tipo === "tema repetitivo" || depois.tipo === "repercussão geral" ? "tema" : depois.tipo} ${marca.masculino}`;
+}
+
+const textoDoValor = (v: unknown): string =>
+  (v === undefined ? "(não consta)" : typeof v === "string" ? v : JSON.stringify(v)).replace(/\n/g, "\n      ");
+
+/**
+ * Relatório (Markdown) do que mudou desde a tabela anterior: cada linha alterada com as duas versões de cada campo
+ * e a marca de cancelado/revisado, as linhas novas e as removidas, e a proveniência da versão nova. Sem mudança, diz
+ * "sem mudanças". Os textos vêm dos dados (fontes oficiais), copiados como estão.
+ */
+export function relatorioDeMudancas(anterior: LinhaGenerica[], candidato: LinhaGenerica[], meta: MetaDoRelatorio): string {
+  const antes = new Map(anterior.map((l) => [idDaLinha(l), l]));
+  const depois = new Map(candidato.map((l) => [idDaLinha(l), l]));
+  const removidas = [...antes.keys()].filter((id) => !depois.has(id));
+  const adicionadas = [...depois.keys()].filter((id) => !antes.has(id));
+  const alteradas = [...depois.keys()].filter((id) => antes.has(id) && JSON.stringify(antes.get(id)) !== JSON.stringify(depois.get(id)));
+
+  const saida = [
+    `# Mudanças na tabela de precedentes (${meta.nome.toUpperCase()}) — gerada em ${meta.geradaEm}`,
+    "",
+    `Versão anterior: ${meta.geradaEmAnterior ? `gerada em ${meta.geradaEmAnterior}` : "data não informada"}.`,
+    "",
+    "Origem da versão nova:",
+    ...meta.proveniencia.map((p) => `- ${p}`),
+    "",
+  ];
+  if (!removidas.length && !adicionadas.length && !alteradas.length) {
+    saida.push("Sem mudanças desde a versão anterior.", "");
+    return saida.join("\n");
+  }
+  if (alteradas.length) {
+    saida.push(`## Alteradas (${alteradas.length})`, "");
+    for (const id of alteradas) {
+      const a = antes.get(id)!;
+      const d = depois.get(id)!;
+      saida.push(`### ${id}`, "");
+      const marca = marcaDaMudanca(a, d);
+      if (marca) saida.push(`Marca: ${marca}`, "");
+      for (const campo of [...new Set([...Object.keys(a), ...Object.keys(d)])]) {
+        if (JSON.stringify(a[campo]) === JSON.stringify(d[campo])) continue;
+        saida.push(`- ${campo}`, `  - antes: ${textoDoValor(a[campo])}`, `  - agora: ${textoDoValor(d[campo])}`);
+      }
+      saida.push("");
+    }
+  }
+  const lista = (titulo: string, ids: string[], de: Map<string, LinhaGenerica>) => {
+    if (!ids.length) return;
+    saida.push(`## ${titulo} (${ids.length})`, "", ...ids.map((id) => `- ${id}${typeof de.get(id)!.situacao === "string" ? ` — situação: ${de.get(id)!.situacao}` : ""}`), "");
+  };
+  lista("Adicionadas", adicionadas, depois);
+  lista("Removidas", removidas, antes);
+  return saida.join("\n");
 }
 
 export interface OpcoesDaTrava {
@@ -270,6 +352,8 @@ export interface OpcoesDaTrava {
   limiares?: Limiares;
   /** Recebe o relatório de diferenças (também quando a trava recusa), para a saída do gerador. */
   aoComparar?: (relatorio: string) => void;
+  /** Pasta onde gravar o relatório de mudanças (G-59), `AAAA-MM-DD-<tabela>.md`; sem ela, não grava. */
+  pastaDoRelatorio?: string;
 }
 
 /**
@@ -278,22 +362,33 @@ export interface OpcoesDaTrava {
  */
 export function conferirComAAnterior(
   destino: string,
-  candidato: { linhas: { tipo: string; numero: number }[] },
+  candidato: { linhas: { tipo: string; numero: number }[]; geradaEm: string },
   opcoes: OpcoesDaTrava,
   parada: (mensagem: string) => Error,
+  relato?: { nome: string; proveniencia: string[] },
 ): void {
-  let anterior: { tipo: string; numero: number }[] | undefined;
+  let anterior: ReturnType<typeof lerTabelaAnterior>;
   try {
-    anterior = lerLinhasAnteriores(destino);
+    anterior = lerTabelaAnterior(destino);
   } catch (e) {
     throw parada(`A tabela anterior em ${destino} está ilegível (${(e as Error).message}); não dá para comparar.`);
   }
   if (!anterior) return;
-  const diferencas = compararLinhas(anterior, candidato.linhas);
+  const diferencas = compararLinhas(anterior.linhas, candidato.linhas);
   const relatorio = relatorioDeDiferencas(diferencas);
   opcoes.aoComparar?.(relatorio);
   const motivo = motivoDaTrava(diferencas, opcoes.limiares);
   if (motivo && !opcoes.revisado) {
     throw parada(`${motivo} Revise o relatório e rode de novo com --revisado.\n${relatorio}`);
+  }
+  if (opcoes.pastaDoRelatorio && relato) {
+    const texto = relatorioDeMudancas(anterior.linhas as LinhaGenerica[], candidato.linhas as LinhaGenerica[], {
+      nome: relato.nome,
+      geradaEm: candidato.geradaEm,
+      geradaEmAnterior: anterior.geradaEm,
+      proveniencia: relato.proveniencia,
+    });
+    mkdirSync(opcoes.pastaDoRelatorio, { recursive: true });
+    writeFileSync(join(opcoes.pastaDoRelatorio, `${candidato.geradaEm.slice(0, 10)}-${relato.nome}.md`), texto);
   }
 }
