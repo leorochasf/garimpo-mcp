@@ -1096,3 +1096,37 @@ describe("estimativa antes de buscar e \"limite não é amostra\"", () => {
     expect(JSON.stringify(inteira)).not.toMatch(/não é amostra/i);
   });
 });
+
+describe("campos que o site não mandou (faltam) na busca ampla", () => {
+  it("só o acórdão incompleto leva faltam; o completo sai sem o campo", async () => {
+    const { cliente } = siteFalso((_t, texto) => {
+      const { orgao_julgador: _o, link_pdf: _l, ...incompleto } = bruto(`inc-${texto}`, 0.9);
+      return respostaJson({ results: [incompleto, bruto(`ok-${texto}`, 0.5)] });
+    });
+    const r = await buscaAmpla(cliente, { formulacoes: ["a"], tribunais: ["stj"] });
+    const inc = r.acordaos.find((a) => a.id.includes("inc-"))!;
+    const ok = r.acordaos.find((a) => a.id.includes("ok-"))!;
+    expect(inc.faltam).toEqual(["orgao", "link"]);
+    expect(ok).not.toHaveProperty("faltam");
+  });
+
+  it("50 acórdãos sem órgão e sem link, campos realistas, com a estimativa e a lista cortada: < 25 mil caracteres", async () => {
+    const { cliente: base } = siteRealista();
+    const cliente = new (class extends Cliente {
+      async requisitar(url: string, init: RequestInit = {}): Promise<Response> {
+        const corpo = (await (await base.requisitar(url, init)).json()) as { results: Record<string, unknown>[] };
+        for (const x of corpo.results) {
+          delete x.orgao_julgador;
+          delete x.link_pdf;
+        }
+        return respostaJson(corpo);
+      }
+    })({ nome: "O site", esperar: async () => {} });
+    const r = await buscaAmpla(cliente, { formulacoes: FORMULACOES_REALISTAS, tribunais: ["tjrs", "stj", "tjsp"] });
+    expect(r.acordaos).toHaveLength(50);
+    expect(r.acordaos.every((a) => a.faltam?.join() === "orgao,link")).toBe(true);
+    expect(r.estimativa).toMatch(/até 9 chamadas/);
+    expect(r.cabecalhoDeCobertura.listaCortada).toMatch(/limite não é amostra/);
+    expect(JSON.stringify(r).length).toBeLessThan(25_000);
+  });
+});

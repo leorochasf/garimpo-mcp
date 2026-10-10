@@ -9,6 +9,8 @@ import { RedeParadaError } from "./coordenacao.js";
 import {
   type Acordao,
   buscaDireta,
+  type CampoAusente,
+  camposAusentes,
   type FiltrosBusca,
   lerBuscaGuardada,
   type ParametrosBusca,
@@ -54,6 +56,8 @@ export interface ItemAmplo {
   trecho: string;
   link?: string;
   formulacoes: number;
+  /** Só quando o site não mandou órgão, data ou link do acórdão: quais faltam. */
+  faltam?: CampoAusente[];
   /** Só quando a busca inclui TRT: a fonte do acórdão ("Falcão (CSJT)" ou "JurisprudênciaIA"); o rótulo vem em fontes. */
   fonte?: string;
 }
@@ -500,6 +504,7 @@ export async function buscaAmpla(
     cabecalhoDeCobertura: cabecalho,
     acordaos: apresentados.map(({ acordao: a, formulacoes }) => {
       const ementa = a.ementa.replace(/^\s*ementa\b\s*[:.\-–—]?\s*/i, "");
+      const faltam = camposAusentes(a);
       const item: ItemAmplo = {
         id: a.id,
         numero: a.numero,
@@ -509,6 +514,7 @@ export async function buscaAmpla(
         trecho: trecho(ementa, p.formulacoes, tamanho),
         link: a.link ?? a.linkConsulta,
         formulacoes,
+        ...(faltam.length && { faltam }),
         ...(comTrt && { fonte: infoTribunal(a.tribunal)?.fonte }),
       };
       if (!ementa.trim() && ehDoFalcao(a.tribunal)) item.trecho = "sem ementa no Falcão";

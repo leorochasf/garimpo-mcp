@@ -48,8 +48,28 @@ export interface Acordao {
   /** Link oficial que o Garimpo pediu à rota de link do site, porque a busca não trouxe nenhum (obter_inteiro_teor). */
   linkDaRota?: string;
   relevancia?: number;
+  /** Só quando o site não mandou algo: quais campos faltam (vocabulário fixo). Ausente = nada falta. */
+  faltam?: CampoAusente[];
   /** Inciso do art. 927 do CPC em que o acórdão se encaixa, com a prova nos dados; ou "não classificado", com o motivo. */
   enquadramento927: Enquadramento927;
+}
+
+/** Campos que o Garimpo diz que faltam: a ementa cortada já tem o avisoDeEmenta. */
+export type CampoAusente = "orgao" | "data" | "link";
+
+/** O que o site não mandou, na ordem fixa orgao, data, link (a página de consulta vale como link); vazio = nada falta. */
+export function camposAusentes(a: Pick<Acordao, "orgao" | "dataJulgamento" | "link" | "linkConsulta">): CampoAusente[] {
+  const faltam: CampoAusente[] = [];
+  if (!a.orgao) faltam.push("orgao");
+  if (!a.dataJulgamento) faltam.push("data");
+  if (!a.link && !a.linkConsulta) faltam.push("link");
+  return faltam;
+}
+
+/** O acórdão com `faltam` só quando falta algo; completo volta o mesmo objeto, sem campo novo. */
+function comFaltam(a: Acordao): Acordao {
+  const faltam = camposAusentes(a);
+  return faltam.length ? { ...a, faltam } : a;
 }
 
 export interface Qualificado {
@@ -189,6 +209,17 @@ export async function lerBuscaGuardada(
  * (inclusive vazia) vai para a memória; erro e recusa, nunca.
  */
 export async function buscaDireta(
+  cliente: Cliente,
+  p: ParametrosBusca,
+  memoria?: Memoria,
+  opcoes: OpcoesBuscaDireta = {},
+): Promise<ResultadoBusca> {
+  // A marca vale na resposta, nunca na memória: a busca guardada também a ganha, sem regravar nada.
+  const r = await buscaDiretaSemMarca(cliente, p, memoria, opcoes);
+  return { ...r, acordaos: r.acordaos.map(comFaltam) };
+}
+
+async function buscaDiretaSemMarca(
   cliente: Cliente,
   p: ParametrosBusca,
   memoria?: Memoria,

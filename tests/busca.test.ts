@@ -1,3 +1,5 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buscaDireta, ementaAparentementeIncompleta, normalizar } from "../src/busca.js";
 import { FormatoInesperadoError } from "../src/cliente.js";
@@ -183,5 +185,54 @@ describe("ementa aparentemente incompleta (o site corta algumas)", () => {
     ["", false],
   ])("%j → incompleta: %s", (ementa, esperado) => {
     expect(ementaAparentementeIncompleta(ementa)).toBe(esperado);
+  });
+});
+
+describe("campos que o site não mandou (faltam)", () => {
+  const completo = (id: string) => ({
+    id,
+    texto_ementa: `EMENTA FICTÍCIA ${id}.`,
+    numero_processo: `${id}/UF`,
+    orgao_julgador: "Turma Exemplo",
+    data_julgamento: "2024-01-02T00:00:00.000Z",
+    link_pdf: `https://exemplo.test/${id}`,
+  });
+  const buscar = async (results: object[], memoria?: Memoria) => {
+    const { cliente } = clienteFalso([respostaJson({ results })]);
+    return buscaDireta(cliente, { tribunal: "tjrs", texto: "exemplo" }, memoria);
+  };
+
+  it("acórdão completo: nenhum campo novo, a saída é idêntica à de antes", async () => {
+    const r = await buscar([completo("x1")]);
+    expect(r.acordaos[0]).not.toHaveProperty("faltam");
+    expect(JSON.stringify(r)).not.toContain("faltam");
+  });
+
+  it("sem órgão e sem link: faltam com os dois, em vocabulário fixo", async () => {
+    const { orgao_julgador: _o, link_pdf: _l, ...semOs2 } = completo("x2");
+    const r = await buscar([semOs2]);
+    expect(r.acordaos[0].faltam).toEqual(["orgao", "link"]);
+  });
+
+  it("sem data: faltam data; o link de consulta no lugar do PDF conta como link", async () => {
+    const { data_julgamento: _d, link_pdf: _l, ...resto } = completo("x3");
+    const r = await buscar([{ ...resto, link_consulta: "https://exemplo.test/consulta/x3" }]);
+    expect(r.acordaos[0].faltam).toEqual(["data"]);
+  });
+
+  it("busca guardada devolvida pela memória também traz faltam", async () => {
+    const { orgao_julgador: _o, ...semOrgao } = completo("x4");
+    const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-busca-"));
+    try {
+      const memoria = new Memoria({ dados });
+      const { cliente } = clienteFalso([respostaJson({ results: [semOrgao] })]);
+      await buscaDireta(cliente, { tribunal: "tjrs", texto: "exemplo" }, memoria);
+      const { cliente: outro, chamadas } = clienteFalso([]);
+      const r = await buscaDireta(outro, { tribunal: "tjrs", texto: "exemplo" }, memoria);
+      expect(chamadas).toHaveLength(0);
+      expect(r.acordaos[0].faltam).toEqual(["orgao"]);
+    } finally {
+      await rm(dados, { recursive: true, force: true, maxRetries: 10 });
+    }
   });
 });
