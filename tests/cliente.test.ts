@@ -555,4 +555,27 @@ describe("recusa reconhecida pela página da fonte (desafio com HTTP 200) e pelo
     const { cliente } = clienteFalso([() => new Response(grande, { headers: { "content-type": "text/html" } })]);
     expect(await (await cliente.requisitar(JSON_URL)).text()).toBe(grande);
   });
+
+  /** Erro como o do fetch do Node 22: TypeError "fetch failed" com o erro de baixo nível em `cause`. */
+  const falhaDoFetch = (code: string) => () => {
+    throw new TypeError("fetch failed", { cause: Object.assign(new Error("falha de baixo nível"), { code }) });
+  };
+
+  it("erro de protocolo do parser HTTP (HPE_*): recusa do filtro, não queda de rede, e o serviço fica pausado", async () => {
+    const { cliente, chamadas } = clienteFalso([falhaDoFetch("HPE_INVALID_HEADER_TOKEN"), respostaJson({})]);
+    const e = await cliente.requisitar(JSON_URL).catch((x) => x);
+    expect(e).toBeInstanceOf(RecusaError);
+    expect(e.message).toMatch(/resposta corrompida/);
+    expect(e.message).toMatch(/pausadas em todas as janelas/);
+    expect((await cliente.requisitar(JSON_URL).catch((x) => x)).message).toMatch(/não foi feita/);
+    expect(chamadas).toHaveLength(1);
+  });
+
+  it("ECONNRESET continua erro de rede comum: não é recusa e não pausa o serviço", async () => {
+    const { cliente } = clienteFalso([falhaDoFetch("ECONNRESET"), respostaJson({ depois: true })]);
+    const e = await cliente.requisitar(JSON_URL).catch((x) => x);
+    expect(e).not.toBeInstanceOf(RecusaError);
+    expect(e.message).toMatch(/Verifique a conexão/);
+    expect(await (await cliente.requisitar(JSON_URL)).json()).toEqual({ depois: true });
+  });
 });

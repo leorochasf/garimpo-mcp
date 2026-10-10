@@ -4,9 +4,9 @@
  *   somados), pelas vagas compartilhadas em arquivo (coordenacao.ts);
  * - em 429/503, espera o que o servidor pediu (Retry-After) e tenta UMA vez; as outras chamadas ao mesmo serviço,
  *   em todas as janelas, esperam essa decisão sem ocupar vaga;
- * - recusa final (nova recusa, 403, desafio anti-robô, pedido acima do teto) abre o disjuntor do serviço para
- *   todas as janelas: as chamadas a ele falham na hora até a pausa vencer, e então sai uma só chamada de prova
- *   (disjuntor.ts);
+ * - recusa final (nova recusa, 403, desafio anti-robô por cabeçalho ou pela página, resposta corrompida pelo filtro,
+ *   pedido acima do teto) abre o disjuntor do serviço para todas as janelas: as chamadas a ele falham na hora até a
+ *   pausa vencer, e então sai uma só chamada de prova (disjuntor.ts);
  * - identificação por fonte: User-Agent honesto identificando o Garimpo; só o Falcão (ADR-0018) e o portal do STF
  *   (ADR-0020), que recusam quem não se apresenta como navegador, recebem UA de navegador fixo por versão e
  *   cabeçalhos de navegador;
@@ -641,9 +641,16 @@ export class Cliente {
       temFreio(servico) ? this.vagas.anotarFreio(servico, chamada, lido, this.agora) : Promise.resolve();
     try {
       ida.resposta = await this.fetchFn(url, { ...init, headers, signal: ida.controle.signal }).catch((e: Error) => {
-        throw ida.controle.signal.reason === estouro
-          ? estouro
-          : new Error(`Não foi possível falar com ${this.opcoes.nome} (${e.message}). Verifique a conexão.`);
+        if (ida.controle.signal.reason === estouro) throw estouro;
+        // Cabeçalho que o parser do Node rejeita (HPE_*): é o filtro anti-robô corrompendo a resposta (G-03).
+        const codigo = erroDoParser(e);
+        if (codigo) {
+          throw new RecusaError(
+            `${this.opcoes.nome} mandou uma resposta corrompida, que o Node recusou (${codigo}): sinal de ` +
+              "filtro anti-robô. O Garimpo não contorna bloqueios. Se precisar do conteúdo, abra o link no navegador.",
+          );
+        }
+        throw new Error(`Não foi possível falar com ${this.opcoes.nome} (${e.message}). Verifique a conexão.`);
       });
       await anotarFreio(lerRestante(ida.resposta.headers));
       await this.barrarBloqueio(ida, url);
@@ -726,6 +733,15 @@ function paginaDeBloqueio(html: string, soTitulo: boolean): "desafio" | "bloquei
   const onde = normal(soTitulo ? (/<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1] ?? "") : html);
   for (const [marca, tipo] of MARCAS_DE_BLOQUEIO) if (marca.test(onde)) return tipo;
   return !soTitulo && CARREGADOR_DE_DESAFIO.test(onde) ? "desafio" : undefined;
+}
+
+/** O código HPE_* do parser HTTP do Node, no erro ou na sua causa (o fetch do Node 22 o põe em `cause`). */
+function erroDoParser(e: unknown): string | undefined {
+  for (let atual = e, n = 0; atual && n < 3; atual = (atual as { cause?: unknown }).cause, n++) {
+    const code = (atual as { code?: unknown }).code;
+    if (typeof code === "string" && code.startsWith("HPE_")) return code;
+  }
+  return undefined;
 }
 
 /** Desafio anti-robô conhecido (Cloudflare "managed", AWS WAF 202). */
