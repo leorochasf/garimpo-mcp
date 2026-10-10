@@ -1334,11 +1334,6 @@ export interface OrgaoDoRegistro {
   orgao: string;
 }
 
-/** Sem acento, em minúsculas e com um espaço só: as fórmulas valem para o PDF que perdeu os acentos. */
-function semAcento(s: string): string {
-  return s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/\s+/g, " ").trim();
-}
-
 /**
  * Sem acento e em minúsculas, letra a letra, com o mesmo comprimento do texto: o que se acha nele aponta para o texto
  * original.
@@ -1352,7 +1347,7 @@ function dobrado(texto: string): string {
 
 /** Expressão de fecho: cada espaço da fórmula aceita qualquer espaço ou quebra de linha. */
 function formulaDeFecho(formula: string): RegExp {
-  return new RegExp(formula.replace(/ /g, "\\s+"), "g");
+  return new RegExp(formula.replace(/ /g, "\\s+"), "dg");
 }
 
 /** O órgão como aparece no fecho: um trecho curto, sem vírgula nem ponto. */
@@ -1360,15 +1355,40 @@ const ORGAO = "([^,;.:()]{3,80}?)";
 
 /** Fecho dos acórdãos dos TRTs: "acordam os Magistrados (ou Desembargadores) da 1ª Turma do Tribunal…". */
 const FECHO_DO_TRT = formulaDeFecho(
-  `acordam,? (?:os )?(?:exm[oa]s?\.? )?(?:srs?\.? )?(?:magistrad[oa]s|desembargador(?:a|e)s|juiz(?:a|e)s)` +
+  `acordam,? (?:os )?(?:exm[oa]s?\\.? )?(?:srs?\\.? )?(?:magistrad[oa]s|desembargador(?:a|e)s|juiz(?:a|e)s)` +
     `(?: (?:integrantes|membros))? d[ao] ${ORGAO} do (?:egregio )?tribunal`,
 );
 
+/** Uma fórmula de fecho; sem grupo, o órgão é fixo (no TSE, "acordam os ministros do Tribunal…" é o Plenário). */
+interface Fecho {
+  formula: RegExp;
+  orgao?: string;
+}
+
+/** Fórmulas genéricas dos demais tribunais, sem nome real; não medidas em PDF real (aviso falso possível). */
+const FECHOS: Record<string, Fecho[]> = {
+  stj: [
+    { formula: formulaDeFecho(`acordam,? (?:os )?(?:srs?\\.? )?ministros da ${ORGAO} do superior tribunal`) },
+    { formula: formulaDeFecho(`certifico que a (?:egregia )?${ORGAO},? ao apreciar`) },
+  ],
+  tjmg: [{ formula: formulaDeFecho(`acorda,? em turma,? a ${ORGAO} do tribunal`) }],
+  tjsp: [
+    {
+      formula: formulaDeFecho(
+        `acordam,? em (?:sessao (?:permanente e )?(?:virtual |extraordinaria |ordinaria )?d[ao] )?${ORGAO} do tribunal`,
+      ),
+    },
+  ],
+  tse: [
+    { formula: formulaDeFecho("acordam,? (?:os )?(?:ministros|membros) do tribunal superior eleitoral"), orgao: "Plenário" },
+  ],
+};
+
 /** As fórmulas fixas do fecho, por tribunal; tribunal sem fórmula = silêncio. */
-function formulasDoFecho(tribunal: string): RegExp[] {
+function formulasDoFecho(tribunal: string): Fecho[] {
   const sigla = tribunal.toLowerCase();
-  if (/^trt\d+$/.test(sigla)) return [FECHO_DO_TRT];
-  return [];
+  if (/^trt\d+$/.test(sigla)) return [{ formula: FECHO_DO_TRT }];
+  return FECHOS[sigla] ?? [];
 }
 
 /** Ordinais por extenso, pelo radical: "primeira" = 1, "decima segunda" = 12. */
@@ -1387,7 +1407,8 @@ interface OrgaoLido {
 const TIPOS_DE_ORGAO = /^(camara|turma|secao|grupo de camaras|orgao especial|corte especial|tribunal pleno|pleno|plenario)\b/;
 
 function lerOrgao(nome: string): OrgaoLido | undefined {
-  let resto = semAcento(nome);
+  // Sem acento, em minúsculas e com um espaço só: vale para o PDF que perdeu os acentos.
+  let resto = semAcentos(nome).toLowerCase().replace(/\s+/g, " ").trim();
   let numero: number | undefined;
   const digitos = /^(\d{1,2})\s*(?:\.?\s*[ªºao°])?\.?\s+/.exec(resto);
   if (digitos) {
@@ -1396,7 +1417,7 @@ function lerOrgao(nome: string): OrgaoLido | undefined {
   } else {
     let soma = 0;
     for (;;) {
-      const ordinal = ORDINAIS.find(([radical]) => new RegExp(`^${radical}[oa]s?\s+`).test(resto));
+      const ordinal = ORDINAIS.find(([radical]) => new RegExp(`^${radical}[oa]s?\\s+`).test(resto));
       if (!ordinal) break;
       soma += ordinal[1];
       resto = resto.replace(/^\S+\s+/, "");
@@ -1406,7 +1427,8 @@ function lerOrgao(nome: string): OrgaoLido | undefined {
   const tipo = TIPOS_DE_ORGAO.exec(resto);
   if (!tipo) return undefined;
   const complemento = resto.slice(tipo[0].length).trim();
-  return { ...(numero ? { numero } : {}), tipo: tipo[1], complemento };
+  // "Tribunal Pleno", "Pleno" e "Plenário" são o mesmo órgão.
+  return { ...(numero ? { numero } : {}), tipo: /pleno|plenario/.test(tipo[1]) ? "pleno" : tipo[1], complemento };
 }
 
 /**
@@ -1424,10 +1446,9 @@ export function avisoDeOrgaoDoFecho(
   if (!doRegistro) return undefined;
   const texto = leitura.unidades.map((t) => t.texto).join("\n").normalize("NFC");
   const comparavel = dobrado(texto);
-  const lidos = formulasDoFecho(registro.tribunal).flatMap((f) =>
-    [...comparavel.matchAll(f)].flatMap((m) => {
-      const inicio = m.index + m[0].lastIndexOf(m[1]);
-      const nome = texto.slice(inicio, inicio + m[1].length).replace(/\s+/g, " ");
+  const lidos = formulasDoFecho(registro.tribunal).flatMap(({ formula, orgao }) =>
+    [...comparavel.matchAll(formula)].flatMap((m) => {
+      const nome = orgao ?? texto.slice(...m.indices![1]).replace(/\s+/g, " ");
       const lido = lerOrgao(nome);
       return lido ? [{ nome, lido }] : [];
     }),

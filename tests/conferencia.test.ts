@@ -18,6 +18,7 @@ import {
   pdfComDispositivoECertidao,
   pdfComSinaisDeAutoria,
   pdfEmentaPadronizada,
+  pdfSintetico,
   pdfUnanimeComDivergencia,
 } from "./pdfSintetico.js";
 
@@ -933,5 +934,113 @@ describe("órgão julgador no fecho × órgão do registro (G-13)", () => {
       'órgão no texto ≠ órgão do registro: o fecho do acórdão diz "3ª Camara Civel", e o registro da busca diz ' +
         '"1ª Câmara Cível". Confira na certidão de julgamento qual órgão julgou; o Garimpo não corrige o registro.',
     );
+  });
+
+  it("ligado: fecho do mesmo órgão do registro, com outra caixa e sem acento, não dá aviso", async () => {
+    const leitura = await lerPdf(pdfComDispositivoECertidao(3));
+    expect(avisoDeOrgaoDoFecho(leitura, { tribunal: "trt15", orgao: "3ª CÂMARA CÍVEL" }, true)).toBeUndefined();
+  });
+
+  it("ligado: sem fecho no texto, nada (silêncio, não aviso)", async () => {
+    const leitura = await lerPdf(pdfEmentaPadronizada());
+    expect(avisoDeOrgaoDoFecho(leitura, { tribunal: "trt15", orgao: "1ª Câmara Cível" }, true)).toBeUndefined();
+  });
+
+  it("o interruptor nasce desligado e, desligado, nada muda: nem o órgão diferente dá aviso", async () => {
+    expect(AVISO_DE_ORGAO_DO_FECHO).toBe(false);
+    const leitura = await lerPdf(pdfComDispositivoECertidao(3));
+    expect(avisoDeOrgaoDoFecho(leitura, { tribunal: "trt15", orgao: "1ª Câmara Cível" })).toBeUndefined();
+  });
+
+  /** PDF de uma página com um voto genérico e o fecho dado (fórmula genérica do tribunal, sem nome real). */
+  const comFecho = (...fecho: string[]) =>
+    lerPdf(pdfSintetico([["VOTO", "Fundamentacao generica do relator.", ...fecho]]));
+
+  it.each([
+    [
+      "STJ, fecho do acórdão",
+      "stj",
+      ["Vistos e relatados estes autos, acordam os Ministros da Segunda Turma do Superior Tribunal de Justica,", "por unanimidade, negar provimento."],
+      "Primeira Turma",
+      "Segunda Turma",
+    ],
+    [
+      "STJ, certidão",
+      "stj",
+      ["CERTIDAO DE JULGAMENTO", "Certifico que a egregia SEGUNDA TURMA, ao apreciar o processo em epigrafe, proferiu a seguinte decisao."],
+      "1ª Turma",
+      "SEGUNDA TURMA",
+    ],
+    [
+      "TJMG",
+      "tjmg",
+      ["Vistos etc., acorda, em Turma, a 5ª CAMARA CIVEL do Tribunal de Justica do Estado, na conformidade da ata."],
+      "2ª Câmara Cível",
+      "5ª CAMARA CIVEL",
+    ],
+    [
+      "TJMG, ordinal composto por extenso",
+      "tjmg",
+      ["acorda, em Turma, a DECIMA SEGUNDA CAMARA CIVEL do Tribunal de Justica, na conformidade da ata."],
+      "11ª Câmara Cível",
+      "DECIMA SEGUNDA CAMARA CIVEL",
+    ],
+    [
+      "TRT, fecho com \"Exmos. Srs.\"",
+      "trt3",
+      ["ACORDAM os Exmos. Srs. Desembargadores da Segunda Turma do Egregio Tribunal Regional do Trabalho, por unanimidade."],
+      "1ª Turma",
+      "Segunda Turma",
+    ],
+    [
+      "TJSP",
+      "tjsp",
+      ["ACORDAM, em sessao permanente e virtual da 7ª Camara de Direito Privado do Tribunal de Justica,", "proferir a seguinte decisao."],
+      "7ª Câmara de Direito Público",
+      "7ª Camara de Direito Privado",
+    ],
+    [
+      "TSE (só o Plenário julga)",
+      "tse",
+      ["Acordam os ministros do Tribunal Superior Eleitoral, por unanimidade, em negar provimento ao recurso."],
+      "Primeira Turma",
+      "Plenário",
+    ],
+  ])("ligado, %s: fecho de outro órgão vira aviso com o órgão do texto", async (_caso, tribunal, fecho, doRegistro, doTexto) => {
+    const aviso = avisoDeOrgaoDoFecho(await comFecho(...fecho), { tribunal, orgao: doRegistro }, true);
+    expect(aviso).toContain(`o fecho do acórdão diz "${doTexto}", e o registro da busca diz "${doRegistro}"`);
+  });
+
+  it.each([
+    ["STJ, por extenso × algarismo", "stj", ["acordam os Ministros da Primeira Turma do Superior Tribunal de Justica, por unanimidade."], "1ª Turma"],
+    ["TSE × Plenário do registro", "tse", ["Acordam os ministros do Tribunal Superior Eleitoral, por unanimidade, em negar provimento."], "Tribunal Pleno"],
+    ["TJMG, décima segunda × 12ª", "tjmg", ["acorda, em Turma, a DECIMA SEGUNDA CAMARA CIVEL do Tribunal de Justica, na conformidade da ata."], "12ª Câmara Cível"],
+  ])("ligado, %s: mesmo órgão, sem aviso", async (_caso, tribunal, fecho, orgao) => {
+    expect(avisoDeOrgaoDoFecho(await comFecho(...fecho), { tribunal, orgao }, true)).toBeUndefined();
+  });
+
+  it.each([
+    ["tribunal sem fórmula (ainda)", "tjxx", ["Acordam os Magistrados da 3ª Camara Civel do Tribunal, por unanimidade."], "1ª Câmara Cível"],
+    [
+      "dois fechos que discordam (outro julgado transcrito)",
+      "trt2",
+      ["Acordam os Magistrados da 3ª Turma do Tribunal, por unanimidade.", "Acordam os Magistrados da 9ª Turma do Tribunal, por maioria."],
+      "1ª Turma",
+    ],
+    ["órgão do registro ilegível", "trt2", ["Acordam os Magistrados da 3ª Turma do Tribunal, por unanimidade."], "Gabinete generico"],
+  ])("ligado, %s: nada (silêncio)", async (_caso, tribunal, fecho, orgao) => {
+    expect(avisoDeOrgaoDoFecho(await comFecho(...fecho), { tribunal, orgao }, true)).toBeUndefined();
+  });
+
+  it("o aviso nunca dá juízo: não diz qual órgão está certo nem corrige o registro", async () => {
+    const aviso = avisoDeOrgaoDoFecho(await lerPdf(pdfComDispositivoECertidao(3)), { tribunal: "trt15", orgao: "1ª Câmara Cível" }, true);
+    expect(aviso).toMatch(/não corrige o registro/);
+    expect(aviso).not.toMatch(/correto|errado|nulo|nulidade|incompet/i);
+  });
+
+  it("desligado, a conferência da citação no mesmo PDF sai como antes, sem campo de órgão", async () => {
+    const leitura = await lerPdf(pdfComDispositivoECertidao(3));
+    const r = conferirNoInteiroTeor(leitura, lerCitacao("voto por dar provimento ao recurso", { reticenciasComoCorte: false }));
+    expect(JSON.stringify(r)).not.toMatch(/órgão/);
   });
 });
