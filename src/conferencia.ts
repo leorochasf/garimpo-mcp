@@ -87,6 +87,8 @@ export interface NaoVerificavel {
   motivo: string;
   /** Só no inteiro teor com página sem texto extraível: as páginas em que a citação não pôde ser procurada. */
   paginasSemTexto?: string;
+  /** Só no inteiro teor lido em parte: as páginas além do teto de leitura, que não foram lidas nem conferidas. */
+  paginasNaoLidas?: string;
   passagemParecida?: PassagemParecida;
   passagemCandidata?: PassagemCandidata;
 }
@@ -395,8 +397,9 @@ export function conferirNoInteiroTeor(
   citacao: Citacao,
   ligados: SinaisDeQuemDisse = SINAIS_DE_QUEM_DISSE,
 ): ResultadoDaFonte {
-  const semTexto = leitura.unidades.filter((t) => !t.texto).map((t) => t.pagina);
-  if (semTexto.length === leitura.unidades.length) {
+  const semTexto = [...new Set(leitura.unidades.filter((t) => !t.texto && !t.naoLida).map((t) => t.pagina))];
+  const naoLidas = [...new Set(leitura.unidades.filter((t) => t.naoLida).map((t) => t.pagina))];
+  if (!naoLidas.length && leitura.unidades.every((t) => !t.texto)) {
     return naoVerificavel(
       "Nenhuma página deste PDF tem texto extraível; pode ser escaneado. O Garimpo não faz OCR: confira a citação " +
         "abrindo o arquivo. Isso não quer dizer que a citação não esteja no PDF.",
@@ -410,17 +413,26 @@ export function conferirNoInteiroTeor(
   const resultado: ConferenciaFeita = candidata
     ? { veredito: "não encontrado", ocorrencias: [], total: 0, equivalencias: [], passagemCandidata: candidata }
     : naoEncontrado(fonte, citacao);
-  if (!semTexto.length) return resultado;
-  // Região sem texto extraível: a citação pode estar nela, então nunca "não encontrado".
-  const paginas = listaDePaginas(semTexto);
-  const uma = semTexto.length === 1;
+  if (!semTexto.length && !naoLidas.length) return resultado;
+  // Região sem texto extraível ou não lida (teto de leitura): a citação pode estar nela, então nunca "não encontrado".
+  const semTextoDito = semTexto.length
+    ? `${semTexto.length === 1 ? "a" : "as"} ${listaDePaginas(semTexto)} não ${semTexto.length === 1 ? "tem" : "têm"} ` +
+      `texto extraível (o Garimpo não faz OCR) e não ${semTexto.length === 1 ? "foi conferida" : "foram conferidas"}`
+    : "";
+  const naoLidasDito = naoLidas.length
+    ? `${naoLidas.length === 1 ? "a" : "as"} ${intervaloDePaginas(naoLidas)} não ` +
+      `${naoLidas.length === 1 ? "foi lida" : "foram lidas"} (teto de leitura) e não ` +
+      `${naoLidas.length === 1 ? "foi conferida" : "foram conferidas"}`
+    : "";
+  const uma = semTexto.length + naoLidas.length === 1;
   return {
     ...naoVerificavel(
-      `Não achada nas páginas com texto extraível, mas ${uma ? "a" : "as"} ${paginas} não ${uma ? "tem" : "têm"} ` +
-        `texto extraível (o Garimpo não faz OCR) e não ${uma ? "foi conferida" : "foram conferidas"}: a citação pode ` +
-        `estar ${uma ? "nela" : "nelas"}. Abra o arquivo para conferir.`,
+      `Não achada nas páginas ${naoLidas.length ? "lidas" : ""}${semTexto.length && naoLidas.length ? " " : ""}` +
+        `${semTexto.length ? "com texto extraível" : ""}, mas ${[semTextoDito, naoLidasDito].filter(Boolean).join(", e ")}: ` +
+        `a citação pode estar ${uma ? "nela" : "nelas"}. Abra o arquivo para conferir.`,
     ),
-    paginasSemTexto: `${paginas} de ${leitura.totalDePaginas}`,
+    ...(semTexto.length ? { paginasSemTexto: `${listaDePaginas(semTexto)} de ${leitura.totalDePaginas}` } : {}),
+    ...(naoLidas.length ? { paginasNaoLidas: `${intervaloDePaginas(naoLidas)} de ${leitura.totalDePaginas}` } : {}),
     ...(resultado.passagemCandidata ? { passagemCandidata: resultado.passagemCandidata } : {}),
     ...(resultado.passagemParecida ? { passagemParecida: resultado.passagemParecida } : {}),
   };
@@ -430,6 +442,12 @@ export function conferirNoInteiroTeor(
 function listaDePaginas(paginas: number[]): string {
   if (paginas.length === 1) return `página ${paginas[0]}`;
   return `páginas ${paginas.slice(0, -1).join(", ")} e ${paginas[paginas.length - 1]}`;
+}
+
+/** Como listaDePaginas, mas páginas seguidas (as que passaram do teto, às vezes milhares) viram "páginas 3 a 6". */
+function intervaloDePaginas(paginas: number[]): string {
+  const seguidas = paginas.length > 2 && paginas.every((p, i) => i === 0 || p === paginas[i - 1] + 1);
+  return seguidas ? `páginas ${paginas[0]} a ${paginas[paginas.length - 1]}` : listaDePaginas(paginas);
 }
 
 function fonteDoInteiroTeor(leitura: InteiroTeorParaConferir): FonteDoInteiroTeor {

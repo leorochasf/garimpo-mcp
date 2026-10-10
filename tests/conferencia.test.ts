@@ -1140,3 +1140,48 @@ describe("órgão julgador no fecho × órgão do registro (G-13)", () => {
     expect(JSON.stringify(r)).not.toMatch(/órgão/);
   });
 });
+
+describe("conferência no inteiro teor com páginas não lidas (teto de leitura, ticket 06)", () => {
+  const LINHA = "Texto ficticio do inteiro teor, em linguagem comum e sem dado real, para a pagina contar como lida.";
+  /** Grava o PDF e lê como o conferir_citacao, com o teto de páginas dado. */
+  async function ler(paginas: string[][], tetoDePaginas: number): Promise<InteiroTeorParaConferir> {
+    const pasta = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-nao-lidas-"));
+    const caminho = join(pasta, "acordao-ficticio.pdf");
+    await writeFile(caminho, pdfSintetico(paginas));
+    return lerParaConferir(caminho, { tetoDePaginas });
+  }
+  const pagina = (k: number) => [`Pagina ${k}.`, LINHA, LINHA];
+  const citar = (texto: string) => lerCitacao(texto, { reticenciasComoCorte: false });
+  const AUSENTE = "frase que so existe numa pagina que nao foi lida";
+
+  it("frase ausente das lidas, com páginas além do teto: não verificável, ditas não lidas (não \"sem texto extraível\")", async () => {
+    const leitura = await ler([1, 2, 3, 4, 5, 6].map(pagina), 2);
+    const r = conferirNoInteiroTeor(leitura, citar(AUSENTE));
+    expect(r).toEqual({
+      veredito: "não verificável",
+      motivo:
+        "Não achada nas páginas lidas, mas as páginas 3 a 6 não foram lidas (teto de leitura) e não foram conferidas: " +
+        "a citação pode estar nelas. Abra o arquivo para conferir.",
+      paginasNaoLidas: "páginas 3 a 6 de 6",
+    });
+  });
+
+  it("página sem texto e páginas não lidas: as duas listas, cada uma com o seu motivo", async () => {
+    const leitura = await ler([pagina(1), [], pagina(3), pagina(4)], 3);
+    const r = conferirNoInteiroTeor(leitura, citar(AUSENTE));
+    expect(r).toMatchObject({
+      veredito: "não verificável",
+      motivo:
+        "Não achada nas páginas lidas com texto extraível, mas a página 2 não tem texto extraível (o Garimpo não faz " +
+        "OCR) e não foi conferida, e a página 4 não foi lida (teto de leitura) e não foi conferida: a citação pode " +
+        "estar nelas. Abra o arquivo para conferir.",
+      paginasSemTexto: "página 2 de 4",
+      paginasNaoLidas: "página 4 de 4",
+    });
+  });
+
+  it("frase numa página lida: encontrada, mesmo com páginas não lidas depois", async () => {
+    const leitura = await ler([1, 2, 3].map(pagina), 1);
+    expect(conferirNoInteiroTeor(leitura, citar("em linguagem comum e sem dado real")).veredito).toBe("encontrado literalmente");
+  });
+});
