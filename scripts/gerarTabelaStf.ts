@@ -278,7 +278,7 @@ export function textoDeHtml(html: string): string {
     .replace(/\s+/g, " ")
     .replace(/<br\s*\/?>|<\/p>|<\/div>/gi, "\n")
     .replace(/<[^>]+>/g, "")
-    .replace(/&(#\d+|#x[0-9a-f]+|[a-z]+);/gi, (todo, e: string) => {
+    .replace(/&(#\d+|#x[0-9a-f]+|[a-z][a-z0-9]*);/gi, (todo, e: string) => {
       if (e[0] === "#") return String.fromCodePoint(e[1].toLowerCase() === "x" ? parseInt(e.slice(2), 16) : Number(e.slice(1)));
       // Fora da lista (Latin-1 e tipográficas, nome com maiúsculas significativas), para: nunca grava "&nome;" como texto.
       if (Object.hasOwn(ENTIDADES, e)) return ENTIDADES[e];
