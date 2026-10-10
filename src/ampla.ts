@@ -17,6 +17,7 @@ import {
   RESSALVA_ROTULO,
   type ResultadoBusca,
 } from "./busca.js";
+import { nomesDoFiltro, ressalvaSePoucos } from "./grafia.js";
 import { ART_927_CONFERIDO_EM } from "./enquadramento.js";
 import { conferirPedidoAoFalcao } from "./falcao.js";
 import { ehDoFalcao, infoTribunal, ROTULO_FALCAO } from "./tribunais.js";
@@ -135,6 +136,8 @@ export interface CabecalhoDeCobertura {
   formulacoesSemAcordao: string[];
   /** Só quando a lista foi cortada pelo máximo. */
   listaCortada?: string;
+  /** Só com filtro de relator ou órgão e até 3 acórdãos achados: pode ser a grafia do nome; nunca diz que não há julgado. */
+  ressalvaDaGrafia?: string;
   /** Só quando o filtro local tirou todos os acórdãos achados: o motivo da lista vazia. */
   filtroLocal?: string;
   /** Só quando o teto de páginas do Falcão deixou combinações formulação × TRT sem executar. */
@@ -467,6 +470,8 @@ export async function buscaAmpla(
       `filtro; ${semEmenta.size} sem ementa para conferir): a lista está vazia por causa do filtro, não por falta de ` +
       "acórdãos achados; afrouxe ou retire o filtro local.";
   }
+  const grafia = ressalvaSePoucos(nomesDoFiltro(p), ordenados.length);
+  if (grafia) cabecalho.ressalvaDaGrafia = grafia;
   // Com filtro local, conta só os que passaram por ele: o que o filtro tirou não é lista cortada.
   if (mostrados.length < sobreviventes.length) {
     // "Limite não é amostra" entra no lugar de palavras antigas: a resposta com 50 acórdãos já beira o teto de 25 mil.

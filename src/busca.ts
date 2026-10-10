@@ -9,6 +9,7 @@ import { type Enquadramento927, enquadrarAcordao, enquadrarQualificado, type Par
 import { reforcoDaTabela, type TabelaDePrecedentes } from "./tabelaDePrecedentes.js";
 import { reforcoDoStf, type TabelaDoStf } from "./tabelaDoStf.js";
 import { juntarEquivalentes } from "./equivalencia.js";
+import { nomesDoFiltro, ressalvaSePoucos } from "./grafia.js";
 import { FalhaNaMemoriaError, fotografiaDaBusca, type Memoria } from "./memoria.js";
 import { buscaNoFalcao, clienteDoFalcao, lerBuscaGuardadaNoFalcao } from "./falcao.js";
 import { avisoDeRecorridoAusente } from "./recorrido.js";
@@ -170,7 +171,7 @@ function pedido(p: ParametrosBusca) {
   if (p.classe) corpo.classe = p.classe;
   const filtrada = [p.de, p.ate, p.relator, p.orgao, p.classe].some(Boolean);
   /** O cabeçalho de cobertura, a partir dos registros que o site devolveu (antes de juntar cópias). */
-  const nomes = [p.relator && "relator", p.orgao && "órgão"].filter(Boolean).join(" e ");
+  const nomes = nomesDoFiltro(p);
   const cobertura = (vieram: number) => linhaDeCobertura(vieram, corpo.limit as number, info.tetoResultados, filtrada, nomes);
   // sha256 do tribunal e do corpo: o texto da busca e os filtros nunca vão em claro para o disco.
   const chave = createHash("sha256").update(JSON.stringify([tribunal, corpo])).digest("hex");
@@ -313,24 +314,14 @@ function avisosDaMemoria(memoria?: Memoria, falhaAoLer?: string): string[] {
   return gravacao ? [...avisos, gravacao] : avisos;
 }
 
-/** Com filtro de relator ou órgão, até tantos registros contam como "poucos" para a ressalva da grafia. */
-const POUCOS_COM_NOME = 3;
-
-/** O nome do filtro pode não casar com a grafia do site: vazio ou quase vazio não prova que não há julgado. */
-function ressalvaDaGrafia(nomes: string): string {
-  return (
-    `Com filtro de ${nomes}, pode ser a grafia: o nome talvez não esteja escrito como o site escreve; ` +
-    "isso não mostra que não há julgado, então repita sem o filtro."
-  );
-}
-
 /**
  * O site não informa o total da base: só dá para dizer se veio o número pedido ou menos. Conta registros (antes de
  * juntar cópias). Onde o site devolve menos que o pedido por busca (STF), vir menos não quer dizer que a base acabou.
  */
 function linhaDeCobertura(vieram: number, pedidos: number, tetoDoSite: number, filtrada: boolean, nomes = ""): string {
   const base = linhaBase(vieram, pedidos, tetoDoSite, filtrada);
-  return nomes && vieram <= POUCOS_COM_NOME ? `${base} ${ressalvaDaGrafia(nomes)}` : base;
+  const ressalva = ressalvaSePoucos(nomes, vieram, pedidos);
+  return ressalva ? `${base} ${ressalva}` : base;
 }
 
 function linhaBase(vieram: number, pedidos: number, tetoDoSite: number, filtrada: boolean): string {

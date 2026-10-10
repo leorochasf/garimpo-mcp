@@ -103,6 +103,26 @@ describe("busca direta num TRT pelo Falcão", () => {
     expect(falcao.pedidos).toHaveLength(3);
   });
 
+  it("relator ou órgão com poucos acórdãos no Falcão: mesma ressalva da grafia, sem dizer que não existe julgado", async () => {
+    const falcao = falcaoFalso(() => pagina([PESQUISA.documentos[0]]));
+    const { mcp } = await conectar(siteFalso().cliente, falcao.cliente);
+    const r = await chamar(mcp, "busca_direta", { tribunal: "trt3", texto: "horas extras", relator: "Fulano de Tal" });
+    expect(r.dado.cabecalhoDeCobertura).toMatch(/Com filtro de relator, pode ser a grafia/);
+    expect(r.dado.cabecalhoDeCobertura).toMatch(/repita sem o filtro/);
+    expect(r.dado.cabecalhoDeCobertura).not.toMatch(/não existe|nunca julgou|nunca decidiu/i);
+    const o = await chamar(mcp, "busca_direta", { tribunal: "trt3", texto: "horas extras", orgao: "1a. Turma", renovar: true });
+    expect(o.dado.cabecalhoDeCobertura).toMatch(/Com filtro de órgão, pode ser a grafia/);
+  });
+
+  it("Falcão com lista cheia (2 de 2 pedidos) ou sem filtro de nome: sem ressalva da grafia", async () => {
+    const falcao = falcaoFalso();
+    const { mcp } = await conectar(siteFalso().cliente, falcao.cliente);
+    const cheia = await chamar(mcp, "busca_direta", { tribunal: "trt3", texto: "horas extras", relator: "Fulano", limite: 2 });
+    expect(cheia.dado.cabecalhoDeCobertura).not.toMatch(/grafia/);
+    const semFiltro = await chamar(mcp, "busca_direta", { tribunal: "trt3", texto: "horas extras", renovar: true });
+    expect(semFiltro.dado.cabecalhoDeCobertura).not.toMatch(/grafia/);
+  });
+
   it("os 4 filtros verificados vão no pedido, no formato da prova, e a data vem com o aviso de juntada", async () => {
     const falcao = falcaoFalso();
     const { mcp } = await conectar(siteFalso().cliente, falcao.cliente);

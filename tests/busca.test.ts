@@ -150,6 +150,14 @@ describe("cabeçalho de cobertura da busca direta", () => {
     expect(linha).not.toMatch(/não existe|nunca julgou|nunca decidiu/i);
   });
 
+  it("lista cheia com limite pequeno (3 de 3 pedidos) e relator: sem ressalva da grafia, só o aviso de que pode haver mais", async () => {
+    const linha = await cabecalho("stj", 3, { limite: 3, relator: "Fulano" });
+    expect(linha).not.toMatch(/grafia/);
+    expect(linha).toBe(
+      "O site devolveu os 3 registros pedidos; pode haver mais: aumente o limite (até 100) ou use a busca ampla.",
+    );
+  });
+
   it("órgão com poucos resultados: a mesma ressalva, falando do órgão", async () => {
     const linha = await cabecalho("stj", 2, { orgao: "Segunda Turma" });
     expect(linha).toMatch(/órgão/);

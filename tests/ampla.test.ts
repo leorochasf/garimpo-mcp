@@ -1097,6 +1097,27 @@ describe("estimativa antes de buscar e \"limite não é amostra\"", () => {
   });
 });
 
+describe("ressalva da grafia na busca ampla (relator ou órgão com poucos achados)", () => {
+  const site = (n: number) => siteFalso((_t, texto) => respostaJson({ results: Array.from({ length: n }, (_, i) => bruto(`${texto}${i}`, 0.9 - i / 100)) }));
+
+  it("relator e até 3 acórdãos achados: uma linha no cabeçalho, sem dizer que não existe julgado", async () => {
+    const r = await buscaAmpla(site(2).cliente, { formulacoes: ["a"], tribunais: ["stj"], relator: "Fulano" });
+    const linha = r.cabecalhoDeCobertura.ressalvaDaGrafia;
+    expect(linha).toMatch(/Com filtro de relator, pode ser a grafia/);
+    expect(linha).toMatch(/repita sem o filtro/);
+    expect(linha).not.toMatch(/não existe|nunca julgou|nunca decidiu/i);
+    const o = await buscaAmpla(site(0).cliente, { formulacoes: ["a"], tribunais: ["stj"], relator: "Fulano", orgao: "Segunda Turma" });
+    expect(o.cabecalhoDeCobertura.ressalvaDaGrafia).toMatch(/relator e órgão/);
+  });
+
+  it("mais de 3 achados, ou sem filtro de relator e órgão: o cabeçalho não leva a linha", async () => {
+    const quatro = await buscaAmpla(site(4).cliente, { formulacoes: ["a"], tribunais: ["stj"], relator: "Fulano" });
+    expect(quatro.cabecalhoDeCobertura).not.toHaveProperty("ressalvaDaGrafia");
+    const semFiltro = await buscaAmpla(site(2).cliente, { formulacoes: ["a"], tribunais: ["stj"] });
+    expect(semFiltro.cabecalhoDeCobertura).not.toHaveProperty("ressalvaDaGrafia");
+  });
+});
+
 describe("campos que o site não mandou (faltam) na busca ampla", () => {
   it("só o acórdão incompleto leva faltam; o completo sai sem o campo", async () => {
     const { cliente } = siteFalso((_t, texto) => {

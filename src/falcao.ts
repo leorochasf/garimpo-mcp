@@ -10,6 +10,7 @@ import { Cliente, FormatoInesperadoError, HOST_FALCAO, PausaPreventivaError, Rec
 import type { Acordao, ParametrosBusca, ResultadoBusca } from "./busca.js";
 import { enquadrarAcordao } from "./enquadramento.js";
 import { juntarEquivalentes } from "./equivalencia.js";
+import { nomesDoFiltro, ressalvaSePoucos } from "./grafia.js";
 import { htmlComIndicioDeCorte, htmlParaTexto } from "./html.js";
 import { fotografiaDaBusca, type Memoria, type TextoIntegral } from "./memoria.js";
 import { RedeParadaError } from "./coordenacao.js";
@@ -125,7 +126,13 @@ export function chaveNoFalcao(p: ParametrosBusca): string {
 const AVISO_CABECALHO_INCONSISTENTE = " Lista possivelmente incompleta: as páginas do Falcão vieram inconsistentes (ver avisos).";
 
 /** Cabeçalho de cobertura: o total que o Falcão informa, separado de quantos vieram e quantos foram mostrados. */
-export function coberturaNoFalcao(total: number | undefined, recebidos: number, mostrados: number, limite: number): string {
+export function coberturaNoFalcao(
+  total: number | undefined,
+  recebidos: number,
+  mostrados: number,
+  limite: number,
+  nomes = "",
+): string {
   const informado =
     total === undefined
       ? "O Falcão não informou o total"
@@ -138,7 +145,8 @@ export function coberturaNoFalcao(total: number | undefined, recebidos: number, 
       : limite < LIMITE_MAXIMO_TRT
         ? `pode haver mais: aumente o limite (até ${LIMITE_MAXIMO_TRT}) ou use a busca ampla com outras formulações`
         : "pode haver mais: use a busca ampla com outras formulações";
-  return `${informado}; o Garimpo recebeu ${recebidos} e mostra ${mostrados}; ${mais}.`;
+  const ressalva = ressalvaSePoucos(nomes, recebidos, limite);
+  return `${informado}; o Garimpo recebeu ${recebidos} e mostra ${mostrados}; ${mais}.${ressalva ? ` ${ressalva}` : ""}`;
 }
 
 export interface OpcoesFalcao {
@@ -165,7 +173,7 @@ export async function lerBuscaGuardadaNoFalcao(
       tribunal: p.tribunal.toLowerCase(),
       fonte: ROTULO_FALCAO,
       cabecalhoDeCobertura:
-        coberturaNoFalcao(busca.totalNaFonte, busca.registrosDoSite, busca.acordaos.length, limite) +
+        coberturaNoFalcao(busca.totalNaFonte, busca.registrosDoSite, busca.acordaos.length, limite, nomesDoFiltro(p)) +
         (busca.possivelmenteIncompleta ? AVISO_CABECALHO_INCONSISTENTE : ""),
       acordaos: busca.acordaos.map((a) => a.registro),
       qualificados: [],
@@ -277,7 +285,7 @@ export async function buscaNoFalcao(
     tribunal,
     fonte: ROTULO_FALCAO,
     cabecalhoDeCobertura:
-      coberturaNoFalcao(total, recebidos.length, juntos.length, limite) +
+      coberturaNoFalcao(total, recebidos.length, juntos.length, limite, nomesDoFiltro(p)) +
       (consistente ? "" : AVISO_CABECALHO_INCONSISTENTE),
     acordaos: juntos.map((a) => a.registro),
     qualificados: [],
