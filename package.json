@@ -1,6 +1,6 @@
 {
   "name": "garimpo-mcp",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Servidor MCP local (stdio) de pesquisa de jurisprudência brasileira via busca direta do JurisprudênciaIA, com download de inteiro teor oficial dos tribunais. Cliente não oficial.",
   "license": "MIT",
   "author": "Garimpo",

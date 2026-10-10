@@ -41,7 +41,7 @@ import {
 import { dataEHora } from "./memoria.js";
 import { anotarRestante, decidirFreio, type Freio, lerRestante, type RestanteLido, temFreio } from "./freio.js";
 
-export const VERSAO = "0.3.2";
+export const VERSAO = "0.3.3";
 export const USER_AGENT = `Garimpo/${VERSAO} (cliente MCP local e nao oficial de pesquisa de jurisprudencia)`;
 
 /** Host do Falcão (CSJT), a única fonte que recebe UA de navegador (ADR-0018). */
