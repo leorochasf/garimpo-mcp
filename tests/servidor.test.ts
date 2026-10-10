@@ -2550,6 +2550,36 @@ describe("marca de pausa legível por máquina (G-06)", () => {
     }
   });
 
+  it("chamada de prova já recusada: a marca diz para não repetir, com indício de recusa sistemática e sem esperaSegundos", async () => {
+    const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "marca-"));
+    let agora = AGORA;
+    const coordenacao = new CoordenacaoEmArquivo({ pasta: dados, agora: () => agora });
+    const site = new Cliente({
+      nome: "O site",
+      vagas: coordenacao,
+      agora: () => agora,
+      esperar: async () => {},
+      fetch: (async () => new Response("", { status: 429 })) as typeof fetch,
+    });
+    const mcp = await conectar(site, { dados, agora: () => agora, coordenacao });
+    const buscar = () =>
+      mcp.callTool({ name: "busca_direta", arguments: { tribunal: "stj", texto: "termo de exemplo" } }) as Promise<Resposta>;
+    expect((await buscar()).structuredContent).toMatchObject({ esperaSegundos: expect.any(Number) });
+    agora += 2 * 3_600_000; // a pausa venceu: a próxima chamada é a de prova, e o site recusa de novo
+    for (const r of [await buscar(), await buscar()]) {
+      expect(r.isError).toBe(true);
+      expect(r.structuredContent).toEqual({
+        tipoDePausa: "recusa-da-fonte",
+        liberadoEm: expect.any(String),
+        indicioDeRecusaSistematica: true,
+      });
+      expect(r.content[1].text).toMatch(/^\[PAUSA tipo=recusa-da-fonte liberadoEm=\S+ indicioDeRecusaSistematica=true\] /);
+      expect(r.content[1].text).toMatch(/já recusou a chamada de prova/);
+      expect(r.content[1].text).toMatch(/diagnostico_dos_freios/);
+      expect(r.content[1].text).not.toMatch(/esperaSegundos|vem uma única chamada de prova/);
+    }
+  });
+
   it("pausa preventiva do próprio Garimpo: tipo ritmo-proprio, com a hora e os segundos", async () => {
     class SitePausado extends Cliente {
       override async requisitar(): Promise<Response> {

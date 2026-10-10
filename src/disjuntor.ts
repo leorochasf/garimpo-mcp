@@ -60,7 +60,8 @@ export type Ordem =
   | { tipo: "sai"; saida: Saida }
   /** Esperar sem vaga e perguntar de novo: pela decisão do disjuntor ou pela pausa do host. */
   | { tipo: "espera"; ms: number; motivo: "disjuntor" | "host" | "freio" }
-  | { tipo: "pausado"; ate: number; aviso: string }
+  /** `aberturas`: as do disjuntor; 2 ou mais = a chamada de prova já foi recusada. */
+  | { tipo: "pausado"; ate: number; aviso: string; aberturas: number }
   /** O serviço pediu para esperar até `ate` (não é recusa). */
   | { tipo: "adiado"; ate: number }
   /** A pausa venceu, mas esta ferramenta já fez a sua chamada de prova. */
@@ -140,7 +141,7 @@ export function decidirSaida(
   const geracao = d?.geracao ?? 0;
   if (!d) return { ordem: { tipo: "sai", saida: { papel: "normal", geracao } } };
   if (d.pausa) {
-    if (agora < d.pausa.ate) return { ordem: { tipo: "pausado", ate: d.pausa.ate, aviso: d.pausa.aviso } };
+    if (agora < d.pausa.ate) return { ordem: { tipo: "pausado", ate: d.pausa.ate, aviso: d.pausa.aviso, aberturas: d.aberturas } };
     if (d.prova && d.prova.id !== chamada.id && !morto(d.prova)) return esperar(CONFERENCIA_MS);
     if (!provaPermitida) return { ordem: { tipo: "sem-prova" } };
     if (d.proximaProvaEm !== undefined && agora < d.proximaProvaEm) return esperar(d.proximaProvaEm - agora);

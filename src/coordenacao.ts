@@ -68,8 +68,14 @@ export interface Coordenacao {
    * saída (instante no host, chamada de prova); senão, não registra nada.
    */
   reservarSaida(p: PedidoDeSaida, agora: () => number): Promise<Ordem>;
-  /** Anota no disjuntor do serviço o resultado de uma chamada que saiu; devolve a pausa em vigor, se houver. */
-  anotar(servico: string, chamada: Chamada, saida: Saida, r: Resultado, agora: () => number): Promise<Pausa | undefined>;
+  /** Anota no disjuntor do serviço o resultado de uma chamada que saiu; devolve a pausa em vigor, se houver, com as aberturas. */
+  anotar(
+    servico: string,
+    chamada: Chamada,
+    saida: Saida,
+    r: Resultado,
+    agora: () => number,
+  ): Promise<(Pausa & { aberturas: number }) | undefined>;
   /** Anota no freio do serviço (só os que têm freio) o restante que a resposta informou, ou a falta de resposta. */
   anotarFreio(servico: string, chamada: Chamada, lido: RestanteLido, agora: () => number): Promise<void>;
 }
@@ -431,7 +437,7 @@ export class CoordenacaoEmArquivo implements Coordenacao {
         }
         await this.gravarEstado(estado);
       }
-      return novo?.pausa;
+      return novo?.pausa && { ...novo.pausa, aberturas: novo.aberturas };
     }));
   }
 

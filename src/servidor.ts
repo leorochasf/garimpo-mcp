@@ -9,7 +9,13 @@ import { z } from "zod";
 import { Cliente, PausaPreventivaError, RecusaError, VERSAO } from "./cliente.js";
 import { buscaDireta, ementaAparentementeIncompleta } from "./busca.js";
 import { buscaAmpla } from "./ampla.js";
-import { type CoordenacaoEmArquivo, coordenacaoPadrao, naFerramenta, pastaDeDados } from "./coordenacao.js";
+import {
+  type CoordenacaoEmArquivo,
+  coordenacaoPadrao,
+  naFerramenta,
+  pastaDeDados,
+  RECUSAS_PARA_INDICIO,
+} from "./coordenacao.js";
 import { lerFiltrosLocais, listaJson } from "./filtroLocal.js";
 import { conferirNaEmenta, conferirNoInteiroTeor, conferirNoTextoIntegral, lerCitacao, naoVerificavel } from "./conferencia.js";
 import {
@@ -194,8 +200,19 @@ function comAvisoNaturezaJuridica<T extends object>(dado: T, tribunais: readonly
 /**
  * Pausa em vigor que o erro carrega (só disjuntor aberto e pausa preventiva), na marca fixa que a IA de quem usa lê
  * para esperar e retomar. A marca só informa o fim de uma pausa que já existe: nunca convida a repetir antes dele.
+ * Com a chamada de prova já recusada, não há o que agendar: a marca diz para não repetir, sem `esperaSegundos`.
  */
 function marcaDePausa(e: unknown) {
+  if (e instanceof RecusaError && e.pausa && e.pausa.aberturas >= RECUSAS_PARA_INDICIO) {
+    const liberadoEm = new Date(e.pausa.ate).toISOString();
+    return {
+      estruturada: { tipoDePausa: "recusa-da-fonte", liberadoEm, indicioDeRecusaSistematica: true },
+      texto:
+        `[PAUSA tipo=recusa-da-fonte liberadoEm=${liberadoEm} indicioDeRecusaSistematica=true] A fonte já recusou a ` +
+        "chamada de prova feita depois de uma pausa: não repita. É indício de recusa sistemática (esperar " +
+        "provavelmente não resolve); veja diagnostico_dos_freios.",
+    };
+  }
   const [tipoDePausa, ate, segundos] =
     e instanceof RecusaError && e.pausa
       ? (["recusa-da-fonte", e.pausa.ate, e.pausa.segundos] as const)

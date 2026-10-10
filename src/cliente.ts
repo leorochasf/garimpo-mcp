@@ -80,8 +80,11 @@ export class RecusaError extends Error {
   constructor(
     message: string,
     readonly status?: number,
-    /** Só quando o disjuntor do serviço está aberto: o instante em que a pausa acaba e os segundos que faltam agora. */
-    readonly pausa?: { ate: number; segundos: number },
+    /**
+     * Só quando o disjuntor do serviço está aberto: o instante em que a pausa acaba, os segundos que faltam agora e
+     * as aberturas seguidas (2 ou mais = a chamada de prova já foi recusada).
+     */
+    readonly pausa?: { ate: number; segundos: number; aberturas: number },
   ) {
     super(message);
     this.name = "RecusaError";
@@ -185,7 +188,7 @@ export class Vagas implements Coordenacao {
   async anotar(servico: string, chamada: Chamada, saida: Saida, r: Resultado, agora: () => number) {
     const novo = aplicarResultado(this.disjuntores.get(servico), chamada, saida, r, agora(), servico);
     if (novo) this.disjuntores.set(servico, novo);
-    return novo?.pausa;
+    return novo?.pausa && { ...novo.pausa, aberturas: novo.aberturas };
   }
 
   async anotarFreio(servico: string, chamada: Chamada, lido: RestanteLido, agora: () => number) {
@@ -517,7 +520,7 @@ export class Cliente {
           `Esta chamada não foi feita: as chamadas ${ao(this.opcoes.nome)} estão pausadas em todas as janelas do ` +
             `Garimpo até ${horaDeRetorno(ordem.ate, this.agora())}, por causa de uma recusa. ${ordem.aviso}`,
           undefined,
-          this.pausaAte(ordem.ate),
+          { ...this.pausaAte(ordem.ate), aberturas: ordem.aberturas },
         );
       }
       if (ordem.tipo === "adiado") {
@@ -567,7 +570,7 @@ export class Cliente {
 
   /** A recusa final abre o disjuntor do serviço; a mensagem ganha a hora de retorno. */
   private async abrir(servico: string, chamada: Chamada, saida: Saida, erro: RecusaError, pausaPedidaMs: number) {
-    let pausa: Pausa | undefined;
+    let pausa: (Pausa & { aberturas: number }) | undefined;
     try {
       const resultado: Resultado = { tipo: "recusa-final", pausaPedidaMs, aviso: erro.message };
       pausa = await this.vagas.anotar(servico, chamada, saida, resultado, this.agora);
@@ -580,7 +583,7 @@ export class Cliente {
         `${horaDeRetorno(pausa.ate, this.agora())}; depois disso, uma única chamada de prova confere se o serviço ` +
         "voltou a aceitar.",
       erro.status,
-      this.pausaAte(pausa.ate),
+      { ...this.pausaAte(pausa.ate), aberturas: pausa.aberturas },
     );
   }
 
