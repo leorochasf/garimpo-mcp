@@ -529,6 +529,25 @@ const ALEGACAO = palavra([`${PARTES}(?![\\p{L}\\p{N}])[^.!?;]{0,40}?(?<![\\p{L}\
 /** Janela antes da passagem onde se procura a alegação da parte, na mesma frase. */
 const JANELA_DA_ALEGACAO = 200;
 
+/** Janela depois da passagem onde se procura o fecho de ementa transcrita. */
+const JANELA_DO_FECHO = 300;
+/** Relator abreviado ou por extenso, dentro do fecho. */
+const RELATOR = /(?<![\p{L}\p{N}])Rel(?:\.|ator|atora)(?![\p{L}\p{N}])/iu;
+/** Data do julgamento ou da publicação, dentro do fecho: "01/01/2000", "1.1.2000". */
+const DATA = /(?<!\d)\d{1,2}[./]\d{1,2}[./]\d{2,4}(?!\d)/;
+
+/**
+ * O fecho de ementa de outro julgado logo depois da passagem: os primeiros parênteses depois dela, com relator e data
+ * dentro, sem dois-pontos no caminho (que abririam outra transcrição, de que o fecho seria).
+ */
+function fechoDeEmenta(texto: string, b: number): string | undefined {
+  const depois = texto.slice(b, b + JANELA_DO_FECHO);
+  const parenteses = /\([^()]*\)/.exec(depois);
+  if (!parenteses || depois.slice(0, parenteses.index).includes(":")) return undefined;
+  const dentro = parenteses[0];
+  return RELATOR.test(dentro) && DATA.test(dentro) ? dentro.replace(/\s+/g, " ") : undefined;
+}
+
 /** O texto depois da última pontuação dada, ou o texto todo se não houver nenhuma. */
 function depoisDaUltima(texto: string, pontuacao: RegExp): string {
   const ultimo = [...texto.matchAll(pontuacao)].pop();
@@ -579,6 +598,10 @@ function sinalNoInteiroTeor(
     sinais.push(
       `antes da passagem, na mesma frase, há "${alegacao}": pode ser alegação da parte, não fundamento do tribunal`,
     );
+  }
+  const fecho = ligados.ementaTranscrita && fechoDeEmenta(texto, b);
+  if (fecho) {
+    sinais.push(`logo depois da passagem há o fecho "${fecho}", como o de ementa de outro julgado transcrita`);
   }
   if (!sinais.length) return undefined;
   return `${fortes.length ? "ATENÇÃO, pode" : "pode"} ser de outro autor: ${sinais.join("; ")}`;

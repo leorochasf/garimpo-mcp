@@ -744,4 +744,31 @@ describe("conferência de citação — sinais de \"quem disse\" (G-08), desliga
     const r = conferirNoInteiroTeor(inteiroTeor([pagina]), citar("o prazo generico seria decenal"), so("alegacaoDaParte"));
     expect(sinal(r)).toBeUndefined();
   });
+
+  it("ementa transcrita ligada: fecho entre parênteses com relator e data logo depois vira sinal", async () => {
+    const leitura = await lerPdf(pdfComSinaisDeAutoria());
+    const r = conferirNoInteiroTeor(
+      leitura,
+      citar("A prescricao da pretensao generica ocorre em tres anos"),
+      so("ementaTranscrita"),
+    );
+    expect(sinal(r)).toMatch(
+      /; logo depois da passagem há o fecho "\(TJXX, Apelacao 0000000-00\.2000\.0\.00\.0000, Rel\. Fulano, j\. 01\/01\/2000\)", como o de ementa de outro julgado transcrita$/,
+    );
+  });
+
+  it.each([
+    ["parênteses sem relator nem data", "VOTO\nO prazo generico e de cinco anos (art. 205 do Codigo Civil ficticio)."],
+    [
+      "fecho de outra transcrição, aberta por dois-pontos",
+      "VOTO\nO prazo generico e de cinco anos, como no precedente assim ementado: Prazo trienal (TJXX, Rel. Fulano, j. 01/01/2000).",
+    ],
+    [
+      "fecho longe da passagem",
+      `VOTO\nO prazo generico e de cinco anos. ${"Texto ficticio de fundamentacao do relator. ".repeat(8)}(TJXX, Rel. Fulano, j. 01/01/2000).`,
+    ],
+  ])("ementa transcrita ligada: %s não vira sinal", (_caso, pagina) => {
+    const r = conferirNoInteiroTeor(inteiroTeor([pagina]), citar("O prazo generico e de cinco anos"), so("ementaTranscrita"));
+    expect(sinal(r)).toBeUndefined();
+  });
 });
