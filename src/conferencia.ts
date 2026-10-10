@@ -812,8 +812,11 @@ interface MarcasDoJulgado {
   titulos: TituloDeSecao[];
   /** Títulos da ementa padronizada ("I. Caso em exame"…), onde quer que estejam; só valem dentro da ementa. */
   daEmenta: { inicio: number; nome: string }[];
-  /** Fórmulas que abrem o dispositivo ("Ante o exposto"…), onde quer que estejam; só valem dentro do voto. */
-  dispositivos: number[];
+  /**
+   * Fórmulas de dispositivo ("Ante o exposto"…), onde quer que estejam, com a marca de inequívoca; só vale a última de
+   * cada seção de voto, e só se inequívoca.
+   */
+  dispositivos: { inicio: number; inequivoca: boolean }[];
 }
 
 /** Os títulos da ementa padronizada, pela forma sem acentos e em minúsculas. */
@@ -828,9 +831,9 @@ const SUBPARTES_DA_EMENTA: Record<string, string> = {
 const TITULO_DA_EMENTA = /^(?:(?:I{1,3}|IV)\s*[.)\u2013\u2014-]\s*)?([\p{L}\p{M} ]+?)\s*:?$/iu;
 
 /**
- * Fórmula de abertura do dispositivo, no começo da linha ou da frase ("Ante o exposto", "Pelo exposto", "Isto posto",
- * "Com essas considerações"…); no meio da frase ("o autor, ante o exposto na inicial") não conta, nem no começo de uma
- * linha que continua a frase da anterior (ver CONTINUA_A_FRASE).
+ * Fórmula de dispositivo, no começo da linha ou da frase ("Ante o exposto", "Pelo exposto", "Isto posto", "Com essas
+ * considerações"…); no meio da frase ("o autor, ante o exposto na inicial") não conta. Se abre mesmo o dispositivo,
+ * quem decide é `inequivoca`.
  */
 const DISPOSITIVO = new RegExp(
   "(?<=^[ \\t]*|[.!?]\\s+)(?:" +
@@ -845,11 +848,37 @@ const DISPOSITIVO = new RegExp(
   "gimu",
 );
 
+/** Linha que fecha frase: termina em ponto, exclamação ou interrogação, talvez seguidos de aspas ou parêntese. */
+const FECHA_FRASE = /[.!?][”"')\]]*[ \t]*$/u;
+
 /**
- * O que, no fim do texto antes da fórmula, mostra que a frase continua (vírgula, ponto e vírgula, letra minúscula,
- * algarismo ou hífen): a quebra de linha ali é só diagramação, não começo de frase.
+ * Nos 200 caracteres antes da fórmula, sinal de que ela pode ser de outra decisão transcrita: dois-pontos no fim da
+ * linha ou antes de aspas ("A sentença assim decidiu:"), ou marcador de transcrição ("in verbis", "(...)").
  */
-const CONTINUA_A_FRASE = /[,;\p{Ll}\p{N}-]\s*$/u;
+const ANUNCIA_TRANSCRICAO =
+  /:[ \t]*(?:\n|[“«"'])|\b(?:in\s+verbis|verbis|(?:ipsis\s+|in\s+)?litteris|transcrevo|transcreve-se|confira-se)\b|\(\s*\.\.\.\s*\)|\[\s*\.\.\.\s*\]/iu;
+
+/** Aspas abertas e não fechadas no trecho: a fórmula estaria dentro de uma transcrição. */
+function aspasAbertas(trecho: string): boolean {
+  const conta = (r: RegExp) => trecho.match(r)?.length ?? 0;
+  return conta(/“/g) > conta(/”/g) || conta(/«/g) > conta(/»/g) || conta(/"/g) % 2 === 1;
+}
+
+/**
+ * A fórmula abre o dispositivo sem dúvida: começa parágrafo (no começo da linha, depois de linha em branco, de título
+ * de seção ou de linha que fecha frase) e nada nos 200 caracteres antes anuncia transcrição. Na dúvida, não: a
+ * subparte é omitida, nunca adivinhada.
+ */
+function inequivoca(texto: string, i: number, fimDeTitulo: Set<number>): boolean {
+  const inicioDaLinha = texto.lastIndexOf("\n", i - 1);
+  if (texto.slice(inicioDaLinha + 1, i).trim()) return false;
+  const antes = texto.slice(0, Math.max(0, inicioDaLinha));
+  const linhaAnterior = antes.slice(antes.lastIndexOf("\n") + 1);
+  const comecaParagrafo =
+    inicioDaLinha < 0 || !linhaAnterior.trim() || fimDeTitulo.has(inicioDaLinha) || FECHA_FRASE.test(linhaAnterior);
+  const janela = texto.slice(Math.max(0, i - 200), i);
+  return comecaParagrafo && !ANUNCIA_TRANSCRICAO.test(janela) && !aspasAbertas(janela);
+}
 
 /** Seções de voto: a parte delas antes da fórmula do dispositivo é a fundamentação. */
 const VOTOS: Secao[] = ["voto", "voto-vista", "voto vencido", "voto vogal"];
@@ -864,24 +893,20 @@ function marcasDoJulgado(texto: string, paginaEm: (i: number) => number): Marcas
   const titulos = titulosDeSecao(texto, paginaEm);
   // A linha de título de seção é limite: a letra minúscula do fim dela ("Voto vogal") não continua a frase.
   const fimDeTitulo = new Set(titulos.map((t) => texto.indexOf("\n", t.inicio)));
-  const linhaAnterior = (i: number) => texto.lastIndexOf("\n", i - 1);
   return {
     titulos,
     daEmenta,
-    dispositivos: [...texto.matchAll(DISPOSITIVO)]
-      .filter(
-        (m) =>
-          fimDeTitulo.has(linhaAnterior(m.index)) ||
-          !CONTINUA_A_FRASE.test(texto.slice(Math.max(0, m.index - 80), m.index)),
-      )
-      .map((m) => m.index),
+    dispositivos: [...texto.matchAll(DISPOSITIVO)].map((m) => ({
+      inicio: m.index,
+      inequivoca: inequivoca(texto, m.index, fimDeTitulo),
+    })),
   };
 }
 
 /**
  * A subparte em que fica [a, b), só dentro de uma seção identificada e sem atravessar título de seção: na ementa, pelo
- * último título da ementa padronizada antes da passagem; no voto, "dispositivo" depois da fórmula que o abre e
- * "fundamentação" antes dela. Fora disso, nenhuma: a posição não se inventa.
+ * último título da ementa padronizada antes da passagem; no voto, pela última fórmula de dispositivo da seção, só se
+ * inequívoca: "dispositivo" depois dela e "fundamentação" antes. Fora disso, nenhuma: a posição não se inventa.
  */
 function subparteEm({ titulos, daEmenta, dispositivos }: MarcasDoJulgado, a: number, b: number): string | undefined {
   const secoes = secoesEm(titulos, a, b);
@@ -896,9 +921,11 @@ function subparteEm({ titulos, daEmenta, dispositivos }: MarcasDoJulgado, a: num
     return juntarNomes([antes?.nome ?? "não identificada", ...dentro.map((m) => m.nome)], "um título");
   }
   if (!VOTOS.includes(titulo.secao)) return undefined;
-  const marcas = dispositivos.filter(naSecao);
-  if (marcas.some((i) => i <= a)) return "dispositivo";
-  if (marcas.some((i) => i < b)) return juntarNomes(["fundamentação", "dispositivo"], "a fórmula que abre o dispositivo");
+  const fim = titulos.find((t) => t.inicio > titulo.inicio)?.inicio ?? Infinity;
+  const ultima = dispositivos.filter((d) => naSecao(d.inicio) && d.inicio < fim).pop();
+  if (!ultima?.inequivoca) return undefined;
+  if (ultima.inicio <= a) return "dispositivo";
+  if (ultima.inicio < b) return juntarNomes(["fundamentação", "dispositivo"], "a fórmula que abre o dispositivo");
   return "fundamentação";
 }
 

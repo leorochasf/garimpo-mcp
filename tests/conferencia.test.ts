@@ -11,6 +11,7 @@ import {
   lerCitacao,
 } from "../src/conferencia.js";
 import type { ConferenciaFeita, ResultadoDaFonte } from "../src/conferencia.js";
+import { htmlParaTexto } from "../src/html.js";
 import { lerParaConferir } from "../src/leitura.js";
 import type { InteiroTeorParaConferir } from "../src/leitura.js";
 import {
@@ -620,11 +621,13 @@ describe("conferência de citação — posição no julgado (G-09)", () => {
   it.each([
     ["título da ementa padronizada fora da ementa (no voto)", `VOTO\nQuestão em discussão\nNo merito, ${FRASE}.`],
     ["\"ante o exposto\" no meio da frase do voto", `VOTO\nO autor, ante o exposto na inicial, pede algo. No merito, ${FRASE}.`],
-    [
-      "\"ante o exposto\" no começo de linha que continua a frase (quebra depois da vírgula)",
-      `VOTO\nO autor,\nante o exposto na inicial, insiste. No merito, ${FRASE}.\nAnte o exposto, nego provimento.`,
-    ],
-  ])("%s: não muda a posição (fundamentação do voto)", (_caso, pagina) => {
+  ])("%s: voto sem fórmula inequívoca do dispositivo, sem subparte (na dúvida, não dar subparte)", (_caso, pagina) => {
+    const r = conferirNoInteiroTeor(inteiroTeor([pagina]), citar(FRASE));
+    expect(posicoes(r).posicoes).toEqual([{ secao: "voto", subparte: undefined }]);
+  });
+
+  it("\"ante o exposto\" no começo de linha que continua a frase (quebra depois da vírgula): fundamentação do voto", () => {
+    const pagina = `VOTO\nO autor,\nante o exposto na inicial, insiste. No merito, ${FRASE}.\nAnte o exposto, nego provimento.`;
     const r = conferirNoInteiroTeor(inteiroTeor([pagina]), citar(FRASE));
     expect(posicoes(r).posicoes).toEqual([{ secao: "voto", subparte: "fundamentação" }]);
   });
@@ -640,6 +643,51 @@ describe("conferência de citação — posição no julgado (G-09)", () => {
   it("\"Ante o exposto\" no relatório não abre dispositivo: só o voto tem dispositivo", () => {
     const r = conferirNoInteiroTeor(inteiroTeor([`RELATÓRIO\nAnte o exposto, o autor pede que ${FRASE}.`]), citar(FRASE));
     expect(posicoes(r).posicoes).toEqual([{ secao: "relatório", subparte: undefined }]);
+  });
+
+  it("texto integral do Falcão em HTML com títulos: \"Ante o exposto\" em parágrafo próprio abre o dispositivo", () => {
+    const html =
+      "<p>RELATÓRIO</p><p>Trata-se de recurso.</p><p>Voto</p>" +
+      "<p>Ante o exposto, nego provimento ao recurso interposto pela parte.</p>";
+    const r = conferirNoTextoIntegral(htmlParaTexto(html), citar("nego provimento ao recurso interposto pela parte"));
+    expect(posicoes(r).posicoes).toEqual([{ secao: "voto", subparte: "dispositivo" }]);
+  });
+
+  it("precedente citado sem ponto final no parágrafo anterior não impede o dispositivo do parágrafo seguinte", () => {
+    const html =
+      "<p>VOTO</p><p>Nesse sentido: REsp 1.234/XX, Rel. Min. Fulano, DJe 10/10/2020</p>" +
+      "<p>Ante o exposto, nego provimento ao recurso ficticio.</p>";
+    const r = conferirNoTextoIntegral(htmlParaTexto(html), citar("nego provimento ao recurso ficticio"));
+    expect(posicoes(r).posicoes).toEqual([{ secao: "voto", subparte: "dispositivo" }]);
+  });
+
+  it("decisão transcrita depois de dois-pontos: a fundamentação seguinte nunca vira dispositivo (na dúvida, sem subparte)", () => {
+    const pagina =
+      "VOTO\nA sentença assim decidiu:\nAnte o exposto, julgo procedente o pedido inicial.\n" +
+      "No entanto, a responsabilidade civil exige a demonstração do nexo causal entre a falta e o dano.\n" +
+      "Ante o exposto, nego provimento.";
+    const r = conferirNoInteiroTeor(
+      inteiroTeor([pagina]),
+      citar("a responsabilidade civil exige a demonstração do nexo causal"),
+    );
+    const [{ secao, subparte }] = posicoes(r).posicoes;
+    expect(secao).toBe("voto");
+    expect(subparte).not.toBe("dispositivo");
+    expect([undefined, "fundamentação"]).toContain(subparte);
+  });
+
+  it.each([
+    ["só a última fórmula vale: a primeira, seguida de outra, não abre o dispositivo",
+      `VOTO\nAnte o exposto na inicial, o autor insiste.\nNo merito, ${FRASE}.\nAnte o exposto, nego provimento.`, "fundamentação"],
+    ["fórmula depois de aspas abertas (transcrição) não abre o dispositivo",
+      `VOTO\nConsta da sentença: “Fundamentos genericos.\nAnte o exposto, ${FRASE}.”`, undefined],
+    ["fórmula depois de \"in verbis\" não abre o dispositivo",
+      `VOTO\nA sentença decidiu, in verbis.\nAnte o exposto, ${FRASE}.`, undefined],
+    ["fórmula no meio da linha, depois de ponto, não abre o dispositivo",
+      `VOTO\nFundamentos genericos. Ante o exposto, ${FRASE}.`, undefined],
+  ])("%s", (_caso, pagina, subparte) => {
+    const r = conferirNoInteiroTeor(inteiroTeor([pagina]), citar(FRASE));
+    expect(posicoes(r).posicoes).toEqual([{ secao: "voto", subparte }]);
   });
 
   it("na ementa do JurisprudênciaIA não há subparte: o campo não aparece", () => {
