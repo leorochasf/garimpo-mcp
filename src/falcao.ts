@@ -53,6 +53,13 @@ const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
 /** Sigla de classe processual: uma palavra curta (ROT, AP, RORSum, AIRR). Nome por extenso não é sigla. */
 const SIGLA_DE_CLASSE = /^[A-Za-z][A-Za-z0-9]{0,9}$/;
 
+/** Data AAAA-MM-DD que existe no calendário (recusa 2024-02-31 e 2024-99-99). */
+function dataExiste(v: string): boolean {
+  const [a, m, d] = v.split("-").map(Number);
+  const t = new Date(Date.UTC(a, m - 1, d));
+  return t.getUTCFullYear() === a && t.getUTCMonth() === m - 1 && t.getUTCDate() === d;
+}
+
 /**
  * Antes de gastar chamada: filtro com formato que a fonte não aceita é erro que ensina, nunca ignorado em silêncio;
  * limite acima do teto também.
@@ -67,6 +74,21 @@ export function conferirPedidoAoFalcao(p: ParametrosBusca, { limite = true } = {
           "Atenção: no Falcão a data filtrada é a data de juntada do acórdão, não a de julgamento.",
       );
     }
+  }
+  const [de, ate] = [p.de?.trim(), p.ate?.trim()];
+  for (const [f, v] of [["de", de], ["ate", ate]] as const) {
+    if (v && !dataExiste(v)) {
+      throw new Error(
+        `O filtro ${f} no ${tribunal} (Falcão) recebeu "${v}", data que não existe no calendário; use uma data real no ` +
+          "formato AAAA-MM-DD (por exemplo, 2024-03-31).",
+      );
+    }
+  }
+  if (de && ate && de > ate) {
+    throw new Error(
+      `O intervalo no ${tribunal} (Falcão) está invertido: "de" (${de}) é depois de "ate" (${ate}). Troque as datas ou ` +
+        "corrija uma delas.",
+    );
   }
   const classe = p.classe?.trim();
   if (classe && !SIGLA_DE_CLASSE.test(classe)) {

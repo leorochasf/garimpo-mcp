@@ -76,11 +76,11 @@ function conferirTribunais(...tribunais: (string | undefined)[]) {
 }
 
 const filtros = {
-  de: z.string().optional().describe("Data de julgamento inicial, AAAA-MM-DD"),
-  ate: z.string().optional().describe("Data de julgamento final, AAAA-MM-DD"),
+  de: z.string().optional().describe("Data inicial, AAAA-MM-DD: data de juntada do acórdão nos TRTs, data de julgamento nas demais fontes"),
+  ate: z.string().optional().describe("Data final, AAAA-MM-DD: data de juntada do acórdão nos TRTs, data de julgamento nas demais fontes"),
   relator: z.string().optional().describe("Nome do relator"),
   orgao: z.string().optional().describe("Órgão julgador (turma, câmara, seção)"),
-  classe: z.string().optional().describe("Classe processual"),
+  classe: z.string().optional().describe("Classe processual (nos TRTs, a sigla da classe, como ROT ou AP)"),
 };
 
 const renovar = z
@@ -322,8 +322,9 @@ export function criarServidor(
         "(dataJulgamento) e \"juntado em\" (dataJuntada, que não é publicação), e \"sem ementa no Falcão\" quando ela " +
         "não veio; o cabecalhoDeCobertura separa o total informado pelo Falcão (\"10.000 ou mais\" no teto da contagem) " +
         "de quantos vieram e quantos são mostrados. O texto integral fica na memória por 24 h para ler_inteiro_teor e " +
-        "conferir_citacao pelo id. Nos TRTs, os filtros de, ate, relator, orgao e classe ainda não estão disponíveis " +
-        "(erro que ensina) e precedentes qualificados não são pesquisados. " +
+        "conferir_citacao pelo id. Nos TRTs, os filtros de, ate, relator, orgao e classe estão disponíveis " +
+        "(de e ate valem para a data de juntada, não a de julgamento; classe só por sigla; data inexistente ou intervalo " +
+        "invertido é erro que ensina) e precedentes qualificados não são pesquisados. " +
         `${SOBRE_A_TABELA_NAS_LISTAS} ` +
         `${SOBRE_A_BUSCA_GUARDADA} A busca guardada traz o campo buscaGuardada com essa data. ` +
         SOBRE_O_RECORRIDO,
@@ -390,7 +391,8 @@ export function criarServidor(
         "pedido, na ordem dada, depois nas seguintes; o que não couber (ou parar na pausa preventiva) sai no " +
         "cabecalhoDeCobertura como foraDoTeto ou pausaPreventiva, nunca como busca vazia, e repetir a mesma chamada " +
         "executa as que faltam. Com TRT, cada acórdão traz a fonte (rótulos em fontes) e o aviso cita as duas fontes; " +
-        "os filtros de, ate, relator, orgao e classe não valem com TRT (erro que ensina). " +
+        "os filtros de, ate, relator, orgao e classe valem também com TRT (de e ate = data de juntada nos TRTs, " +
+        "julgamento nas demais fontes; classe só por sigla). " +
         `${SOBRE_O_RECORRIDO}`,
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
       inputSchema: {

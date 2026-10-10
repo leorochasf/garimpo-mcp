@@ -33,6 +33,20 @@ function siteFalso(registros: unknown[]) {
 }
 
 describe("servidor MCP", () => {
+  it("o tools/list descreve os filtros nos TRTs como disponíveis e as datas como de juntada nos TRTs", async () => {
+    const mcp = await conectar(siteFalso([]));
+    const { tools } = await mcp.listTools();
+    for (const nome of ["busca_direta", "busca_ampla"]) {
+      const t = tools.find((x) => x.name === nome)!;
+      expect(t.description, nome).not.toMatch(/não (estão disponíveis|valem com TRT)/);
+      expect(t.description, nome).toMatch(/juntada/);
+      const props = (t.inputSchema.properties ?? {}) as Record<string, { description?: string }>;
+      expect(props.de.description, nome).toMatch(/juntada/);
+      expect(props.ate.description, nome).toMatch(/juntada/);
+      expect(props.classe.description, nome).toMatch(/sigla/);
+    }
+  });
+
   it("marca como só leem as buscas, obter ementa, listar tribunais e ler inteiro teor (sem sair para a internet); obter inteiro teor não, nem destrutiva; as buscas saem para a internet", async () => {
     const mcp = await conectar(siteFalso([]));
     const { tools } = await mcp.listTools();

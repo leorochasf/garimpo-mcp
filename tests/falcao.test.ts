@@ -153,6 +153,22 @@ describe("busca direta num TRT pelo Falcão", () => {
     expect(falcao.pedidos).toHaveLength(0);
   });
 
+  it("data inexistente (2024-02-31, 2024-99-99) ou intervalo invertido: erro que ensina, sem nenhuma chamada", async () => {
+    const casos: [Record<string, string>, RegExp][] = [
+      [{ de: "2024-02-31" }, /não existe/],
+      [{ ate: "2024-99-99" }, /não existe/],
+      [{ de: "2024-05-10", ate: "2024-05-01" }, /depois/],
+    ];
+    for (const [filtros, esperado] of casos) {
+      const falcao = falcaoFalso();
+      const { mcp } = await conectar(siteFalso().cliente, falcao.cliente);
+      const r = await chamar(mcp, "busca_direta", { tribunal: "trt1", texto: "horas extras", ...filtros });
+      expect(r.isError, JSON.stringify(filtros)).toBe(true);
+      expect(r.texto).toMatch(esperado);
+      expect(falcao.pedidos).toHaveLength(0);
+    }
+  });
+
   it("a busca guardada não vale para outro filtro: filtros entram na chave", () => {
     const base = { tribunal: "trt1", texto: "horas extras", limite: 10 };
     expect(chaveNoFalcao({ ...base, relator: "A" })).not.toBe(chaveNoFalcao(base));
