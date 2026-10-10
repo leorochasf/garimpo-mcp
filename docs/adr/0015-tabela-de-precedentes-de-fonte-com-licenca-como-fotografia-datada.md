@@ -25,6 +25,11 @@ vinculantes entram lidas das telas HTML pelo mantenedor; ambas com fundamento de
 9.610/98. (c) Ler o STF com User-Agent de navegador fica para o bloco do STF (4º da ordem do dono), sem decisão agora.
 A implementação de (a) e (b) é o ticket 06 do B8, que começa pelo que falta verificar. Súmulas do STJ seguem fora.
 
+**Emenda (dono, 2026-10-09): a tabela vira plano B.** O `consultar_precedente` passa a consultar o precedente ao
+vivo no portal do tribunal, com memória de 24 h, e só usa esta tabela quando o portal não responde, dizendo a data
+dela. A decisão (c) acima foi tomada: o dono autorizou o User-Agent de navegador no STF. Ver
+[ADR-0020](0020-precedentes-qualificados-ao-vivo-tabela-como-plano-b.md).
+
 ## Opções consideradas
 
 - Download no computador do usuário: rejeitado agora; a licença permite redistribuir, e a fotografia cumpre a consulta
