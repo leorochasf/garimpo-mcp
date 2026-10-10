@@ -201,16 +201,27 @@ export function conferirNaEmenta(
 
 /**
  * Conferência no texto integral do repositório oficial (Falcão), convertido do HTML: texto corrido, como a ementa, com
- * a posição como a frase que contém a passagem (não há página de PDF).
+ * a posição como a frase que contém a passagem (não há página de PDF). `ligados` escolhe os sinais de "quem disse"
+ * (G-08), como no inteiro teor; o padrão é SINAIS_DE_QUEM_DISSE.
  */
-export function conferirNoTextoIntegral(texto: string, citacao: Citacao): ResultadoDaFonte {
+export function conferirNoTextoIntegral(
+  texto: string,
+  citacao: Citacao,
+  ligados: SinaisDeQuemDisse = SINAIS_DE_QUEM_DISSE,
+): ResultadoDaFonte {
   if (!texto.trim()) return naoVerificavel("O texto integral veio vazio do Falcão: não há texto para conferir.");
-  return conferirNoTextoCorrido(texto, citacao, "no texto integral");
+  return conferirNoTextoCorrido(texto, citacao, "no texto integral", ligados);
 }
 
-function conferirNoTextoCorrido(texto: string, citacao: Citacao, local: OndeNaEmenta["local"]): ResultadoDaFonte {
+function conferirNoTextoCorrido(
+  texto: string,
+  citacao: Citacao,
+  local: OndeNaEmenta["local"],
+  ligados: SinaisDeQuemDisse = SINAIS_DE_QUEM_DISSE,
+): ResultadoDaFonte {
   // No texto integral (convertido do HTML, com linhas), a posição no julgado pelos mesmos títulos do PDF; sem página.
   const marcas = local === "no texto integral" ? marcasDoJulgado(texto, () => 0) : undefined;
+  let proclamado: string | undefined;
   const fonte: Fonte = {
     texto,
     onde: () => ({ local }),
@@ -221,12 +232,26 @@ function conferirNoTextoCorrido(texto: string, citacao: Citacao, local: OndeNaEm
           subparte: (a: number, b: number) => subparteEm(marcas, a, b),
         }
       : {}),
-    sinal: (a, b) =>
-      entreAspas(texto, a, b) ? `pode ser de outro autor: a passagem está entre aspas ${local}` : undefined,
+    sinal: (a, b, ligados) => {
+      const sinais = [
+        ...(entreAspas(texto, a, b) ? [`a passagem está entre aspas ${local}`] : []),
+        ...(marcas
+          ? sinaisDeQuemDisse(
+              texto,
+              a,
+              b,
+              secoesEm(marcas.titulos, a, b).titulos[0]?.inicio ?? 0,
+              ligados,
+              (proclamado ??= proclamacao(texto, marcas.titulos)),
+            )
+          : []),
+      ];
+      return sinais.length ? `pode ser de outro autor: ${sinais.join("; ")}` : undefined;
+    },
     cadeiaAceita: () => true,
     normalizados: new Map(),
   };
-  return conferir(fonte, citacao) ?? naoEncontrado(fonte, citacao);
+  return conferir(fonte, citacao, ligados) ?? naoEncontrado(fonte, citacao);
 }
 
 /** Intervalo achado na fonte: um, sem supressão; um por pedaço, com supressão. */
@@ -607,6 +632,50 @@ function ultima(texto: string, expressao: RegExp): string | undefined {
 }
 
 /**
+ * Os sinais de "quem disse" ligados (SinaisDeQuemDisse) para a passagem [a, b), no inteiro teor ou no texto integral
+ * do Falcão. `inicioDaSecao` limita a procura da divergência; `proclamado` é a proclamação do julgamento (certidão e
+ * fecho), onde se lê se o acórdão se diz unânime.
+ */
+function sinaisDeQuemDisse(
+  texto: string,
+  a: number,
+  b: number,
+  inicioDaSecao: number,
+  ligados: SinaisDeQuemDisse,
+  proclamado: string,
+): string[] {
+  const sinais: string[] = [];
+  const negacao =
+    ligados.negacao && ultima(depoisDaUltima(texto.slice(Math.max(0, a - JANELA_DA_NEGACAO), a), /[.!?;:,]/g), NEGACAO);
+  if (negacao) {
+    sinais.push(`logo antes da passagem, na mesma oração, há a negação "${negacao}": o sentido pode estar invertido`);
+  }
+  const alegacao =
+    ligados.alegacaoDaParte &&
+    ultima(depoisDaUltima(texto.slice(Math.max(0, a - JANELA_DA_ALEGACAO), a), /[.!?;]/g), ALEGACAO);
+  if (alegacao) {
+    sinais.push(
+      `antes da passagem, na mesma frase, há "${alegacao}": pode ser alegação da parte, não fundamento do tribunal`,
+    );
+  }
+  const fecho = ligados.ementaTranscrita && fechoDeEmenta(texto, b);
+  if (fecho) {
+    sinais.push(`logo depois da passagem há o fecho "${fecho}", como o de ementa de outro julgado transcrita`);
+  }
+  const divergencia =
+    ligados.divergencia && ultima(texto.slice(Math.max(inicioDaSecao, a - JANELA_DA_DIVERGENCIA), b), DIVERGENCIA);
+  if (divergencia && !(proclamado.search(UNANIME) >= 0 && proclamado.search(NAO_UNANIME) < 0)) {
+    sinais.push(
+      `antes da passagem ou nela há a fórmula de divergência "${divergencia}", e o acórdão não se diz unânime: pode ser de ` +
+        "um voto divergente sem título",
+    );
+  }
+  const hipotese = ligados.raciocinioHipotetico && ultima(texto.slice(Math.max(0, a - JANELA_DO_MARCADOR), a), HIPOTESE);
+  if (hipotese) sinais.push(`logo antes da passagem há marca de raciocínio hipotético ("${hipotese}")`);
+  return sinais;
+}
+
+/**
  * Sinal de outro autor no inteiro teor: a passagem no relatório ou num voto vencido (aviso forte, pelo título de
  * seção), entre aspas, ou com um marcador de transcrição ("in verbis", "confira-se"…) logo antes dela, copiado como
  * está na fonte; e, se ligados, os sinais de "quem disse" (SinaisDeQuemDisse). É indício, não autoria; a falta dele
@@ -635,34 +704,7 @@ function sinalNoInteiroTeor(
   if (marcadores.length) {
     sinais.push(`logo antes da passagem há o marcador de transcrição "${marcadores[marcadores.length - 1][0]}"`);
   }
-  const negacao =
-    ligados.negacao && ultima(depoisDaUltima(texto.slice(Math.max(0, a - JANELA_DA_NEGACAO), a), /[.!?;:,]/g), NEGACAO);
-  if (negacao) {
-    sinais.push(`logo antes da passagem, na mesma oração, há a negação "${negacao}": o sentido pode estar invertido`);
-  }
-  const alegacao =
-    ligados.alegacaoDaParte &&
-    ultima(depoisDaUltima(texto.slice(Math.max(0, a - JANELA_DA_ALEGACAO), a), /[.!?;]/g), ALEGACAO);
-  if (alegacao) {
-    sinais.push(
-      `antes da passagem, na mesma frase, há "${alegacao}": pode ser alegação da parte, não fundamento do tribunal`,
-    );
-  }
-  const fecho = ligados.ementaTranscrita && fechoDeEmenta(texto, b);
-  if (fecho) {
-    sinais.push(`logo depois da passagem há o fecho "${fecho}", como o de ementa de outro julgado transcrita`);
-  }
-  const inicioDaSecao = secoes.identificada ? secoes.titulos[0].inicio : 0;
-  const divergencia =
-    ligados.divergencia && ultima(texto.slice(Math.max(inicioDaSecao, a - JANELA_DA_DIVERGENCIA), b), DIVERGENCIA);
-  if (divergencia && !(proclamado.search(UNANIME) >= 0 && proclamado.search(NAO_UNANIME) < 0)) {
-    sinais.push(
-      `antes da passagem ou nela há a fórmula de divergência "${divergencia}", e o acórdão não se diz unânime: pode ser de ` +
-        "um voto divergente sem título",
-    );
-  }
-  const hipotese = ligados.raciocinioHipotetico && ultima(texto.slice(Math.max(0, a - JANELA_DO_MARCADOR), a), HIPOTESE);
-  if (hipotese) sinais.push(`logo antes da passagem há marca de raciocínio hipotético ("${hipotese}")`);
+  sinais.push(...sinaisDeQuemDisse(texto, a, b, secoes.identificada ? secoes.titulos[0].inicio : 0, ligados, proclamado));
   if (!sinais.length) return undefined;
   return `${fortes.length ? "ATENÇÃO, pode" : "pode"} ser de outro autor: ${sinais.join("; ")}`;
 }

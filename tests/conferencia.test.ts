@@ -864,6 +864,39 @@ describe("conferência de citação — sinais de \"quem disse\" (G-08), desliga
     expect(sinal(r)).toBeUndefined();
   });
 
+  /** Texto integral fictício como o Falcão devolve, convertido do HTML: uma passagem para cada sinal, sem títulos. */
+  const TEXTO_DO_FALCAO = [
+    FRASES_DE_AUTORIA.negada,
+    FRASES_DE_AUTORIA.alegacaoDaParte,
+    FRASES_DE_AUTORIA.ementaTranscrita,
+    FRASES_DE_AUTORIA.votoDivergente,
+    FRASES_DE_AUTORIA.hipotetica,
+    'Ha quem diga que "o prazo generico seria trienal" na doutrina.',
+  ].join("\n");
+  const DO_FALCAO = [
+    ["negação", "o negocio generico e nulo por vicio de forma", "negacao", "a negação"],
+    ["alegação da parte", "o prazo generico seria decenal", "alegacaoDaParte", "alegação da parte"],
+    ["ementa transcrita", "A prescricao da pretensao generica ocorre em tres anos", "ementaTranscrita", "ementa de outro julgado"],
+    ["voto divergente", "para negar provimento, por entender valido o negocio generico", "divergencia", "fórmula de divergência"],
+    ["raciocínio hipotético", "o resultado seria o mesmo, pois o prazo ja estaria vencido", "raciocinioHipotetico", "raciocínio hipotético"],
+  ] as const;
+
+  it.each(DO_FALCAO)("texto integral do Falcão, desligados: a passagem de %s fica sem sinal, como hoje", (_caso, citacao) => {
+    expect(sinal(conferirNoTextoIntegral(TEXTO_DO_FALCAO, citar(citacao)))).toBeUndefined();
+  });
+
+  it("texto integral do Falcão, desligados: o sinal de aspas continua igual ao de hoje", () => {
+    expect(sinal(conferirNoTextoIntegral(TEXTO_DO_FALCAO, citar("o prazo generico seria trienal")))).toBe(
+      "pode ser de outro autor: a passagem está entre aspas no texto integral",
+    );
+  });
+
+  it.each(DO_FALCAO)("texto integral do Falcão, %s ligado: vira sinal", (_caso, citacao, interruptor, esperado) => {
+    const aviso = sinal(conferirNoTextoIntegral(TEXTO_DO_FALCAO, citar(citacao), so(interruptor)));
+    expect(aviso).toMatch(/^pode ser de outro autor: /);
+    expect(aviso).toContain(esperado);
+  });
+
   it("todos ligados: cada passagem tem o seu sinal, e nenhum aviso diz \"obiter\" nem \"autoria\"", async () => {
     const leitura = await lerPdf(pdfComSinaisDeAutoria());
     const todos = { negacao: true, alegacaoDaParte: true, ementaTranscrita: true, divergencia: true, raciocinioHipotetico: true };
