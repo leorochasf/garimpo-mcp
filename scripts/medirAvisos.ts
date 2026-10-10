@@ -9,6 +9,7 @@
  */
 
 import { createHash, randomBytes } from "node:crypto";
+import { realpathSync } from "node:fs";
 import { access, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -82,10 +83,27 @@ async function lerJson(pasta: string, nome: string, ajuda: string): Promise<unkn
   }
 }
 
+/** Caminho real: resolve links no trecho que já existe e acrescenta o resto (pasta ainda por criar). */
+function caminhoReal(caminho: string): string {
+  const resto: string[] = [];
+  let atual = path.resolve(caminho);
+  for (;;) {
+    try {
+      return path.join(realpathSync(atual), ...resto);
+    } catch {
+      const pai = path.dirname(atual);
+      if (pai === atual) return path.join(atual, ...resto);
+      resto.unshift(path.basename(atual));
+      atual = pai;
+    }
+  }
+}
+
 function garantirPastaDeFora(pasta: string): string {
   const absoluta = path.resolve(pasta);
-  const relativo = path.relative(RAIZ_DO_REPOSITORIO, absoluta);
-  if (!relativo.startsWith("..") && !path.isAbsolute(relativo)) {
+  const relativo = path.relative(caminhoReal(RAIZ_DO_REPOSITORIO), caminhoReal(absoluta));
+  const fora = relativo === ".." || relativo.startsWith(".." + path.sep) || path.isAbsolute(relativo);
+  if (!fora) {
     throw new ErroDeProtocolo(
       "A pasta da amostra está dentro do repositório. Trecho de PDF real não pode entrar no git (regra 2): use uma " +
         "pasta fora dele, por exemplo na sua pasta de documentos.",

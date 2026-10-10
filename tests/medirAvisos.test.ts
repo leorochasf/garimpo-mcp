@@ -170,6 +170,9 @@ describe("medirAvisos — entradas que o protocolo recusa, com frase que ensina"
     await expect(medir(pasta)).rejects.toThrow(/pelo menos uma letra/);
   });
 
+  it("subpasta do repositório com nome começando por '..' também recusa (regra 2)", async () => {
+    await expect(medir(join(import.meta.dirname, "..", "..amostra"))).rejects.toThrow(/dentro do repositório/);
+  });
   it("pasta dentro do repositório: recusa (regra 2)", async () => {
     await expect(medir(join(import.meta.dirname, "..", "tests"))).rejects.toThrow(/dentro do repositório/);
   });
