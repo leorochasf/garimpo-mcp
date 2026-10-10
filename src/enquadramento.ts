@@ -92,6 +92,8 @@ export interface ReforcoDaTabela {
   linha?: { situacao?: string; teseFirmada?: string };
   /** O item veio da própria tabela (consultar_precedente), não de uma lista do site. */
   consulta?: boolean;
+  /** Consulta ao vivo (ADR-0020): o nome da fonte no lugar da tabela, ex.: "portal do STJ em 09/10/2026 14:03 (…)". */
+  portal?: string;
 }
 
 export function enquadrarQualificado(q: QualificadoParaEnquadrar, reforco?: ReforcoDaTabela): Enquadramento927 {
@@ -127,7 +129,8 @@ function reforcoAplicavel(q: Pick<QualificadoParaEnquadrar, "tribunal" | "tipo">
   return reforco && q.tribunal === tribunal && TIPOS_DA_TABELA[tribunal].includes(q.tipo) ? reforco : undefined;
 }
 
-const daTabela = (r: ReforcoDaTabela) => `tabela de precedentes do ${(r.tribunal ?? "stj").toUpperCase()} de ${r.data}`;
+const daTabela = (r: ReforcoDaTabela) =>
+  r.portal ?? `tabela de precedentes do ${(r.tribunal ?? "stj").toUpperCase()} de ${r.data}`;
 
 /**
  * Tabela do STF: o inciso e o motivo ficam os da regra de sempre; a situação da tabela entra no aviso de situação
@@ -243,7 +246,9 @@ function regraDoQualificado(
     }
     if (reforco?.linha) {
       const situacao = situacaoDaTabela(reforco, tipo);
-      const onde = reforco.consulta ? `a ${daTabela(reforco)}` : `o site nem na ${daTabela(reforco)}`;
+      const onde = reforco.consulta
+        ? `${reforco.portal ? "o" : "a"} ${daTabela(reforco)}`
+        : `o site nem na ${daTabela(reforco)}`;
       if (!q.temTese) {
         const semTese = naoClassificado(`${rotulo} do STJ sem tese firmada informada pel${onde}`);
         return curta({ ...semTese, avisoSituacao: situacao.completa }, `${rotulo} sem tese no site nem na tabela`);

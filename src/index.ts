@@ -12,7 +12,7 @@ import { tabelaDoStfEmpacotada } from "./tabelaDoStf.js";
 
 const site = new Cliente({ nome: "O JurisprudênciaIA" });
 
-// Tabela ilegível não derruba o servidor: só o consultar_precedente responde com erro e as listas seguem sem ela.
+// Tabela ilegível não derruba o servidor: o consultar_precedente fica sem plano B e as listas seguem sem ela.
 let tabela;
 try {
   tabela = tabelaEmpacotada();

@@ -34,7 +34,10 @@ async function conectar(tabela: TabelaDePrecedentes, agora = HOJE) {
   });
   const [ladoCliente, ladoServidor] = InMemoryTransport.createLinkedPair();
   const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "janela-"));
-  await criarServidor(site, { dados, tabela, agora: () => agora }).connect(ladoServidor);
+  // O portal do STJ também falha (sem rede): a resposta é a da tabela, como plano B (ADR-0020).
+  await criarServidor(site, { dados, tabela, agora: () => agora, precedentesStj: site, precedentesStf: site }).connect(
+    ladoServidor,
+  );
   const mcp = new Client({ name: "teste", version: "0" });
   await mcp.connect(ladoCliente);
   return mcp;
@@ -48,13 +51,13 @@ async function consultar(mcp: Client, args: Record<string, unknown>) {
   return { erro: r.isError === true, texto: r.content[0].text, dado: r.isError ? undefined : JSON.parse(r.content[0].text) };
 }
 
-describe("consultar_precedente — tabela de precedentes do STJ, sem rede", () => {
-  it("só lê e não sai para a internet", async () => {
+describe("consultar_precedente — tabela de precedentes do STJ (plano B, portal sem rede)", () => {
+  it("só lê; sai para a internet (o portal do tribunal, ADR-0020)", async () => {
     const mcp = await conectar(await tabelaPequena());
     const { tools } = await mcp.listTools();
     const t = tools.find((x) => x.name === "consultar_precedente")!;
     expect(t.annotations?.readOnlyHint).toBe(true);
-    expect(t.annotations?.openWorldHint).toBe(false);
+    expect(t.annotations?.openWorldHint).toBe(true);
   });
 
   it("tema achado: situação literal com data, tese, questão rotulada, datas, paradigma, enquadramento e atribuição", async () => {
@@ -146,10 +149,10 @@ describe("consultar_precedente — tabela de precedentes do STJ, sem rede", () =
     }
   });
 
-  it("outro tribunal: erro explicando que as tabelas só têm o STJ e o STF", async () => {
+  it("outro tribunal: erro explicando que só cobre o STJ e o STF", async () => {
     const r = await consultar(await conectar(await tabelaPequena()), { tribunal: "tst", tipo: "tema repetitivo", numero: 1 });
     expect(r.erro).toBe(true);
-    expect(r.texto).toMatch(/só têm o STJ .* e o STF/);
+    expect(r.texto).toMatch(/só cobre o STJ .* e o STF/);
   });
 
   it("tabela com mais de 90 dias: aviso fixo de idade", async () => {

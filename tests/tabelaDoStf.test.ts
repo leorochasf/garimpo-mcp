@@ -48,7 +48,11 @@ const siteSemRede = () =>
 async function conectar(site: Cliente, tabelaStf?: TabelaDoStf, agora = HOJE) {
   const [ladoCliente, ladoServidor] = InMemoryTransport.createLinkedPair();
   const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "janela-"));
-  await criarServidor(site, { dados, tabelaStf, agora: () => agora }).connect(ladoServidor);
+  // O portal do STF falha (sem rede): o consultar_precedente responde a tabela, como plano B (ADR-0020).
+  const semPortal = siteSemRede();
+  await criarServidor(site, { dados, tabelaStf, agora: () => agora, precedentesStj: semPortal, precedentesStf: semPortal }).connect(
+    ladoServidor,
+  );
   const mcp = new Client({ name: "teste", version: "0" });
   await mcp.connect(ladoCliente);
   return mcp;
@@ -62,7 +66,7 @@ async function consultar(mcp: Client, args: Record<string, unknown>) {
   return { erro: r.isError === true, texto: r.content[0].text, dado: r.isError ? undefined : JSON.parse(r.content[0].text) };
 }
 
-describe("consultar_precedente — tabela do STF, sem rede", () => {
+describe("consultar_precedente — tabela do STF (plano B, portal sem rede)", () => {
   it("tema de repercussão geral: situação literal, tese, paradigma, enquadramento de sempre e atribuição", async () => {
     const mcp = await conectar(siteSemRede(), await tabelaSintetica());
     const { dado } = await consultar(mcp, { tribunal: "stf", tipo: "repercussão geral", numero: 1 });
@@ -131,7 +135,7 @@ describe("consultar_precedente — tabela do STF, sem rede", () => {
     expect(errado.erro).toBe(true);
     const tst = await consultar(mcp, { tribunal: "tst", tipo: "súmula", numero: 1 });
     expect(tst.erro).toBe(true);
-    expect(tst.texto).toMatch(/só têm o STJ .* e o STF/);
+    expect(tst.texto).toMatch(/só cobre o STJ .* e o STF/);
   });
 
   it("tabela com mais de 90 dias: aviso de idade", async () => {

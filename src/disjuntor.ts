@@ -99,6 +99,12 @@ export function servicoDe(url: string): string {
   if (/^datajud-wiki\.cnj\.jus\.br$/i.test(nome)) return "datajud-wiki";
   // O DJEN tem limite próprio por IP: nome próprio (o domínio daria "pje").
   if (/^comunicaapi\.pje\.jus\.br$/i.test(nome)) return "djen";
+  // Precedentes ao vivo (ADR-0020): uma recusa nas páginas de precedentes não pausa o resto do tribunal.
+  const caminho = new URL(url).pathname;
+  if (/^processo\.stj\.jus\.br$/i.test(nome) && caminho.startsWith("/repetitivos/")) return "stj-precedentes";
+  if (/^portal\.stf\.jus\.br$/i.test(nome) && /^\/jurisprudencia(Repercussao\/|\/sumariosumulas\.asp)/.test(caminho)) {
+    return "stf-precedentes";
+  }
   const tribunal = nome.toLowerCase().match(/(?:^|\.)([a-z0-9-]+)\.jus\.br$/);
   return tribunal ? tribunal[1] : host.toLowerCase();
 }

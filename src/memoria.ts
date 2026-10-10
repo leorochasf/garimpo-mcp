@@ -83,10 +83,10 @@ export interface BuscaGuardada {
 }
 
 /**
- * A resposta reduzida de uma fonte além do site (DataJud, DJEN), como a ferramenta a mostra: nunca a resposta bruta.
+ * A resposta reduzida de uma fonte além do site (DataJud, DJEN, portais de precedentes), como a ferramenta a mostra: nunca a resposta bruta.
  * Guardada sob o sha256 do pedido, sem o número do processo em claro no nome.
  */
-export type FonteDaConsulta = "datajud" | "djen";
+export type FonteDaConsulta = "datajud" | "djen" | "precedentes";
 
 export interface ConsultaGuardada {
   fonte: FonteDaConsulta;
