@@ -237,6 +237,42 @@ describe("busca direta num TRT pelo Falcão", () => {
     expect(textos.join()).not.toMatch(/<p>|base64|void 0/);
   });
 
+  it("texto integral igual à ementa não é guardado como texto integral e a busca avisa; texto maior segue como antes", async () => {
+    const ementaHtml = "<p>INTERVALO  INTRAJORNADA.
+SUPRESS&Atilde;O PARCIAL. Texto fict&iacute;cio de ementa.</p>";
+    const { mcp, dados } = await conectar(
+      siteFalso().cliente,
+      falcaoFalso(() =>
+        pagina([
+          documento({ idDocumentoAcordao: "50000001", textoAcordao: ementaHtml }),
+          documento({ idDocumentoAcordao: "50000002", textoAcordao: `<p>EMENTA: ${ementaHtml}</p>` }),
+          documento({ idDocumentoAcordao: "50000003" }),
+        ]),
+      ).cliente,
+    );
+    const r = await chamar(mcp, "busca_direta", { tribunal: "trt3", texto: "intervalo intrajornada" });
+    expect(r.isError).toBe(false);
+    expect(r.dado.avisos.join(" ")).toMatch(/2 acórdão\(s\) com "texto integral" igual à ementa.*sem texto integral/);
+    const arquivos = [...(await conteudos(join(dados, "memoria")))].filter(([k]) => k.includes("textos-1"));
+    for (let i = 0; i < 100 && arquivos.length < 3; i++) {
+      await new Promise((r) => setTimeout(r, 20));
+      arquivos.splice(0, arquivos.length, ...[...(await conteudos(join(dados, "memoria")))].filter(([k]) => k.includes("textos-1")));
+    }
+    const texto = (id: string) => {
+      const achado = arquivos.find(([, v]) => v.includes(`"trt3:${id}"`));
+      return achado ? (JSON.parse(achado[1]) as { texto: string }).texto : undefined;
+    };
+    expect(texto("50000001")).toBe("");
+    expect(texto("50000002")).toBe("");
+    expect(texto("50000003")).toMatch(/RECORRENTE: PARTE FICTICIA A/);
+  });
+
+  it("sem aviso quando o texto integral é maior que a ementa", async () => {
+    const { mcp } = await conectar(siteFalso().cliente, falcaoFalso().cliente);
+    const r = await chamar(mcp, "busca_direta", { tribunal: "trt3", texto: "intervalo intrajornada" });
+    expect(r.dado.avisos.join(" ")).not.toMatch(/igual à ementa/);
+  });
+
   it("repetir a busca dentro de 24 h volta da memória, sem chamar o Falcão, com a mesma cobertura", async () => {
     const falcao = falcaoFalso();
     const { mcp } = await conectar(siteFalso().cliente, falcao.cliente);

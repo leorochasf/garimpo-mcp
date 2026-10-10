@@ -207,7 +207,7 @@ export async function buscaNoFalcao(
     if (documentos.length < POR_PAGINA) break;
   }
   const recebidos = brutos.slice(0, limite);
-  const { acordaos, textos, descartados, divergencias } = normalizarDoFalcao(tribunal, recebidos);
+  const { acordaos, textos, descartados, divergencias, integraisIguaisAEmenta } = normalizarDoFalcao(tribunal, recebidos);
   if (descartados) {
     avisos.push(
       `${descartados} registro(s) do Falcão descartado(s): sem id do acórdão ou de tribunal diferente do pedido ` +
@@ -216,6 +216,12 @@ export async function buscaNoFalcao(
   }
   if (divergencias) {
     avisos.push(`${divergencias} acórdão(s) com divergência no Falcão entre possuiEmenta e a ementa recebida (ver avisoDeEmenta).`);
+  }
+  if (integraisIguaisAEmenta) {
+    avisos.push(
+      `${integraisIguaisAEmenta} acórdão(s) com "texto integral" igual à ementa no Falcão: ficam sem texto integral ` +
+        "(a ementa repetida não é o acórdão) e a citação não pode ser conferida nele.",
+    );
   }
   avisos.push(AVISO_DATAS);
   const { acordaos: juntos } = juntarEquivalentes(
@@ -281,6 +287,7 @@ export function normalizarDoFalcao(tribunal: string, documentos: unknown[]) {
   const textos: TextoIntegral[] = [];
   let descartados = 0;
   let divergencias = 0;
+  let integraisIguaisAEmenta = 0;
   for (const d of documentos as Bruto[]) {
     const doTribunal = texto(d?.tribunal)?.toLowerCase().replace(/\s+/g, "");
     const idDoc = texto(d?.idDocumentoAcordao);
@@ -321,9 +328,28 @@ export function normalizarDoFalcao(tribunal: string, documentos: unknown[]) {
     });
     acordaos.push({ ...acordao, enquadramento927: enquadrarAcordao({ ...acordao, siglaClasse: sigla }) });
     const html = texto(d.textoAcordao) ?? "";
-    textos.push({ id, texto: htmlParaTexto(html), indicioDeCorte: htmlComIndicioDeCorte(html) });
+    const integral = htmlParaTexto(html);
+    if (ementa && ehSoAEmenta(integral, ementa)) {
+      // A ementa repetida não é o acórdão: guarda sem texto, para nada ser lido nem conferido como se fosse o inteiro.
+      integraisIguaisAEmenta++;
+      textos.push({ id, texto: "", indicioDeCorte: false });
+    } else {
+      textos.push({ id, texto: integral, indicioDeCorte: htmlComIndicioDeCorte(html) });
+    }
   }
-  return { acordaos, textos, descartados, divergencias };
+  return { acordaos, textos, descartados, divergencias, integraisIguaisAEmenta };
+}
+
+/** Minúsculas e espaços juntados; acentos ficam como vêm. */
+function paraComparar(v: string): string {
+  return v.replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+/** O "texto integral" é só a ementa repetida (igual, ou com o rótulo "Ementa:" na frente). */
+function ehSoAEmenta(integral: string, ementa: string): boolean {
+  const a = paraComparar(integral);
+  const e = paraComparar(ementa);
+  return a === e || a.replace(/^ementa\s*:\s*/, "") === e;
 }
 
 /** "05/03/2024" → "2024-03-05"; data inválida ou fora do formato = não informada. */

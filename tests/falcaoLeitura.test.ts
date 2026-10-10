@@ -72,6 +72,13 @@ describe("ler o texto integral de um TRT pelo id", () => {
     expect(r.dado.avisos.join(" ")).toMatch(/indício de corte/);
   });
 
+  it("texto integral igual à ementa: ler_inteiro_teor devolve texto vazio, nunca a ementa como se fosse o acórdão", async () => {
+    const { mcp } = await comBusca(() => pagina([documento({ textoAcordao: "<p>INTERVALO INTRAJORNADA. SUPRESSÃO PARCIAL. Texto fictício de ementa.</p>" })]));
+    const r = await chamar(mcp, "ler_inteiro_teor", { id: ID });
+    expect(r.isError).toBe(false);
+    expect(r.dado.texto).toBe("");
+  });
+
   it("texto fora da memória: erro que ensina a refazer a busca, sem prometer o mesmo acórdão; nenhuma chamada", async () => {
     const falcao = falcaoFalso();
     const { mcp } = await conectar(siteFalso().cliente, falcao.cliente);
@@ -146,6 +153,14 @@ describe("conferir citação num acórdão de TRT", () => {
     expect(ementa.veredito).toBe("encontrado literalmente");
     expect(texto.veredito).toBe("não verificável");
     expect(texto.motivo).toMatch(/Refaça a busca/);
+  });
+
+  it("texto integral igual à ementa: a citação na ementa é achada e no texto integral fica \"não verificável\"", async () => {
+    const { mcp } = await comBusca(() => pagina([documento({ textoAcordao: "<p>INTERVALO INTRAJORNADA. SUPRESSÃO PARCIAL. Texto fictício de ementa.</p>" })]));
+    const r = await chamar(mcp, "conferir_citacao", { citacoes: [{ citacao: "INTERVALO INTRAJORNADA. SUPRESSÃO PARCIAL. Texto fictício de ementa.", id: ID }] });
+    const [ementa, texto] = r.dado.resultados[0].fontes;
+    expect(ementa.veredito).toBe("encontrado literalmente");
+    expect(texto.veredito).toBe("não verificável");
   });
 
   it("texto com indício de corte: citação não achada ganha o aviso de que pode estar no trecho que faltou", async () => {
