@@ -1324,3 +1324,121 @@ function fraseEm(texto: string, inicio: number, fim: number): string {
   while (b < texto.length && !inicioDeFrase(texto, b)) b++;
   return texto.slice(a, b).trim();
 }
+
+/** O interruptor do aviso de órgão do fecho (G-13): desligado até a medição (G-75, ticket 10). */
+export const AVISO_DE_ORGAO_DO_FECHO = false;
+
+/** O órgão julgador como veio no registro da busca, e o tribunal dele (a sigla do Garimpo: "stj", "tjsp", "trt1"…). */
+export interface OrgaoDoRegistro {
+  tribunal: string;
+  orgao: string;
+}
+
+/** Sem acento, em minúsculas e com um espaço só: as fórmulas valem para o PDF que perdeu os acentos. */
+function semAcento(s: string): string {
+  return s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Sem acento e em minúsculas, letra a letra, com o mesmo comprimento do texto: o que se acha nele aponta para o texto
+ * original.
+ */
+function dobrado(texto: string): string {
+  return Array.from(texto, (c) => {
+    const base = c.normalize("NFD")[0].toLowerCase();
+    return c.length === 1 && base.length === 1 ? base : c;
+  }).join("");
+}
+
+/** Expressão de fecho: cada espaço da fórmula aceita qualquer espaço ou quebra de linha. */
+function formulaDeFecho(formula: string): RegExp {
+  return new RegExp(formula.replace(/ /g, "\\s+"), "g");
+}
+
+/** O órgão como aparece no fecho: um trecho curto, sem vírgula nem ponto. */
+const ORGAO = "([^,;.:()]{3,80}?)";
+
+/** Fecho dos acórdãos dos TRTs: "acordam os Magistrados (ou Desembargadores) da 1ª Turma do Tribunal…". */
+const FECHO_DO_TRT = formulaDeFecho(
+  `acordam,? (?:os )?(?:exm[oa]s?\.? )?(?:srs?\.? )?(?:magistrad[oa]s|desembargador(?:a|e)s|juiz(?:a|e)s)` +
+    `(?: (?:integrantes|membros))? d[ao] ${ORGAO} do (?:egregio )?tribunal`,
+);
+
+/** As fórmulas fixas do fecho, por tribunal; tribunal sem fórmula = silêncio. */
+function formulasDoFecho(tribunal: string): RegExp[] {
+  const sigla = tribunal.toLowerCase();
+  if (/^trt\d+$/.test(sigla)) return [FECHO_DO_TRT];
+  return [];
+}
+
+/** Ordinais por extenso, pelo radical: "primeira" = 1, "decima segunda" = 12. */
+const ORDINAIS: [string, number][] = [
+  ["primeir", 1], ["segund", 2], ["terceir", 3], ["quart", 4], ["quint", 5], ["sext", 6], ["setim", 7],
+  ["oitav", 8], ["non", 9], ["decim", 10], ["vigesim", 20], ["trigesim", 30],
+];
+
+/** O órgão como número + tipo + complemento ("1ª Câmara Cível" = 1 · camara · civel); sem tipo conhecido = não lido. */
+interface OrgaoLido {
+  numero?: number;
+  tipo: string;
+  complemento: string;
+}
+
+const TIPOS_DE_ORGAO = /^(camara|turma|secao|grupo de camaras|orgao especial|corte especial|tribunal pleno|pleno|plenario)\b/;
+
+function lerOrgao(nome: string): OrgaoLido | undefined {
+  let resto = semAcento(nome);
+  let numero: number | undefined;
+  const digitos = /^(\d{1,2})\s*(?:\.?\s*[ªºao°])?\.?\s+/.exec(resto);
+  if (digitos) {
+    numero = Number(digitos[1]);
+    resto = resto.slice(digitos[0].length);
+  } else {
+    let soma = 0;
+    for (;;) {
+      const ordinal = ORDINAIS.find(([radical]) => new RegExp(`^${radical}[oa]s?\s+`).test(resto));
+      if (!ordinal) break;
+      soma += ordinal[1];
+      resto = resto.replace(/^\S+\s+/, "");
+    }
+    if (soma) numero = soma;
+  }
+  const tipo = TIPOS_DE_ORGAO.exec(resto);
+  if (!tipo) return undefined;
+  const complemento = resto.slice(tipo[0].length).trim();
+  return { ...(numero ? { numero } : {}), tipo: tipo[1], complemento };
+}
+
+/**
+ * Aviso de órgão julgador (G-13): lê no fecho do acórdão, por fórmulas fixas do tribunal, o órgão que julgou e avisa
+ * quando ele difere do órgão do registro da busca. É aviso, nunca correção: o Garimpo não diz qual dos dois está certo.
+ * Sem fecho reconhecível, fecho ambíguo ou órgão do registro ilegível: nada (silêncio, não aviso). Desligado: nada.
+ */
+export function avisoDeOrgaoDoFecho(
+  leitura: InteiroTeorParaConferir,
+  registro: OrgaoDoRegistro,
+  ligado = AVISO_DE_ORGAO_DO_FECHO,
+): string | undefined {
+  if (!ligado) return undefined;
+  const doRegistro = lerOrgao(registro.orgao);
+  if (!doRegistro) return undefined;
+  const texto = leitura.unidades.map((t) => t.texto).join("\n").normalize("NFC");
+  const comparavel = dobrado(texto);
+  const lidos = formulasDoFecho(registro.tribunal).flatMap((f) =>
+    [...comparavel.matchAll(f)].flatMap((m) => {
+      const inicio = m.index + m[0].lastIndexOf(m[1]);
+      const nome = texto.slice(inicio, inicio + m[1].length).replace(/\s+/g, " ");
+      const lido = lerOrgao(nome);
+      return lido ? [{ nome, lido }] : [];
+    }),
+  );
+  if (!lidos.length) return undefined;
+  const chave = (o: OrgaoLido) => `${o.numero ?? ""}|${o.tipo}|${o.complemento}`;
+  // Fechos que discordam entre si (outro julgado transcrito, certidão de outra sessão): ambíguo, silêncio.
+  if (new Set(lidos.map((a) => chave(a.lido))).size > 1) return undefined;
+  if (chave(lidos[0].lido) === chave(doRegistro)) return undefined;
+  return (
+    `órgão no texto ≠ órgão do registro: o fecho do acórdão diz "${lidos[0].nome}", e o registro da busca diz ` +
+    `"${registro.orgao}". Confira na certidão de julgamento qual órgão julgou; o Garimpo não corrige o registro.`
+  );
+}

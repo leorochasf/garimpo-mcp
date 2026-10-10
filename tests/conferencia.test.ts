@@ -2,7 +2,9 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  AVISO_DE_ORGAO_DO_FECHO,
   SINAIS_DE_QUEM_DISSE,
+  avisoDeOrgaoDoFecho,
   conferirNaEmenta,
   conferirNoInteiroTeor,
   conferirNoTextoIntegral,
@@ -912,5 +914,24 @@ describe("conferência de citação — sinais de \"quem disse\" (G-08), desliga
       return aviso;
     });
     for (const aviso of avisos) expect(aviso).not.toMatch(/obiter|autoria/i);
+  });
+});
+
+describe("órgão julgador no fecho × órgão do registro (G-13)", () => {
+  /** Lê um PDF sintético como o conferir_citacao lê o PDF trazido: gravado numa pasta temporária. */
+  async function lerPdf(bytes: Uint8Array): Promise<InteiroTeorParaConferir> {
+    const pasta = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-orgao-"));
+    const caminho = join(pasta, "acordao-ficticio.pdf");
+    await writeFile(caminho, bytes);
+    return lerParaConferir(caminho);
+  }
+
+  it("ligado: fecho de outra câmara vira aviso \"órgão no texto ≠ órgão do registro\", com os dois órgãos", async () => {
+    const leitura = await lerPdf(pdfComDispositivoECertidao(3));
+    const aviso = avisoDeOrgaoDoFecho(leitura, { tribunal: "trt15", orgao: "1ª Câmara Cível" }, true);
+    expect(aviso).toBe(
+      'órgão no texto ≠ órgão do registro: o fecho do acórdão diz "3ª Camara Civel", e o registro da busca diz ' +
+        '"1ª Câmara Cível". Confira na certidão de julgamento qual órgão julgou; o Garimpo não corrige o registro.',
+    );
   });
 });
