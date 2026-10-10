@@ -80,6 +80,8 @@ export class RecusaError extends Error {
   constructor(
     message: string,
     readonly status?: number,
+    /** Só quando o disjuntor do serviço está aberto: o instante em que a pausa acaba e os segundos que faltam agora. */
+    readonly pausa?: { ate: number; segundos: number },
   ) {
     super(message);
     this.name = "RecusaError";
@@ -116,6 +118,8 @@ export class PausaPreventivaError extends Error {
   constructor(
     message: string,
     readonly ate: number,
+    /** Segundos que faltavam para `ate` quando o erro nasceu. */
+    readonly segundos?: number,
   ) {
     super(message);
     this.name = "PausaPreventivaError";
@@ -512,6 +516,8 @@ export class Cliente {
         throw new RecusaError(
           `Esta chamada não foi feita: as chamadas ${ao(this.opcoes.nome)} estão pausadas em todas as janelas do ` +
             `Garimpo até ${horaDeRetorno(ordem.ate, this.agora())}, por causa de uma recusa. ${ordem.aviso}`,
+          undefined,
+          this.pausaAte(ordem.ate),
         );
       }
       if (ordem.tipo === "adiado") {
@@ -529,6 +535,7 @@ export class Cliente {
             `${horaDeRetorno(ordem.ate, this.agora())}; a primeira chamada depois disso confere o limite antes de ` +
             "liberar as outras, sem garantia de liberação.",
           ordem.ate,
+          this.pausaAte(ordem.ate).segundos,
         );
       }
       if (ordem.tipo === "sem-prova") {
@@ -573,7 +580,12 @@ export class Cliente {
         `${horaDeRetorno(pausa.ate, this.agora())}; depois disso, uma única chamada de prova confere se o serviço ` +
         "voltou a aceitar.",
       erro.status,
+      this.pausaAte(pausa.ate),
     );
+  }
+
+  private pausaAte(ate: number) {
+    return { ate, segundos: Math.max(1, Math.ceil((ate - this.agora()) / 1000)) };
   }
 
   /** Só a nova tentativa e a chamada de prova mudam o disjuntor ao terminar; a chamada comum não anota nada. */

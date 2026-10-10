@@ -4,7 +4,7 @@ import { basename, dirname, join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { describe, expect, it, vi } from "vitest";
-import { Cliente, VERSAO } from "../src/cliente.js";
+import { Cliente, PausaPreventivaError, VERSAO } from "../src/cliente.js";
 import { CoordenacaoEmArquivo } from "../src/coordenacao.js";
 import { criarServidor, type OpcoesServidor } from "../src/servidor.js";
 import { clienteFalso, fixture, respostaJson } from "./apoio.js";
@@ -2504,5 +2504,85 @@ describe("diagnóstico dos freios", () => {
     expect(resposta.redeParada).toBe(true);
     expect(resposta.resumo).toMatch(/Rede parada/);
     expect(resposta.resumo).toMatch(/estado compartilhado de proteção .*ilegível/);
+  });
+});
+
+describe("marca de pausa legível por máquina (G-06)", () => {
+  const AGORA = Date.UTC(2026, 9, 10, 15);
+  type Resposta = {
+    isError?: boolean;
+    content: { text: string }[];
+    structuredContent?: { tipoDePausa?: string; liberadoEm?: string; esperaSegundos?: number };
+  };
+
+  async function buscaStj(site: Cliente, dados: string, coordenacao?: CoordenacaoEmArquivo) {
+    const mcp = await conectar(site, { dados, agora: () => AGORA, ...(coordenacao && { coordenacao }) });
+    return () =>
+      mcp.callTool({ name: "busca_direta", arguments: { tribunal: "stj", texto: "termo de exemplo" } }) as Promise<Resposta>;
+  }
+
+  it("recusa do site com pausa aberta: a 1ª resposta e as seguintes trazem o tipo, a hora e os segundos, e o texto segue igual", async () => {
+    const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "marca-"));
+    const coordenacao = new CoordenacaoEmArquivo({ pasta: dados, agora: () => AGORA });
+    const site = new Cliente({
+      nome: "O site",
+      vagas: coordenacao,
+      agora: () => AGORA,
+      esperar: async () => {},
+      fetch: (async () => new Response("", { status: 429 })) as typeof fetch,
+    });
+    const buscar = await buscaStj(site, dados, coordenacao);
+    for (const r of [await buscar(), await buscar()]) {
+      expect(r.isError).toBe(true);
+      expect(r.content[0].text).toMatch(/pausadas em todas as janelas/);
+      expect(r.structuredContent).toEqual({
+        tipoDePausa: "recusa-da-fonte",
+        liberadoEm: new Date(r.structuredContent!.liberadoEm!).toISOString(),
+        esperaSegundos: expect.any(Number),
+      });
+      const { liberadoEm, esperaSegundos } = r.structuredContent!;
+      expect(Date.parse(liberadoEm!) - AGORA).toBe(esperaSegundos! * 1000);
+      expect(esperaSegundos).toBeGreaterThan(0);
+      expect(r.content[1].text).toBe(
+        `[PAUSA tipo=recusa-da-fonte liberadoEm=${liberadoEm} esperaSegundos=${esperaSegundos}] ` +
+          "Não repita antes de liberadoEm; depois dele vem uma única chamada de prova, e se a fonte recusar de novo, não insista.",
+      );
+    }
+  });
+
+  it("pausa preventiva do próprio Garimpo: tipo ritmo-proprio, com a hora e os segundos", async () => {
+    class SitePausado extends Cliente {
+      override async requisitar(): Promise<Response> {
+        throw new PausaPreventivaError("Esta chamada não foi feita: pausa preventiva.", AGORA + 90_000, 90);
+      }
+    }
+    const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "marca-"));
+    const buscar = await buscaStj(new SitePausado({ nome: "O site", agora: () => AGORA }), dados);
+    const r = await buscar();
+    expect(r.isError).toBe(true);
+    expect(r.content[0].text).toBe("Esta chamada não foi feita: pausa preventiva.");
+    expect(r.structuredContent).toEqual({
+      tipoDePausa: "ritmo-proprio",
+      liberadoEm: new Date(AGORA + 90_000).toISOString(),
+      esperaSegundos: 90,
+    });
+    expect(r.content[1].text).toMatch(/^\[PAUSA tipo=ritmo-proprio .*esperaSegundos=90\] Não repita antes de liberadoEm; /);
+  });
+
+  it("recusa final sem pausa e erro comum: nenhuma marca, nem convite a esperar", async () => {
+    const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "marca-"));
+    const comum = await buscaStj(
+      new Cliente({
+        nome: "O site",
+        esperar: async () => {},
+        fetch: (async () => respostaJson({ mensagem: "formato desconhecido" })) as typeof fetch,
+      }),
+      dados,
+    );
+    const r = await comum();
+    expect(r.isError).toBe(true);
+    expect(r.structuredContent).toBeUndefined();
+    expect(r.content).toHaveLength(1);
+    expect(r.content[0].text).not.toMatch(/\[PAUSA/);
   });
 });

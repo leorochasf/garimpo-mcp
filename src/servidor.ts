@@ -6,7 +6,7 @@
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { Cliente, VERSAO } from "./cliente.js";
+import { Cliente, PausaPreventivaError, RecusaError, VERSAO } from "./cliente.js";
 import { buscaDireta, ementaAparentementeIncompleta } from "./busca.js";
 import { buscaAmpla } from "./ampla.js";
 import { type CoordenacaoEmArquivo, coordenacaoPadrao, naFerramenta, pastaDeDados } from "./coordenacao.js";
@@ -191,8 +191,35 @@ function comAvisoNaturezaJuridica<T extends object>(dado: T, tribunais: readonly
   return json({ ...dado, avisoNaturezaJuridica: avisoDasFontes(tribunais) });
 }
 
+/**
+ * Pausa em vigor que o erro carrega (só disjuntor aberto e pausa preventiva), na marca fixa que a IA de quem usa lê
+ * para esperar e retomar. A marca só informa o fim de uma pausa que já existe: nunca convida a repetir antes dele.
+ */
+function marcaDePausa(e: unknown) {
+  const [tipoDePausa, ate, segundos] =
+    e instanceof RecusaError && e.pausa
+      ? (["recusa-da-fonte", e.pausa.ate, e.pausa.segundos] as const)
+      : e instanceof PausaPreventivaError && e.segundos !== undefined
+        ? (["ritmo-proprio", e.ate, e.segundos] as const)
+        : [];
+  if (!tipoDePausa) return undefined;
+  const liberadoEm = new Date(ate).toISOString();
+  const depois =
+    tipoDePausa === "recusa-da-fonte"
+      ? "depois dele vem uma única chamada de prova, e se a fonte recusar de novo, não insista."
+      : "depois dele, a primeira chamada confere o limite antes de liberar as outras.";
+  return {
+    estruturada: { tipoDePausa, liberadoEm, esperaSegundos: segundos },
+    texto: `[PAUSA tipo=${tipoDePausa} liberadoEm=${liberadoEm} esperaSegundos=${segundos}] Não repita antes de liberadoEm; ${depois}`,
+  };
+}
+
 function erro(e: unknown) {
-  return { content: [{ type: "text" as const, text: (e as Error).message }], isError: true };
+  const marca = marcaDePausa(e);
+  const texto = { type: "text" as const, text: (e as Error).message };
+  return marca
+    ? { content: [texto, { type: "text" as const, text: marca.texto }], structuredContent: marca.estruturada, isError: true }
+    : { content: [texto], isError: true };
 }
 
 /**
