@@ -6,7 +6,15 @@ import { respostaJson } from "./apoio.js";
 /**
  * Leitor do recorte do banco de provas (tests/fixtures/banco-de-provas/) e régua sobre ele. Ver o cabeçalho de
  * tests/bancoDeProvas.test.ts.
+ *
+ * Duas medidas, que não se misturam:
+ * - "preMarcacao": relevante = marca "r" da pré-marcação por IA OU do dono. Serve só de TRAVA DE REGRESSÃO DA ORDEM
+ *   (a ordem de hoje piorou?); NÃO é medida de qualidade, porque a IA não é o gabarito.
+ * - "dono": relevante = marca "r" confirmada pelo dono (campo `doDono`). É a medida de qualidade; sem a cobertura,
+ *   que precisaria da lista de relevantes do dono, e que o recorte só tem pela pré-marcação.
  */
+export type Gabarito = "preMarcacao" | "dono";
+
 
 type Marca = "r" | "i" | "d" | null;
 
@@ -105,7 +113,7 @@ export async function rodarTese(r: Recorte, { embaralhar = false }: OpcoesDaRoda
 }
 
 /** Todas as teses do recorte: a medição, e por tese os índices dos mostrados, na ordem. */
-export async function rodarBanco(opcoes: OpcoesDaRodada = {}): Promise<{ medicao: Medicao; posicoes: Record<number, number[]> }> {
+export async function rodarBanco(opcoes: OpcoesDaRodada = {}): Promise<{ medicao: Medicao; posicoes: Record<number, number[]>; itens: { recorte: Recorte; lista: Mostrado[] }[] }> {
   const teses = readdirSync(PASTA)
     .map((f) => f.match(/^tese-(\d+)\.json$/)?.[1])
     .filter((n): n is string => n !== undefined)
@@ -116,6 +124,7 @@ export async function rodarBanco(opcoes: OpcoesDaRodada = {}): Promise<{ medicao
     itens.push({ recorte, lista: await rodarTese(recorte, opcoes) });
   }
   return {
+    itens,
     medicao: medir(itens),
     posicoes: Object.fromEntries(itens.map((i) => [i.recorte.tese, i.lista.map((x) => x.indice)])),
   };
@@ -139,7 +148,20 @@ export interface Medicao {
   porTese: Record<number, Conta>;
 }
 
-function contar(itens: { recorte: Recorte; lista: Mostrado[] }[], tribunal?: string): Conta {
+const ehRelevante = (x: Mostrado, gabarito: Gabarito) => x.marca === "r" && (gabarito === "preMarcacao" || x.doDono);
+
+/** Quantos relevantes o dono confirmou entre os mostrados (base da medida de qualidade). */
+export function contarConfirmadosDoDono(itens: { lista: Mostrado[] }[]): { relevantesConfirmados: number; mostrados: number } {
+  let relevantesConfirmados = 0;
+  let mostrados = 0;
+  for (const { lista } of itens) {
+    mostrados += lista.length;
+    relevantesConfirmados += lista.filter((x) => ehRelevante(x, "dono")).length;
+  }
+  return { relevantesConfirmados, mostrados };
+}
+
+function contar(itens: { recorte: Recorte; lista: Mostrado[] }[], tribunal?: string, gabarito: Gabarito = "preMarcacao"): Conta {
   let mostrados = 0;
   let relevantes = 0;
   let naLista = 0;
@@ -148,15 +170,15 @@ function contar(itens: { recorte: Recorte; lista: Mostrado[] }[], tribunal?: str
   for (const { recorte, lista } of itens) {
     const doTribunal = lista.filter((x) => !tribunal || x.tribunal === tribunal);
     mostrados += doTribunal.length;
-    relevantes += doTribunal.filter((x) => x.marca === "r").length;
-    if (!recorte.relevantesNaLista) continue;
+    relevantes += doTribunal.filter((x) => ehRelevante(x, gabarito)).length;
+    if (gabarito === "dono" || !recorte.relevantesNaLista) continue;
     const denominador = tribunal
       ? (recorte.relevantesNaLista[tribunal] ?? 0)
       : Object.values(recorte.relevantesNaLista).reduce((a, b) => a + b, 0);
     if (!denominador) continue;
     comLista = true;
     naLista += denominador;
-    achados += new Set(doTribunal.filter((x) => x.marca === "r").map((x) => x.chave)).size;
+    achados += new Set(doTribunal.filter((x) => ehRelevante(x, gabarito)).map((x) => x.chave)).size;
   }
   return {
     mostrados,
@@ -175,8 +197,13 @@ export interface Regua {
   /** Os obrigatórios têm de estar entre os `topo` primeiros. */
   topo: number;
   limiares: { global: Limiar; porTribunal: Record<string, Limiar>; porTese: Record<number, Limiar> };
-  /** Por tese: índices, no recorte, dos acórdãos obrigatórios. */
+  /**
+   * Por tese: índices, no recorte, dos acórdãos obrigatórios. PROVISÓRIOS, aguardando confirmação do dono: foram
+   * tirados mecanicamente dos primeiros resultados de uma medição, não escolhidos por ele.
+   */
   obrigatorios: Record<number, number[]>;
+  /** Qualidade contra o gabarito do dono: só mede com confirmações suficientes; sem elas, registra a lacuna. */
+  qualidadeDoDono?: { minimoDeRelevantesConfirmados: number; limiarDePrecisao?: number };
 }
 
 const pct = (x: number) => `${(x * 100).toFixed(1).replace(".", ",")}%`;
@@ -212,11 +239,11 @@ export function conferirRegua(
   return falhas;
 }
 
-export function medir(itens: { recorte: Recorte; lista: Mostrado[] }[]): Medicao {
+export function medir(itens: { recorte: Recorte; lista: Mostrado[] }[], gabarito: Gabarito = "preMarcacao"): Medicao {
   const tribunais = [...new Set(itens.flatMap((i) => i.lista.map((x) => x.tribunal)))].sort();
   return {
-    global: contar(itens),
-    porTribunal: Object.fromEntries(tribunais.map((t) => [t, contar(itens, t)])),
-    porTese: Object.fromEntries(itens.map((i) => [i.recorte.tese, contar([i])])),
+    global: contar(itens, undefined, gabarito),
+    porTribunal: Object.fromEntries(tribunais.map((t) => [t, contar(itens, t, gabarito)])),
+    porTese: Object.fromEntries(itens.map((i) => [i.recorte.tese, contar([i], undefined, gabarito)])),
   };
 }

@@ -1,11 +1,15 @@
 {
- "_leia": "Régua do banco de provas (tests/bancoDeProvas.test.ts). Limiar = valor medido na data abaixo menos a folga, arredondado para baixo (3 casas). Obrigatórios = índices no recorte (tests/fixtures/banco-de-provas/tese-NN.json, campo acordaos) que têm de ficar no topo. Mudar limiar ou obrigatório só com motivo escrito no commit; afrouxar para um caso passar não vale: o caso sai da régua, com o motivo.",
+ "_leia": "TRAVA DE REGRESSÃO DA ORDEM do banco de provas (tests/bancoDeProvas.test.ts) — NÃO é medida de qualidade. Compara a busca de hoje com a ordem e a pré-marcação por IA gravadas na rodada 2: falha quando a ordem piora em relação a elas. Limiar = valor medido na data abaixo menos a folga, arredondado para baixo (3 casas). Obrigatórios = índices no recorte (tests/fixtures/banco-de-provas/tese-NN.json, campo acordaos) que têm de ficar no topo. Mudar limiar ou obrigatório só com motivo escrito no commit; afrouxar para um caso passar não vale: o caso sai da régua, com o motivo. A qualidade de verdade é medida contra o gabarito do dono (bloco qualidadeDoDono), e só quando ele tiver confirmado relevantes suficientes.",
  "medidoEm": "2026-10-10",
  "base": "commit 3da30f8 (main), busca ampla com os padrões (máximo 50, faixas 1/0,85/0,7)",
- "gabarito": "gabarito do ticket 10 da rodada 2 (pré-marcação por IA, ainda sem revisão completa do dono) + as marcas do dono da lista curta do B5; sem marca e dúvida contam como não relevantes",
+ "gabarito": "NÃO é gabarito do dono: pré-marcação por IA (ticket 10 da rodada 2, sem revisão completa do dono) + as marcas do dono da lista curta do B5; sem marca e dúvida contam como não relevantes. Serve só para travar regressão da ordem.",
  "folga": 0.05,
  "topo": 10,
- "obrigatoriosComo": "partida mecânica: os 3 primeiros relevantes de cada tese na medição de partida; o dono troca pela lista dele (e o G-73 acrescenta os paradigmas)",
+ "obrigatoriosComo": "PROVISÓRIOS, aguardando confirmação do dono: os 3 primeiros relevantes (pela pré-marcação da IA) de cada tese na medição de partida, escolhidos mecanicamente, sem marca do dono. O dono troca pela lista dele (e o G-73 acrescenta os paradigmas).",
+ "qualidadeDoDono": {
+  "explicacao": "Qualidade = precisão contra relevantes confirmados pelo dono (doDono). Com menos relevantes confirmados que o mínimo, o teste de qualidade é pulado com a lacuna escrita, nunca aprovado. Definir limiarDePrecisao quando houver confirmações suficientes.",
+  "minimoDeRelevantesConfirmados": 100
+ },
  "obrigatorios": {
   "1": [
    897,

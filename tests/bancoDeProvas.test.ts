@@ -1,27 +1,33 @@
 /**
- * Régua do banco de provas, sem rede (G-72). Roda a busca ampla de verdade (src/ampla.ts) sobre as respostas gravadas
- * do site e falha se um acórdão obrigatório sair do topo ou se a precisão ou a cobertura cair abaixo do limiar —
- * no total, em cada tribunal e em cada tese, para a média boa não esconder a queda num tribunal.
+ * Banco de provas, sem rede (G-72). Duas coisas distintas, que não se confundem:
+ *
+ * 1. TRAVA DE REGRESSÃO DA ORDEM (NÃO é medida de qualidade). Roda a busca ampla de verdade (src/ampla.ts) sobre as
+ *    respostas gravadas do site e compara com a ordem e a pré-marcação por IA gravadas hoje: falha se um acórdão
+ *    "obrigatório" sair do topo ou se a precisão ou a cobertura (pela pré-marcação) cair abaixo do limiar — no total,
+ *    em cada tribunal e em cada tese. Ela diz "a ordem piorou em relação a hoje", não "a ordem é boa".
+ * 2. QUALIDADE CONTRA O GABARITO DO DONO. Conta só as marcas confirmadas pelo dono (campo doDono). Com poucas
+ *    confirmações o teste é pulado com a lacuna escrita (motivo), nunca aprovado.
  *
  * - Respostas: tests/fixtures/banco-de-provas/tese-NN.json, recorte da gravação da rodada 2 (132 buscas, 2026-10-08)
  *   SEM dado real: ids, números, órgãos e links sintéticos; a ementa guarda só um marcador das cópias do mesmo acórdão
  *   e as palavras que casam com as formulações (as únicas que a aderência olha). Mudança de ordem que dependa de outra
  *   parte da ementa (ou da nota do site, que o recorte não guarda) não é medida aqui: pede gravação nova.
- * - Gabarito: o do dono (CONTEXT.md, "Banco de provas"; docs/banco-de-provas/teses-propostas.md), na forma da
- *   rodada 2: lista unificada da rodada 1 + pré-marcação por IA dos acórdãos novos + as marcas do dono da lista curta.
- *   Precisão = relevantes ÷ mostrados (sem marca e dúvida contam como não relevantes); cobertura = relevantes
- *   mostrados ÷ relevantes da lista unificada (só nas 7 teses que têm lista unificada).
+ * - Pré-marcação (trava de ordem): lista unificada da rodada 1 + pré-marcação por IA dos acórdãos novos + as marcas do dono
+ *   da lista curta (CONTEXT.md, "Banco de provas"; docs/banco-de-provas/teses-propostas.md). NÃO é o gabarito do dono: a
+ *   grande maioria dos "relevantes" é marca da IA. Precisão = relevantes ÷ mostrados (sem marca e dúvida contam como não
+ *   relevantes); cobertura = relevantes mostrados ÷ relevantes da lista unificada (só nas 7 teses que têm lista unificada).
+ * - Gabarito do dono: só as marcas com doDono = 1; mede precisão (a cobertura precisaria da lista de relevantes do dono).
  * - Limiares e obrigatórios: tests/fixtures/banco-de-provas/regua.json, com a data e a base da medição de partida e a
- *   folga escrita. Afrouxar um limiar para uma mudança passar não vale: o caso sai da régua, com o motivo no commit.
+ *   folga escrita. Os obrigatórios são PROVISÓRIOS, aguardando confirmação do dono. Afrouxar um limiar para uma mudança passar não vale: o caso sai da régua, com o motivo no commit.
  *
  * NÃO TREINAR PARA A PROVA: tese ou consulta nova entra julgada ANTES de olhar o que o Garimpo devolve — tese,
  * formulações e acórdãos obrigatórios escritos e commitados primeiro; a gravação e a medição vêm depois. Ajustar a
  * ordem olhando o gabarito destas teses e medir nas mesmas teses é treinar para a prova.
  */
 import { describe, expect, it } from "vitest";
-import { carregarRecorte, carregarRegua, conferirRegua, medir, rodarBanco, rodarTese } from "./apoioBancoDeProvas.js";
+import { carregarRecorte, carregarRegua, conferirRegua, contarConfirmadosDoDono, medir, rodarBanco, rodarTese } from "./apoioBancoDeProvas.js";
 
-describe("banco de provas sobre o recorte gravado (sem rede)", () => {
+describe("trava de regressão da ordem sobre o recorte gravado (sem rede; NÃO é medida de qualidade)", () => {
   it("a tese 18 (só TSE) reproduz a medição da rodada 2: 50 mostrados, todos relevantes, cobertura 50 de 92", async () => {
     const recorte = carregarRecorte(18);
     const lista = await rodarTese(recorte);
@@ -30,7 +36,7 @@ describe("banco de provas sobre o recorte gravado (sem rede)", () => {
     expect(m.porTribunal.tse).toEqual({ mostrados: 50, relevantes: 50, precisao: 1, relevantesNaLista: 92, achados: 50, cobertura: 50 / 92 });
   });
 
-  it("a régua acusa o tribunal abaixo do limiar mesmo com a média global boa, e o obrigatório fora do topo", () => {
+  it("a trava acusa o tribunal abaixo do limiar mesmo com a média global boa, e o obrigatório fora do topo", () => {
     const conta = (precisao: number, cobertura?: number) => ({ mostrados: 10, relevantes: 10 * precisao, precisao, ...(cobertura !== undefined && { cobertura }) });
     const medicao = {
       global: conta(0.95, 0.5),
@@ -55,16 +61,50 @@ describe("banco de provas sobre o recorte gravado (sem rede)", () => {
     ]);
   });
 
-  it("a busca ampla atual passa na régua: obrigatórios no topo, precisão e cobertura por tribunal e por tese", async () => {
+  it("a ordem de hoje não piorou em relação à gravada: obrigatórios provisórios no topo, precisão e cobertura (pré-marcação) por tribunal e por tese", async () => {
     const regua = carregarRegua();
     const { medicao, posicoes } = await rodarBanco();
     expect(conferirRegua(medicao, posicoes, regua)).toEqual([]);
   });
 
-  it("a régua pega regressão: com a ordem embaralhada, falha nos obrigatórios e na qualidade por tribunal", async () => {
+  it("a trava pega regressão da ordem: com a ordem embaralhada, falha nos obrigatórios e na qualidade por tribunal", async () => {
     const { medicao, posicoes } = await rodarBanco({ embaralhar: true });
     const falhas = conferirRegua(medicao, posicoes, carregarRegua());
     expect(falhas.some((f) => /obrigatório/.test(f))).toBe(true);
     expect(falhas.some((f) => /^(STF|STJ|TJSP|TJMG|TJRS|TSE|TST): precisão/.test(f))).toBe(true);
+  });
+});
+
+describe("qualidade contra o gabarito do dono (só marcas doDono)", () => {
+  const sintetico = (marcas: [string, "r" | "i" | null, boolean][]) => {
+    const recorte = { tese: 1, nome: "sintética", grupo: "controle", tribunais: [], formulacoes: [], vocabulario: [], buscas: [], acordaos: [] };
+    const lista = marcas.map(([tribunal, marca, doDono], indice) => ({ indice, tribunal, marca, chave: indice, doDono }));
+    return [{ recorte: recorte as never, lista }];
+  };
+
+  it("a pré-marcação da IA não conta como confirmação do dono: só doDono entra na precisão de qualidade", () => {
+    const itens = sintetico([
+      ["stj", "r", true],
+      ["stj", "r", false],
+      ["stj", "i", true],
+      ["stj", null, false],
+    ]);
+    expect(medir(itens, "preMarcacao").global.precisao).toBe(2 / 4);
+    expect(medir(itens, "dono").global).toMatchObject({ mostrados: 4, relevantes: 1, precisao: 1 / 4 });
+    expect(contarConfirmadosDoDono(itens)).toEqual({ relevantesConfirmados: 1, mostrados: 4 });
+  });
+
+  it("mede a qualidade só com confirmações suficientes; sem elas, registra a lacuna em vez de passar", async (ctx) => {
+    const { qualidadeDoDono } = carregarRegua();
+    expect(qualidadeDoDono, "regua.json precisa declarar qualidadeDoDono.minimoDeRelevantesConfirmados").toBeDefined();
+    const { itens } = await rodarBanco();
+    const { relevantesConfirmados, mostrados } = contarConfirmadosDoDono(itens);
+    if (relevantesConfirmados < qualidadeDoDono!.minimoDeRelevantesConfirmados) {
+      ctx.skip(
+        `LACUNA: ${relevantesConfirmados} relevantes confirmados pelo dono entre ${mostrados} mostrados; mínimo ${qualidadeDoDono!.minimoDeRelevantesConfirmados}. Qualidade NÃO medida: aguarda confirmação do dono.`,
+      );
+    }
+    expect(qualidadeDoDono!.limiarDePrecisao, "defina limiarDePrecisao em regua.json: já há confirmações suficientes").toBeDefined();
+    expect(medir(itens, "dono").global.precisao).toBeGreaterThanOrEqual(qualidadeDoDono!.limiarDePrecisao!);
   });
 });
