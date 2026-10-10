@@ -3,7 +3,9 @@ import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { describe, expect, it } from "vitest";
-import { Cliente, UA_NAVEGADOR, USER_AGENT } from "../src/cliente.js";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
+import { Cliente, UA_NAVEGADOR, USER_AGENT, Vagas } from "../src/cliente.js";
 import { servicoDe } from "../src/disjuntor.js";
 import { criarServidor, type OpcoesServidor } from "../src/servidor.js";
 import type { TabelaDePrecedentes } from "../src/tabelaDePrecedentes.js";
@@ -362,5 +364,45 @@ describe("identificação e disjuntor dos portais de precedentes", () => {
     expect(servicoDe("https://processo.stj.jus.br/processo/revista/documento/mediado/?x=1")).toBe("stj");
     expect(servicoDe("https://portal.stf.jus.br/jurisprudenciaRepercussao/tema.asp?num=1")).toBe("stf-precedentes");
     expect(servicoDe("https://portal.stf.jus.br/jurisprudencia/sumariosumulas.asp?base=26")).toBe("stf-precedentes");
+  });
+});
+
+describe("achados da revisão Codex (813af04..07c2d2c)", () => {
+  it("redirecionamento do portal não é seguido: nenhum pedido ao destino, UA de navegador não sai do portal, plano B com motivo", async () => {
+    const pedidos: { caminho: string; ua?: string }[] = [];
+    const lista = await listaDeSv().text();
+    const pagina = await paginaDaSumula("Súmula Vinculante 1", "Enunciado de outro host.").text();
+    const servidor = createServer((req, res) => {
+      pedidos.push({ caminho: req.url ?? "", ua: req.headers["user-agent"] });
+      if (req.url === "/jurisprudencia/sumariosumulas.asp?base=26") return res.end(lista);
+      if (req.url === "/jurisprudencia/sumariosumulas.asp?base=26&sumula=7001") {
+        res.writeHead(302, { location: `http://localhost:${porta}/estrangeiro` });
+        return res.end();
+      }
+      res.end(pagina);
+    });
+    await new Promise<void>((r) => servidor.listen(0, "127.0.0.1", r));
+    const porta = (servidor.address() as AddressInfo).port;
+    try {
+      // Fetch real (segue redirecionamento por padrão), só com o endereço do portal trocado pelo servidor local.
+      const cliente = new Cliente({
+        nome: "O portal do STF",
+        vagas: new Vagas(2),
+        fetch: ((url: string, init: RequestInit) =>
+          fetch(url.replace("https://portal.stf.jus.br", `http://127.0.0.1:${porta}`), init)) as typeof fetch,
+      });
+      const mcp = await conectar({ precedentesStf: cliente, tabelaStf: await tabelaStfSintetica() });
+      const { dado } = await consultar(mcp, { tribunal: "stf", tipo: "súmula vinculante", numero: 1 });
+      expect(pedidos.map((p) => p.caminho)).toEqual([
+        "/jurisprudencia/sumariosumulas.asp?base=26",
+        "/jurisprudencia/sumariosumulas.asp?base=26&sumula=7001",
+      ]);
+      expect(pedidos.every((p) => p.ua === UA_NAVEGADOR)).toBe(true);
+      expect(dado.origem).toBe("tabela de 2026-10-09, o portal do STF não respondeu");
+      expect(dado.motivoDoPlanoB).toMatch(/Não foi possível falar com O portal do STF/);
+      expect(dado.enunciado).not.toBe("Enunciado de outro host.");
+    } finally {
+      servidor.close();
+    }
   });
 });

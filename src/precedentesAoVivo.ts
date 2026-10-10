@@ -44,9 +44,13 @@ export interface DoPortal<L> {
   ultimaAtualizacao?: string;
 }
 
-/** Texto da resposta, no conjunto de caracteres que ela declara (o STJ responde em ISO-8859-1). */
+/**
+ * Texto da resposta, no conjunto de caracteres que ela declara (o STJ responde em ISO-8859-1). Redirecionamento não é
+ * seguido: o salto sairia do disjuntor do destino, levaria o UA de navegador para fora do portal e seria uma chamada a
+ * mais; vira erro e, portanto, plano B.
+ */
 async function textoDe(cliente: Cliente, url: string): Promise<string> {
-  const resposta = await cliente.requisitar(url);
+  const resposta = await cliente.requisitar(url, { redirect: "error" });
   const charset = /charset="?([\w-]+)/i.exec(resposta.headers.get("content-type") ?? "")?.[1] ?? "utf-8";
   return new TextDecoder(charset).decode(await resposta.arrayBuffer());
 }
