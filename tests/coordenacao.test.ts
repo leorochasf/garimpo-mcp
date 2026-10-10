@@ -8,7 +8,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buscaAmpla } from "../src/ampla.js";
 import { Cliente } from "../src/cliente.js";
-import { CoordenacaoEmArquivo, RedeParadaError } from "../src/coordenacao.js";
+import { CoordenacaoEmArquivo, naFerramenta, RedeParadaError } from "../src/coordenacao.js";
 import { criarServidor } from "../src/servidor.js";
 import { respostaJson } from "./apoio.js";
 import { pdfSintetico } from "./pdfSintetico.js";
@@ -269,5 +269,43 @@ describe("rede parada", { timeout: 90_000 }, () => {
     } finally {
       devolver();
     }
+  });
+});
+
+describe("histórico de recusas", { timeout: 90_000 }, () => {
+  const recusa = () => new Response("", { status: 429 });
+
+  it("grava só serviço, hora, tipo e ferramenta: nunca o termo de busca nem o número de processo", async () => {
+    const relogio = { agora: 1_000_000 };
+    const { cliente } = clienteNaPasta([recusa, recusa], { relogio });
+    const url = "https://exemplo.test/busca?q=termo-sigiloso&processo=0000000-00.2024.8.26.0000";
+
+    await naFerramenta("busca_direta", () => cliente.requisitar(url)).catch(() => {});
+
+    const texto = await readFile(join(protecao, "estado.json"), "utf8");
+    expect(texto).not.toMatch(/termo-sigiloso|0000000-00/);
+    const { historico } = JSON.parse(texto);
+    expect(historico.map((h: { tipo: string }) => h.tipo)).toEqual(["pediu-espera", "recusou"]);
+    for (const h of historico) {
+      expect(Object.keys(h).sort()).toEqual(["em", "ferramenta", "servico", "tipo"]);
+      expect(h).toMatchObject({ servico: "exemplo.test", ferramenta: "busca_direta" });
+    }
+  });
+
+  it("tem teto: com o histórico cheio, a ocorrência nova entra e a mais antiga sai", async () => {
+    await mkdir(protecao, { recursive: true });
+    const antigas = Array.from({ length: 30 }, (_, i) => ({ servico: "outro.test", em: i, tipo: "recusou" }));
+    await writeFile(
+      join(protecao, "estado.json"),
+      JSON.stringify({ formato: "garimpo-protecao", versao: 2, pausas: {}, disjuntores: {}, historico: antigas }),
+    );
+    const { cliente } = clienteNaPasta([recusa, recusa], { relogio: { agora: 1_000_000 } });
+
+    await cliente.requisitar("https://exemplo.test/a").catch(() => {});
+
+    const { historico } = JSON.parse(await readFile(join(protecao, "estado.json"), "utf8"));
+    expect(historico).toHaveLength(30);
+    expect(historico[0].em).toBe(2);
+    expect(historico.at(-1)).toEqual({ servico: "exemplo.test", em: 1_000_000, tipo: "recusou" });
   });
 });

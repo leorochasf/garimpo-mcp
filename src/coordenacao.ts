@@ -11,6 +11,7 @@
  * - Estado ilegível, sem permissão ou de versão mais nova = rede parada, com o caminho e a instrução.
  */
 
+import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 import { readFileSync, unlinkSync } from "node:fs";
 import { link, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
@@ -234,6 +235,62 @@ function registrarOcupado(caminho: string, aquisicao: string): void {
   });
 }
 
+/** A ferramenta em andamento, anotada no histórico de recusas (só o nome dela, nunca os argumentos). */
+const ferramentaAtual = new AsyncLocalStorage<string>();
+
+/** Roda o pedido de uma ferramenta: as recusas que ele levar ficam no histórico com o nome dela. */
+export function naFerramenta<T>(nome: string, fazer: () => T): T {
+  return ferramentaAtual.run(nome, fazer);
+}
+
+/**
+ * O que aconteceu com um serviço: o primeiro 429/503 (pediu-espera), a recusa final (recusou; recusou-a-prova quando
+ * foi a chamada de prova, a única que sai depois da pausa), o adiamento pedido pelo serviço (adiou) ou a nova tentativa
+ * ou a prova aceita (aceitou: o serviço voltou).
+ */
+export type TipoDeOcorrencia = "pediu-espera" | "recusou" | "recusou-a-prova" | "adiou" | "aceitou";
+const TIPOS_DE_OCORRENCIA: readonly TipoDeOcorrencia[] = ["pediu-espera", "recusou", "recusou-a-prova", "adiou", "aceitou"];
+
+/** Uma linha do histórico curto: só números de controle, nunca termo de busca, endereço ou número de processo. */
+export interface Ocorrencia {
+  servico: string;
+  /** Instante (ms no relógio comum). */
+  em: number;
+  tipo: TipoDeOcorrencia;
+  /** O nome da ferramenta em andamento, se houver. */
+  ferramenta?: string;
+}
+
+/** Teto do histórico, somados todos os serviços: ficam as mais recentes. */
+export const HISTORICO_MAXIMO = 30;
+
+function ocorrenciaDe(r: Resultado, saida: Saida): TipoDeOcorrencia | undefined {
+  switch (r.tipo) {
+    case "aceita":
+      return "aceitou";
+    case "pede-espera":
+      return "pediu-espera";
+    case "adia":
+      return "adiou";
+    case "recusa-final":
+      return saida.papel === "prova" ? "recusou-a-prova" : "recusou";
+    default:
+      return undefined;
+  }
+}
+
+function ocorrenciaValida(o: unknown): o is Ocorrencia {
+  const x = o as Ocorrencia;
+  return (
+    typeof x === "object" &&
+    x !== null &&
+    typeof x.servico === "string" &&
+    Number.isFinite(x.em) &&
+    TIPOS_DE_OCORRENCIA.includes(x.tipo) &&
+    (x.ferramenta === undefined || typeof x.ferramenta === "string")
+  );
+}
+
 interface Estado {
   formato: string;
   versao: number;
@@ -243,6 +300,8 @@ interface Estado {
   disjuntores: Record<string, Disjuntor>;
   /** Freio preventivo por serviço (freio.ts). */
   freios?: Record<string, Freio>;
+  /** Histórico curto do que mudou o disjuntor de cada serviço (só os campos de `Ocorrencia`). */
+  historico?: Ocorrencia[];
 }
 
 export interface OpcoesCoordenacao {
@@ -342,6 +401,12 @@ export class CoordenacaoEmArquivo implements Coordenacao {
       const novo = aplicarResultado(atual, chamada, saida, r, agora(), servico);
       if (novo && novo !== atual) {
         estado.disjuntores[servico] = novo;
+        const tipo = ocorrenciaDe(r, saida);
+        if (tipo) {
+          const ferramenta = ferramentaAtual.getStore();
+          const ocorrencia: Ocorrencia = { servico, em: agora(), tipo, ...(ferramenta && { ferramenta }) };
+          estado.historico = [...(estado.historico ?? []), ocorrencia].slice(-HISTORICO_MAXIMO);
+        }
         await this.gravarEstado(estado);
       }
       return novo?.pausa;
@@ -474,7 +539,14 @@ export class CoordenacaoEmArquivo implements Coordenacao {
       }
       throw ehPermissao(e) ? semPermissao(this.estado) : ilegivel(this.estado);
     }
-    let estado: { formato?: unknown; versao?: unknown; pausas?: unknown; disjuntores?: unknown; freios?: unknown };
+    let estado: {
+      formato?: unknown;
+      versao?: unknown;
+      pausas?: unknown;
+      disjuntores?: unknown;
+      freios?: unknown;
+      historico?: unknown;
+    };
     try {
       estado = JSON.parse(texto);
     } catch {
@@ -483,7 +555,7 @@ export class CoordenacaoEmArquivo implements Coordenacao {
     if (estado?.formato !== FORMATO_ESTADO || !Number.isInteger(estado.versao)) throw ilegivel(this.estado);
     const versao = estado.versao as number;
     if (versao > VERSAO_ESTADO) throw versaoMaisNova(this.estado);
-    const { pausas, freios } = estado;
+    const { pausas, freios, historico } = estado;
     const disjuntores = versao === 1 ? {} : estado.disjuntores;
     const valido =
       versao >= 1 &&
@@ -493,7 +565,8 @@ export class CoordenacaoEmArquivo implements Coordenacao {
       typeof disjuntores === "object" &&
       disjuntores !== null &&
       Object.values(disjuntores).every(disjuntorValido) &&
-      (freios === undefined || (typeof freios === "object" && freios !== null && Object.values(freios).every(freioValido)));
+      (freios === undefined || (typeof freios === "object" && freios !== null && Object.values(freios).every(freioValido))) &&
+      (historico === undefined || (Array.isArray(historico) && historico.every(ocorrenciaValida)));
     if (!valido) throw ilegivel(this.estado);
     return { ...estado, versao: VERSAO_ESTADO, pausas, disjuntores } as Estado;
   }
