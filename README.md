@@ -22,7 +22,7 @@ de quem usa.
 | `julgamentos_do_processo` | Pelo número CNJ (com ou sem máscara; o tribunal sai do número, ou informe `tribunal`, ex.: `stj` para o processo que subiu), os **julgamentos registrados** do processo no **DataJud**, a base pública de metadados do CNJ (sem texto de decisão e sem nome de parte): só registros de 2º grau ou de tribunal superior (os de 1º grau são contados), só movimentos de resultado de julgamento da Tabela Processual Unificada e, à parte, a juntada de documento com complemento "Acórdão". Cada linha traz a data do **lançamento no DataJud** (não a da sessão), código, nome e órgão; cada registro, a última atualização no DataJud. Ao lado, os acórdãos do mesmo número que uma busca pelo número no JurisprudênciaIA devolve, com o id; em `ladoALado`, os totais das duas fontes e, só com as duas respostas utilizáveis e sem corte, a comparação de embargos de declaração com embargos de declaração e o que conferir no portal do tribunal (o movimento de tipo não verificado, ou a diferença de embargos). **Nunca afirma que um acórdão falta.** Cada fonte vem com o seu estado (ok, vazia, erro, recusa, pausa, não consultada): "o DataJud não devolveu este processo" não prova que ele não exista. O DataJud não cobre o STF. Consulta repetida em 24 h volta da memória. Uso sob o [termo de uso da API Pública do CNJ](https://formularios.cnj.jus.br/wp-content/uploads/2023/11/Termos-de-uso-api-publica-V1.2.pdf) (fins legais e não comerciais): a consulta sai do computador de quem usa o Garimpo, e as obrigações do termo são de quem usa a API; a chave pública vem no Garimpo e pode ser trocada pela variável `GARIMPO_DATAJUD_CHAVE`. Com `incluir_djen` (padrão; `false` responde mais rápido), também as **comunicações do processo no DJEN** (uma página, até 100; "lista cortada" quando há mais): data de disponibilização, tipo de comunicação e de documento, órgão, classe e link, nunca o texto nem nome de parte ou advogado — comunicações do processo, não um inventário de acórdãos. Se o DJEN pedir para esperar mais de 1 minuto, a resposta vem na hora com o que as outras fontes trouxeram e o instante em que se pode tentar de novo (estado `pausa`, que não é recusa). Fontes e limites: [`docs/fontes.md`](docs/fontes.md) |
 | `listar_tribunais` | Para cada tribunal: a fonte (JurisprudênciaIA ou Falcão), busca, precedentes qualificados, teto de resultados por busca e se o inteiro teor é baixado, só linkado ou, nos TRTs, texto integral do repositório oficial (sem PDF). A mesma tabela, com os limites do Falcão, sai no recurso `garimpo://tribunais` |
 | `conferir_citacao` | Confere, por regra fixa e sem IA, se cada citação (até 20 por chamada; 5 palavras ou mais, até 3 mil caracteres) está literalmente na ementa do acórdão, pelo id que veio na busca (ementa guardada na memória do Garimpo). Vereditos: **encontrado literalmente** (só diferença de espaço, quebra de linha, espaço não separável, forma Unicode dos acentos ou aspas/apóstrofos tipográficos, avisadas); **encontrado com supressão indicada** (cortes marcados com `(...)` ou `[...]`, pedaços de 5 palavras ou mais, na ordem); **difere só em maiúsculas/pontuação** (não é literal; vem o texto exato da fonte); **não encontrado** (com a passagem parecida copiada da fonte, quando 80% ou mais das palavras estão na mesma ordem, rotulada como diferente da citação); **não verificável** (acórdão fora da memória — refaça a busca — ou sem ementa). Hífen, meia-risca e travessão nunca são iguais. Reticências soltas (e o corte escrito com a reticência de um caractere só, `(…)`) são texto, salvo `reticenciasComoCorte`. Item da lista sem `citacao` ou `id`, e citação curta ou longa demais, recebem resultado próprio com a frase que ensina a corrigir, sem derrubar as outras. A posição vem como a frase da ementa que contém a citação (até 10 ocorrências, com o total); passagem entre aspas ganha o aviso de que pode ser de outro autor. Com `caminho` (o PDF do `obter_inteiro_teor` ou um trazido pelo usuário), confere também no inteiro teor: a posição vem como página do PDF, parte e segmento, com a origem do PDF (no PDF trazido, declarada pelo usuário, não conferida; o `id` junto é só vínculo declarado) e a seção do acórdão pelo título de seção sozinho na linha (EMENTA, ACÓRDÃO, RELATÓRIO, VOTO, VOTO-VISTA, VOTO VENCIDO, VOTO VOGAL, CERTIDÃO), ou "não identificada"; no relatório e no voto vencido, aviso forte. O Garimpo nunca diz de quem é a passagem, e a falta de sinal não prova que ela é do tribunal. Achar o texto não autentica a fonte. Não grava e não chama a rede |
-| `consultar_precedente` | Precedente pelo número (tipo obrigatório: a numeração de cada tipo é separada), **sem internet**, nas tabelas de precedentes que vão no pacote. **STJ** (tema repetitivo ou IAC): situação na fonte literal, tese firmada (ou "sem tese firmada na tabela"), questão submetida, órgão, datas, processo paradigma quando a fonte o identifica, números de súmula e de tema de repercussão geral do STF ligados. **STF** (repercussão geral, súmula ou súmula vinculante): situação do tema e tese, ou a marca de situação da lista de súmulas e o enunciado, com o link. Sempre com enquadramento no art. 927, atribuição e datas da tabela; número ausente volta como "não consta na tabela de <data>" (veja [Tabela de precedentes do STJ](#tabela-de-precedentes-do-stj) e [do STF](#tabela-de-precedentes-do-stf)) |
+| `consultar_precedente` | Precedente pelo número (tipo obrigatório: a numeração de cada tipo é separada), **consultado ao vivo no portal do tribunal**, na hora da pergunta, com memória de 24 h. **STJ** (tema repetitivo ou IAC): situação na fonte literal, tese firmada, questão submetida, órgão julgador, processo paradigma e a última atualização da página. **STF** (repercussão geral, súmula ou súmula vinculante): situação do tema e tese, ou a marca de situação da lista de súmulas e o enunciado, com o endereço. A resposta diz "consultado no portal do <tribunal> em <data e hora>". Se o portal não responder, a resposta vem da tabela de precedentes do pacote, dizendo "tabela de <data>, o portal não respondeu" e o motivo (veja [Precedentes ao vivo](#precedentes-ao-vivo)). Sempre com enquadramento no art. 927 |
 
 As respostas de `busca_direta`, `busca_ampla` e `obter_ementa` trazem, no campo `avisoNaturezaJuridica`, a linha
 "Resultado de busca em base não oficial. Confira o acórdão na fonte oficial do tribunal antes de citar; a ementa não
@@ -79,12 +79,30 @@ _Medição provisória, sujeita à revisão do dono_ (banco de provas do B5; vej
   Grupo vazio, termo vazio ou elemento fora do formato (por exemplo, `deveConter: ["a", "b"]`, que não diz se os
   termos são sinônimos ou exigências separadas) dão erro com o formato aceito, antes de qualquer busca.
 
+### Precedentes ao vivo
+
+O `consultar_precedente` busca o precedente **no portal do tribunal, na hora da pergunta, do seu computador**
+([ADR-0020](docs/adr/0020-precedentes-qualificados-ao-vivo-tabela-como-plano-b.md)):
+
+- **STJ:** a página do tema repetitivo ou do IAC em `processo.stj.jus.br/repetitivos/` — 1 chamada, com a
+  identificação própria do Garimpo.
+- **STF:** repercussão geral pela ficha do tema e pela página com a tese (2 chamadas); súmula e súmula vinculante pela
+  lista do tipo e pela página da súmula (2 chamadas; 1 enquanto a lista estiver na memória). O portal do STF recusa
+  (HTTP 403) quem se identifica como o Garimpo; por decisão do dono, ali o Garimpo se apresenta como navegador.
+- **Freios:** tudo passa pelo mesmo cliente das outras fontes (no máximo 2 chamadas simultâneas no total, em 429/503
+  espera e tenta uma vez, recusa final pausa o serviço em todas as janelas), com serviço próprio no disjuntor
+  (`stj-precedentes` e `stf-precedentes`) e prazo de 30 s por chamada. O resultado fica 24 h na memória.
+- **Plano B:** se o portal recusar, estiver fora, pausado ou devolver uma página que o Garimpo não reconhece, a
+  resposta vem da tabela do pacote (abaixo), com "tabela de <data>, o portal do <tribunal> não respondeu" e o motivo.
+- **Listas de qualificados das buscas** continuam pela tabela: conferir cada item ao vivo custaria dezenas de chamadas
+  por busca. Para o dado do dia, use o `consultar_precedente` no precedente que importa.
+
 ### Tabela de precedentes do STJ
 
 O pacote leva uma **fotografia datada** dos temas repetitivos e dos IAC do STJ, tirada do conjunto
 [Precedentes qualificados](https://dadosabertos.web.stj.jus.br/dataset/precedentes-qualificados) do Portal de Dados
-Abertos do STJ (`dados/tabela-precedentes-stj.json`). É dela que vêm o `consultar_precedente` e, nas listas de
-precedentes qualificados das buscas, a situação na fonte do tema ou IAC do STJ.
+Abertos do STJ (`dados/tabela-precedentes-stj.json`). É dela que vêm o plano B do `consultar_precedente` e, nas listas
+de precedentes qualificados das buscas, a situação na fonte do tema ou IAC do STJ.
 
 - **Fonte e licença dos dados:** "Fonte: STJ — Portal de Dados Abertos, conjunto Precedentes qualificados". A página
   do conjunto declara a licença "Creative Commons Atribuição" (sem indicar a versão; conferida na data gravada na
@@ -107,8 +125,8 @@ precedentes qualificados das buscas, a situação na fonte do tema ou IAC do STJ
 ### Tabela de precedentes do STF
 
 O pacote leva também uma **fotografia datada** do STF (`dados/tabela-precedentes-stf.json`): os temas de repercussão
-geral, as súmulas e as súmulas vinculantes, para o `consultar_precedente` (tribunal `stf`) e para a situação dessas
-listas nas buscas.
+geral, as súmulas e as súmulas vinculantes, para o plano B do `consultar_precedente` (tribunal `stf`) e para a
+situação dessas listas nas buscas.
 
 - **Fonte e fundamento:** o STF não publica termo de uso nem licença para esses dados (não encontrados em
   2026-10-09). A Resolução STF nº 774/2022, que institui o programa Corte Aberta, não trata de licença nem proíbe
@@ -121,9 +139,8 @@ listas nas buscas.
   a tabela guarda os dados, no formato do próprio Garimpo (texto conferido no planalto.gov.br em 2026-10-09; a
   aplicação ao caso é decisão do dono, não parecer). Toda resposta que usa a tabela traz a atribuição, o fundamento
   e a data em que os arquivos foram obtidos.
-- **Como é gerada:** o portal do STF recusa (HTTP 403) o Garimpo, que se identifica como ele mesmo, e o Garimpo não
-  se passa por navegador ali. Por isso o **mantenedor** obtém os arquivos no próprio navegador, a cada versão, e os
-  põe na pasta `entrada-stf/` (fora do git):
+- **Como é gerada:** o **mantenedor** obtém os arquivos no próprio navegador, a cada versão, e os põe na pasta
+  `entrada-stf/` (fora do git):
   - `RepercussaoGeral.xls`: na tela [Todos os temas](https://portal.stf.jus.br/jurisprudenciaRepercussao/todostemas.asp),
     botão "Exportar Dados" (o arquivo é uma tabela HTML, não planilha);
   - `sumulas.html` e `sumulas-vinculantes.html`: as telas
@@ -143,7 +160,7 @@ listas nas buscas.
   inciso do art. 927.
 
 `busca_direta`, `busca_ampla`, `obter_ementa`, `ler_inteiro_teor`, `conferir_citacao`, `consultar_precedente` e `listar_tribunais` são declaradas ao cliente como
-ferramentas que só leem (as duas buscas, como ferramentas que consultam serviço externo); `obter_inteiro_teor` não, porque grava
+ferramentas que só leem (as duas buscas e o `consultar_precedente`, como ferramentas que consultam serviço externo); `obter_inteiro_teor` não, porque grava
 o PDF no disco. Cabe a cada cliente decidir se usa essa marca para dispensar o pedido de permissão.
 
 ## Uso responsável (travas embutidas)
@@ -162,11 +179,12 @@ Toda chamada ao site passa por um cliente único que:
   pessoais);
 - depois de uma **recusa final** (a nova tentativa recusada de novo, 403, desafio anti-robô ou pedido de espera
   acima de 30 s), **pausa o serviço** em todas as janelas (abaixo);
-- identifica-se com um User-Agent honesto (`Garimpo/<versão> …`). **Exceção: o Falcão (CSJT)**, fonte dos TRTs,
-  recusa programas que não se apresentam como navegador (HTTP 403); por isso o Garimpo usa ali, **e só ali**, um
-  User-Agent de navegador fixo por versão, com `Origin`/`Referer` do próprio site, sempre dentro destes freios e com
-  1 s entre chamadas ao Falcão em todas as janelas. Termos do Falcão lidos e registrados em
-  [`docs/fonte-falcao.md`](docs/fonte-falcao.md).
+- identifica-se com um User-Agent honesto (`Garimpo/<versão> …`). **Exceções: o Falcão (CSJT) e o portal do STF**
+  recusam programas que não se apresentam como navegador (HTTP 403); por isso o Garimpo usa nesses dois, **e só
+  neles**, um User-Agent de navegador fixo por versão (no Falcão, com `Origin`/`Referer` do próprio site), sempre
+  dentro destes freios; no Falcão, com 1 s entre chamadas em todas as janelas. Termos do Falcão lidos e registrados
+  em [`docs/fonte-falcao.md`](docs/fonte-falcao.md); o uso no STF é decisão do dono
+  ([ADR-0020](docs/adr/0020-precedentes-qualificados-ao-vivo-tabela-como-plano-b.md)).
 
 Os termos de uso do site preveem limites por IP e bloqueio em caso de uso abusivo. Use com moderação.
 

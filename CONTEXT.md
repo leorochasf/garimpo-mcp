@@ -259,6 +259,11 @@ A fotografia, dentro do Garimpo, de uma fonte oficial de precedentes qualificado
 _Evitar_: base, cache, banco, memória (é outra coisa: respostas do site por 24 h)
 _Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-09 — sujeito a revisão do dono._
 
+**Consulta ao vivo (de precedente)**:
+A busca de um precedente qualificado pelo número no portal do tribunal (STJ ou STF), na hora da pergunta, do computador do usuário, guardada 24 h na memória; a resposta diz "consultado no portal do <tribunal> em <data e hora>". Quando o portal não responde, a tabela de precedentes é o **plano B**, com a data dela.
+_Evitar_: atualização, sincronização, raspagem
+_Decidido pelo dono em 2026-10-09 (ADR-0020)._
+
 **Situação na fonte**:
 O valor literal que a fonte oficial dá a um precedente na data da tabela (ex.: "Trânsito em Julgado", "Afetado", "Cancelado"). Não é vigência nem aplicabilidade, e nunca é traduzido para "vigente" ou "superado".
 _Evitar_: vigência, status, situação atual
