@@ -39,6 +39,46 @@ export function avisoJaNaPasta(baixadoEm: string, outrasVersoes: number): string
 }
 
 const SEM_TEXTO = "sem texto extraível; pode ser escaneada";
+const NAO_LIDA = "não lida; passou do teto de leitura";
+
+/**
+ * Texto útil mínimo de uma página, em caracteres que não são espaço, descontada a linha de assinatura eletrônica.
+ * Abaixo disso a página conta como "sem texto extraível". Medido em 19 PDFs de acórdão já baixados (STJ, TJMG, TSE e
+ * um trazido pelo usuário, 4 a 45 páginas): a página de corpo tem de 350 a 3.300 caracteres (mediana por PDF entre
+ * 1.100 e 3.300); a última página, de assinaturas e certidão, de 66 a 1.900; só 2 de 19 PDFs têm página abaixo de 100
+ * (66 e 105 — a de 105 passa). O carimbo de assinatura eletrônica sozinho dá cerca de 80 a 90 caracteres e some pelo
+ * desconto da linha reconhecida. 100 fica acima do carimbo e abaixo do texto nativo de assinaturas medido; o 250 do
+ * TCE-RO não transfere (derrubaria a última página de 7 dos 19 PDFs). Não há PDF escaneado real medido.
+ * Errar para cima só gera mais "não verificável".
+ */
+export const LIMIAR_DE_CARACTERES_POR_PAGINA = 100;
+/** PDF com mais que esta fração de páginas sem texto ganha o aviso de leitura em parte. */
+export const FRACAO_DE_PAGINAS_SEM_TEXTO = 0.3;
+/**
+ * Teto de páginas lidas e de tempo de leitura (G-11): PDF pequeno em bytes pode ter milhares de páginas. Medido: o
+ * maior acórdão real tem 45 páginas e leu a 20–45 ms por página (45 páginas em 2 s); 1.000 páginas deixam folga de
+ * mais de 20 vezes e o teto de tempo, a 30 s, cobre a máquina lenta.
+ */
+export const TETO_DE_PAGINAS = 1000;
+export const TETO_DE_TEMPO_MS = 30_000;
+
+export interface OpcoesDeLeitura {
+  tetoDePaginas?: number;
+  tetoDeTempoMs?: number;
+  /** Relógio em milissegundos; troque nos testes. */
+  agora?: () => number;
+}
+
+/** A linha de assinatura eletrônica que o carimbo põe como texto: não conta como texto da página. */
+const LINHA_DE_ASSINATURA =
+  /assinad[oa]\s+(?:digital|eletronic)\w*|c[óo]digo\s+de\s+verifica|MP\s*2\.?200|ICP[\s-]?Brasil|autenticidade\s+(?:deste|do)\s+documento/i;
+
+const textoUtil = (texto: string) =>
+  texto
+    .split("\n")
+    .filter((l) => !LINHA_DE_ASSINATURA.test(l))
+    .join("")
+    .replace(/\s/g, "").length;
 const TRAZIDO = "declarada pelo usuário, não conferida (inteiro teor trazido pelo usuário)";
 
 interface Cabecalho {
@@ -88,8 +128,9 @@ export async function lerInteiroTeor(
   parte = 1,
   informado: VinculoInformado = {},
   memoria?: Memoria,
+  opcoes: OpcoesDeLeitura = {},
 ): Promise<ParteDoInteiroTeor> {
-  const { base, partes, n } = await abrir(caminhoPedido, informado, memoria);
+  const { base, partes, n } = await abrir(caminhoPedido, informado, memoria, opcoes);
   const total = partes.length;
   if (!Number.isInteger(parte) || parte < 1 || parte > total) {
     throw new Error(
@@ -194,16 +235,22 @@ export interface InteiroTeorParaConferir {
   totalDePaginas: number;
   totalDePartes: number;
   unidades: UnidadeDoInteiroTeor[];
+  /** Páginas que a leitura não chegou a ler (teto de páginas ou de tempo): região não lida, não página sem texto. */
+  naoLidas?: number[];
 }
 
 /**
  * Todo o texto do PDF, com as mesmas páginas, partes e segmentos que o ler_inteiro_teor mostra quando recebe só o
  * caminho. Só lê, como ele: não grava, não copia e não chama a rede.
  */
-export async function lerParaConferir(caminhoPedido: string): Promise<InteiroTeorParaConferir> {
-  const { origem, partes, n } = await abrir(caminhoPedido, {});
+export async function lerParaConferir(
+  caminhoPedido: string,
+  opcoes: OpcoesDeLeitura = {},
+): Promise<InteiroTeorParaConferir> {
+  const { origem, partes, n, naoLidas } = await abrir(caminhoPedido, {}, undefined, opcoes);
   return {
     origem,
+    naoLidas,
     totalDePaginas: n,
     totalDePartes: partes.length,
     unidades: partes.flatMap((unidades, i) =>
@@ -218,11 +265,16 @@ export async function lerParaConferir(caminhoPedido: string): Promise<InteiroTeo
 }
 
 /** Lê o PDF, confere a origem, extrai o texto e o divide em partes; o cabeçalho de cada parte sai de `base`. */
-async function abrir(caminhoPedido: string, informado: VinculoInformado, memoria?: Memoria) {
+async function abrir(
+  caminhoPedido: string,
+  informado: VinculoInformado,
+  memoria?: Memoria,
+  opcoes: OpcoesDeLeitura = {},
+) {
   const { bytes, caminho } = await lerArquivo(caminhoPedido);
   const sha256 = createHash("sha256").update(bytes).digest("hex");
   const origem = await conferirOrigem(caminho, sha256);
-  const paginas = await extrairPaginas(bytes, caminho);
+  const { paginas, naoLidas } = await extrairPaginas(bytes, caminho, opcoes);
   const n = paginas.length;
 
   const avisos = [...origem.avisos];
@@ -242,10 +294,25 @@ async function abrir(caminhoPedido: string, informado: VinculoInformado, memoria
       );
     }
   }
-  if (paginas.every((p) => !p)) {
+  const lidas = paginas.map((_, i) => i + 1).filter((p) => !naoLidas.includes(p));
+  const semTexto = lidas.filter((p) => !paginas[p - 1]);
+  if (naoLidas.length) {
+    avisos.unshift(
+      `Leitura parcial: o Garimpo leu só as ${lidas.length} primeiras páginas de ${n} (teto de páginas ou de tempo); ` +
+        `${paginaOuPaginas(naoLidas)} não ${naoLidas.length === 1 ? "foi lida" : "foram lidas"}. A conferência ` +
+        "dessas páginas não é possível: abra o arquivo para ler o resto.",
+    );
+  }
+  if (lidas.length && semTexto.length === lidas.length) {
     avisos.unshift(
       "Nenhuma página deste PDF tem texto extraível; pode ser escaneado. O Garimpo não faz OCR: abra o arquivo " +
         "para ler. Isso não quer dizer que o acórdão esteja sem conteúdo.",
+    );
+  } else if (semTexto.length / n > FRACAO_DE_PAGINAS_SEM_TEXTO) {
+    avisos.unshift(
+      `Leitura em parte: ${semTexto.length} de ${n} páginas deste PDF não têm texto extraível (${semTexto.join(", ")}); ` +
+        "podem ser imagem escaneada. O Garimpo não faz OCR: o que está nelas não foi lido nem conferido; abra o " +
+        "arquivo para ler.",
     );
   }
   const base = (paginasDoPdf: string, proxima?: number): ParteDoInteiroTeor => ({
@@ -280,7 +347,7 @@ async function abrir(caminhoPedido: string, informado: VinculoInformado, memoria
   const reserva =
     JSON.stringify(base(`páginas ${pior}–${pior} de ${pior} (parte ${pior} de ${pior})`, 999_999)).length +
     JSON.stringify(download).length;
-  return { base, origem: origem.origem, partes: dividir(paginas, LIMITE_CARACTERES_PARTE - reserva), n };
+  return { base, origem: origem.origem, partes: dividir(paginas, LIMITE_CARACTERES_PARTE - reserva, naoLidas), n, naoLidas };
 }
 
 /**
@@ -495,15 +562,32 @@ export async function contarPaginas(caminhoPedido: string): Promise<number> {
   return comPdf(bytes, caminho, "contar as páginas do PDF", async (documento) => documento.numPages);
 }
 
-/** Texto de cada página do PDF ("" = página sem texto extraível). */
-function extrairPaginas(bytes: Uint8Array, caminho: string): Promise<string[]> {
+const paginaOuPaginas = (ns: number[]) => {
+  const [a, z] = [ns[0], ns[ns.length - 1]];
+  return a === z ? `a página ${a}` : `as páginas ${a}–${z}`;
+};
+
+/**
+ * Texto de cada página do PDF ("" = sem texto extraível: vazia ou com menos texto útil que o limiar) e as páginas não
+ * lidas por passarem do teto de páginas ou de tempo (conferido a cada página; a 1ª é sempre lida).
+ */
+function extrairPaginas(
+  bytes: Uint8Array,
+  caminho: string,
+  { tetoDePaginas = TETO_DE_PAGINAS, tetoDeTempoMs = TETO_DE_TEMPO_MS, agora = Date.now }: OpcoesDeLeitura,
+): Promise<{ paginas: string[]; naoLidas: number[] }> {
   return comPdf(bytes, caminho, "ler o PDF", async (documento) => {
+    const total = documento.numPages;
+    const inicio = agora();
     const paginas: string[] = [];
-    for (let i = 1; i <= documento.numPages; i++) {
+    for (let i = 1; i <= total; i++) {
+      if (i > 1 && (i > tetoDePaginas || agora() - inicio > tetoDeTempoMs)) break;
       const conteudo = await (await documento.getPage(i)).getTextContent();
-      paginas.push(naOrdemDeLeitura(conteudo.items.filter((item) => "str" in item)).trim());
+      const texto = naOrdemDeLeitura(conteudo.items.filter((item) => "str" in item)).trim();
+      paginas.push(textoUtil(texto) < LIMIAR_DE_CARACTERES_POR_PAGINA ? "" : texto);
     }
-    return paginas;
+    const naoLidas = Array.from({ length: total - paginas.length }, (_, k) => paginas.length + k + 1);
+    return { paginas: [...paginas, ...naoLidas.map(() => "")], naoLidas };
   });
 }
 
@@ -600,11 +684,14 @@ const custo = (texto: string) => JSON.stringify(texto).length - 2;
  * Divide as páginas em partes de páginas inteiras até o teto; a página que sozinha passa do teto vira segmentos.
  * Determinística: o mesmo texto dá sempre a mesma divisão.
  */
-function dividir(paginas: string[], teto: number): Unidade[][] {
+function dividir(paginas: string[], teto: number, naoLidas: number[]): Unidade[][] {
   const n = paginas.length;
   const unidades = paginas.flatMap((texto, i): Unidade[] => {
     const pagina = i + 1;
-    if (!texto) return [{ pagina, texto: `[página ${pagina} de ${n}: ${SEM_TEXTO}]`, semMarca: "" }];
+    if (!texto) {
+      const motivo = naoLidas.includes(pagina) ? NAO_LIDA : SEM_TEXTO;
+      return [{ pagina, texto: `[página ${pagina} de ${n}: ${motivo}]`, semMarca: "" }];
+    }
     const inteira = `[página ${pagina} de ${n}]\n${texto}`;
     if (custo(inteira) <= teto) return [{ pagina, texto: inteira, semMarca: texto }];
     const marcaMaior = `[página ${n} de ${n}, segmento 999 de 999; continua no segmento 999]\n`;
