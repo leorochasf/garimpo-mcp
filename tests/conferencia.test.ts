@@ -477,6 +477,20 @@ Texto do voto.`]);
   });
 
   it.each([
+    ["depois de linha que termina em dois-pontos", "Cabecalho ficticio\nO tribunal ja decidiu caso generico assim:"],
+    ["depois de marcador de transcrição", "Cabecalho ficticio\nCita-se o precedente generico, in verbis"],
+    ["depois de linha de corpo que fecha frase", "Texto ficticio da decisao, sem titulo nenhum, sobre caso generico.\nCabecalho"],
+  ])("decisão sem títulos citando \"EMENTA: …\" %s: ementa de outro julgado, seção não identificada", (_caso, antes) => {
+    const o = ocorrencia([`${antes}\nEMENTA: PROCESSUAL CIVIL. FICTICIO.\nPara ${CITACAO}.`]);
+    expect(o.secao).toBe("não identificada");
+  });
+
+  it("\"EMENTA: …\" no começo do documento, depois só do cabeçalho: abre a ementa", () => {
+    const o = ocorrencia([`PODER JUDICIARIO\nApelacao Civel ficticia n. 0000\nEMENTA: PROCESSUAL CIVIL. FICTICIO.\nPara ${CITACAO}.`]);
+    expect(o.secao).toBe("ementa");
+  });
+
+  it.each([
     ["\"voto\" no corpo do texto", "Acompanho o voto do relator, no sentido de que"],
     ["\"relatório\" no corpo do texto", "Conforme o relatório, adoto o entendimento de que"],
     ["título em minúsculas no meio da frase", "voto vencido"],
@@ -948,6 +962,12 @@ describe("conferência de citação — sinais de \"quem disse\" (G-08), desliga
     expect(aviso).toContain(esperado);
   });
 
+  it("texto integral sem título antes da passagem que atravessa um título: a divergência é procurada antes dela", () => {
+    const texto = "Divirjo do relator, pois o prazo generico e de cinco anos\nVOTO\ncontados do fato generico.";
+    const aviso = sinal(conferirNoTextoIntegral(texto, citar("o prazo generico e de cinco anos VOTO contados"), so("divergencia")));
+    expect(aviso).toContain('fórmula de divergência "Divirjo"');
+  });
+
   it("todos ligados: cada passagem tem o seu sinal, e nenhum aviso diz \"obiter\" nem \"autoria\"", async () => {
     const leitura = await lerPdf(pdfComSinaisDeAutoria());
     const todos = { negacao: true, alegacaoDaParte: true, ementaTranscrita: true, divergencia: true, raciocinioHipotetico: true };
@@ -1016,6 +1036,27 @@ describe("órgão julgador no fecho × órgão do registro (G-13)", () => {
     const aviso = avisoDeOrgaoDoFecho(leitura, { tribunal: "tjsp", orgao }, true);
     if (esperado) expect(aviso).toContain(esperado);
     else expect(aviso).toBeUndefined();
+  });
+
+  it.each([
+    ["1ª Câmara Cível", undefined],
+    ["2ª Câmara Cível", 'o fecho do acórdão diz "1ª CAMARA CIVEL"'],
+  ])("ligado, TJMG com o órgão em maiúsculas partido por hífen (\"CI-\" / \"VEL\"): a palavra se junta (registro %s)", async (orgao, esperado) => {
+    const leitura = await comFecho("Vistos etc., acorda, em Turma, a 1ª CAMARA CI-", "VEL do Tribunal de Justica do Estado, na conformidade da ata.");
+    const aviso = avisoDeOrgaoDoFecho(leitura, { tribunal: "tjmg", orgao }, true);
+    if (esperado) expect(aviso).toContain(esperado);
+    else expect(aviso).toBeUndefined();
+  });
+
+  it("ligado, \"ACORDAO\" sozinho na linha dentro do voto (precedente transcrito): o fecho dele não conta", async () => {
+    const leitura = await lerPdf(
+      pdfSintetico([
+        ["ACORDAO", "Acordam os Magistrados da 3ª Turma do Tribunal, por unanimidade.", ENCHER],
+        ["VOTO", "O precedente generico tem este acordao:", "ACORDAO", "Acordam os Magistrados da 9ª Turma do Tribunal, por maioria.", ENCHER],
+      ]),
+    );
+    expect(avisoDeOrgaoDoFecho(leitura, { tribunal: "trt2", orgao: "3ª Turma" }, true)).toBeUndefined();
+    expect(avisoDeOrgaoDoFecho(leitura, { tribunal: "trt2", orgao: "1ª Turma" }, true)).toContain('o fecho do acórdão diz "3ª Turma"');
   });
 
   it("ligado, nome do órgão que cruza a quebra de página (cabeçalho no meio): silêncio", async () => {

@@ -235,14 +235,15 @@ function conferirNoTextoCorrido(
         }
       : {}),
     sinal: (a, b, ligados) => {
+      const secoes = marcas && secoesEm(marcas.titulos, a, b);
       const sinais = [
         ...(entreAspas(texto, a, b) ? [`a passagem está entre aspas ${local}`] : []),
-        ...(marcas
+        ...(marcas && secoes
           ? sinaisDeQuemDisse(
               texto,
               a,
               b,
-              secoesEm(marcas.titulos, a, b).titulos[0]?.inicio ?? 0,
+              secoes.identificada ? secoes.titulos[0].inicio : 0,
               ligados,
               (proclamado ??= proclamacao(texto, marcas.titulos)),
             )
@@ -769,6 +770,11 @@ const AVISO_DA_SECAO: Partial<Record<Secao, (t: TituloDeSecao) => string>> = {
 /** "EMENTA:" (ou "EMENTA –") seguido do texto da ementa na mesma linha. */
 const EMENTA_COM_TEXTO = /^EMENTA\s*[:\u2013\u2014-]\s*\S/;
 
+/**
+ * Palavras mínimas para a linha que fecha frase ser de corpo de texto, não de cabeçalho ("Relator: Des. Ficticio.").
+ */
+const PALAVRAS_DE_LINHA_DE_CORPO = 6;
+
 /** Seções que um "EMENTA" ou "ACÓRDÃO" sozinho na linha não fecha: é a transcrição de outra decisão dentro delas. */
 const TRANSCREVEM_DECISOES: Secao[] = ["relatório", "voto vencido"];
 
@@ -777,16 +783,27 @@ const TRANSCREVEM_DECISOES: Secao[] = ["relatório", "voto vencido"];
  * letra maiúscula ("Voto vencido") —, sem nada depois além de ":" (ponto final não: "NULIDADE DO\nRELATÓRIO." é fim
  * de frase de ementa em maiúsculas, não título). Em maiúsculas, "VOTO VENCIDO" pode vir seguido do nome do julgador.
  * "Voto" ou "relatório" no corpo do texto não abrem seção. "EMENTA:" com o texto na mesma linha só abre a ementa
- * quando é o 1º título do PDF: mais adiante, costuma ser a ementa de outro julgado transcrita.
+ * no começo do documento — 1º título, antes de qualquer linha de corpo que feche frase e sem a linha anterior
+ * anunciar transcrição ("assim decidiu:", "in verbis"): fora disso, costuma ser a ementa de outro julgado transcrita.
  */
 function titulosDeSecao(texto: string, paginaEm: (i: number) => number): TituloDeSecao[] {
   const titulos: TituloDeSecao[] = [];
+  let corpoAntes = false;
+  let linhaDeAntes = "";
   for (const m of texto.matchAll(/^[^\n]+$/gm)) {
     const titulo = m[0].trim();
-    if (!titulos.length && EMENTA_COM_TEXTO.test(titulo)) {
+    const linhaAnterior = linhaDeAntes;
+    linhaDeAntes = titulo;
+    if (
+      !titulos.length &&
+      !corpoAntes &&
+      EMENTA_COM_TEXTO.test(titulo) &&
+      !ANUNCIA_TRANSCRICAO.test(`${linhaAnterior}\n`)
+    ) {
       titulos.push({ inicio: m.index, secao: "ementa", titulo, pagina: paginaEm(m.index) });
       continue;
     }
+    if (FECHA_FRASE.test(titulo) && titulo.split(/\s+/).length >= PALAVRAS_DE_LINHA_DE_CORPO) corpoAntes = true;
     if (titulo.length > 80) continue;
     const linha = titulo.normalize("NFC").replace(/\s*:$/, "");
     const maiusculas = /^[\p{Lu}\s-]+$/u.test(linha);
@@ -1480,12 +1497,20 @@ function lerOrgao(nome: string): OrgaoLido | undefined {
 const TRANSCREVEM_FECHOS: Secao[] = ["relatório", ...VOTOS];
 
 /**
- * O fecho em `i` é do próprio acórdão: fora do relatório e dos votos e fora de aspas abertas na seção (de outro
+ * O fecho em `i` é do próprio acórdão: fora do relatório e dos votos, fora de ementa ou acórdão aberto depois deles
+ * ("ACÓRDÃO" sozinho na linha dentro do voto é de precedente transcrito) e fora de aspas abertas na seção (de outro
  * julgado transcrito, o órgão seria de outro processo).
  */
 function fechoDoProprioAcordao(texto: string, titulos: TituloDeSecao[], i: number): boolean {
-  const secao = titulos.filter((t) => t.inicio <= i).pop();
+  const antes = titulos.filter((t) => t.inicio <= i);
+  const secao = antes.pop();
   if (secao && TRANSCREVEM_FECHOS.includes(secao.secao)) return false;
+  if (
+    (secao?.secao === "ementa" || secao?.secao === "acórdão") &&
+    antes.some((t) => TRANSCREVEM_FECHOS.includes(t.secao))
+  ) {
+    return false;
+  }
   return !aspasAbertas(texto.slice(secao?.inicio ?? 0, i));
 }
 
@@ -1505,7 +1530,8 @@ export function avisoDeOrgaoDoFecho(
   const textos = leitura.unidades.map((t) => t.texto.normalize("NFC"));
   const texto = textos.join("\n");
   // Onde começa cada unidade (página ou parte) depois da primeira, no texto juntado.
-  const fronteiras = textos.slice(0, -1).map((_, i) => textos.slice(0, i + 1).join("\n").length + 1);
+  let soma = 0;
+  const fronteiras = textos.slice(0, -1).map((t) => (soma += t.length + 1));
   const titulos = titulosDeSecao(texto, () => 0);
   const comparavel = dobrado(texto);
   const lidos = formulasDoFecho(registro.tribunal).flatMap(({ formula, orgao }) =>
@@ -1518,7 +1544,8 @@ export function avisoDeOrgaoDoFecho(
         orgao ??
         texto
           .slice(inicio, fim)
-          .replace(/(\p{L})-[ \t]*\n\s*(?=\p{Ll})/gu, "$1")
+          // Hífen de fim de linha: "Pri-\nvado" e, em maiúsculas, "CI-\nVEL".
+          .replace(/(\p{L})-[ \t]*\n\s*(?=\p{Ll})|(\p{Lu})-[ \t]*\n\s*(?=\p{Lu})/gu, "$1$2")
           .replace(/\s+/g, " ");
       const lido = lerOrgao(nome);
       return lido ? [{ nome, lido }] : [];
