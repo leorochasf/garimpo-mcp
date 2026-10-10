@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buscaAmpla } from "../src/ampla.js";
 import { buscaDireta } from "../src/busca.js";
 import { Cliente, ErroHttp, FormatoInesperadoError, PausaPreventivaError, RecusaError, Vagas } from "../src/cliente.js";
@@ -232,9 +232,16 @@ describe("busca ampla", () => {
 
   it("com a memória falhando ao ler e ao gravar, os dois avisos cabem: continua < 25 mil caracteres", async () => {
     const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-ampla-"));
-    /** A gravação corre por trás: espera a condição, com prazo. */
+    // A gravação que esbarra numa pasta no lugar do arquivo insiste por ~1 s de relógio (19 esperas de 50 ms) antes de
+    // desistir: sob carga, essa espera real e a gravação de centenas de acórdãos estouravam o prazo. Aqui as esperas de
+    // 50 ms da insistência passam a valer 0: a gravação falha igual, só sem esperar. O disco segue real.
+    const setTimeoutReal = globalThis.setTimeout;
+    const semEsperaDeInsistencia = vi
+      .spyOn(globalThis, "setTimeout")
+      .mockImplementation(((f: () => void, ms?: number, ...resto: unknown[]) => setTimeoutReal(f, ms === 50 ? 0 : ms, ...resto)) as typeof setTimeout);
+    /** A gravação corre por trás: espera a condição; o prazo só guarda contra travamento (o disco real é mais lento sob carga). */
     const esperar = async (pronto: () => Promise<boolean> | boolean) => {
-      for (const prazo = Date.now() + 5_000; !(await pronto()); await new Promise((r) => setTimeout(r, 20))) {
+      for (const prazo = Date.now() + 60_000; !(await pronto()); await new Promise((r) => setTimeoutReal(r, 20))) {
         if (Date.now() > prazo) throw new Error("a gravação da memória não terminou no prazo");
       }
     };
@@ -262,9 +269,10 @@ describe("busca ampla", () => {
       expect(r.qualificados).toHaveLength(10);
       expect(JSON.stringify(r).length).toBeLessThan(25_000);
     } finally {
+      semEsperaDeInsistencia.mockRestore();
       await rm(dados, { recursive: true, force: true, maxRetries: 10 });
     }
-  });
+  }, 60_000);
 
   it("com filtro local, repetida da memória e campos de tamanho realista, continua < 25 mil caracteres", async () => {
     const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-ampla-"));
@@ -1219,6 +1227,18 @@ describe("correções da revisão: junção entre formulações, teto de tamanho
     expect(r.cabecalhoDeCobertura.listaCortada).toMatch(/tribunais|formulações/);
     const somaPorTribunal = r.cabecalhoDeCobertura.porTribunal.reduce((s, l) => s + (l.mostrados ?? 0), 0);
     expect(somaPorTribunal).toBe(r.acordaos.length);
+  });
+
+  it("maximo 200 no pior caso: ordem \"data\" mostra o mesmo conjunto de acórdãos da ordem padrão, mesmo com o corte por tamanho", async () => {
+    // Datas decrescentes com o índice: os de maior aderência (índice baixo) são os mais recentes.
+    const { cliente } = siteRealista((i) => `${2000 + (99 - i)}-03-04T00:00:00.000Z`);
+    const pedido = { formulacoes: FORMULACOES_REALISTAS, tribunais: ["tjrs", "stj", "tjsp", "tjmg", "tjpr"], maximo: 200 };
+    const padrao = await buscaAmpla(cliente, pedido);
+    const porData = await buscaAmpla(cliente, { ...pedido, ordem: "data" });
+
+    expect(padrao.cabecalhoDeCobertura.listaCortada).toMatch(/25 mil caracteres/);
+    expect(porData.acordaos.map((a) => a.id).sort()).toEqual(padrao.acordaos.map((a) => a.id).sort());
+    expect(porData.acordaos.map((a) => a.data)).toEqual([...porData.acordaos.map((a) => a.data)].sort());
   });
 
   it("relator com limitePorBusca 1 e 1 resultado: lista cheia, sem alarme de grafia; limite 100 com 1 resultado alarma", async () => {

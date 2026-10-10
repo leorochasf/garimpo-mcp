@@ -192,7 +192,18 @@ export async function buscaAmpla(
   cliente: Cliente,
   p: ParametrosAmpla,
   memoria?: Memoria,
-  { tabela, tabelaStf, falcao }: { tabela?: TabelaDePrecedentes; tabelaStf?: TabelaDoStf; falcao?: Cliente } = {},
+  {
+    tabela,
+    tabelaStf,
+    falcao,
+    acrescimos,
+  }: {
+    tabela?: TabelaDePrecedentes;
+    tabelaStf?: TabelaDoStf;
+    falcao?: Cliente;
+    /** Campos que quem chama põe na resposta final: entram na medida do teto, que vale para o texto inteiro. */
+    acrescimos?: (r: ResultadoAmplo) => object;
+  } = {},
 ): Promise<ResultadoAmplo> {
   const comTrt = p.tribunais.some(ehDoFalcao);
   // Antes de gastar chamada: filtro ainda não verificado num TRT é erro que ensina.
@@ -499,21 +510,8 @@ export async function buscaAmpla(
     ordenados.map((x) => x.acordao),
   );
   if (recorrido) avisos.push(recorrido);
-  // Ordem por data só depois da escolha e do corte pela aderência: muda a apresentação, nunca quem entra na lista.
-  let apresentados = mostrados;
-  if (p.ordem === "data") {
-    const porData = ordenarPorData(mostrados, (x) => x.acordao.dataJulgamento);
-    apresentados = porData.itens;
-    if (porData.semData) {
-      avisos.push(
-        porData.semData === 1
-          ? "Ordem por data: 1 acórdão sem data foi para o fim da lista."
-          : `Ordem por data: ${porData.semData} acórdãos sem data foram para o fim da lista.`,
-      );
-    }
-  }
   const estimativa = estimar(noSite.length);
-  const itemDe = ({ acordao: a, formulacoes }: (typeof apresentados)[number], tamanhoDoTrecho: number): ItemAmplo => {
+  const itemDe = ({ acordao: a, formulacoes }: (typeof mostrados)[number], tamanhoDoTrecho: number): ItemAmplo => {
     const ementa = a.ementa.replace(/^\s*ementa\b\s*[:.\-–—]?\s*/i, "");
     const faltam = camposAusentes(a);
     const item: ItemAmplo = {
@@ -554,7 +552,11 @@ export async function buscaAmpla(
     }),
     avisos,
   };
-  return ajustarAoTeto(resultado, apresentados, itemDe, tamanho, sobreviventes.length);
+  // Ordem por data só depois da escolha e do corte pela aderência (inclusive o do teto): muda a apresentação, nunca
+  // quem entra na lista.
+  const ordenar = (lista: typeof mostrados) =>
+    p.ordem === "data" ? ordenarPorData(lista, (x) => x.acordao.dataJulgamento) : { itens: lista, semData: 0 };
+  return ajustarAoTeto(resultado, mostrados, ordenar, itemDe, tamanho, sobreviventes.length, acrescimos);
 }
 
 /** Motivo de uma busca que não deu resposta (nunca chamada para busca vazia, que deu resposta). */
@@ -580,18 +582,30 @@ const TRECHO_MINIMO = 40;
  * Faz a resposta caber no teto: primeiro encurta os trechos, depois tira itens do fim da lista (os de menor
  * aderência) e diz o corte e como pedir o resto. Abaixo do teto, a resposta sai como veio.
  */
-function ajustarAoTeto(
+function ajustarAoTeto<T>(
   r: ResultadoAmplo,
-  apresentados: readonly unknown[],
-  itemDe: (x: never, tamanho: number) => ItemAmplo,
+  apresentados: readonly T[],
+  ordenar: (lista: T[]) => { itens: T[]; semData: number },
+  itemDe: (x: T, tamanho: number) => ItemAmplo,
   tamanho: number,
   sobreviventes: number,
+  acrescimos?: (r: ResultadoAmplo) => object,
 ): ResultadoAmplo {
   const avisosBase = r.avisos;
   const listaBase = r.cabecalhoDeCobertura.listaCortada;
   const mostradosBase = r.cabecalhoDeCobertura.porTribunal.map((l) => l.mostrados);
   const montar = (tam: number, n: number): ResultadoAmplo => {
-    const itens = (apresentados as never[]).slice(0, n).map((x) => itemDe(x, tam));
+    // O corte pega os n de maior aderência; só então a ordem de apresentação (data) se aplica aos que ficam.
+    const porOrdem = ordenar(apresentados.slice(0, n));
+    const itens = porOrdem.itens.map((x) => itemDe(x, tam));
+    const semData =
+      porOrdem.semData === 0
+        ? []
+        : [
+            porOrdem.semData === 1
+              ? "Ordem por data: 1 acórdão sem data foi para o fim da lista."
+              : `Ordem por data: ${porOrdem.semData} acórdãos sem data foram para o fim da lista.`,
+          ];
     const porTribunal = r.cabecalhoDeCobertura.porTribunal.map((l, i) =>
       mostradosBase[i] === undefined ? l : { ...l, mostrados: itens.filter((x) => x.tribunal === l.tribunal).length },
     );
@@ -605,10 +619,11 @@ function ajustarAoTeto(
       mostrados: n,
       acordaos: itens,
       cabecalhoDeCobertura: { ...r.cabecalhoDeCobertura, porTribunal, ...(listaCortada && { listaCortada }) },
-      avisos: tam < tamanho ? [...avisosBase, `Trechos encurtados para ${tam} caracteres para a resposta caber em ${TETO_DA_RESPOSTA / 1000} mil caracteres.`] : avisosBase,
+      avisos: tam < tamanho ? [...avisosBase, ...semData, `Trechos encurtados para ${tam} caracteres para a resposta caber em ${TETO_DA_RESPOSTA / 1000} mil caracteres.`] : [...avisosBase, ...semData],
     };
   };
-  const cabe = (x: ResultadoAmplo) => JSON.stringify(x).length <= TETO_DA_RESPOSTA;
+  // Mede o texto final: os campos que o servidor acrescenta (tabelas, aviso de natureza jurídica) contam.
+  const cabe = (x: ResultadoAmplo) => JSON.stringify({ ...x, ...acrescimos?.(x) }).length <= TETO_DA_RESPOSTA;
   const cheia = montar(tamanho, apresentados.length);
   if (cabe(cheia)) return cheia;
   for (const tam of [80, 60, TRECHO_MINIMO].filter((t) => t < tamanho)) {
