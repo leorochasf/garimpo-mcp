@@ -281,9 +281,12 @@ async function pedirPagina(cliente: Cliente, tribunal: string, p: ParametrosBusc
 
 type Bruto = Record<string, unknown>;
 
+/** Motivo gravado no acórdão cujo "texto integral" do Falcão é só a ementa repetida. */
+const MOTIVO_INTEGRAL_IGUAL_A_EMENTA = "texto integral do Falcão igual à ementa";
+
 /** Normaliza os documentos do Falcão: acórdão (sem o texto integral) e, à parte, o texto integral convertido. */
 export function normalizarDoFalcao(tribunal: string, documentos: unknown[]) {
-  const acordaos: Acordao[] = [];
+  const acordaos: (Acordao & { motivoSemTextoIntegral?: string })[] = [];
   const textos: TextoIntegral[] = [];
   let descartados = 0;
   let divergencias = 0;
@@ -326,10 +329,15 @@ export function normalizarDoFalcao(tribunal: string, documentos: unknown[]) {
       avisoDeEmenta,
       fonte: ROTULO_FALCAO,
     });
-    acordaos.push({ ...acordao, enquadramento927: enquadrarAcordao({ ...acordao, siglaClasse: sigla }) });
     const html = texto(d.textoAcordao) ?? "";
     const integral = htmlParaTexto(html);
-    if (ementa && ehSoAEmenta(integral, ementa)) {
+    const soAEmenta = !!ementa && ehSoAEmenta(integral, ementa);
+    acordaos.push({
+      ...acordao,
+      ...(soAEmenta && { motivoSemTextoIntegral: MOTIVO_INTEGRAL_IGUAL_A_EMENTA }),
+      enquadramento927: enquadrarAcordao({ ...acordao, siglaClasse: sigla }),
+    });
+    if (soAEmenta) {
       // A ementa repetida não é o acórdão: guarda sem texto, para nada ser lido nem conferido como se fosse o inteiro.
       integraisIguaisAEmenta++;
       textos.push({ id, texto: "", indicioDeCorte: false });

@@ -238,25 +238,33 @@ describe("busca direta num TRT pelo Falcão", () => {
   });
 
   it("texto integral igual à ementa não é guardado como texto integral e a busca avisa; texto maior segue como antes", async () => {
-    const ementaHtml = "<p>INTERVALO  INTRAJORNADA.
-SUPRESS&Atilde;O PARCIAL. Texto fict&iacute;cio de ementa.</p>";
+    const ementaHtml = "<p>INTERVALO  INTRAJORNADA.\nSUPRESS&Atilde;O PARCIAL. Texto fict&iacute;cio de ementa.</p>";
     const { mcp, dados } = await conectar(
       siteFalso().cliente,
       falcaoFalso(() =>
         pagina([
-          documento({ idDocumentoAcordao: "50000001", textoAcordao: ementaHtml }),
-          documento({ idDocumentoAcordao: "50000002", textoAcordao: `<p>EMENTA: ${ementaHtml}</p>` }),
-          documento({ idDocumentoAcordao: "50000003" }),
+          documento({ idDocumentoAcordao: "50000001", numeroProcesso: "0000701-00.2024.5.03.0001", textoAcordao: ementaHtml }),
+          documento({
+            idDocumentoAcordao: "50000002",
+            numeroProcesso: "0000702-00.2024.5.03.0001",
+            textoAcordao: `<p>EMENTA: ${ementaHtml}</p>`,
+          }),
+          documento({ idDocumentoAcordao: "50000003", numeroProcesso: "0000703-00.2024.5.03.0001" }),
         ]),
       ).cliente,
     );
     const r = await chamar(mcp, "busca_direta", { tribunal: "trt3", texto: "intervalo intrajornada" });
     expect(r.isError).toBe(false);
     expect(r.dado.avisos.join(" ")).toMatch(/2 acórdão\(s\) com "texto integral" igual à ementa.*sem texto integral/);
-    const arquivos = [...(await conteudos(join(dados, "memoria")))].filter(([k]) => k.includes("textos-1"));
+    const porId = (id: string) => (r.dado.acordaos as { id: string; motivoSemTextoIntegral?: string }[]).find((a) => a.id === `trt3:${id}`);
+    expect(porId("50000001")?.motivoSemTextoIntegral).toBe("texto integral do Falcão igual à ementa");
+    expect(porId("50000002")?.motivoSemTextoIntegral).toBe("texto integral do Falcão igual à ementa");
+    expect(porId("50000003")?.motivoSemTextoIntegral).toBeUndefined();
+    const lerArquivos = () => conteudos(join(dados, "memoria")).catch(() => new Map<string, string>());
+    const arquivos = [...(await lerArquivos())].filter(([k]) => k.includes("textos-1"));
     for (let i = 0; i < 100 && arquivos.length < 3; i++) {
       await new Promise((r) => setTimeout(r, 20));
-      arquivos.splice(0, arquivos.length, ...[...(await conteudos(join(dados, "memoria")))].filter(([k]) => k.includes("textos-1")));
+      arquivos.splice(0, arquivos.length, ...[...(await lerArquivos())].filter(([k]) => k.includes("textos-1")));
     }
     const texto = (id: string) => {
       const achado = arquivos.find(([, v]) => v.includes(`"trt3:${id}"`));
