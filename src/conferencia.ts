@@ -1458,6 +1458,19 @@ function lerOrgao(nome: string): OrgaoLido | undefined {
   return { ...(numero ? { numero } : {}), tipo: /pleno|plenario/.test(tipo[1]) ? "pleno" : tipo[1], complemento };
 }
 
+/** Seções onde um fecho costuma ser de outro julgado transcrito: o relatório e os votos. */
+const TRANSCREVEM_FECHOS: Secao[] = ["relatório", ...VOTOS];
+
+/**
+ * O fecho em `i` é do próprio acórdão: fora do relatório e dos votos e fora de aspas abertas na seção (de outro
+ * julgado transcrito, o órgão seria de outro processo).
+ */
+function fechoDoProprioAcordao(texto: string, titulos: TituloDeSecao[], i: number): boolean {
+  const secao = titulos.filter((t) => t.inicio <= i).pop();
+  if (secao && TRANSCREVEM_FECHOS.includes(secao.secao)) return false;
+  return !aspasAbertas(texto.slice(secao?.inicio ?? 0, i));
+}
+
 /**
  * Aviso de órgão julgador (G-13): lê no fecho do acórdão, por fórmulas fixas do tribunal, o órgão que julgou e avisa
  * quando ele difere do órgão do registro da busca. É aviso, nunca correção: o Garimpo não diz qual dos dois está certo.
@@ -1471,11 +1484,24 @@ export function avisoDeOrgaoDoFecho(
   if (!ligado) return undefined;
   const doRegistro = lerOrgao(registro.orgao);
   if (!doRegistro) return undefined;
-  const texto = leitura.unidades.map((t) => t.texto).join("\n").normalize("NFC");
+  const textos = leitura.unidades.map((t) => t.texto.normalize("NFC"));
+  const texto = textos.join("\n");
+  // Onde começa cada unidade (página ou parte) depois da primeira, no texto juntado.
+  const fronteiras = textos.slice(0, -1).map((_, i) => textos.slice(0, i + 1).join("\n").length + 1);
+  const titulos = titulosDeSecao(texto, () => 0);
   const comparavel = dobrado(texto);
   const lidos = formulasDoFecho(registro.tribunal).flatMap(({ formula, orgao }) =>
     [...comparavel.matchAll(formula)].flatMap((m) => {
-      const nome = orgao ?? texto.slice(...m.indices![1]).replace(/\s+/g, " ");
+      if (!fechoDoProprioAcordao(texto, titulos, m.index)) return [];
+      const [inicio, fim] = m.indices![1] ?? m.indices![0];
+      // Nome que cruza a fronteira de unidade pode ter engolido cabeçalho ou rodapé da página: silêncio.
+      if (fronteiras.some((f) => inicio < f && f < fim)) return [];
+      const nome =
+        orgao ??
+        texto
+          .slice(inicio, fim)
+          .replace(/(\p{L})-[ \t]*\n\s*(?=\p{Ll})/gu, "$1")
+          .replace(/\s+/g, " ");
       const lido = lerOrgao(nome);
       return lido ? [{ nome, lido }] : [];
     }),

@@ -1000,9 +1000,57 @@ describe("órgão julgador no fecho × órgão do registro (G-13)", () => {
     expect(avisoDeOrgaoDoFecho(leitura, { tribunal: "trt15", orgao: "1ª Câmara Cível" })).toBeUndefined();
   });
 
-  /** PDF de uma página com um voto genérico e o fecho dado (fórmula genérica do tribunal, sem nome real). */
+  /** PDF de uma página com o fecho dado no acórdão (fórmula genérica do tribunal, sem nome real) e um voto genérico. */
   const comFecho = (...fecho: string[]) =>
-    lerPdf(pdfSintetico([["VOTO", "Fundamentacao generica do relator.", ...fecho]]));
+    lerPdf(pdfSintetico([["ACORDAO", ...fecho, "VOTO", "Fundamentacao generica do relator."]]));
+  const ENCHER = "Texto ficticio de enchimento do inteiro teor, em linguagem comum e sem dado real, para a pagina contar como lida.";
+
+  it.each([
+    ["7ª Câmara de Direito Privado", undefined],
+    ["7ª Câmara de Direito Público", 'o fecho do acórdão diz "7ª Camara de Direito Privado"'],
+  ])("ligado, nome do órgão com hífen de fim de linha (\"Pri-\" / \"vado\"): a palavra se junta (registro %s)", async (orgao, esperado) => {
+    const leitura = await comFecho(
+      "ACORDAM, em sessao permanente e virtual da 7ª Camara de Direito Pri-",
+      "vado do Tribunal de Justica, proferir a seguinte decisao.",
+    );
+    const aviso = avisoDeOrgaoDoFecho(leitura, { tribunal: "tjsp", orgao }, true);
+    if (esperado) expect(aviso).toContain(esperado);
+    else expect(aviso).toBeUndefined();
+  });
+
+  it("ligado, nome do órgão que cruza a quebra de página (cabeçalho no meio): silêncio", async () => {
+    const leitura = await lerPdf(
+      pdfSintetico([
+        ["ACORDAO", ENCHER, "ACORDAM, em sessao permanente e virtual da 7ª Camara de Direito"],
+        ["PODER JUDICIARIO", "Privado do Tribunal de Justica, proferir a seguinte decisao.", ENCHER],
+      ]),
+    );
+    expect(avisoDeOrgaoDoFecho(leitura, { tribunal: "tjsp", orgao: "7ª Câmara de Direito Privado" }, true)).toBeUndefined();
+  });
+
+  it.each([
+    ["no relatório", ["RELATORIO", "Trata-se de recurso contra acordao que decidiu assim.", "Acordam os Magistrados da 9ª Turma do Tribunal, por maioria."]],
+    ["no voto", ["VOTO", "O precedente generico concluiu de outro modo.", "Acordam os Magistrados da 9ª Turma do Tribunal, por maioria."]],
+    ["entre aspas", ["EMENTA", "Conforme precedente generico, \"Acordam os Magistrados da 9ª Turma do Tribunal, por maioria.\""]],
+  ])("ligado, fecho de outro julgado transcrito %s não conta: vale só o fecho do acórdão", async (_caso, transcrito) => {
+    const leitura = await lerPdf(
+      pdfSintetico([
+        ["ACORDAO", "Acordam os Magistrados da 3ª Turma do Tribunal, por unanimidade.", ENCHER],
+        [...transcrito, ENCHER],
+      ]),
+    );
+    expect(avisoDeOrgaoDoFecho(leitura, { tribunal: "trt2", orgao: "3ª Turma" }, true)).toBeUndefined();
+    expect(avisoDeOrgaoDoFecho(leitura, { tribunal: "trt2", orgao: "1ª Turma" }, true)).toContain(
+      'o fecho do acórdão diz "3ª Turma"',
+    );
+  });
+
+  it("ligado, só fecho de outro julgado (no relatório): nada (silêncio)", async () => {
+    const leitura = await lerPdf(
+      pdfSintetico([["RELATORIO", "Trata-se de recurso contra acordao que decidiu assim.", "Acordam os Magistrados da 9ª Turma do Tribunal, por maioria."]]),
+    );
+    expect(avisoDeOrgaoDoFecho(leitura, { tribunal: "trt2", orgao: "1ª Turma" }, true)).toBeUndefined();
+  });
 
   it.each([
     [
