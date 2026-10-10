@@ -255,3 +255,20 @@ export function montarRodada(
   const palavras = embaralhar(teses, semente + 2).map((t) => consultaDeTese(t, "palavras"));
   return { semente, teto, principais, palavras, reserva: teto - principais.length };
 }
+
+/**
+ * Trava da rodada ao vivo, sem rede e sem tocar o disco (quem lê a pasta passa `existe`). Devolve o motivo da recusa,
+ * ou undefined se pode rodar. A rodada custa até TETO_DE_CHAMADAS chamadas ao site: só sai com pasta escolhida de
+ * propósito (`--saida`), com `--ao-vivo`, e numa pasta que ainda não tenha plano.json nem gravacao/ (o plano é gravado
+ * antes da 1ª chamada, então a pasta de uma rodada interrompida também recusa).
+ */
+export function recusaDaRodada(
+  opcoes: { saida?: string; aoVivo: boolean },
+  existe: (caminhoRelativo: string) => boolean,
+): string | undefined {
+  if (!opcoes.saida) return "informe a pasta de gravação com --saida <pasta>: a rodada faz chamadas de verdade ao site.";
+  if (!opcoes.aoVivo) return "falta --ao-vivo: a rodada faz até " + TETO_DE_CHAMADAS + " chamadas de verdade ao site.";
+  if (existe("plano.json") || existe("gravacao"))
+    return "a pasta já tem plano.json ou gravacao/ (rodada feita ou interrompida). A rodada é feita uma vez só; use outra pasta só se o dono mandar.";
+  return undefined;
+}

@@ -28,7 +28,7 @@ o teto de chamadas foi de 80 na rodada inteira (decisão conservadora do piloto,
 | 429 / 503 / 403 / recusa | **0** (nenhuma nova tentativa foi necessária; o disjuntor ficou fechado) |
 | Espaçamento | 1 chamada por vez, 10 s entre uma e outra, sem paralelismo próprio |
 | Antes de rodar | estado de proteção lido sem erro; o serviço do JurisprudênciaIA não estava pausado (só o TJTO tinha pausa antiga, de outro serviço); nenhum outro pane da missão fazia rede |
-| Semente do sorteio dos temas | `20261010` (`scripts/montarRodadaDeProvas.ts`); mesma semente, mesma amostra |
+| Semente do sorteio dos temas | `20261010` (`scripts/montarRodadaDeProvas.ts`); mesma semente e mesmas tabelas (commit da branch), mesma amostra |
 
 Divisão das 78: 24 temas + 21 teses × técnica + 21 teses × leiga = 66 principais; 3 verificações pelo número; 9 buscas "só
 palavras" com a sobra do teto (teses 2, 4, 5, 10, 14, 16, 17, 18 e 21, na ordem do sorteio). **As outras 12 teses não
@@ -39,7 +39,7 @@ têm a linha "só palavras"**: o teto acabou. As gravações cruas ficam em `ban
 Como: amostra de temas com tese firmada e **um único** processo paradigma legível na tabela oficial (STJ: tema repetitivo e
 IAC; STF: repercussão geral), busca **pelo texto da tese firmada** (cortado em palavra inteira em 300 caracteres; 10 das 24
 teses foram cortadas) no tribunal do tema, com `limite` 100. "No topo" = entre os 10 primeiros. Quando o paradigma não
-apareceu, **uma segunda busca pelo número do processo** (o site a reconhece como busca por classe e número) separa
+apareceu, **uma segunda busca pelo número do processo** (no STJ, os 2 casos medidos mostram o site tratando-a como busca por classe e número; no STF não vale, ver abaixo) separa
 "não indexado" de "fora do que a busca devolveu".
 
 | Tribunal | Temas | No topo (1–10) | Dentro de 100, fora do topo | Ausente da busca por tese **e** do número | Média de acórdãos devolvidos |
@@ -50,8 +50,10 @@ apareceu, **uma segunda busca pelo número do processo** (o site a reconhece com
 - **Fora do topo (1 caso, STJ):** o paradigma veio na posição 16 de 100 (Tema 687, `REsp 1358281`). É o único caso em
   que "caiu para fora do topo" é o que aconteceu.
 - **"Não indexado" (3 casos):** STJ Tema 143 (`REsp 1111002`) e Tema 181 (`REsp 1112884`); STF RG 141 (`RE 572921`). Em
-  todos, a busca pela tese não trouxe o acórdão e a busca pelo número, que o site tratou como "classe-número", trouxe outros
-  acórdãos (ou um só, de outro número), nunca o paradigma. **Isto é inferência, não prova**: indica que o site não tem o
+  todos, a busca pela tese não trouxe o acórdão. No STJ (Temas 143 e 181) a busca pelo número, que o site tratou como
+  "classe-número", trouxe outros acórdãos (ou um só, de outro número), nunca o paradigma. No STF (RG 141, gravação 069) o
+  paradigma `RE 572921` veio no bloco `rg`, como registro de repercussão geral (Tema 141), **não como acórdão**; não há
+  prova de que o acórdão do `RE 572921` esteja na base. **Isto é inferência, não prova**: indica que o site não tem o
   acórdão sob aquele número, mas não exclui que o tenha sob outro número ou classe. Marcado **não verificado** (conferir
   no portal do tribunal).
 - **STF: o "topo" quase não discrimina.** O site devolve em média 3,75 acórdãos por busca no STF (2 a 7, como já medido),

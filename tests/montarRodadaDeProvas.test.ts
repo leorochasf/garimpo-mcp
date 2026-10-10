@@ -8,6 +8,7 @@ import {
   lerTeses,
   montarRodada,
   posicaoDoParadigma,
+  recusaDaRodada,
   tribunalDaTese,
   consultaDeVerificacao,
   TAMANHO_MAXIMO_DA_BUSCA,
@@ -173,5 +174,20 @@ describe("teses do banco de provas (documento)", () => {
     expect(tribunalDaTese("STF, STJ, TJs")).toBe("stj");
     expect(tribunalDaTese("TJs")).toBe("stj");
     expect(tribunalDaTese("STF, TST, TRTs")).toBe("tst");
+  });
+});
+
+describe("trava da rodada ao vivo (sem rede, sem executar o fetch)", () => {
+  const nada = () => false;
+  it("sem --saida ou sem --ao-vivo recusa", () => {
+    expect(recusaDaRodada({ aoVivo: true }, nada)).toMatch(/--saida/);
+    expect(recusaDaRodada({ saida: "p", aoVivo: false }, nada)).toMatch(/--ao-vivo/);
+  });
+  it("pasta com plano.json (rodada interrompida antes do fim) ou gravacao/ recusa, mesmo sem estado.json", () => {
+    expect(recusaDaRodada({ saida: "p", aoVivo: true }, (c) => c === "plano.json")).toMatch(/uma vez só/);
+    expect(recusaDaRodada({ saida: "p", aoVivo: true }, (c) => c === "gravacao")).toMatch(/uma vez só/);
+  });
+  it("pasta explícita, --ao-vivo e pasta virgem: pode rodar", () => {
+    expect(recusaDaRodada({ saida: "p", aoVivo: true }, nada)).toBeUndefined();
   });
 });

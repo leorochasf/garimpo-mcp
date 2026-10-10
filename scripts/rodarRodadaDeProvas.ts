@@ -4,7 +4,8 @@
  * UMA nova tentativa, recusa final = disjuntor aberto para todas as janelas). Sem paralelismo próprio: uma chamada por
  * vez, espaçada. Rode UMA vez, sozinho, com nenhum outro programa fazendo rede.
  *
- * Uso: npx vite-node scripts/rodarRodadaDeProvas.ts -- --saida <pasta>
+ * Uso: npx vite-node scripts/rodarRodadaDeProvas.ts -- --saida <pasta> --ao-vivo
+ * (sem os dois, recusa; pasta com plano.json ou gravacao/ também recusa — ver recusaDaRodada).
  *
  * Teto: 80 chamadas ao site na rodada inteira, contando a nova tentativa de 429/503 (decisão do piloto). Fora do teto
  * nada sai: a trava está no fetch embrulhado, não só na lista. Ordem: temas da amostra → teses (técnica e leiga) →
@@ -30,11 +31,11 @@ import {
   lerTeses,
   montarRodada,
   posicaoDoParadigma,
+  recusaDaRodada,
   TOPO,
 } from "./montarRodadaDeProvas.js";
 
-/** Só o teste de fumaça sem rede encurta isto (GARIMPO_RODADA_ESPACO_MS); na rodada de verdade vale 10 s. */
-const ESPACO_ENTRE_CHAMADAS_MS = Number(process.env.GARIMPO_RODADA_ESPACO_MS ?? 10_000);
+const ESPACO_ENTRE_CHAMADAS_MS = 10_000;
 const MARGEM_DO_TETO = 2;
 const PERMITIDA = /^https:\/\/www\.jurisprudenciaia\.com\.br\/api\/tribunais\/(stj|stf|tst|tse)\/search$/;
 
@@ -42,12 +43,14 @@ const arg = (nome: string) => {
   const i = process.argv.indexOf(nome);
   return i < 0 ? undefined : process.argv[i + 1];
 };
-const saida = resolve(arg("--saida") ?? "banco-de-provas-resultados/b15-21");
+const pasta = arg("--saida");
+const saida = resolve(pasta ?? ".");
 const dormir = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const gravar = (caminho: string, valor: unknown) => writeFileSync(caminho, JSON.stringify(valor, null, 1));
 
-if (existsSync(join(saida, "estado.json"))) {
-  console.error(`Já existe uma rodada em ${saida}. A rodada é feita uma vez só; apague à mão se quiser refazer.`);
+const recusa = recusaDaRodada({ saida: pasta, aoVivo: process.argv.includes("--ao-vivo") }, (c) => existsSync(join(saida, c)));
+if (recusa) {
+  console.error(`NÃO RODA: ${recusa}`);
   process.exit(1);
 }
 mkdirSync(join(saida, "gravacao"), { recursive: true });
@@ -101,6 +104,7 @@ async function gravador(url: string | URL | Request, init: RequestInit = {}): Pr
   if (!m) throw new Error(`rodarRodadaDeProvas: chamada fora da busca do site bloqueada: ${u}`);
   if (chamadas >= rodada.teto) throw new Error(`rodarRodadaDeProvas: teto de ${rodada.teto} chamadas atingido; nada mais sai`);
   chamadas++;
+  gravar(join(saida, "estado.json"), { ...estado, parcial: true, chamadasAoSite: chamadas });
   const host = new URL(u).host;
   hosts.set(host, (hosts.get(host) ?? 0) + 1);
   const r: Registro = { seq: ++seq, consulta: consultaAtual, tribunal: m[1], corpoEnviado: String(init.body), inicio: new Date().toISOString() };
