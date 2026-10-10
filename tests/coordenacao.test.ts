@@ -170,7 +170,16 @@ describe("rede parada", { timeout: 90_000 }, () => {
 
   async function lerPdfLocal() {
     const caminho = join(pasta, "acordao.pdf");
-    await writeFile(caminho, pdfSintetico([["Texto do acordao de exemplo."]]));
+    // A 2ª linha leva a página acima do limiar de leitura: página com quase nenhum texto é página sem texto.
+    await writeFile(
+      caminho,
+      pdfSintetico([
+        [
+          "Texto do acordao de exemplo.",
+          "Fundamentacao generica de exemplo, com texto de sobra para a pagina contar como lida, sem dado real.",
+        ],
+      ]),
+    );
     const { cliente } = clienteNaPasta([]);
     const [ladoCliente, ladoServidor] = InMemoryTransport.createLinkedPair();
     await criarServidor(cliente).connect(ladoServidor);
