@@ -48,6 +48,18 @@ describe("paginação do Falcão: conferências (só detectam e avisam)", () => 
     expect(r.dado.cabecalhoDeCobertura).toMatch(/possivelmente incompleta/);
   });
 
+  it("mesmo identificador em outro tribunal não derruba o acórdão válido do tribunal pedido", async () => {
+    const { r } = await buscar(() =>
+      pagina([
+        documento({ idDocumentoAcordao: "123", tribunal: "TRT3", numeroProcesso: "0000001-00.2024.5.03.0001" }),
+        documento({ idDocumentoAcordao: "123", tribunal: "TRT2", numeroProcesso: "0000002-00.2024.5.02.0001" }),
+      ]),
+    );
+    expect(r.dado.acordaos.map((a: { id: string }) => a.id)).toEqual(["trt2:123"]);
+    expect(r.dado.avisos.join(" ")).toMatch(/1 registro\(s\) do Falcão descartado\(s\)/);
+    expect(r.dado.avisos.join(" ")).not.toMatch(/repetido/);
+  });
+
   it("busca inconsistente não é guardada: a repetição pergunta de novo à fonte", async () => {
     const { falcao, mcp } = await buscar((n) => pagina(dez(n), n === 0 ? 120 : 95));
     await chamar(mcp, "busca_direta", { tribunal: "trt2", texto: "horas extras", limite: 30 });

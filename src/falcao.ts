@@ -280,13 +280,15 @@ export async function buscaNoFalcao(
   };
 }
 
-/** Mesmo idDocumentoAcordao duas vezes: fica o primeiro; só conta e avisa, nunca pede de novo. */
+/** Mesmo tribunal e idDocumentoAcordao duas vezes: fica o primeiro; só conta e avisa, nunca pede de novo. */
 function tirarRepetidos(brutos: unknown[]): { unicos: unknown[]; repetidos: number } {
   const vistos = new Set<string>();
   const unicos: unknown[] = [];
   let repetidos = 0;
   for (const d of brutos) {
-    const id = texto((d as Bruto | null)?.idDocumentoAcordao);
+    const idDoc = texto((d as Bruto | null)?.idDocumentoAcordao);
+    // A chave leva o tribunal: o mesmo id de outro tribunal não pode esconder o acórdão válido que vem depois.
+    const id = idDoc === undefined ? undefined : `${texto((d as Bruto | null)?.tribunal)?.toLowerCase().replace(/\s+/g, "")}:${idDoc}`;
     if (id !== undefined && vistos.has(id)) {
       repetidos++;
       continue;
