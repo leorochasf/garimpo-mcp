@@ -17,6 +17,7 @@ import {
   RECUSAS_PARA_INDICIO,
 } from "./coordenacao.js";
 import { lerFiltrosLocais, listaJson } from "./filtroLocal.js";
+import { AVISO_CONTEUDO_OCULTO } from "./html.js";
 import { conferirNaEmenta, conferirNoInteiroTeor, conferirNoTextoIntegral, lerCitacao, naoVerificavel } from "./conferencia.js";
 import {
   type ClientePorTribunal,
@@ -780,7 +781,11 @@ export function criarServidor(
               t?.indicioDeCorte && noTexto.veredito !== "não verificável"
                 ? { aviso: `${AVISO_DE_CORTE} Uma citação "não encontrada" pode estar no trecho que faltou.` }
                 : {};
-            fontes.push({ fonte: "texto integral", id, origem: semTexto ? NATUREZA_SEM_TEXTO_INTEGRAL : NATUREZA_DO_TEXTO_INTEGRAL, ...noTexto, ...corte });
+            const avisos = [(corte as { aviso?: string }).aviso, t?.conteudoOculto ? AVISO_CONTEUDO_OCULTO : undefined].filter(Boolean);
+            fontes.push({
+              fonte: "texto integral", id, origem: semTexto ? NATUREZA_SEM_TEXTO_INTEGRAL : NATUREZA_DO_TEXTO_INTEGRAL, ...noTexto,
+              ...(avisos.length > 0 && { aviso: avisos.join(" ") }),
+            });
           }
         }
         if (caminho !== undefined) {

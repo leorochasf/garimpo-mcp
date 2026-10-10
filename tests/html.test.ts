@@ -57,4 +57,16 @@ describe("HTML → texto do Falcão", () => {
       expect(htmlComConteudoOculto(visivel), visivel).toBe(false);
     }
   });
+
+  it("detector de conteúdo oculto tem custo linear: etiquetas '<p' em massa dentro de um atributo não travam", () => {
+    const h = '<p data-x="' + "<p ".repeat(32000) + '">texto</p>';
+    const ini = performance.now();
+    htmlComConteudoOculto(h);
+    expect(performance.now() - ini).toBeLessThan(200);
+  });
+
+  it("detector acha o indício em etiqueta sem fechar '>' no fim e ignora '>' dentro de aspas", () => {
+    expect(htmlComConteudoOculto('<p title="a>b" hidden>x</p>')).toBe(true);
+    expect(htmlComConteudoOculto('<p title="hidden aria-hidden=true">x</p>')).toBe(false);
+  });
 });

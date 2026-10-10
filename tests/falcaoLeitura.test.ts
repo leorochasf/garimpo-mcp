@@ -88,6 +88,19 @@ describe("ler o texto integral de um TRT pelo id", () => {
     const r = await chamar(mcp, "ler_inteiro_teor", { id: ID });
     expect(r.dado.avisos.join(" ")).not.toMatch(/ocultos/);
   });
+  it("conferir_citacao: citar trecho oculto traz o aviso fixo; sem indício, não traz", async () => {
+    const html = "<p>Texto visivel do acordao ficticio.</p><p hidden>Trecho ficticio marcado oculto para citar.</p>";
+    const { mcp } = await comBusca(() => pagina([documento({ textoAcordao: html })]));
+    const r = await chamar(mcp, "conferir_citacao", { citacoes: [{ citacao: "Trecho ficticio marcado oculto para citar.", id: ID }] });
+    const texto = r.dado.resultados[0].fontes.find((f: { fonte: string }) => f.fonte === "texto integral");
+    expect(texto.veredito).toBe("encontrado literalmente");
+    expect(texto.aviso).toContain("O texto de origem tinha trechos marcados como ocultos; eles foram mantidos. Confira no portal antes de citar.");
+    const limpa = await comBusca();
+    const r2 = await chamar(limpa.mcp, "conferir_citacao", { citacoes: [{ citacao: "Fundamentação fictícia, com etiquetas aninhadas e entidades.", id: ID }] });
+    const t2 = r2.dado.resultados[0].fontes.find((f: { fonte: string }) => f.fonte === "texto integral");
+    expect(String(t2.aviso ?? "")).not.toMatch(/ocultos/);
+  });
+
   it("texto integral igual à ementa: ler_inteiro_teor devolve texto vazio, nunca a ementa como se fosse o acórdão", async () => {
     const { mcp } = await comBusca(() => pagina([documento({ textoAcordao: "<p>INTERVALO INTRAJORNADA. SUPRESSÃO PARCIAL. Texto fictício de ementa.</p>" })]));
     const r = await chamar(mcp, "ler_inteiro_teor", { id: ID });

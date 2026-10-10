@@ -73,7 +73,45 @@ export const AVISO_CONTEUDO_OCULTO =
  * mais ou para menos o aviso, nunca o texto.
  */
 export function htmlComConteudoOculto(html: string): boolean {
-  return /<[a-z][a-z0-9]*\b[^>]*(?:\shidden(?=[\s=>/])|\saria-hidden\s*=\s*["']?true\b|\sstyle\s*=\s*["'][^"']*(?:display\s*:\s*none|visibility\s*:\s*hidden))/i.test(
-    html,
-  );
+  // Uma varredura só, da esquerda para a direita: cada etiqueta é lida uma vez, atributo por atributo, e a leitura
+  // retoma onde ela terminou. Sem regex que reexamine o resto do texto a cada "<".
+  const n = html.length;
+  const espaco = (c: string) => /\s/.test(c);
+  let i = 0;
+  while (i < n) {
+    const abre = html.indexOf("<", i);
+    if (abre < 0 || abre + 1 >= n) return false;
+    i = abre + 1;
+    if (!/[a-z]/i.test(html[i])) continue;
+    while (i < n && !espaco(html[i]) && html[i] !== ">" && html[i] !== "/") i++;
+    while (i < n && html[i] !== ">") {
+      if (espaco(html[i]) || html[i] === "/") {
+        i++;
+        continue;
+      }
+      const iniNome = i;
+      while (i < n && !espaco(html[i]) && html[i] !== "=" && html[i] !== ">" && html[i] !== "/") i++;
+      const nome = html.slice(iniNome, i).toLowerCase();
+      while (i < n && espaco(html[i])) i++;
+      let valor = "";
+      if (html[i] === "=") {
+        i++;
+        while (i < n && espaco(html[i])) i++;
+        const aspa = html[i] === '"' || html[i] === "'" ? html[i] : "";
+        if (aspa) {
+          const fim = html.indexOf(aspa, i + 1);
+          valor = html.slice(i + 1, fim < 0 ? n : fim);
+          i = fim < 0 ? n : fim + 1;
+        } else {
+          const ini = i;
+          while (i < n && !espaco(html[i]) && html[i] !== ">") i++;
+          valor = html.slice(ini, i);
+        }
+      }
+      if (nome === "hidden") return true;
+      if (nome === "aria-hidden" && /^true\b/i.test(valor)) return true;
+      if (nome === "style" && /display\s*:\s*none|visibility\s*:\s*hidden/i.test(valor)) return true;
+    }
+  }
+  return false;
 }
