@@ -427,6 +427,7 @@ function fonteDoInteiroTeor(leitura: InteiroTeorParaConferir): FonteDoInteiroTeo
   };
   const marcas = marcasDoJulgado(texto, (i) => unidadeEm(i).pagina);
   const { titulos } = marcas;
+  let proclamado: string | undefined;
   return {
     texto,
     unidades,
@@ -447,7 +448,8 @@ function fonteDoInteiroTeor(leitura: InteiroTeorParaConferir): FonteDoInteiroTeo
     },
     secao: (a, b) => nomeDaSecao(secoesEm(titulos, a, b)),
     subparte: (a, b) => subparteEm(marcas, a, b),
-    sinal: (a, b, ligados) => sinalNoInteiroTeor(texto, a, b, secoesEm(titulos, a, b), ligados),
+    sinal: (a, b, ligados) =>
+      sinalNoInteiroTeor(texto, a, b, secoesEm(titulos, a, b), ligados, (proclamado ??= proclamacao(texto, titulos))),
     // Sem caixa e pontuação, o hífen de fim de linha viraria espaço e a palavra partida passaria por pontuação.
     soltaAceita: (a, b) => !HIFEN_DE_FIM_DE_LINHA.test(texto.slice(a, b)),
     cadeiaAceita: (a, b) => unidadeEm(b - 1).pagina - unidadeEm(a).pagina < MAXIMO_DE_PAGINAS_DA_SUPRESSAO,
@@ -566,6 +568,22 @@ const NAO_UNANIME = palavra([
   "vencid[oa]s?\\s+(?:o|a|os|as)\\s+(?:eminente|relator|relatora|desembargador|desembargadora|ministro|ministra|ju[ií]z|ju[ií]za)",
 ]);
 
+/** Abreviaturas comuns no fecho ("Exmos. Srs. Des."), cujo ponto não fecha a frase. */
+const FRASE_DO_FECHO =
+  /(?<![\p{L}\p{N}])acordam?(?![\p{L}\p{N}])(?:[^.!?]|\.(?<=(?<![\p{L}\p{N}])(?:exm[oa]s?|srs?|sras?|des|desa|min|dra?|rel)\.)){0,400}/giu;
+
+/**
+ * A proclamação do julgamento deste acórdão: o texto das seções de certidão e a frase do fecho ("Acordam…"). A
+ * votação de precedentes citados no corpo ("foi decidido por maioria") fica de fora.
+ */
+function proclamacao(texto: string, titulos: TituloDeSecao[]): string {
+  const certidoes = titulos.flatMap((t, k) =>
+    t.secao === "certidão" ? [texto.slice(t.inicio, titulos[k + 1]?.inicio ?? texto.length)] : [],
+  );
+  const fechos = [...texto.normalize("NFC").matchAll(FRASE_DO_FECHO)].map((m) => m[0]);
+  return [...certidoes, ...fechos].join("\n");
+}
+
 /** Marcas de raciocínio hipotético: só localizam a passagem, nunca dizem o que ela é. */
 const HIPOTESE = palavra([
   "(?:ainda|mesmo)\\s+que\\s+assim\\s+n[aã]o\\s+fosse",
@@ -600,6 +618,7 @@ function sinalNoInteiroTeor(
   b: number,
   secoes: Secoes,
   ligados: SinaisDeQuemDisse,
+  proclamado: string,
 ): string | undefined {
   const sinais: string[] = [];
   const fortes = secoes.titulos.flatMap((t) => {
@@ -636,7 +655,7 @@ function sinalNoInteiroTeor(
   const inicioDaSecao = secoes.identificada ? secoes.titulos[0].inicio : 0;
   const divergencia =
     ligados.divergencia && ultima(texto.slice(Math.max(inicioDaSecao, a - JANELA_DA_DIVERGENCIA), b), DIVERGENCIA);
-  if (divergencia && !(texto.search(UNANIME) >= 0 && texto.search(NAO_UNANIME) < 0)) {
+  if (divergencia && !(proclamado.search(UNANIME) >= 0 && proclamado.search(NAO_UNANIME) < 0)) {
     sinais.push(
       `antes da passagem ou nela há a fórmula de divergência "${divergencia}", e o acórdão não se diz unânime: pode ser de ` +
         "um voto divergente sem título",

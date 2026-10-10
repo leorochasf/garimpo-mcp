@@ -793,6 +793,39 @@ describe("conferência de citação — sinais de \"quem disse\" (G-08), desliga
     expect(sinal(r)).toMatch(/fórmula de divergência "venia para divergir"/);
   });
 
+  it("divergência ligada: \"por maioria\" de precedente citado não conta; vale a proclamação unânime da certidão", () => {
+    const r = conferirNoInteiroTeor(
+      inteiroTeor([
+        "VOTO\nDivirjo da sentenca, pois o prazo generico e de cinco anos. O precedente citado foi decidido por maioria.",
+        "CERTIDÃO DE JULGAMENTO\nCertifico que a Turma, por unanimidade, deu provimento ao recurso.",
+      ]),
+      citar("o prazo generico e de cinco anos"),
+      so("divergencia"),
+    );
+    expect(sinal(r)).toBeUndefined();
+  });
+
+  it("divergência ligada: fecho com abreviaturas (\"Exmos. Srs.\") ainda é lido inteiro até \"por unanimidade\"", () => {
+    const r = conferirNoInteiroTeor(
+      inteiroTeor([
+        "VOTO\nDivirjo da sentenca, pois o prazo generico e de cinco anos. O precedente citado foi decidido por maioria.\n" +
+          "Acordam os Exmos. Srs. Desembargadores da Turma, por unanimidade, em dar provimento.",
+      ]),
+      citar("o prazo generico e de cinco anos"),
+      so("divergencia"),
+    );
+    expect(sinal(r)).toBeUndefined();
+  });
+
+  it("divergência ligada: \"por unanimidade\" de precedente citado não faz o acórdão se dizer unânime", () => {
+    const r = conferirNoInteiroTeor(
+      inteiroTeor(["VOTO\nDivirjo, pois o prazo generico e de cinco anos. O precedente citado foi decidido por unanimidade."]),
+      citar("o prazo generico e de cinco anos"),
+      so("divergencia"),
+    );
+    expect(sinal(r)).toMatch(/fórmula de divergência "Divirjo", e o acórdão não se diz unânime/);
+  });
+
   it("divergência ligada: acórdão unânime com a palavra \"divergência\" não vira sinal (só o aviso do relatório)", async () => {
     const leitura = await lerPdf(pdfUnanimeComDivergencia());
     const r = conferirNoInteiroTeor(leitura, citar("Ha divergencia na jurisprudencia sobre o tema"), so("divergencia"));
