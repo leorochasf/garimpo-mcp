@@ -245,11 +245,23 @@ function linhasDeSumulas(tipo: TipoNoStf, a: ArquivoDoMantenedor): LinhaDoStf[] 
 }
 
 function paginaDeSumula(p: ArquivoDoMantenedor): { tipo: TipoNoStf; numero: number; enunciado: string } {
-  const m = p.bytes.toString("utf8").match(/<div class="titulo">([\s\S]*?)<\/div>\s*<div class="parCOM">([\s\S]*?)<\/div>/);
+  const html = p.bytes.toString("utf8");
+  const m = html.match(/<div class="titulo">([\s\S]*?)<\/div>\s*<div class="parCOM">/);
   const rotulo = m && textoDeHtml(m[1]).match(ROTULO);
-  const enunciado = m && textoDeHtml(m[2]);
+  const conteudo = m && conteudoDoDiv(html, m.index! + m[0].length);
+  const enunciado = conteudo && textoDeHtml(conteudo);
   if (!rotulo || !enunciado) throw new ParadaDoGerador(`${p.nome}: não é a página de uma súmula do STF na forma esperada.`);
   return { tipo: rotulo[1] ? "súmula vinculante" : "súmula", numero: Number(rotulo[2]), enunciado };
+}
+
+/** O conteúdo de um <div> aberto logo antes de `inicio`, até o </div> que o fecha (divs filhos contados); sem ele, undefined. */
+function conteudoDoDiv(html: string, inicio: number): string | undefined {
+  let nivel = 1;
+  for (const t of html.slice(inicio).matchAll(/<(\/?)div\b[^>]*>/gi)) {
+    nivel += t[1] ? -1 : 1;
+    if (nivel === 0) return html.slice(inicio, inicio + t.index);
+  }
+  return undefined;
 }
 
 /** Campo vazio fica de fora da linha: a consulta diz que a fonte não informa. */

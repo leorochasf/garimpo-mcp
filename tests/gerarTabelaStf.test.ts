@@ -115,6 +115,21 @@ describe("gerador da tabela do STF — súmulas e súmulas vinculantes (telas sa
     expect(linha(tabela, "súmula", 2)!.enunciado).toBeUndefined();
   });
 
+  it("enunciado com elemento filho: o texto depois do filho fechado continua no enunciado", () => {
+    const pagina = arquivo(
+      "sumulas/sumula-1.html",
+      Buffer.from(
+        '<div class="titulo">Súmula 1</div>\n<div class="parCOM"><div>Primeira parte fictícia.</div> Segunda parte fictícia.</div>\n' +
+          '<div class="titulo">Observação</div><div class="parCOM">Observação fictícia.</div>',
+      ),
+    );
+    expect(linha(gerarTabelaStf(entrada({ paginasDeSumula: [pagina] }), GERADA), "súmula", 1)!.enunciado).toBe(
+      "Primeira parte fictícia.\nSegunda parte fictícia.",
+    );
+    const semFechar = arquivo("sumulas/sumula-1.html", Buffer.from('<div class="titulo">Súmula 1</div><div class="parCOM"><div>Parte fictícia.</div>'));
+    expect(() => gerarTabelaStf(entrada({ paginasDeSumula: [semFechar] }), GERADA)).toThrow(ParadaDoGerador);
+  });
+
   it("para em item da lista com rótulo fora da forma, em lista trocada e em página de súmula fora da lista", () => {
     const troca = (nome: string, de: string, para: string) =>
       arquivo(nome, Buffer.from(gravado(nome).toString("utf8").replace(de, para)));
