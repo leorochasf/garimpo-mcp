@@ -915,7 +915,7 @@ export function criarServidor(
         "fonte informou), as recusas e retomadas das últimas 24 h (sem termo de busca nem número de processo) e se há " +
         "indício de recusa sistemática (esperar não resolve) ou se parece rajada (a pausa costuma passar). Avisa também " +
         "quando a rede está parada e quando esta janela não conseguiu gravar uma recusa. Use quando uma chamada falhar " +
-        "por recusa ou pausa, antes de tentar de novo.",
+        "por recusa ou pausa, antes de decidir se tenta de novo.",
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
       inputSchema: {},
     },
