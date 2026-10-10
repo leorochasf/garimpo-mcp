@@ -762,7 +762,7 @@ interface TituloDeSecao {
 interface TitulosAchados {
   titulos: TituloDeSecao[];
   transcricoes: number[];
-  /** Intervalos [início, fim) de transcrição aberta e ainda não fechada com segurança: a seção neles é ambígua. */
+  /** Intervalos [início, fim) de cada indício de transcrição até o fecho das aspas (ou o fim do voto): a seção neles é ambígua. */
   ambiguos: [number, number][];
 }
 
@@ -799,29 +799,66 @@ function ehLinhaDeCorpo(linha: string): boolean {
   return palavras >= PALAVRAS_DE_CORPO_SEGURO || !CARA_DE_CABECALHO.test(linha);
 }
 
-/** Linha que devolve o texto ao voto depois de uma decisão transcrita: "Retomando…", "Voltando ao caso…" ou fecho de aspas. */
-const RETOMADA_DO_VOTO = /^(?:retomando|voltando\s+ao\s+caso|no\s+caso\s+dos\s+autos)\b|[”»"][ \t]*$/iu;
-
 /** Seções que um "EMENTA" ou "ACÓRDÃO" sozinho na linha não fecha: é a transcrição de outra decisão dentro delas. */
 const TRANSCREVEM_DECISOES: Secao[] = ["relatório", "voto vencido"];
 
+/** Anúncio de transcrição que o ANUNCIA_TRANSCRICAO não pega: "assim decidiu:", "assim dispôs:". */
+const ANUNCIA_DECISAO = /\bassim\s+(?:decidiu|disp(?:ô|o\p{M}?)s)\s*:/iu;
+
+/** Posição, na linha, do primeiro indício de transcrição: anúncio ou aspa que abre e não fecha na mesma linha. */
+function indicioNaLinha(linha: string): number | undefined {
+  const posicoes: number[] = [];
+  const anuncio = ANUNCIA_TRANSCRICAO.exec(`${linha}
+`) ?? ANUNCIA_DECISAO.exec(linha);
+  if (anuncio) posicoes.push(anuncio.index);
+  if (aspasAbertas(linha)) posicoes.push(linha.search(/[“«"]/u));
+  return posicoes.length ? Math.min(...posicoes) : undefined;
+}
+
+/**
+ * Onde acaba, a partir de `inicio`, o intervalo ambíguo de uma transcrição: no fecho das aspas que abriram depois do
+ * indício (contadas por nível, só “ ” e « »), ou no fim da seção se não abriram, não fecharam ou são aspas retas
+ * (que não se casam). Aspas aninhadas não são interpretadas: sem fechamento claro, ambíguo até o fim da seção.
+ */
+function fimDoIntervalo(texto: string, inicio: number, fimDaSecao: number): number {
+  let nivel = 0;
+  for (let i = inicio; i < fimDaSecao; i++) {
+    const c = texto[i];
+    if (c === '"') return fimDaSecao;
+    if (c === "“" || c === "«") nivel++;
+    else if ((c === "”" || c === "»") && nivel > 0 && --nivel === 0) return i + 1;
+  }
+  return fimDaSecao;
+}
+
 /**
  * Os títulos de seção do PDF, em ordem: só a linha que é inteira um dos títulos fixos — em maiúsculas ou só com a 1ª
- * letra maiúscula ("Voto vencido") —, sem nada depois além de ":" (ponto final não: "NULIDADE DO\nRELATÓRIO." é fim
+ * letra maiúscula ("Voto vencido") —, sem nada depois além de ":" (ponto final não: "NULIDADE DO
+RELATÓRIO." é fim
  * de frase de ementa em maiúsculas, não título). Em maiúsculas, "VOTO VENCIDO" pode vir seguido do nome do julgador.
  * "Voto" ou "relatório" no corpo do texto não abrem seção. "EMENTA:" com o texto na mesma linha só abre a ementa
  * no começo do documento — 1º título, antes de qualquer linha de corpo que feche frase e sem a linha anterior
  * anunciar transcrição ("assim decidiu:", "in verbis"): fora disso, costuma ser a ementa de outro julgado transcrita.
+ *
+ * Transcrição, num voto: qualquer indício (anúncio, aspa que abre e não fecha na linha, "EMENTA"/"ACÓRDÃO" sozinho na
+ * linha depois de um indício) a torna suspeita. `transcricoes` guarda o 1º indício de cada voto, que tira a subparte
+ * do voto inteiro; `ambiguos` guarda de cada indício até o fecho das aspas (ou o fim do voto), onde a seção não se afirma.
  */
 function titulosDeSecao(texto: string, paginaEm: (i: number) => number): TitulosAchados {
   const titulos: TituloDeSecao[] = [];
   const transcricoes: number[] = [];
   const ambiguos: [number, number][] = [];
-  let transcrevendo = false;
-  let abertaEm = 0;
-  const fecha = (i: number) => {
-    if (transcrevendo) ambiguos.push([abertaEm, i]);
-    transcrevendo = false;
+  let indicios: number[] = [];
+  const fechaVoto = (fim: number) => {
+    if (!indicios.length) return;
+    transcricoes.push(indicios[0]);
+    let ate = 0;
+    for (const i of indicios) {
+      if (i < ate) continue;
+      ate = fimDoIntervalo(texto, i, fim);
+      ambiguos.push([i, ate]);
+    }
+    indicios = [];
   };
   let corpoAntes = false;
   let linhaDeAntes = "";
@@ -833,38 +870,38 @@ function titulosDeSecao(texto: string, paginaEm: (i: number) => number): Titulos
       !titulos.length &&
       !corpoAntes &&
       EMENTA_COM_TEXTO.test(titulo) &&
-      !ANUNCIA_TRANSCRICAO.test(`${linhaAnterior}\n`)
+      !ANUNCIA_TRANSCRICAO.test(`${linhaAnterior}
+`)
     ) {
       titulos.push({ inicio: m.index, secao: "ementa", titulo, pagina: paginaEm(m.index) });
       continue;
     }
     if (ehLinhaDeCorpo(titulo)) corpoAntes = true;
-    if (RETOMADA_DO_VOTO.test(titulo)) fecha(m.index);
-    if (titulo.length > 80) continue;
     const linha = titulo.normalize("NFC").replace(/\s*:$/, "");
     const maiusculas = /^[\p{Lu}\s-]+$/u.test(linha);
-    if (!maiusculas && !/^\p{Lu}[\p{Ll}\s-]+$/u.test(linha)) continue;
     const chave = semAcentos(linha.toUpperCase()).replace(/[\s-]/g, "");
-    const secao = SECOES[chave] ?? (maiusculas && chave.startsWith("VOTOVENCIDO") ? "voto vencido" : undefined);
-    if (!secao) continue;
+    const ehTitulo = titulo.length <= 80 && (maiusculas || /^\p{Lu}[\p{Ll}\s-]+$/u.test(linha));
+    const secao = ehTitulo ? SECOES[chave] ?? (maiusculas && chave.startsWith("VOTOVENCIDO") ? "voto vencido" : undefined) : undefined;
     const anterior = titulos[titulos.length - 1];
-    if ((secao === "ementa" || secao === "acórdão") && anterior) {
-      if (TRANSCREVEM_DECISOES.includes(anterior.secao)) continue;
-      // No voto, o título só é transcrição se a linha de antes anuncia: sem o anúncio, segue valendo como título.
-      // Aberta a transcrição, os títulos seguintes ainda são dela até a retomada do voto.
-      if (VOTOS.includes(anterior.secao) && (transcrevendo || ANUNCIA_TRANSCRICAO.test(`${linhaAnterior}
-`))) {
-        if (!transcrevendo) abertaEm = m.index;
-        transcrevendo = true;
-        transcricoes.push(m.index);
-        continue;
+    if (secao) {
+      if ((secao === "ementa" || secao === "acórdão") && anterior) {
+        if (TRANSCREVEM_DECISOES.includes(anterior.secao)) continue;
+        // No voto, o título só vale como título se nenhum indício de transcrição apareceu antes nele.
+        if (VOTOS.includes(anterior.secao) && indicios.length) {
+          indicios.push(m.index);
+          continue;
+        }
       }
+      fechaVoto(m.index);
+      titulos.push({ inicio: m.index, secao, titulo, pagina: paginaEm(m.index) });
+      continue;
     }
-    fecha(m.index);
-    titulos.push({ inicio: m.index, secao, titulo, pagina: paginaEm(m.index) });
+    if (anterior && VOTOS.includes(anterior.secao)) {
+      const i = indicioNaLinha(m[0]);
+      if (i !== undefined) indicios.push(m.index + i);
+    }
   }
-  // Transcrição que nunca foi retomada: do começo dela ao fim do documento não há fechamento seguro.
-  fecha(Infinity);
+  fechaVoto(texto.length);
   return { titulos, transcricoes, ambiguos };
 }
 
@@ -962,21 +999,15 @@ function aspasAbertas(trecho: string): boolean {
 
 /**
  * A fórmula abre o dispositivo sem dúvida: começa parágrafo (no começo da linha, depois de linha em branco, de título
- * de seção ou de linha que fecha frase), nada nos 200 caracteres antes anuncia transcrição e não há aspas abertas
- * desde o começo da seção. Na dúvida, não: a
- * subparte é omitida, nunca adivinhada.
+ * de seção ou de linha que fecha frase). Voto com qualquer indício de transcrição nem chega aqui: não tem subparte.
+ * Na dúvida, não: a subparte é omitida, nunca adivinhada.
  */
-function inequivoca(texto: string, i: number, fimDeTitulo: Set<number>, titulos: TituloDeSecao[]): boolean {
+function inequivoca(texto: string, i: number, fimDeTitulo: Set<number>): boolean {
   const inicioDaLinha = texto.lastIndexOf("\n", i - 1);
   if (texto.slice(inicioDaLinha + 1, i).trim()) return false;
   const antes = texto.slice(0, Math.max(0, inicioDaLinha));
   const linhaAnterior = antes.slice(antes.lastIndexOf("\n") + 1);
-  const comecaParagrafo =
-    inicioDaLinha < 0 || !linhaAnterior.trim() || fimDeTitulo.has(inicioDaLinha) || FECHA_FRASE.test(linhaAnterior);
-  const janela = texto.slice(Math.max(0, i - 200), i);
-  // As aspas contam desde o início da seção: a transcrição longa abre muito antes dos 200 caracteres da janela.
-  const inicioDaSecao = titulos.filter((t) => t.inicio <= i).pop()?.inicio ?? 0;
-  return comecaParagrafo && !ANUNCIA_TRANSCRICAO.test(janela) && !aspasAbertas(texto.slice(inicioDaSecao, i));
+  return inicioDaLinha < 0 || !linhaAnterior.trim() || fimDeTitulo.has(inicioDaLinha) || FECHA_FRASE.test(linhaAnterior);
 }
 
 /**
@@ -1011,7 +1042,7 @@ function marcasDoJulgado(texto: string, paginaEm: (i: number) => number): Marcas
     dispositivos: [...texto.matchAll(DISPOSITIVO)].map((m) => ({
       inicio: m.index,
       inequivoca:
-        continuaDecidindo(texto, m.index + m[0].length) && inequivoca(texto, m.index, fimDeTitulo, titulos),
+        continuaDecidindo(texto, m.index + m[0].length) && inequivoca(texto, m.index, fimDeTitulo),
     })),
   };
 }

@@ -701,24 +701,21 @@ describe("conferência de citação — posição no julgado (G-09)", () => {
       inteiroTeor([pagina]),
       citar("a responsabilidade civil exige a demonstração do nexo causal"),
     );
-    const [{ secao, subparte }] = posicoes(r).posicoes;
-    expect(secao).toBe("voto");
-    expect(subparte).not.toBe("dispositivo");
-    expect([undefined, "fundamentação"]).toContain(subparte);
+    expect(posicoes(r).posicoes).toEqual([{ secao: undefined, subparte: undefined }]);
   });
 
   it.each([
     ["só a última fórmula vale: a primeira, seguida de outra, não abre o dispositivo",
-      `VOTO\nAnte o exposto na inicial, o autor insiste.\nNo merito, ${FRASE}.\nAnte o exposto, nego provimento.`, "fundamentação"],
-    ["fórmula depois de aspas abertas (transcrição) não abre o dispositivo",
-      `VOTO\nConsta da sentença: “Fundamentos genericos.\nAnte o exposto, ${FRASE}.”`, undefined],
-    ["fórmula depois de \"in verbis\" não abre o dispositivo",
-      `VOTO\nA sentença decidiu, in verbis.\nAnte o exposto, ${FRASE}.`, undefined],
+      `VOTO\nAnte o exposto na inicial, o autor insiste.\nNo merito, ${FRASE}.\nAnte o exposto, nego provimento.`, "voto", "fundamentação"],
+    ["fórmula entre aspas (transcrição): nem seção nem subparte",
+      `VOTO\nConsta da sentença: “Fundamentos genericos.\nAnte o exposto, ${FRASE}.”`, undefined, undefined],
+    ["fórmula depois de \"in verbis\": nem seção nem subparte (sem fecho claro, ambíguo até o fim do voto)",
+      `VOTO\nA sentença decidiu, in verbis.\nAnte o exposto, ${FRASE}.`, undefined, undefined],
     ["fórmula no meio da linha, depois de ponto, não abre o dispositivo",
-      `VOTO\nFundamentos genericos. Ante o exposto, ${FRASE}.`, undefined],
-  ])("%s", (_caso, pagina, subparte) => {
+      `VOTO\nFundamentos genericos. Ante o exposto, ${FRASE}.`, "voto", undefined],
+  ])("%s", (_caso, pagina, secao, subparte) => {
     const r = conferirNoInteiroTeor(inteiroTeor([pagina]), citar(FRASE));
-    expect(posicoes(r).posicoes).toEqual([{ secao: "voto", subparte }]);
+    expect(posicoes(r).posicoes).toEqual([{ secao, subparte }]);
   });
 
   /** A mesma página lida como PDF e como texto integral do Falcão: a posição tem de sair igual nas duas fontes. */
@@ -746,23 +743,49 @@ describe("conferência de citação — posição no julgado (G-09)", () => {
     it.each([
       ["ACÓRDÃO", "ACÓRDÃO\nAcordam os julgadores ficticios em negar provimento."],
       ["EMENTA", "EMENTA\nIII. Razões de decidir\n3. Os julgadores ficticios negaram provimento."],
-    ])("%s transcrita dentro do voto, depois de anúncio: não troca a seção nem dá subparte", (_titulo, transcrito) => {
+    ])("%s transcrita dentro do voto, depois de anúncio: sem seção nem subparte (sem fecho claro, ambíguo até o fim do voto)", (_titulo, transcrito) => {
       const pagina = `VOTO\nCito o precedente:\n${transcrito}\nRetomando o meu voto, ${FRASE}.\nAnte o exposto, nego provimento ao recurso.`;
-      expect(posicoes(conferir(pagina)).posicoes).toEqual([{ secao: "voto", subparte: undefined }]);
+      expect(posicoes(conferir(pagina)).posicoes).toEqual([{ secao: undefined, subparte: undefined }]);
     });
 
-    it("EMENTA seguida de ACÓRDÃO na mesma transcrição: o 2º título também é transcrito, a passagem fica no voto", () => {
+    it("EMENTA seguida de ACÓRDÃO na mesma transcrição: nenhum dos dois é título, sem seção nem subparte", () => {
       const pagina =
         `VOTO\nCito o precedente:\nEMENTA\nA tese do precedente tem diversos fundamentos.\nACÓRDÃO\n` +
         `Acordam os julgadores ficticios em negar provimento.\nRetomando o meu voto, ${FRASE}.\nAnte o exposto, nego provimento ao recurso.`;
+      expect(posicoes(conferir(pagina)).posicoes).toEqual([{ secao: undefined, subparte: undefined }]);
+    });
+
+    it("ACÓRDÃO depois de transcrição anunciada, mesmo com \"Retomando\" no meio: não vira título nem localiza", () => {
+      const pagina =
+        `VOTO\nCito o precedente:\nEMENTA\nO precedente define o conceito de "prescricao"\n` +
+        `ACÓRDÃO\nAcordam os julgadores ficticios: ${FRASE}.`;
+      expect(posicoes(conferir(pagina)).posicoes).toEqual([{ secao: undefined, subparte: undefined }]);
+    });
+
+    it("sentença longa entre aspas sem títulos: a citação dentro das aspas não recebe seção nem subparte", () => {
+      const pagina =
+        `VOTO\nTranscrevo a sentenca: “${SENTENCA_LONGA}\nA sentenca conclui que ${FRASE}.\nFundamentos adicionais.”\n` +
+        `Retomando o meu voto, discordo.\nAnte o exposto, nego provimento ao recurso.`;
+      expect(posicoes(conferir(pagina)).posicoes).toEqual([{ secao: undefined, subparte: undefined }]);
+    });
+
+    it("aspas retas internas no fim de linha dentro da transcrição: não fecham a transcrição antes da hora", () => {
+      const pagina =
+        `VOTO\nTranscrevo a sentenca: “Fundamentos genericos. A parte disse "nada"\n` +
+        `A sentenca conclui que ${FRASE}.\nFundamentos adicionais.”\nRetomando o meu voto, discordo.`;
+      expect(posicoes(conferir(pagina)).posicoes).toEqual([{ secao: undefined, subparte: undefined }]);
+    });
+
+    it("depois do fecho das aspas a seção volta, mas a subparte do voto com transcrição nunca existe", () => {
+      const pagina =
+        `VOTO\nTranscrevo a sentenca: “${SENTENCA_LONGA}\nAnte o exposto, julgo procedente o pedido.”\n` +
+        `Retomando o meu voto, ${FRASE}.\nAnte o exposto, nego provimento ao recurso.`;
       expect(posicoes(conferir(pagina)).posicoes).toEqual([{ secao: "voto", subparte: undefined }]);
     });
 
-    it("transcrição fechada pela retomada: ACÓRDÃO sem anúncio depois dela volta a valer como título", () => {
-      const pagina =
-        `VOTO\nCito o precedente:\nEMENTA\nA tese do precedente tem diversos fundamentos.\n` +
-        `Retomando o meu voto, a tese e outra.\nACÓRDÃO\nAcordam os julgadores ficticios: ${FRASE}.`;
-      expect(posicoes(conferir(pagina)).posicoes).toEqual([{ secao: "acórdão", subparte: undefined }]);
+    it("documento comum sem transcrição: voto com seção e dispositivo", () => {
+      const pagina = `VOTO\nFundamentos genericos.\nAnte o exposto, nego provimento: ${FRASE}.`;
+      expect(posicoes(conferir(pagina)).posicoes).toEqual([{ secao: "voto", subparte: "dispositivo" }]);
     });
 
     it("transcrição sem retomada seguida de ACÓRDÃO próprio: o trecho depois não é afirmado como voto", () => {
@@ -780,22 +803,9 @@ Ante o exposto, nego provimento ao recurso.`;
       expect(subparte).toBeUndefined();
     });
 
-    it("transcrição fechada por \"No caso dos autos\": o voto volta a ser afirmado", () => {
-      const pagina =
-        `VOTO
-Cito o precedente:
-EMENTA
-A tese do precedente tem diversos fundamentos.
-` +
-        `No caso dos autos, ${FRASE}.`;
-      expect(posicoes(conferir(pagina)).posicoes).toEqual([{ secao: "voto", subparte: undefined }]);
-    });
-
-    it("transcrição fechada e dispositivo próprio inequívoco depois dela: continua dispositivo", () => {
-      const pagina =
-        `VOTO\nTranscrevo a sentenca: “${SENTENCA_LONGA}\nAnte o exposto, julgo procedente o pedido.”\n` +
-        `Retomando o meu voto, a tese e outra.\nAnte o exposto, nego provimento: ${FRASE}.`;
-      expect(posicoes(conferir(pagina)).posicoes).toEqual([{ secao: "voto", subparte: "dispositivo" }]);
+    it("\"No caso dos autos\" não fecha transcrição sem aspas: sem seção até o fim do voto", () => {
+      const pagina = `VOTO\nCito o precedente:\nEMENTA\nA tese do precedente tem diversos fundamentos.\nNo caso dos autos, ${FRASE}.`;
+      expect(posicoes(conferir(pagina)).posicoes).toEqual([{ secao: undefined, subparte: undefined }]);
     });
   });
 
