@@ -38,7 +38,7 @@ Regras da lista:
 
 ## Versão leiga das teses (G-74)
 
-> Redigido por agente em 2026-10-10, **pendente de revisão do dono**. Escrito antes de olhar qualquer resultado
+> Redigido por agente em 2026-10-10. **O dono não revisou estas versões; em 2026-10-10 aceitou usá-las como estão.** Não valem como "revisadas pelo dono" (revisão pendente, se ele quiser fazê-la). Escrito antes de olhar qualquer resultado
 > gravado, sem consultar o site. A revisão não bloqueia a rodada de gravação: ela usa estas versões e marca os
 > resultados como "versão leiga ainda não revisada pelo dono"; se o dono mudar uma versão, só aquela tese é refeita.
 
