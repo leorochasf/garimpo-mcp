@@ -83,6 +83,23 @@ function conferirTribunais(...tribunais: (string | undefined)[]) {
   }
 }
 
+// Maior formulação gravada no banco de provas (rodadas 1 a 3, 202 itens, 65 distintos): 105 caracteres. O teto dá cerca
+// de 3 vezes essa folga e fica muito abaixo de um trecho de petição, que não deve ir ao site (CLAUDE.md, regra 2).
+const TETO_DA_FORMULACAO = 300;
+
+/** Junta espaços e quebras repetidos e recusa, com frase que ensina a corrigir, texto acima do teto. */
+function conferirFormulacao(texto: string): string {
+  const limpo = texto.replace(/\s+/g, " ").trim();
+  if (limpo.length > TETO_DA_FORMULACAO) {
+    throw new Error(
+      `A formulação tem ${limpo.length} caracteres e o teto é de ${TETO_DA_FORMULACAO} caracteres. A busca é por tese em abstrato: ` +
+        "resuma em palavras-chave (instituto, dispositivo legal, tema) e não cole trecho de petição, de decisão ou dos autos, " +
+        "nem dado do caso (nomes, números de processo, fatos).",
+    );
+  }
+  return limpo;
+}
+
 const filtros = {
   de: z.string().optional().describe("Data inicial, AAAA-MM-DD: data de juntada do acórdão nos TRTs, data de julgamento nas demais fontes"),
   ate: z.string().optional().describe("Data final, AAAA-MM-DD: data de juntada do acórdão nos TRTs, data de julgamento nas demais fontes"),
@@ -406,6 +423,7 @@ export function criarServidor(
       try {
         conferirTribunais(args.tribunal);
         conferirDatas(args);
+        args.texto = conferirFormulacao(args.texto);
         const r = await buscaDireta(site, args, memoria, { renovar, tabela, tabelaStf, falcao });
         return comAvisoNaturezaJuridica(
           { ...r, ...comATabela(r.qualificados.map((q) => ({ ...q, tribunal: r.tribunal }))) },
@@ -485,6 +503,7 @@ export function criarServidor(
       try {
         conferirTribunais(...args.tribunais);
         conferirDatas(args);
+        args.formulacoes = args.formulacoes.map(conferirFormulacao);
         const filtrosLocais = lerFiltrosLocais({ deveConter, naoPodeConter });
         const r = await buscaAmpla(site, { ...args, ...filtrosLocais }, memoria, { tabela, tabelaStf, falcao });
         return comAvisoNaturezaJuridica({ ...r, ...comATabela(r.qualificados, { curta: true }) }, args.tribunais);

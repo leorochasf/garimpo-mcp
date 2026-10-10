@@ -651,6 +651,47 @@ describe("erros que ensinam e listas como texto", () => {
     for (const r of respostas) expect(r.isError).toBe(true);
     expect(buscas).toEqual([]);
   });
+
+  // Maior formulação gravada no banco de provas: 105 caracteres (medição no ticket 25); o teto é 300.
+  const generica = (n: number) => "responsabilidade civil do estado por omissão ".repeat(20).slice(0, n).trim();
+
+  it("texto ou formulação acima do teto: erro que ensina a formular em abstrato, sem chamar o site", async () => {
+    const { site, buscas } = siteQueAnota();
+    const respostas = [
+      await chamar(site, "busca_direta", { tribunal: "stj", texto: generica(301) }),
+      await chamar(site, "busca_ampla", { formulacoes: ["responsabilidade civil", generica(301)], tribunais: ["stj"] }),
+    ];
+
+    for (const r of respostas) {
+      expect(r.isError).toBe(true);
+      expect(r.texto).toMatch(/300 caracteres/);
+      expect(r.texto).toMatch(/em abstrato/);
+      expect(r.texto).toMatch(/dados? do caso/);
+      expect(r.texto).not.toMatch(TECNICO);
+    }
+    expect(buscas).toEqual([]);
+  });
+
+  it("formulação legítima de 105 caracteres (a maior gravada) e a de exatamente 300 passam", async () => {
+    const { site, buscas } = siteQueAnota();
+    const r105 = await chamar(site, "busca_direta", { tribunal: "stj", texto: generica(105) });
+    const r300 = await chamar(site, "busca_ampla", { formulacoes: [generica(300)], tribunais: ["stj"] });
+
+    expect(r105.isError).toBeFalsy();
+    expect(r300.isError).toBeFalsy();
+    expect(buscas).toHaveLength(2);
+  });
+
+  it("espaços repetidos e quebras de linha são juntados antes de contar e antes de buscar", async () => {
+    const { site, buscas } = siteQueAnota();
+    const espalhado = "  responsabilidade   civil\n\n  do   estado  " + " ".repeat(400);
+    const r = await chamar(site, "busca_direta", { tribunal: "stj", texto: espalhado });
+    const a = await chamar(site, "busca_ampla", { formulacoes: [espalhado], tribunais: ["stj"] });
+
+    expect(r.isError).toBeFalsy();
+    expect(a.isError).toBeFalsy();
+    expect(buscas).toEqual(["stj: responsabilidade civil do estado", "stj: responsabilidade civil do estado"]);
+  });
 });
 
 describe("ler inteiro teor em partes (pela porta)", () => {
