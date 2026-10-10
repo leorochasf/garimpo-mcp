@@ -40,6 +40,8 @@ const CREDENCIAIS = [
   /\bxox[baprs]-[A-Za-z0-9-]{10,}/,
   /\bBearer\s+[A-Za-z0-9._~+/=-]{20,}/,
   /(?:password|senha|token|secret|api[_-]?key)["']?\s*[:=]\s*["'][^"'\s]{8,}["']/i,
+  // Sem aspas (YAML/.env): valor literal longo com algum dígito; referência a variável (${VAR}, $VAR, process.env, <modelo>) não conta.
+  /(?:password|senha|token|secret|api[_-]?key)["']?[ \t]*[:=][ \t]*(?![$<{"'\s]|process\.env)(?=[^\s#]*\d)[^\s#"']{12,}[ \t]*(?:#.*)?$/im,
 ];
 
 type Regra = "formato STJ" | "formato CNJ" | "número real conhecido" | "caminho local" | "e-mail" | "credencial";
@@ -47,10 +49,10 @@ type Regra = "formato STJ" | "formato CNJ" | "número real conhecido" | "caminho
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 
 /** Regras aplicadas a um texto; devolve só os nomes das regras violadas (nunca o valor). */
-function achar(texto: string): Regra[] {
+function achar(texto: string, cnjAprovados: ReadonlySet<string> = new Set()): Regra[] {
   const regras = new Set<Regra>();
   for (const m of texto.match(FORMATO_STJ) ?? []) if (!FICTICIO_STJ.test(m)) regras.add("formato STJ");
-  for (const m of texto.match(FORMATO_CNJ) ?? []) if (!FICTICIO_CNJ.test(m)) regras.add("formato CNJ");
+  for (const m of texto.match(FORMATO_CNJ) ?? []) if (!FICTICIO_CNJ.test(m) && !cnjAprovados.has(sha(m))) regras.add("formato CNJ");
   for (const m of texto.match(/\d[\d.]{4,}\d/g) ?? []) {
     if (REAIS_CONHECIDOS.has(sha(m.replace(/\./g, "")))) regras.add("número real conhecido");
   }
@@ -75,6 +77,9 @@ describe("achar (casos montados em memória, pedaços concatenados para o arquiv
     ["credencial", "AKIA" + "A".repeat(16)],
     ["credencial", "Bearer " + "a".repeat(30)],
     ["credencial", 'senha = "' + "x".repeat(10) + '"'],
+    ["credencial", "api_key: " + "abc123".repeat(4)],
+    ["credencial", "token=" + "Zx9".repeat(6) + "  # comentário"],
+    ["formato CNJ", "processo 3333333-" + "44.2022.8.09.0001"],
   ];
 
   for (const [regra, texto] of casos) {
@@ -87,9 +92,21 @@ describe("achar (casos montados em memória, pedaços concatenados para o arquiv
       "processo 0000000-00.2023.8.09.0001 ou 1234567-89.2020.4.01.3400",
       "contato: alguem@example.com, 12345+x@users.noreply.github.com",
       'const token = process.env.TOKEN; // sem valor em claro',
+      "api_key: ${API_KEY_DO_AMBIENTE}",
+      "password: $SENHA_DO_BANCO_1",
+      "token: process.env.TOKEN_DA_API_2",
+      "senha: <preencha-aqui-12345>",
       "pasta do projeto: ./dados/inteiro-teor",
     ].join("\n");
     expect(achar(limpo)).toEqual([]);
+  });
+
+  it("libera só o CNJ aprovado por hash, e um CNJ novo no mesmo arquivo falha", () => {
+    const aprovado = "5555555-" + "66.2021.8.09.0001";
+    const novo = "7777777-" + "88.2021.8.09.0001";
+    const hashes = new Set([sha(aprovado)]);
+    expect(achar(`processo ${aprovado}`, hashes)).toEqual([]);
+    expect(achar(`processo ${aprovado} e ${novo}`, hashes)).toContain("formato CNJ");
   });
 
   it("não imprime o valor achado", () => {
@@ -114,15 +131,33 @@ const PERMITIDOS: { arquivo: RegExp; regra: Regra; motivo: string }[] = [
   { arquivo: /^dados\/tabela-precedentes-st[fj]\.json$/, regra: "formato CNJ", motivo: "dados públicos da fonte oficial (ADR-0015)" },
   { arquivo: /^dados\/tabela-precedentes-st[fj]\.json$/, regra: "número real conhecido", motivo: "dados públicos da fonte oficial (ADR-0015)" },
   {
-    arquivo: /^tests\/servidor\.test\.ts$/,
-    regra: "formato CNJ",
-    motivo: "fixture sintética (resposta marcada como fictícia, sequenciais com dígitos repetidos); confirmar com o dono do teste",
+    arquivo: /^tests\/fixtures\/stj-precedentes\/temas-trecho\.csv$/,
+    regra: "formato STJ",
+    motivo: "trecho gravado do CSV oficial do Portal de Dados Abertos do STJ (origem em ORIGEM.md, ADR-0015)",
   },
 ];
 
-const listar = (...args: string[]) => execFileSync("git", args, { encoding: "utf8" }).split("\n").filter(Boolean);
-const arquivos = [...new Set([...listar("ls-files"), ...listar("ls-files", "--others", "--exclude-standard")])]
-  .filter((f) => /\.(md|ts|json|ya?ml|txt|m?js)$/.test(f) && f !== "package-lock.json" && !FORA_DA_VARREDURA.test(f));
+/**
+ * CNJ de tests/servidor.test.ts liberados um a um, por hash (sha-256 do número com pontuação): fixture sintética
+ * (resposta marcada como fictícia); confirmar com o dono do teste. Um CNJ novo nesse arquivo falha.
+ */
+const CNJ_APROVADOS: { arquivo: RegExp; hashes: ReadonlySet<string> }[] = [
+  {
+    arquivo: /^tests\/servidor\.test\.ts$/,
+    hashes: new Set([
+      "f45f1a96f4098ec00541e4980fd0b6b5c4d36356d2a1e7a5a3b780a453ea47bb",
+      "9c2a376c83fff05866a2fb5a1085c0bc5386ad6d9b16b8ebd503989c433a517d",
+    ]),
+  },
+];
+
+/** `-z`: caminhos crus separados por NUL (sem aspas nem escape de acentos). */
+const listar = (...args: string[]) => execFileSync("git", [...args, "-z"], { encoding: "utf8" }).split("\0").filter(Boolean);
+/** Varre tudo que o git publicaria (inclui .env.example, *.pem, sem extensão); só binário fica de fora. */
+const BINARIO = /\.(xlsx?|docx?|pdf|zip|gz|tgz|png|jpe?g|gif|webp|ico|woff2?|ttf|otf|mp[34]|wasm|sqlite3?|db)$/i;
+const arquivos = [...new Set([...listar("ls-files"), ...listar("ls-files", "--others", "--exclude-standard")])].filter(
+  (f) => !BINARIO.test(f) && f !== "package-lock.json" && !FORA_DA_VARREDURA.test(f),
+);
 
 describe("dados reais", () => {
   it("nenhum dado de usuário ou de processo real nos arquivos do repositório (só arquivo + regra no relatório)", () => {
@@ -134,7 +169,9 @@ describe("dados reais", () => {
       } catch {
         continue; // rastreado mas apagado no disco
       }
-      for (const regra of achar(texto)) {
+      if (texto.includes("\0")) continue; // binário sem extensão conhecida
+      const aprovados = CNJ_APROVADOS.find((a) => a.arquivo.test(f))?.hashes;
+      for (const regra of achar(texto, aprovados)) {
         if (!PERMITIDOS.some((p) => p.regra === regra && p.arquivo.test(f))) achados.push(`${f}: ${regra}`);
       }
     }
