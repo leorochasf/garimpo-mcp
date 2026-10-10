@@ -225,8 +225,10 @@ export interface UnidadeDoInteiroTeor {
   parte: number;
   /** Só em página grande demais, dividida em segmentos. */
   segmento?: Segmento;
-  /** O texto da página ou do segmento; "" = página sem texto extraível. */
+  /** O texto da página ou do segmento; "" = página sem texto extraível ou não lida (ver `naoLida`). */
   texto: string;
+  /** Só na página que passou do teto de leitura: o "" dela é região não examinada, não página sem texto. */
+  naoLida?: true;
 }
 
 /** O inteiro teor inteiro, extraído uma vez, com a posição de cada pedaço, para a conferência de citação. */
@@ -259,6 +261,7 @@ export async function lerParaConferir(
         parte: i + 1,
         ...(segmento ? { segmento } : {}),
         texto: semMarca,
+        ...(naoLidas.includes(pagina) ? { naoLida: true as const } : {}),
       })),
     ),
   };
@@ -277,6 +280,9 @@ async function abrir(
   const { paginas, naoLidas } = await extrairPaginas(bytes, caminho, opcoes);
   const n = paginas.length;
 
+  const lidas = paginas.map((_, i) => i + 1).filter((p) => !naoLidas.includes(p));
+  const semTexto = lidas.filter((p) => !paginas[p - 1]);
+
   const avisos = [...origem.avisos];
   const declarado = Object.values(informado).some(Boolean);
   const usado = declarado && !origem.conferida;
@@ -287,15 +293,13 @@ async function abrir(
     );
   } else if (usado) {
     const lembrado = informado.id ? (await memoria?.obter(informado.id))?.acordao : undefined;
-    campos = vinculoDoUsuario(informado, paginas, lembrado);
+    campos = vinculoDoUsuario(informado, paginas, lembrado, naoLidas.length > 0 || semTexto.length > 0);
     if (informado.id && !lembrado) {
       avisos.push(
         `O acórdão ${informado.id} não está na memória do Garimpo: o cabeçalho traz só o que foi informado.`,
       );
     }
   }
-  const lidas = paginas.map((_, i) => i + 1).filter((p) => !naoLidas.includes(p));
-  const semTexto = lidas.filter((p) => !paginas[p - 1]);
   if (naoLidas.length) {
     avisos.unshift(
       `Leitura parcial: o Garimpo leu só as ${lidas.length} primeiras páginas de ${n} (teto de páginas ou de tempo); ` +
@@ -304,9 +308,15 @@ async function abrir(
     );
   }
   if (lidas.length && semTexto.length === lidas.length) {
+    // Só as páginas lidas: as que passaram do teto não foram examinadas, e nada se afirma sobre elas.
     avisos.unshift(
-      "Nenhuma página deste PDF tem texto extraível; pode ser escaneado. O Garimpo não faz OCR: abra o arquivo " +
-        "para ler. Isso não quer dizer que o acórdão esteja sem conteúdo.",
+      naoLidas.length
+        ? `Nenhuma das ${lidas.length} ${lidas.length === 1 ? "página lida" : "páginas lidas"} deste PDF tem texto ` +
+            `extraível; pode ser escaneado. ${paginaOuPaginas(naoLidas)} não ${naoLidas.length === 1 ? "foi lida" : "foram lidas"} ` +
+            "(teto de leitura), então não se sabe se têm texto. O Garimpo não faz OCR: abra o arquivo para ler. " +
+            "Isso não quer dizer que o acórdão esteja sem conteúdo."
+        : "Nenhuma página deste PDF tem texto extraível; pode ser escaneado. O Garimpo não faz OCR: abra o arquivo " +
+            "para ler. Isso não quer dizer que o acórdão esteja sem conteúdo.",
     );
   } else if (semTexto.length / n > FRACAO_DE_PAGINAS_SEM_TEXTO) {
     avisos.unshift(
@@ -354,7 +364,12 @@ async function abrir(
  * Cabeçalho pelo vínculo declarado pelo usuário: o que a memória do Garimpo tem do id (`a`), os dados informados por cima e
  * "não informado" no resto, sem chamar a rede. A busca do número do processo no texto é só informativa.
  */
-function vinculoDoUsuario(informado: VinculoInformado, paginas: string[], a: Acordao | undefined) {
+function vinculoDoUsuario(
+  informado: VinculoInformado,
+  paginas: string[],
+  a: Acordao | undefined,
+  leituraIncompleta: boolean,
+) {
   const numero = informado.numero ?? (a && !a.semNumero ? a.numero : undefined);
   const campos = {
     tribunal: (informado.tribunal ?? a?.tribunal ?? informado.id?.split(":")[0])?.toUpperCase() || NAO_INFORMADO,
@@ -369,19 +384,29 @@ function vinculoDoUsuario(informado: VinculoInformado, paginas: string[], a: Aco
       "declarado pelo usuário: os dados acima dizem qual acórdão seria este PDF, mas não provam que ele é esse " +
       "acórdão; o número no texto é só informativo",
     // O número indicado pelo usuário; sem ele, o que a memória tem do id (número e CNJ).
-    numeroNoTexto: numeroNoTexto(informado.numero ? [informado.numero] : [numero, a?.numeroCnj], paginas.join("\n")),
+    numeroNoTexto: numeroNoTexto(
+      informado.numero ? [informado.numero] : [numero, a?.numeroCnj],
+      paginas.join("\n"),
+      leituraIncompleta,
+    ),
   };
 }
 
 /**
  * O número aparece no texto, com qualquer pontuação entre os dígitos ("1.000.002/0001" = "10000020001")? Sem texto
- * extraível, ou sem número com dígitos bastantes para não achar por acaso (5), não dá para verificar.
+ * extraível, ou sem número com dígitos bastantes para não achar por acaso (5), não dá para verificar. Achar vale
+ * sempre; não achar só vale com a leitura completa: página não lida ou sem texto pode ter o número.
  */
-function numeroNoTexto(numeros: (string | undefined)[], texto: string): NonNullable<Cabecalho["numeroNoTexto"]> {
+function numeroNoTexto(
+  numeros: (string | undefined)[],
+  texto: string,
+  leituraIncompleta: boolean,
+): NonNullable<Cabecalho["numeroNoTexto"]> {
   const digitos = numeros.map((n) => n?.replace(/\D/g, "") ?? "").filter((d) => d.length >= 5);
   if (!digitos.length || !texto.trim()) return "não verificável";
   const achou = digitos.some((d) => new RegExp(`(?<!\\d)${[...d].join("[\\s./-]*")}(?!\\d)`).test(texto));
-  return achou ? "encontrado" : "não encontrado";
+  if (achou) return "encontrado";
+  return leituraIncompleta ? "não verificável" : "não encontrado";
 }
 
 interface Origem {

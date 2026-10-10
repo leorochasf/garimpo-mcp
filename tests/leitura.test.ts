@@ -134,3 +134,52 @@ describe("tetos de páginas e de tempo (G-11)", () => {
     expect((await lerParaConferir(await gravar(pdfMuitasPaginas(4)))).naoLidas).toEqual([]);
   });
 });
+
+describe("leitura incompleta nunca vira \"não encontrado\" nem \"sem texto\" para página não lida (G-11, ADR-0004)", () => {
+  const informado = { tribunal: "tjgo", numero: "10000020001" };
+  const comNumero = ["Recurso 1.000.002/0001 julgado.", ...linhas(LIMIAR_DE_CARACTERES_POR_PAGINA)];
+
+  it("número só numa página além do teto: não verificável, não 'não encontrado'", async () => {
+    const caminho = await gravar(pdfSintetico([pagina(500), pagina(500), comNumero]));
+    const r = await lerInteiroTeor(caminho, 1, informado, undefined, { tetoDePaginas: 2 });
+    expect(r.cabecalho.numeroNoTexto).toBe("não verificável");
+  });
+
+  it("número numa página lida, com teto depois dele: continua 'encontrado'", async () => {
+    const caminho = await gravar(pdfSintetico([comNumero, pagina(500), pagina(500)]));
+    const r = await lerInteiroTeor(caminho, 1, informado, undefined, { tetoDePaginas: 2 });
+    expect(r.cabecalho.numeroNoTexto).toBe("encontrado");
+  });
+
+  it("número só numa página abaixo do limiar (descartada): não verificável", async () => {
+    const caminho = await gravar(pdfSintetico([pagina(500), ["Recurso 1.000.002/0001 julgado."]]));
+    const r = await lerInteiroTeor(caminho, 1, informado);
+    expect(r.cabecalho.numeroNoTexto).toBe("não verificável");
+  });
+
+  it("leitura completa sem o número: continua 'não encontrado'", async () => {
+    const caminho = await gravar(pdfSintetico([pagina(500), pagina(500)]));
+    const r = await lerInteiroTeor(caminho, 1, informado);
+    expect(r.cabecalho.numeroNoTexto).toBe("não encontrado");
+  });
+
+  it("só a página lida está sem texto e as outras nem foram examinadas: o aviso fala só das lidas", async () => {
+    const caminho = await gravar(pdfSintetico([[LINHA_DE_CARIMBO], pagina(500), pagina(500)]));
+    const r = await lerInteiroTeor(caminho, 1, {}, undefined, { tetoDePaginas: 1 });
+    expect(r.avisos.join(" | ")).not.toContain("Nenhuma página deste PDF tem texto extraível");
+    const aviso = r.avisos.find((a) => a.startsWith("Nenhuma das 1 página lida"));
+    expect(aviso).toContain("páginas 2–3 não foram lidas");
+    expect(aviso).toContain("não quer dizer");
+  });
+
+  it("o dado da conferência distingue a página sem texto da não lida", async () => {
+    const caminho = await gravar(pdfSintetico([[LINHA_DE_CARIMBO], pagina(500), pagina(500)]));
+    const leitura = await lerParaConferir(caminho, { tetoDePaginas: 2 });
+    expect(leitura.naoLidas).toEqual([3]);
+    expect(leitura.unidades.map((u) => [u.texto === "", u.naoLida === true])).toEqual([
+      [true, false],
+      [false, false],
+      [true, true],
+    ]);
+  });
+});
