@@ -327,7 +327,7 @@ export function criarServidor(
         `${SOBRE_A_TABELA_NAS_LISTAS} ` +
         `${SOBRE_A_BUSCA_GUARDADA} A busca guardada traz o campo buscaGuardada com essa data. ` +
         SOBRE_O_RECORRIDO,
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
       inputSchema: {
         tribunal,
         texto: z.string().min(2).describe("Texto da busca (palavras da tese, dispositivo legal, instituto)"),
@@ -392,7 +392,7 @@ export function criarServidor(
         "executa as que faltam. Com TRT, cada acórdão traz a fonte (rótulos em fontes) e o aviso cita as duas fontes; " +
         "os filtros de, ate, relator, orgao e classe não valem com TRT (erro que ensina). " +
         `${SOBRE_O_RECORRIDO}`,
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
       inputSchema: {
         formulacoes: listaOuTexto(z.array(z.string().min(2)).min(1).max(20)).describe("Formulações da mesma tese (até 20)"),
         tribunais: listaOuTexto(z.array(tribunal).min(1).max(5)).describe("Tribunais (até 5)"),
@@ -440,7 +440,7 @@ export function criarServidor(
         "Não faz nova busca no site: fora da memória, refaça a busca que o trouxe. " +
         "Acórdão de embargos de declaração, agravo interno e similares, com número CNJ, traz avisoRecorrido: o " +
         "acórdão recorrido não vem nesta resposta e pode não estar na base.",
-      annotations: { readOnlyHint: true, openWorldHint: false },
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
       inputSchema: { id: z.string().describe("Id do acórdão, como veio na busca (tribunal:id)") },
     },
     async ({ id }) => {
@@ -597,7 +597,7 @@ export function criarServidor(
         "ganha o aviso de que pode ser de outro autor; no relatório ou num voto vencido, aviso forte. O Garimpo nunca " +
         "diz de quem é a passagem. Achar o texto não autentica a fonte, e o id junto do caminho de um PDF trazido é só " +
         "vínculo declarado. Só lê: não chama a rede e não grava.",
-      annotations: { readOnlyHint: true, openWorldHint: false },
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
       inputSchema: {
         // Item malformado é conferido dentro da ferramenta: vira resultado próprio, com frase que ensina a corrigir,
         // sem derrubar as outras citações.
@@ -740,7 +740,7 @@ export function criarServidor(
         "8º, IV), com origem \"tabela de <data>, o portal do <tribunal> não respondeu\", o motivo e a atribuição; número " +
         "ausente dela volta como \"não consta na tabela de <data>\", nunca como inexistente. Sempre com o " +
         "enquadramento927. O tipo é obrigatório: a numeração de cada tipo é separada.",
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
       inputSchema: {
         tribunal: z.string().describe('"stj" ou "stf": só esses dois tribunais'),
         tipo: z
@@ -837,7 +837,7 @@ export function criarServidor(
         "Consulta repetida em 24 h volta da memória do Garimpo, sem nova chamada. Não busca por nome de parte. " +
         `Uso sob o termo de uso da API Pública do CNJ (${TERMO_DE_USO_DATAJUD}); as obrigações do termo são de quem ` +
         "usa a API.",
-      annotations: { readOnlyHint: true, openWorldHint: true },
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
       inputSchema: {
         numero: z.string().describe("Número CNJ do processo, com ou sem máscara (NNNNNNN-DD.AAAA.J.TR.OOOO)"),
         tribunal: z
@@ -871,7 +871,7 @@ export function criarServidor(
         "o site devolve, o teto de resultados por busca e se o inteiro teor oficial é baixado, só linkado ou, nos " +
         "TRTs, texto integral do repositório oficial (sem PDF). Detalhes dos limites do Falcão na página " +
         "garimpo://tribunais.",
-      annotations: { readOnlyHint: true, openWorldHint: false },
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
       inputSchema: {},
     },
     async () =>

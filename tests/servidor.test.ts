@@ -50,6 +50,35 @@ describe("servidor MCP", () => {
     expect(marca.listar_tribunais.openWorldHint).toBe(false);
   });
 
+  it("devolve as ferramentas sempre na mesma ordem, e cada uma com as três anotações esperadas", async () => {
+    const esperado = [
+      ["busca_direta", true, true],
+      ["busca_ampla", true, true],
+      ["obter_ementa", true, false],
+      ["obter_inteiro_teor", undefined, undefined],
+      ["ler_inteiro_teor", undefined, false],
+      ["conferir_citacao", true, false],
+      ["consultar_precedente", true, true],
+      ["julgamentos_do_processo", true, true],
+      ["listar_tribunais", true, false],
+    ] as const;
+    // idempotentHint: só as de leitura que não gravam nada; obter/ler_inteiro_teor gravam recibo/arquivo e ficam sem a marca.
+    const idempotente = new Set(["busca_direta", "busca_ampla", "obter_ementa", "conferir_citacao", "consultar_precedente", "julgamentos_do_processo", "listar_tribunais"]);
+
+    for (let i = 0; i < 2; i++) {
+      const mcp = await conectar(siteFalso([]));
+      const { tools } = await mcp.listTools();
+      expect(tools.map((t) => t.name)).toEqual(esperado.map(([nome]) => nome));
+      for (const [nome, somenteLeitura, abertoAoMundo] of esperado) {
+        const marca = tools.find((t) => t.name === nome)!.annotations ?? {};
+        if (somenteLeitura !== undefined) expect(marca.readOnlyHint, `${nome} readOnlyHint`).toBe(somenteLeitura);
+        if (abertoAoMundo !== undefined) expect(marca.openWorldHint, `${nome} openWorldHint`).toBe(abertoAoMundo);
+        if (idempotente.has(nome)) expect(marca.idempotentHint, `${nome} idempotentHint`).toBe(true);
+        else expect(marca.idempotentHint, `${nome} idempotentHint`).toBeUndefined();
+      }
+    }
+  });
+
   describe("aviso de natureza jurídica", () => {
     const AVISO =
       "Resultado de busca em base não oficial. Confira o acórdão na fonte oficial do tribunal antes de citar; " +
