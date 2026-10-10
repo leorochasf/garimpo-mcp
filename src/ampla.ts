@@ -4,7 +4,7 @@
  * ao Falcão, 1 página por formulação × TRT, com teto de páginas por chamada (ADR-0018).
  */
 
-import { Cliente, FormatoInesperadoError, PausaPreventivaError, RecusaError, umaProvaPorFerramenta } from "./cliente.js";
+import { Cliente, ErroHttp, FormatoInesperadoError, PausaPreventivaError, RecusaError, umaProvaPorFerramenta } from "./cliente.js";
 import { RedeParadaError } from "./coordenacao.js";
 import {
   type Acordao,
@@ -59,15 +59,18 @@ export interface ItemAmplo {
 }
 
 /** Por que uma busca não deu resposta: vocabulário fechado, uma palavra, derivado do tipo de erro do cliente. */
-export type MotivoDeFalha = "recusa" | "pausa" | "rede-parada" | "tempo-esgotado" | "formato-inesperado" | "nao-executada";
+export type MotivoDeFalha = "recusa" | "pausa" | "rede-parada" | "tempo-esgotado" | "formato-inesperado" | "erro-de-rede" | "nao-executada";
 
 /** Começo fixo da mensagem do cliente (src/cliente.ts) para a chamada que não saiu porque a pausa do serviço já valia. */
 const CHAMADA_NAO_FEITA = "Esta chamada não foi feita";
 
+/** Começo fixo da mensagem do cliente (src/cliente.ts) quando a rede não chegou ao site. */
+const SEM_REDE = "Não foi possível falar com";
+
 /**
- * O motivo certo de cada tipo de erro do cliente; erro de outro tipo (ex.: rede que não chegou ao site) fica sem
- * motivo: o vocabulário é fechado e não inventa. O prazo
- * esgotado não tem classe própria no cliente: é reconhecido pela frase fixa dele.
+ * O motivo certo de cada tipo de erro do cliente; erro de outro tipo (ex.: HTTP 4xx) fica sem motivo: o vocabulário
+ * é fechado e não inventa. O prazo esgotado, a rede que não chegou ao site e a chamada que nem saiu (prova que
+ * falhou sem recusa, espera estourada) não têm classe própria no cliente: são reconhecidos pela frase fixa dele.
  */
 function motivoDoErro(e: unknown): MotivoDeFalha | undefined {
   if (e instanceof PausaPreventivaError) return "pausa";
@@ -75,7 +78,10 @@ function motivoDoErro(e: unknown): MotivoDeFalha | undefined {
   if (e instanceof RecusaError) return e.pausa && e.message.startsWith(CHAMADA_NAO_FEITA) ? "pausa" : "recusa";
   if (e instanceof RedeParadaError) return "rede-parada";
   if (e instanceof FormatoInesperadoError) return "formato-inesperado";
+  if (e instanceof ErroHttp) return e.status >= 500 ? "erro-de-rede" : undefined;
   if (e instanceof Error && /não respondeu em \d+ s;/.test(e.message)) return "tempo-esgotado";
+  if (e instanceof Error && e.message.startsWith(CHAMADA_NAO_FEITA)) return "pausa";
+  if (e instanceof Error && e.message.startsWith(SEM_REDE)) return "erro-de-rede";
   return undefined;
 }
 

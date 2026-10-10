@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buscaAmpla } from "../src/ampla.js";
 import { buscaDireta } from "../src/busca.js";
-import { Cliente, FormatoInesperadoError, PausaPreventivaError, RecusaError, Vagas } from "../src/cliente.js";
+import { Cliente, ErroHttp, FormatoInesperadoError, PausaPreventivaError, RecusaError, Vagas } from "../src/cliente.js";
 import { RedeParadaError } from "../src/coordenacao.js";
 import { Memoria } from "../src/memoria.js";
 import { respostaJson } from "./apoio.js";
@@ -914,13 +914,27 @@ describe("motivo de falha por tribunal na busca ampla", () => {
     expect(JSON.stringify(r)).not.toContain("motivos");
   });
 
-  it("erro que não é de nenhum desses tipos não ganha motivo inventado; segue contado em comErro e no aviso", async () => {
-    const cliente = comFalhaNoTjsp(() => Promise.reject(new Error("Não foi possível falar com O site (x). Verifique a conexão.")));
+  it("rede que não chegou ao site (\"Não foi possível falar com…\") e erro HTTP 5xx: motivo erro-de-rede", async () => {
+    const rede = comFalhaNoTjsp(() => Promise.reject(new Error("Não foi possível falar com O site (x). Verifique a conexão.")));
+    expect(await motivosDoTjsp(rede)).toEqual({ "erro-de-rede": 1 });
+    const http = comFalhaNoTjsp(() => Promise.reject(new ErroHttp("O site respondeu com erro HTTP 503 para u.", 503)));
+    expect(await motivosDoTjsp(http)).toEqual({ "erro-de-rede": 1 });
+  });
+
+  it("chamada que o cliente nem fez (prova que falhou sem recusa, espera estourada): motivo pausa", async () => {
+    const semProva = comFalhaNoTjsp(() => Promise.reject(new Error("Esta chamada não foi feita: a pausa venceu, mas esta ferramenta já fez a sua chamada de prova.")));
+    expect(await motivosDoTjsp(semProva)).toEqual({ pausa: 1 });
+    const espera = comFalhaNoTjsp(() => Promise.reject(new Error("Esta chamada não foi feita: a decisão não veio em 5 min. Tente mais tarde.")));
+    expect(await motivosDoTjsp(espera)).toEqual({ pausa: 1 });
+  });
+
+  it("erro que não é de nenhum desses tipos (ex.: HTTP 404) não ganha motivo inventado; segue contado em comErro e no aviso", async () => {
+    const cliente = comFalhaNoTjsp(() => Promise.reject(new ErroHttp("O site respondeu com erro HTTP 404 para u.", 404)));
     const r = await buscaAmpla(cliente, { formulacoes: ["a"], tribunais: ["stj", "tjsp"] });
     const tjsp = r.cabecalhoDeCobertura.porTribunal[1];
     expect(tjsp.comErro).toBe(1);
     expect(tjsp.motivos).toBeUndefined();
-    expect(r.avisos.some((a) => /Verifique a conexão/.test(a))).toBe(true);
+    expect(r.avisos.some((a) => /erro HTTP 404/.test(a))).toBe(true);
   });
 
   it("recusa que para a busca: o que ficou sem executar sai como nao-executada, junto da recusa", async () => {
@@ -986,5 +1000,29 @@ describe("motivo de falha por tribunal na busca ampla", () => {
     // O campo novo é o único acréscimo: sem ele a resposta tem o mesmo tamanho de antes desta mudança.
     const semMotivos = { ...r, cabecalhoDeCobertura: { ...r.cabecalhoDeCobertura, porTribunal: linhas.map(({ motivos: _, ...resto }) => resto) } };
     expect(JSON.stringify(r).length - JSON.stringify(semMotivos).length).toBeLessThan(120);
+  });
+
+  it("5 tribunais, 3 com buscas guardadas e 2 com falhas de tipos diferentes: a resposta fica < 25 mil caracteres", async () => {
+    const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-ampla-"));
+    try {
+      const memoria = new Memoria({ dados });
+      const { cliente: base } = siteRealista();
+      await buscaAmpla(base, { formulacoes: FORMULACOES_REALISTAS, tribunais: ["tjrs", "stj", "tjsp"] }, memoria);
+      const cliente = new (class extends Cliente {
+        requisitar(url: string, init: RequestInit = {}): Promise<Response> {
+          if (url.includes("/tribunais/tjmg/")) return Promise.reject(new Error("Não foi possível falar com O site (x). Verifique a conexão."));
+          if (url.includes("/tribunais/tjpr/")) return Promise.reject(new ErroHttp("O site respondeu com erro HTTP 503 para u.", 503));
+          return base.requisitar(url, init);
+        }
+      })({ nome: "O site", esperar: async () => {} });
+      const r = await buscaAmpla(cliente, { formulacoes: FORMULACOES_REALISTAS, tribunais: ["tjrs", "stj", "tjsp", "tjmg", "tjpr"], maximo: 40 }, memoria);
+      const linhas = r.cabecalhoDeCobertura.porTribunal;
+      expect(linhas.filter((t) => t.guardadas).map((t) => t.tribunal)).toEqual(["tjrs", "stj", "tjsp"]);
+      expect(linhas.filter((t) => t.motivos).map((t) => t.motivos)).toEqual([{ "erro-de-rede": 3 }, { "erro-de-rede": 3 }]);
+      // Com o máximo padrão (50) de acórdãos de campos no tamanho máximo realista, 5 tribunais + 6 avisos passam de 25 mil.
+      expect(JSON.stringify(r).length).toBeLessThan(25_000);
+    } finally {
+      await rm(dados, { recursive: true, force: true, maxRetries: 10 });
+    }
   });
 });
