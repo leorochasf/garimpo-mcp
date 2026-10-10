@@ -47,7 +47,7 @@ export interface DoPortal<L> {
 /** Texto da resposta, no conjunto de caracteres que ela declara (o STJ responde em ISO-8859-1). */
 async function textoDe(cliente: Cliente, url: string): Promise<string> {
   const resposta = await cliente.requisitar(url);
-  const charset = /charset=([\w-]+)/i.exec(resposta.headers.get("content-type") ?? "")?.[1] ?? "utf-8";
+  const charset = /charset="?([\w-]+)/i.exec(resposta.headers.get("content-type") ?? "")?.[1] ?? "utf-8";
   return new TextDecoder(charset).decode(await resposta.arrayBuffer());
 }
 
@@ -183,9 +183,11 @@ export function lerListaDeSumulas(html: string, tipo: TipoDeSumula): ItemDaLista
 
 /** Lê a página da súmula: confere tipo e número no título e devolve o enunciado (o 1º bloco de texto). */
 export function lerPaginaDaSumula(html: string, tipo: TipoDeSumula, numero: number): string {
-  const m = /<div class="titulo">([\s\S]*?)<\/div>\s*<div class="parCOM">([\s\S]*?)<\/div>/.exec(html);
+  const m = /<div class="titulo">([\s\S]*?)<\/div>\s*(<div class="parCOM">)/.exec(html);
   const rotulo = m && rotuloLimpo(m[1]).match(ROTULO_DE_SUMULA);
-  const enunciado = m && htmlParaTexto(m[2]);
+  // O bloco inteiro, com os divs aninhados: o 1º </div> pode ser de um filho e cortaria o enunciado.
+  const conteudo = m ? conteudoDoDiv(html, m.index + m[0].length - m[2].length) : undefined;
+  const enunciado = conteudo && htmlParaTexto(conteudo);
   if (!rotulo || Boolean(rotulo[1]) !== (tipo === "súmula vinculante") || Number(rotulo[2]) !== numero || !enunciado) {
     throw naoReconhecida(`A página da ${tipo} ${numero} no portal do STF`, `o enunciado da ${tipo} ${numero}`);
   }

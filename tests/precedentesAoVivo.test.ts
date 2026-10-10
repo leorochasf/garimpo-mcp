@@ -307,7 +307,7 @@ describe("consultar_precedente — STF ao vivo", () => {
     const { cliente, chamadas } = clienteFalso(
       [
         listaDeSv(),
-        paginaDaSumula("Súmula Vinculante 1", "Enunciado sintético um."),
+        paginaDaSumula("Súmula Vinculante 1", "Enunciado sintético <div>um</div> inteiro."),
         paginaDaSumula("Súmula Vinculante 2", "Enunciado sintético dois."),
       ],
       { nome: "O portal do STF" },
@@ -321,7 +321,7 @@ describe("consultar_precedente — STF ao vivo", () => {
       "https://portal.stf.jus.br/jurisprudencia/sumariosumulas.asp?base=26&sumula=7002",
     ]);
     expect(um.origem).toMatch(QUANDO_STF);
-    expect(um.enunciado).toBe("Enunciado sintético um.");
+    expect(um.enunciado).toBe("Enunciado sintético\num\ninteiro.");
     expect(um.situacaoNaFonte).toBe("sem marca de situação na lista do STF");
     expect(um.enquadramento927.inciso).toBe("II");
     expect(dois.enunciado).toBe("Enunciado sintético dois.");

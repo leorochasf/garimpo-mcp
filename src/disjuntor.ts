@@ -88,8 +88,9 @@ const PAUSA_MAXIMA_DOBRADA_MS = 60 * 60_000;
 const CONFERENCIA_MS = 250;
 
 /**
- * O serviço de uma URL, por regra central (nunca por rota nem por janela): o JurisprudênciaIA, o DataJud, o DJEN, cada
- * tribunal pelo domínio `<sigla>.jus.br`; qualquer outro endereço é o próprio host (com a porta).
+ * O serviço de uma URL, por regra central (nunca por janela): o JurisprudênciaIA, o DataJud, o DJEN, cada tribunal
+ * pelo domínio `<sigla>.jus.br`; qualquer outro endereço é o próprio host (com a porta). Única separação por rota: as
+ * páginas de precedentes do STJ e do STF (ADR-0020).
  */
 export function servicoDe(url: string): string {
   const { host, hostname: nome } = new URL(url);

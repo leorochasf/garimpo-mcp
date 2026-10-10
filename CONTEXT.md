@@ -255,7 +255,7 @@ _Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 �
 ## Tabela de precedentes
 
 **Tabela de precedentes**:
-A fotografia, dentro do Garimpo, de uma fonte oficial de precedentes qualificados (hoje: temas repetitivos e IAC do STJ, do Portal de Dados Abertos do STJ; repercussão geral, súmulas e súmulas vinculantes do STF, de arquivos obtidos pelo mantenedor no portal do STF), com a data da coleta ou da obtenção e, no STJ, a data de atualização informada pela fonte; consultada sem rede.
+A fotografia, dentro do Garimpo, de uma fonte oficial de precedentes qualificados (hoje: temas repetitivos e IAC do STJ, do Portal de Dados Abertos do STJ; repercussão geral, súmulas e súmulas vinculantes do STF, de arquivos obtidos pelo mantenedor no portal do STF), com a data da coleta ou da obtenção e, no STJ, a data de atualização informada pela fonte; consultada sem rede. No `consultar_precedente` é o plano B da consulta ao vivo (ADR-0020); nas listas de qualificados das buscas, continua sendo a fonte do reforço.
 _Evitar_: base, cache, banco, memória (é outra coisa: respostas do site por 24 h)
 _Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-09 — sujeito a revisão do dono._
 
