@@ -8,7 +8,7 @@
  *   npx vite-node scripts/rodarMedirAvisos.ts medir <pasta>
  */
 
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { access, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -62,6 +62,12 @@ export function sinaisDoItem(item: Item): Sinal[] {
 
 const hash = (conteudo: Buffer | string) => createHash("sha256").update(conteudo).digest("hex").slice(0, 12);
 
+/** Ordem pseudoaleatória fixa pela semente: ordena pelo hash de semente + finalidade + id. */
+function embaralhar(itens: Item[], semente: string, finalidade: string): Item[] {
+  const chave = (item: Item) => createHash("sha256").update(`${semente}|${finalidade}|${item.id}`).digest("hex");
+  return [...itens].sort((x, y) => (chave(x) < chave(y) ? -1 : 1));
+}
+
 async function lerJson(pasta: string, nome: string, ajuda: string): Promise<unknown> {
   let bruto: string;
   try {
@@ -88,12 +94,12 @@ function garantirPastaDeFora(pasta: string): string {
   return absoluta;
 }
 
-async function lerManifesto(pasta: string): Promise<Item[]> {
+async function lerManifesto(pasta: string): Promise<{ itens: Item[]; semente?: string }> {
   const bruto = (await lerJson(
     pasta,
     MANIFESTO,
     `Crie-o com {"itens":[{"id":"a01","pdf":"a01.pdf","citacao":"…","tribunal":"…","orgaoDoRegistro":"…"}]}.`,
-  )) as { itens?: Item[] };
+  )) as { itens?: Item[]; semente?: string };
   const itens = bruto.itens;
   if (!Array.isArray(itens) || !itens.length) {
     throw new ErroDeProtocolo(`${MANIFESTO} precisa de uma lista "itens" com pelo menos um PDF.`);
@@ -103,6 +109,9 @@ async function lerManifesto(pasta: string): Promise<Item[]> {
     if (typeof item.id !== "string" || !/^[A-Za-z0-9-]+$/.test(item.id)) {
       throw new ErroDeProtocolo(`Todo item precisa de "id" só com letras, números e hífen (sem trecho do texto).`);
     }
+    if (!/[A-Za-z]/.test(item.id)) {
+      throw new ErroDeProtocolo(`O id "${item.id}" precisa de pelo menos uma letra (ex.: "a01"): id só de dígitos perde a ordem embaralhada do formulário.`);
+    }
     if (vistos.has(item.id)) throw new ErroDeProtocolo(`O id "${item.id}" aparece duas vezes em ${MANIFESTO}.`);
     vistos.add(item.id);
     if (typeof item.pdf !== "string" || !item.pdf) throw new ErroDeProtocolo(`O item "${item.id}" não diz o seu "pdf".`);
@@ -110,28 +119,27 @@ async function lerManifesto(pasta: string): Promise<Item[]> {
       throw new ErroDeProtocolo(`O item "${item.id}" não tem "citacao" nem "tribunal" com "orgaoDoRegistro": não há o que medir.`);
     }
   }
-  return itens;
+  return { itens, semente: typeof bruto.semente === "string" && bruto.semente ? bruto.semente : undefined };
 }
 
 /**
- * Prepara a amostra: sorteia, de forma fixa pelo hash do PDF, quem é do conjunto de ajuste e quem é da validação (a
- * regra se ajusta num e se confere no outro), e grava os dois formulários de rótulo em branco. Não sobrescreve rótulo
- * já preenchido. Devolve só a contagem.
+ * Prepara a amostra: sorteia, com uma semente gravada em amostra.json, quem é do conjunto de ajuste e quem é da
+ * validação (metades equilibradas; a regra se ajusta num e se confere no outro), e grava os dois formulários de rótulo
+ * em branco, com os itens em ordem embaralhada pela mesma semente (a ordem do manifesto poderia vazar o gabarito). Não
+ * sobrescreve rótulo já preenchido. Devolve só a contagem.
  */
 export async function montar(pastaPedida: string): Promise<string> {
   const pasta = garantirPastaDeFora(pastaPedida);
-  const itens = await lerManifesto(pasta);
+  const { itens, semente: gravada } = await lerManifesto(pasta);
+  const semente = gravada ?? randomBytes(8).toString("hex");
+  for (const item of itens) await lerPdf(pasta, item);
+  const semConjunto = embaralhar(itens.filter((i) => !i.conjunto), semente, "conjunto");
+  semConjunto.forEach((item, i) => (item.conjunto = i < Math.ceil(semConjunto.length / 2) ? "ajuste" : "validacao"));
   const contagem = { ajuste: 0, validacao: 0 };
-  for (const item of itens) {
-    if (!item.conjunto) {
-      const bytes = await lerPdf(pasta, item);
-      item.conjunto = bytes[bytes.length - 1] % 2 === 0 ? "ajuste" : "validacao";
-    }
-    contagem[item.conjunto]++;
-  }
-  await writeFile(path.join(pasta, MANIFESTO), JSON.stringify({ itens }, null, 2) + "\n");
+  for (const item of itens) contagem[item.conjunto!]++;
+  await writeFile(path.join(pasta, MANIFESTO), JSON.stringify({ semente, itens }, null, 2) + "\n");
   const formulario: Rotulos = Object.fromEntries(
-    itens.map((item) => [item.id, Object.fromEntries(sinaisDoItem(item).map((s) => [s, null]))]),
+    embaralhar(itens, semente, "ordem").map((item) => [item.id, Object.fromEntries(sinaisDoItem(item).map((s) => [s, null]))]),
   );
   const criados: string[] = [];
   for (const nome of [ROTULOS_A, ROTULOS_B]) {
@@ -233,9 +241,9 @@ export interface NumerosDoSinal {
   /** Não avisou e não era: frase limpa. */
   limpos: number;
   concordancia: Concordancia;
-  /** Hash (12 hex) do PDF de cada falso aviso e de cada caso perdido: para o dono achar o caso sem o programa citá-lo. */
-  hashesDosFalsosAvisos: string[];
-  hashesDosPerdidos: string[];
+  /** "id:hash" (hash de 12 hex do PDF) de cada falso aviso e de cada caso perdido: para o dono achar o caso sem o programa citá-lo. */
+  casosDosFalsosAvisos: string[];
+  casosDosPerdidos: string[];
 }
 
 export interface Medicao {
@@ -244,9 +252,11 @@ export interface Medicao {
   /** Itens cuja citação o programa não achou no PDF: ficam fora dos sinais de passagem. */
   citacoesNaoAchadas: number;
   numeros: NumerosDoSinal[];
+  /** Ressalvas do protocolo que não impedem a medição, mas que o leitor do relatório precisa ver. */
+  avisosDoProtocolo: string[];
 }
 
-function kappa(a: boolean[], b: boolean[]): number | null {
+export function kappa(a: boolean[], b: boolean[]): number | null {
   const n = a.length;
   if (!n) return null;
   const sim = (x: boolean[]) => x.filter(Boolean).length / n;
@@ -258,7 +268,7 @@ function kappa(a: boolean[], b: boolean[]): number | null {
 /** Consolida os rótulos dos dois rotuladores, roda os sinais nos PDFs e devolve os três números por sinal e conjunto. */
 export async function medir(pastaPedida: string): Promise<Medicao> {
   const pasta = garantirPastaDeFora(pastaPedida);
-  const itens = await lerManifesto(pasta);
+  const { itens } = await lerManifesto(pasta);
   const semConjunto = itens.filter((i) => !i.conjunto).map((i) => i.id);
   if (semConjunto.length) {
     throw new ErroDeProtocolo(`Rode "montar" antes: ${semConjunto.length} itens ainda sem conjunto (ajuste ou validação).`);
@@ -268,13 +278,15 @@ export async function medir(pastaPedida: string): Promise<Medicao> {
   const [textoA, textoB] = await Promise.all(
     [ROTULOS_A, ROTULOS_B].map((nome) => readFile(path.join(pasta, nome), "utf8")),
   );
+  const avisosDoProtocolo: string[] = [];
   if (JSON.stringify(JSON.parse(textoA)) === JSON.stringify(JSON.parse(textoB))) {
-    throw new ErroDeProtocolo(
-      `${ROTULOS_A} e ${ROTULOS_B} são idênticos. A medição vale por dois rotuladores independentes: cada um rotula ` +
-        `sozinho, sem ver o outro. Um formulário copiado do outro não mede concordância.`,
+    avisosDoProtocolo.push(
+      `${ROTULOS_A} e ${ROTULOS_B} são idênticos. Pode ser o melhor caso (dois rotuladores independentes que ` +
+        `concordaram em tudo) ou um formulário copiado do outro; o kappa só vale no primeiro. Confirme com os rotuladores.`,
     );
   }
-  const desempate = ((await lerJson(pasta, DESEMPATE, "").catch(() => ({ rotulos: {} }))) as { rotulos?: Rotulos }).rotulos ?? {};
+  const temDesempate = await access(path.join(pasta, DESEMPATE)).then(() => true, () => false);
+  const desempate = temDesempate ? (((await lerJson(pasta, DESEMPATE, "")) as { rotulos?: Rotulos }).rotulos ?? {}) : {};
 
   const pdfs = new Map<string, Buffer>();
   const dados = new Map<string, { avisos: Partial<Record<Sinal, boolean>>; achada: boolean }>();
@@ -301,8 +313,8 @@ export async function medir(pastaPedida: string): Promise<Medicao> {
         perdidos: 0,
         limpos: 0,
         concordancia: { itens: medidos.length, iguais: 0, kappa: null },
-        hashesDosFalsosAvisos: [],
-        hashesDosPerdidos: [],
+        casosDosFalsosAvisos: [],
+        casosDosPerdidos: [],
       };
       const rA: boolean[] = [];
       const rB: boolean[] = [];
@@ -319,10 +331,10 @@ export async function medir(pastaPedida: string): Promise<Medicao> {
         }
         n.avaliados++;
         const avisou = dados.get(item.id)!.avisos[sinal] === true;
-        const h = hash(pdfs.get(item.id)!);
+        const caso = `${item.id}:${hash(pdfs.get(item.id)!)}`;
         if (avisou && verdade) n.acertos++;
-        else if (avisou) (n.falsosAvisos++, n.hashesDosFalsosAvisos.push(h));
-        else if (verdade) (n.perdidos++, n.hashesDosPerdidos.push(h));
+        else if (avisou) (n.falsosAvisos++, n.casosDosFalsosAvisos.push(caso));
+        else if (verdade) (n.perdidos++, n.casosDosPerdidos.push(caso));
         else n.limpos++;
       }
       n.concordancia.kappa = kappa(rA, rB);
@@ -331,7 +343,7 @@ export async function medir(pastaPedida: string): Promise<Medicao> {
   }
   const citacoesNaoAchadas = itens.filter((i) => i.citacao && !dados.get(i.id)!.achada).length;
   const hashDaAmostra = hash(itens.map((i) => hash(pdfs.get(i.id)!)).sort().join(""));
-  return { hashDaAmostra, itens: itens.length, citacoesNaoAchadas, numeros };
+  return { hashDaAmostra, itens: itens.length, citacoesNaoAchadas, numeros, avisosDoProtocolo };
 }
 
 function razao(parte: number, todo: number): string {
@@ -343,6 +355,7 @@ export function relatorio(m: Medicao): string {
   const linhas = [
     `Amostra ${m.hashDaAmostra}: ${m.itens} PDFs; citação não achada em ${m.citacoesNaoAchadas} (fora dos sinais de passagem).`,
     "Limiar para ligar cada aviso: decisão do dono (ticket 10, DQ-23); este relatório não liga nada.",
+    ...m.avisosDoProtocolo.map((a) => `Atenção: ${a}`),
   ];
   for (const n of m.numeros) {
     const c = n.concordancia;
@@ -353,8 +366,8 @@ export function relatorio(m: Medicao): string {
       `  alcance:                 ${razao(n.acertos, n.acertos + n.perdidos)}`,
       `  falso aviso em frase limpa: ${razao(n.falsosAvisos, n.falsosAvisos + n.limpos)}`,
       `  concordância dos rotuladores: ${razao(c.iguais, c.itens)}, kappa ${c.kappa === null ? "indefinido" : c.kappa.toFixed(2)}`,
-      `  falsos avisos (hash do PDF): ${n.hashesDosFalsosAvisos.join(" ") || "nenhum"}`,
-      `  perdidos (hash do PDF):      ${n.hashesDosPerdidos.join(" ") || "nenhum"}`,
+      `  falsos avisos (id:hash do PDF): ${n.casosDosFalsosAvisos.join(" ") || "nenhum"}`,
+      `  perdidos (id:hash do PDF):      ${n.casosDosPerdidos.join(" ") || "nenhum"}`,
     );
   }
   return linhas.join("\n");

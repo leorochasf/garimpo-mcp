@@ -58,8 +58,11 @@ testa o aviso do órgão. Um item pode ter os dois. O `id` é um código sem sen
    npx vite-node scripts/rodarMedirAvisos.ts montar <pasta>
    ```
 
-   Divide a amostra em **ajuste** e **validação** de forma fixa (pelo conteúdo do PDF; repetir dá a mesma divisão) e cria
-   dois formulários em branco, `rotulos-a.json` e `rotulos-b.json`, sem sobrescrever os já preenchidos.
+   Divide a amostra em **ajuste** e **validação** por sorteio com **semente**, em metades equilibradas (a semente fica
+   gravada em `amostra.json`; repetir com a mesma semente dá a mesma divisão, e o dono pode fixar uma em `"semente"`).
+   Cria dois formulários em branco, `rotulos-a.json` e `rotulos-b.json`, sem sobrescrever os já preenchidos, com os
+   itens em **ordem embaralhada** pela mesma semente (a ordem do manifesto poderia revelar o gabarito). O `id` precisa
+   ter pelo menos uma letra (`a01`, não `01`).
 2. **Rotular, cada um sozinho.** O rotulador A recebe a pasta com `rotulos-a.json` e o rotulador B, com `rotulos-b.json`
    (cada um apaga o formulário do outro da cópia que recebe). Eles **não conversam sobre os casos** e **não veem o que o
    programa disse** — o programa nunca roda antes dos dois terminarem, e `amostra.json` não traz nenhum resultado dele.
@@ -86,7 +89,7 @@ testa o aviso do órgão. Um item pode ter os dois. O `id` é um código sem sen
 
    Roda cada aviso **sozinho ligado** sobre cada PDF (o resto da conferência fica como hoje), compara com o consenso e
    imprime, por aviso e conjunto: os três números como contagens, a concordância dos dois rotuladores (iguais e kappa de
-   Cohen) e o hash de 12 caracteres dos PDFs de cada falso aviso e de cada caso perdido. **Nunca imprime** citação,
+   Cohen) e o `id:hash` (id do item e hash de 12 caracteres do PDF) de cada falso aviso e de cada caso perdido. **Nunca imprime** citação,
    órgão, nem trecho de PDF. Sem rede.
 5. **Ajustar num conjunto, validar no outro.** Qualquer retoque de fórmula ou de janela de um aviso (nos tickets 08/09)
    olha só os números do **ajuste**; o número que vale para decidir é o da **validação**, em casos que o retoque nunca
@@ -95,7 +98,9 @@ testa o aviso do órgão. Um item pode ter os dois. O `id` é um código sem sen
 
 ## Quando o resultado não vale
 
-- Os formulários são idênticos → o script recusa (dois rotuladores independentes não copiam um do outro).
+- Os formulários são idênticos → o script **não recusa** (pode ser o melhor caso, dois rotuladores que concordaram em
+  tudo), mas o relatório traz uma linha "Atenção": confirme com os rotuladores que não foi cópia, senão o kappa não vale.
+- `desempate.json` com JSON inválido → o script para com erro claro; só a ausência do arquivo significa "sem desempate".
 - Concordância baixa entre os rotuladores → o aviso está mal definido, não é o programa que está ruim: reescreva a
   pergunta da tabela acima antes de medir de novo. Corte de kappa: **a decidir pelo dono**.
 - Citação que o programa não acha no PDF → fica fora dos avisos de passagem e é contada à parte no relatório.

@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   ErroDeProtocolo,
+  kappa,
   medir,
   montar,
   relatorio,
@@ -109,6 +110,12 @@ describe("medirAvisos — os três números por sinal", () => {
     expect(texto).toMatch(/acerto quando avisa: +\d+\/\d+/);
   });
 
+  it("identifica falsos avisos pelo id do item e pelo hash do PDF", async () => {
+    await gravar();
+    const texto = relatorio(await medir(pasta));
+    expect(texto).toMatch(/falsos avisos \(id:hash do PDF\): .*s-[A-Za-z]+:[0-9a-f]{12}/);
+  });
+
   it("usa o desempate para o item em que os rotuladores discordam", async () => {
     await gravar();
     await writeFile(join(pasta, "desempate.json"), JSON.stringify({ rotulos: { "s-negacao": { negacao: true } } }));
@@ -134,9 +141,24 @@ describe("medirAvisos — entradas que o protocolo recusa, com frase que ensina"
     expect(erro.message).not.toContain(LIMPA);
   });
 
-  it("dois formulários idênticos: não é dupla independente", async () => {
+  it("dois formulários idênticos: não recusa (melhor caso), mas avisa no relatório", async () => {
     await gravar(ITENS, formulario(ITENS));
-    await expect(medir(pasta)).rejects.toThrow(/idênticos/);
+    const m = await medir(pasta);
+    expect(m.avisosDoProtocolo.join(" ")).toMatch(/idênticos/);
+    expect(relatorio(m)).toMatch(/Atenção:.*idênticos/);
+  });
+
+  it("desempate.json com JSON inválido: erro claro; arquivo ausente: sem desempate", async () => {
+    await gravar();
+    await writeFile(join(pasta, "desempate.json"), "{ quebrado");
+    await expect(medir(pasta)).rejects.toThrow(/desempate\.json não é um JSON válido/);
+    await rm(join(pasta, "desempate.json"));
+    expect((await medir(pasta)).itens).toBe(ITENS.length);
+  });
+
+  it("id só de dígitos: recusa (a ordem embaralhada do formulário se perderia)", async () => {
+    await gravar([{ id: "123", pdf: "autoria.pdf", citacao: CITACAO.negacao }], null);
+    await expect(medir(pasta)).rejects.toThrow(/pelo menos uma letra/);
   });
 
   it("pasta dentro do repositório: recusa (regra 2)", async () => {
@@ -153,6 +175,15 @@ describe("medirAvisos — nada do texto sai", () => {
     }
     // Só hashes (12 hex) identificam casos.
     expect(relatorio(await medir(pasta))).toMatch(/Amostra [0-9a-f]{12}:/);
+  });
+});
+
+describe("medirAvisos — kappa de Cohen", () => {
+  it("a=[T,T,F,F], b=[T,F,F,F] dá 0,5; concordância total indefinida quando só há uma resposta", () => {
+    expect(kappa([true, true, false, false], [true, false, false, false])).toBeCloseTo(0.5, 10);
+    expect(kappa([true, false, true, false], [true, false, true, false])).toBe(1);
+    expect(kappa([true, true], [true, true])).toBeNull();
+    expect(kappa([], [])).toBeNull();
   });
 });
 
@@ -175,5 +206,54 @@ describe("medirAvisos — montar", () => {
     expect(JSON.parse(await readFile(join(pasta, "rotulos-b.json"), "utf8")).rotulos.feito).toEqual({});
     const de2 = JSON.parse(await readFile(join(pasta, "amostra.json"), "utf8")) as { itens: Item[] };
     expect(de2.itens.map((i) => i.conjunto)).toEqual(depois.itens.map((i) => i.conjunto));
+  });
+
+  const semConjunto = () => ITENS.map(({ conjunto: _c, ...resto }) => resto);
+  const lerAmostra = async () =>
+    JSON.parse(await readFile(join(pasta, "amostra.json"), "utf8")) as { semente: string; itens: Item[] };
+
+  it("divide em metades equilibradas mesmo com PDFs que terminam igual, e a mesma semente repete a divisão", async () => {
+    await gravar(semConjunto(), null);
+    await writeFile(join(pasta, "amostra.json"), JSON.stringify({ semente: "semente-fixa", itens: semConjunto() }));
+    await montar(pasta);
+    const primeira = await lerAmostra();
+    expect(primeira.semente).toBe("semente-fixa");
+    const conta = (c: string) => primeira.itens.filter((i) => i.conjunto === c).length;
+    expect([conta("ajuste"), conta("validacao")]).toEqual([4, 4]);
+
+    const outra = await mkdtemp(join(tmpdir(), "garimpo-medicao-"));
+    try {
+      for (const nome of ["autoria.pdf", "unanime.pdf", "fecho.pdf"]) {
+        await writeFile(join(outra, nome), await readFile(join(pasta, nome)));
+      }
+      await writeFile(join(outra, "amostra.json"), JSON.stringify({ semente: "semente-fixa", itens: semConjunto() }));
+      await montar(outra);
+      const repetida = JSON.parse(await readFile(join(outra, "amostra.json"), "utf8")) as { itens: Item[] };
+      expect(repetida.itens.map((i) => i.conjunto)).toEqual(primeira.itens.map((i) => i.conjunto));
+    } finally {
+      await rm(outra, { recursive: true, force: true });
+    }
+  });
+
+  it("sem semente no manifesto, sorteia uma e a registra em amostra.json", async () => {
+    await gravar(semConjunto(), null);
+    await montar(pasta);
+    expect((await lerAmostra()).semente).toMatch(/^[0-9a-f]{16}$/);
+  });
+
+  it("embaralha a ordem dos itens nos formulários (a do manifesto vazaria o gabarito), igual nos dois e fixa pela semente", async () => {
+    await gravar(semConjunto(), null);
+    await writeFile(join(pasta, "amostra.json"), JSON.stringify({ semente: "semente-fixa", itens: semConjunto() }));
+    await rm(join(pasta, "rotulos-a.json"));
+    await montar(pasta);
+    const ordem = async (nome: string) =>
+      Object.keys((JSON.parse(await readFile(join(pasta, nome), "utf8")) as { rotulos: object }).rotulos);
+    const ordemA = await ordem("rotulos-a.json");
+    expect(ordemA).toEqual(await ordem("rotulos-b.json"));
+    expect([...ordemA].sort()).toEqual(ITENS.map((i) => i.id).sort());
+    expect(ordemA).not.toEqual(ITENS.map((i) => i.id));
+    await rm(join(pasta, "rotulos-a.json"));
+    await montar(pasta);
+    expect(await ordem("rotulos-a.json")).toEqual(ordemA);
   });
 });
