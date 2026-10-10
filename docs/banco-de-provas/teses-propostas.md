@@ -35,6 +35,51 @@ Regras da lista:
 | 20 | Consumidor | Negativação indevida: dano moral presumido e inscrição preexistente | STJ, TJs |
 | 21 | Previdenciário | Auxílio-acidente com perda mínima da capacidade de trabalho e termo inicial | STJ, TJs |
 
+
+## Versão leiga das teses (G-74)
+
+> Redigido por agente em 2026-10-10, **pendente de revisão do dono**. Escrito antes de olhar qualquer resultado
+> gravado, sem consultar o site. A revisão não bloqueia a rodada de gravação: ela usa estas versões e marca os
+> resultados como "versão leiga ainda não revisada pelo dono"; se o dono mudar uma versão, só aquela tese é refeita.
+
+Para cada tese da tabela acima (mesma numeração):
+
+- **Versão leiga:** como uma pessoa que não sabe o nome do instituto descreveria a situação, numa frase. Genérica,
+  sem dado de caso.
+- **Só palavras:** o que essa pessoa digitaria numa caixa de busca (linha de base, sem operadores nem número de lei).
+
+| # | Versão leiga | Só palavras |
+|---|--------------|-------------|
+| 1 | O administrador público foi condenado por improbidade, mas não teve a intenção de fazer mal; a lei mudou e agora é preciso provar que quis o resultado ilícito? | improbidade só com intenção, lei nova, sem culpa |
+| 2 | O prefeito desviou dinheiro e já passou muito tempo: ainda dá para cobrar de volta o que ele tirou dos cofres públicos, mesmo que a punição já tenha prescrito? | cobrar de volta dinheiro desviado depois de muitos anos |
+| 3 | A prefeitura contratou um escritório de advocacia sem abrir concorrência. Isso pode, ou é irregular? | prefeitura contratar advogado sem licitação |
+| 4 | Um prefeito ou governador nomeou um parente (filho, cônjuge, irmão) para trabalhar na administração. Isso é proibido? E se o cargo for de secretário? | nomear parente cargo público prefeito |
+| 5 | A prefeitura criou vários cargos de confiança que, na prática, são funções comuns de escritório. A lei que criou esses cargos vale? | cargos de confiança prefeitura lei inválida |
+| 6 | Passei no concurso, mas fiquei fora das vagas previstas, e o órgão contratou gente temporária para o mesmo serviço. Tenho direito de ser chamado? | passei no concurso e contrataram temporário no meu lugar |
+| 7 | O governo não faz o que a Constituição garante (hospital, escola, saneamento). O juiz pode mandar o governo fazer, ou isso invade a função do Executivo? | juiz obrigar governo a fazer obra ou serviço público |
+| 8 | Meu filho pequeno está sem vaga na creche do município. Posso exigir a vaga na Justiça? | vaga em creche prefeitura não tem, o que fazer |
+| 9 | O médico receitou um remédio caro que o SUS não fornece. Posso obrigar o governo a pagar? | governo pagar remédio caro que o SUS não dá |
+| 10 | Uma empresa destruiu uma mata ou poluiu um rio há décadas. Ainda dá para cobrar que conserte, ou o prazo já acabou? | prazo para cobrar reparação de dano ao meio ambiente |
+| 11 | Comprei um terreno e descobri que o dono antigo desmatou ou poluiu. Sou eu quem tem que consertar? | comprei terreno com dano ambiental, quem paga |
+| 12 | Uma empresa prejudicou muita gente ao mesmo tempo (serviço ruim, poluição). A coletividade pode receber indenização por dano moral, mesmo sem provar sofrimento de cada pessoa? | indenização por dano moral para toda a coletividade |
+| 13 | O Ministério Público pode entrar com uma ação para defender muitos consumidores de uma vez (plano de saúde, banco, conta de luz), mesmo que cada um tenha um problema próprio? | promotor processar empresa em nome de vários consumidores |
+| 14 | Uma empresa assinou um acordo com o Ministério Público para parar de poluir, descumpriu e a multa do acordo não foi cobrada a tempo. Ainda dá para cobrar? | acordo com o Ministério Público multa prazo para cobrar |
+| 15 | A empresa contratou outra firma para fazer o serviço principal dela, e o trabalhador da firma contratada processa as duas. A empresa contratante responde? | trabalhador terceirizado processar a empresa contratante |
+| 16 | Réu primário foi preso com pouca droga e o juiz negou a redução da pena por causa de outros processos ainda sem sentença. Pode? E esse caso é crime hediondo? | pena menor tráfico réu primário processos em andamento |
+| 17 | A prefeitura cobrou o imposto de compra de imóvel com base num valor maior do que o que realmente paguei. Pode? | imposto na compra de imóvel prefeitura cobrou valor maior |
+| 18 | O partido colocou mulheres como candidatas só para cumprir a cota, sem campanha de verdade. O que acontece com os eleitos desse partido? | candidata laranja partido cota mulheres cassação |
+| 19 | O pai não paga a pensão do filho há meses. Quantas parcelas atrasadas dão prisão, e pagar uma parte já livra dela? | pai que não paga pensão prisão quantos meses atrasados |
+| 20 | Meu nome foi para o cadastro de maus pagadores (Serasa, SPC) por uma dívida que não era minha. Tenho direito a indenização, mesmo que eu já tivesse outra dívida negativada? | nome sujo indevido indenização Serasa |
+| 21 | Sofri um acidente, fiquei com uma sequela pequena que atrapalha um pouco meu trabalho. Tenho direito ao benefício do INSS? E desde quando? | acidente sequela leve benefício INSS desde quando |
+
+Dúvidas para o dono revisar:
+
+- Não houve consulta ao site: as versões não foram testadas, só escritas.
+- Nas teses 9 e 12 a versão leiga é mais ampla que a técnica, que é restrita a um instituto; a leiga pode atrair
+  decisões vizinhas (o ruído é parte do que a medição quer mostrar).
+- Nas teses 3, 14, 15, 17, 18 e 21 o leigo não conhece o nome técnico (inexigibilidade, TAC, atividade-fim, ITBI,
+  cota de gênero, auxílio-acidente); a coluna "só palavras" evita esses nomes de propósito, e é daí que vem a diferença.
+
 ---
 
 ## 1. Dolo específico na improbidade administrativa após a Lei 14.230/2021
