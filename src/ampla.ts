@@ -8,7 +8,7 @@ import { Cliente, ErroHttp, FormatoInesperadoError, PausaPreventivaError, Recusa
 import { RedeParadaError } from "./coordenacao.js";
 import {
   type Acordao,
-  buscaDireta,
+  buscaDiretaSemMarca,
   type CampoAusente,
   camposAusentes,
   type FiltrosBusca,
@@ -310,7 +310,7 @@ export async function buscaAmpla(
       }
       try {
         // A memória já foi consultada: aqui só vai ao site; os acórdãos são guardados depois de juntar as cópias.
-        t.resposta = await buscaDireta(cliente, parametros(t), memoria, {
+        t.resposta = await buscaDiretaSemMarca(cliente, parametros(t), memoria, {
           renovar: true,
           guardarAcordaos: false,
           tabela,

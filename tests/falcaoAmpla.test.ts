@@ -22,6 +22,17 @@ const linha = (r: { dado: any }, tribunal: string) =>
   r.dado.cabecalhoDeCobertura.porTribunal.find((l: { tribunal: string }) => l.tribunal === tribunal);
 
 describe("TRTs na busca ampla", () => {
+  it("TRT completo (órgão e data): sem faltam, porque o Falcão nunca tem link por desenho", async () => {
+    const falcao = falcaoFalso(() => pagina([PESQUISA.documentos[0]]));
+    const { mcp } = await conectar(siteFalso().cliente, falcao.cliente);
+    const ampla = await chamar(mcp, "busca_ampla", { formulacoes: ["intervalo intrajornada"], tribunais: ["trt3"] });
+    expect(ampla.isError).toBe(false);
+    expect(ampla.dado.acordaos.length).toBeGreaterThan(0);
+    for (const a of ampla.dado.acordaos) expect(a).not.toHaveProperty("faltam");
+    const direta = await chamar(mcp, "busca_direta", { tribunal: "trt3", texto: "intervalo intrajornada" });
+    for (const a of direta.dado.acordaos) expect(a).not.toHaveProperty("faltam");
+  });
+
   it("TRT e outro tribunal juntos: cada acórdão com a fonte, os rótulos em fontes e o aviso das duas fontes", async () => {
     const falcao = falcaoFalso(() => pagina(PESQUISA.documentos));
     const site = siteFalso([

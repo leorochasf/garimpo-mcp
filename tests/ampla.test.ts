@@ -1110,6 +1110,24 @@ describe("campos que o site não mandou (faltam) na busca ampla", () => {
     expect(ok).not.toHaveProperty("faltam");
   });
 
+  it("a memória guarda o acórdão sem faltam (como o obter_ementa): a marca vale só na montagem do item", async () => {
+    const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-ampla-"));
+    try {
+      const memoria = new Memoria({ dados });
+      const { cliente } = siteFalso((_t, texto) => {
+        const { orgao_julgador: _o, link_pdf: _l, ...incompleto } = bruto(`inc-${texto}`, 0.9);
+        return respostaJson({ results: [incompleto] });
+      });
+      const r = await buscaAmpla(cliente, { formulacoes: ["a"], tribunais: ["stj"] }, memoria);
+      expect(r.acordaos[0].faltam).toEqual(["orgao", "link"]);
+      const guardado = await memoria.obter(r.acordaos[0].id);
+      expect(guardado).toBeDefined();
+      expect(guardado!.acordao).not.toHaveProperty("faltam");
+    } finally {
+      await rm(dados, { recursive: true, force: true, maxRetries: 10 });
+    }
+  });
+
   it("50 acórdãos sem órgão e sem link, campos realistas, com a estimativa e a lista cortada: < 25 mil caracteres", async () => {
     const { cliente: base } = siteRealista();
     const cliente = new (class extends Cliente {

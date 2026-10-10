@@ -12,7 +12,7 @@ import { juntarEquivalentes } from "./equivalencia.js";
 import { FalhaNaMemoriaError, fotografiaDaBusca, type Memoria } from "./memoria.js";
 import { buscaNoFalcao, clienteDoFalcao, lerBuscaGuardadaNoFalcao } from "./falcao.js";
 import { avisoDeRecorridoAusente } from "./recorrido.js";
-import { ehDoFalcao, infoTribunal } from "./tribunais.js";
+import { ehDoFalcao, infoTribunal, ROTULO_FALCAO } from "./tribunais.js";
 
 export const SITE = "https://www.jurisprudenciaia.com.br";
 
@@ -57,12 +57,17 @@ export interface Acordao {
 /** Campos que o Garimpo diz que faltam: a ementa cortada já tem o avisoDeEmenta. */
 export type CampoAusente = "orgao" | "data" | "link";
 
-/** O que o site não mandou, na ordem fixa orgao, data, link (a página de consulta vale como link); vazio = nada falta. */
-export function camposAusentes(a: Pick<Acordao, "orgao" | "dataJulgamento" | "link" | "linkConsulta">): CampoAusente[] {
+/**
+ * O que o site não mandou, na ordem fixa orgao, data, link (a página de consulta vale como link); vazio = nada falta.
+ * O acórdão do Falcão nunca tem link por desenho (a fonte não oferece), então a falta dele não é lacuna a avisar.
+ */
+export function camposAusentes(
+  a: Pick<Acordao, "orgao" | "dataJulgamento" | "link" | "linkConsulta" | "fonte">,
+): CampoAusente[] {
   const faltam: CampoAusente[] = [];
   if (!a.orgao) faltam.push("orgao");
   if (!a.dataJulgamento) faltam.push("data");
-  if (!a.link && !a.linkConsulta) faltam.push("link");
+  if (!a.link && !a.linkConsulta && a.fonte !== ROTULO_FALCAO) faltam.push("link");
   return faltam;
 }
 
@@ -219,7 +224,8 @@ export async function buscaDireta(
   return { ...r, acordaos: r.acordaos.map(comFaltam) };
 }
 
-async function buscaDiretaSemMarca(
+/** A busca sem a marca `faltam`: é o que vai para a memória; a busca_ampla marca só na montagem do item. */
+export async function buscaDiretaSemMarca(
   cliente: Cliente,
   p: ParametrosBusca,
   memoria?: Memoria,
