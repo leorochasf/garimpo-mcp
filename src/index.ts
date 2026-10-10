@@ -8,6 +8,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { Cliente } from "./cliente.js";
 import { criarServidor } from "./servidor.js";
 import { tabelaEmpacotada } from "./tabelaDePrecedentes.js";
+import { tabelaDoStfEmpacotada } from "./tabelaDoStf.js";
 
 const site = new Cliente({ nome: "O JurisprudênciaIA" });
 
@@ -18,5 +19,11 @@ try {
 } catch (e) {
   console.error(`Garimpo: a tabela de precedentes não pôde ser lida (${(e as Error).message}).`);
 }
+let tabelaStf;
+try {
+  tabelaStf = tabelaDoStfEmpacotada();
+} catch (e) {
+  console.error(`Garimpo: a tabela do STF não pôde ser lida (${(e as Error).message}).`);
+}
 
-await criarServidor(site, { tabela }).connect(new StdioServerTransport());
+await criarServidor(site, { tabela, tabelaStf }).connect(new StdioServerTransport());

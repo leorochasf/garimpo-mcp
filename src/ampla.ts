@@ -23,6 +23,7 @@ import { diaEHora, FalhaNaMemoriaError, type Memoria } from "./memoria.js";
 import { ordenarPorAderencia, trecho } from "./pontuacao.js";
 import { avisoDeRecorridoAusenteAmplo } from "./recorrido.js";
 import type { TabelaDePrecedentes } from "./tabelaDePrecedentes.js";
+import type { TabelaDoStf } from "./tabelaDoStf.js";
 import { juntarQualificados, type QualificadoAmplo, type QualificadosDaBusca, reservarPorTribunal } from "./saida.js";
 
 export interface ParametrosAmpla extends FiltrosBusca, FiltrosLocais {
@@ -127,7 +128,7 @@ export async function buscaAmpla(
   cliente: Cliente,
   p: ParametrosAmpla,
   memoria?: Memoria,
-  { tabela, falcao }: { tabela?: TabelaDePrecedentes; falcao?: Cliente } = {},
+  { tabela, tabelaStf, falcao }: { tabela?: TabelaDePrecedentes; tabelaStf?: TabelaDoStf; falcao?: Cliente } = {},
 ): Promise<ResultadoAmplo> {
   const comTrt = p.tribunais.some(ehDoFalcao);
   // Antes de gastar chamada: filtro ainda não verificado num TRT é erro que ensina.
@@ -250,6 +251,7 @@ export async function buscaAmpla(
           renovar: true,
           guardarAcordaos: false,
           tabela,
+          tabelaStf,
           falcao,
         });
       } catch (e) {
@@ -428,7 +430,7 @@ export async function buscaAmpla(
       return item;
     }),
     // Texto do qualificado em 120 caracteres para caber o enquadramento927 curto (decisão do dono, 2026-10-08).
-    qualificados: juntarQualificados(qualificados, { tamanhoTexto: 120, tabela }),
+    qualificados: juntarQualificados(qualificados, { tamanhoTexto: 120, tabela, tabelaStf }),
     ressalvaQualificados:
       `${RESSALVA_ROTULO}Aqui o enquadramento927 vem curto (art. 927 conferido em ${ART_927_CONFERIDO_EM}); completo na ` +
       "busca_direta; o dos acórdãos no obter_ementa.",

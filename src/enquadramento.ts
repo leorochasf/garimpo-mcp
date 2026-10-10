@@ -5,7 +5,6 @@
  * Módulo puro: sem rede nem disco.
  */
 
-import type { LinhaDaTabela } from "./tabelaDePrecedentes.js";
 
 /** Data em que o texto do art. 927 foi conferido no Planalto, já com o inciso III-A (Lei nº 15.484/2026). */
 export const ART_927_CONFERIDO_EM = "2026-10-08";
@@ -81,13 +80,16 @@ export interface QualificadoParaEnquadrar {
 }
 
 /**
- * O que a tabela de precedentes diz do mesmo tema ou IAC do STJ (ADR-0007, emenda "Reforço pela tabela de
- * precedentes"): a linha casada por tipo e número, ou nenhuma ("não consta"), e a data da tabela.
+ * O que a tabela de precedentes diz do mesmo precedente (ADR-0007, emenda "Reforço pela tabela de precedentes"): a
+ * linha casada por tipo e número, ou nenhuma ("não consta"), e a data da tabela. Tabela do STJ: tema repetitivo e
+ * IAC; tabela do STF: repercussão geral, súmula e súmula vinculante (só situação e notas, nunca muda o inciso).
  */
 export interface ReforcoDaTabela {
-  /** Data da tabela (coleta), AAAA-MM-DD. */
+  /** De qual tabela (padrão: a do STJ). */
+  tribunal?: "stj" | "stf";
+  /** Data da tabela (coleta ou obtenção), AAAA-MM-DD. */
   data: string;
-  linha?: Pick<LinhaDaTabela, "situacao" | "teseFirmada">;
+  linha?: { situacao?: string; teseFirmada?: string };
   /** O item veio da própria tabela (consultar_precedente), não de uma lista do site. */
   consulta?: boolean;
 }
@@ -95,7 +97,11 @@ export interface ReforcoDaTabela {
 export function enquadrarQualificado(q: QualificadoParaEnquadrar, reforco?: ReforcoDaTabela): Enquadramento927 {
   const doReforco = reforcoAplicavel(q, reforco);
   const temTese = Boolean(q.tese?.trim()) || Boolean(doReforco?.linha?.teseFirmada);
-  const completo = regraDoQualificado({ ...q, temTese, temTeseDoSite: Boolean(q.tese?.trim()) }, doReforco).completo;
+  const completo = comReforcoDoStf(
+    regraDoQualificado({ ...q, temTese, temTeseDoSite: Boolean(q.tese?.trim()) }, doReforco),
+    q.tipo,
+    doReforco,
+  ).completo;
   return doReforco ? { ...completo, notas: notasDoReforco(q, doReforco) } : completo;
 }
 
@@ -109,19 +115,52 @@ export function formaCurta(
   e: Enquadramento927,
   reforco?: ReforcoDaTabela,
 ): string {
-  return regraDoQualificado({ ...q, temTese: e.inciso === "III" }, reforcoAplicavel(q, reforco)).curto;
+  const doReforco = reforcoAplicavel(q, reforco);
+  return comReforcoDoStf(regraDoQualificado({ ...q, temTese: e.inciso === "III" }, doReforco), q.tipo, doReforco).curto;
 }
 
-/** O reforço só vale para tema repetitivo e IAC do STJ; nos demais, a regra é a de sempre. */
+/** Tipos que cada tabela cobre; fora deles (ou de outro tribunal), a regra é a de sempre. */
+const TIPOS_DA_TABELA = { stj: ["tema repetitivo", "IAC"], stf: ["repercussão geral", "súmula", "súmula vinculante"] };
+
 function reforcoAplicavel(q: Pick<QualificadoParaEnquadrar, "tribunal" | "tipo">, reforco?: ReforcoDaTabela) {
-  return reforco && q.tribunal === "stj" && (q.tipo === "tema repetitivo" || q.tipo === "IAC") ? reforco : undefined;
+  const tribunal = reforco?.tribunal ?? "stj";
+  return reforco && q.tribunal === tribunal && TIPOS_DA_TABELA[tribunal].includes(q.tipo) ? reforco : undefined;
 }
 
-const daTabela = (r: ReforcoDaTabela) => `tabela de precedentes do STJ de ${r.data}`;
+const daTabela = (r: ReforcoDaTabela) => `tabela de precedentes do ${(r.tribunal ?? "stj").toUpperCase()} de ${r.data}`;
+
+/**
+ * Tabela do STF: o inciso e o motivo ficam os da regra de sempre; a situação da tabela entra no aviso de situação
+ * e na forma curta (ou "não consta", só na forma curta).
+ */
+function comReforcoDoStf(
+  r: { completo: Enquadramento927; curto: string },
+  tipo: string,
+  reforco?: ReforcoDaTabela,
+): { completo: Enquadramento927; curto: string } {
+  if (reforco?.tribunal !== "stf") return r;
+  if (!reforco.linha) return { ...r, curto: `${r.curto}; não consta na tabela do STF de ${reforco.data}` };
+  const situacao = situacaoDaTabela(reforco, tipo);
+  return { completo: { ...r.completo, avisoSituacao: situacao.completa }, curto: `${r.curto}; ${situacao.curta}` };
+}
 
 /** Situação na fonte literal, com a data da tabela; nunca traduzida para vigência. */
-function situacaoDaTabela(r: ReforcoDaTabela): { completa: string; curta: string } {
+function situacaoDaTabela(r: ReforcoDaTabela, tipo: string): { completa: string; curta: string } {
   const situacao = r.linha?.situacao;
+  // Súmulas do STF: a "situação" é a marca entre parênteses no rótulo da lista do STF.
+  if (tipo === "súmula" || tipo === "súmula vinculante") {
+    return situacao
+      ? {
+          completa: `marcada como "${situacao}" na lista do STF (${daTabela(r)}); é o rótulo da lista, não a vigência: conferir antes de citar`,
+          curta: `marca na lista do STF em ${r.data}: ${situacao}`,
+        }
+      : {
+          completa:
+            `sem marca de situação na lista do STF (${daTabela(r)}); a falta de marca não prova que a súmula está em ` +
+            "vigor: conferir antes de citar",
+          curta: `sem marca na lista do STF em ${r.data}`,
+        };
+  }
   if (!situacao) {
     return {
       completa: `situação não informada pela fonte (${daTabela(r)}): conferir antes de citar`,
@@ -139,8 +178,12 @@ function notasDoReforco(q: QualificadoParaEnquadrar, r: ReforcoDaTabela): string
   if (!r.linha) return [`não consta na ${daTabela(r)}`];
   const notas: string[] = [];
   const situacao = r.linha.situacao;
-  if (situacao === "Cancelado" || situacao === "Revisado") {
-    notas.push(`a fonte indica "${situacao}" (${daTabela(r)}); o inciso descreve o tipo do precedente, não a vigência`);
+  const marcaDaSumula = r.tribunal === "stf" && (q.tipo === "súmula" || q.tipo === "súmula vinculante");
+  if (situacao && (marcaDaSumula || situacao === "Cancelado" || situacao === "Revisado")) {
+    notas.push(
+      `a fonte ${marcaDaSumula ? "marca" : "indica"} "${situacao}" (${daTabela(r)}); o inciso descreve o tipo do ` +
+        "precedente, não a vigência",
+    );
   }
   const doSite = textoComparavel(q.tese);
   const daFonte = r.linha.teseFirmada;
@@ -192,7 +235,7 @@ function regraDoQualificado(
       );
     }
     if (reforco?.linha) {
-      const situacao = situacaoDaTabela(reforco);
+      const situacao = situacaoDaTabela(reforco, tipo);
       const onde = reforco.consulta ? `a ${daTabela(reforco)}` : `o site nem na ${daTabela(reforco)}`;
       if (!q.temTese) {
         const semTese = naoClassificado(`${rotulo} do STJ sem tese firmada informada pel${onde}`);

@@ -146,10 +146,10 @@ describe("consultar_precedente — tabela de precedentes do STJ, sem rede", () =
     }
   });
 
-  it("outro tribunal: erro explicando que a tabela só tem o STJ", async () => {
-    const r = await consultar(await conectar(await tabelaPequena()), { tribunal: "stf", tipo: "tema repetitivo", numero: 1 });
+  it("outro tribunal: erro explicando que as tabelas só têm o STJ e o STF", async () => {
+    const r = await consultar(await conectar(await tabelaPequena()), { tribunal: "tst", tipo: "tema repetitivo", numero: 1 });
     expect(r.erro).toBe(true);
-    expect(r.texto).toMatch(/só tem o STJ/);
+    expect(r.texto).toMatch(/só têm o STJ .* e o STF/);
   });
 
   it("tabela com mais de 90 dias: aviso fixo de idade", async () => {

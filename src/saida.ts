@@ -6,6 +6,7 @@
 import type { Qualificado } from "./busca.js";
 import { formaCurta } from "./enquadramento.js";
 import { reforcoDaTabela, type TabelaDePrecedentes } from "./tabelaDePrecedentes.js";
+import { reforcoDoStf, type TabelaDoStf } from "./tabelaDoStf.js";
 
 export interface OpcoesReserva<T> {
   /** Tamanho da lista mostrada. */
@@ -72,6 +73,8 @@ export interface OpcoesQualificados {
   tamanhoTexto?: number;
   /** Tabela de precedentes do STJ: a forma curta do tema/IAC do STJ casado leva a situação na fonte curta. */
   tabela?: TabelaDePrecedentes;
+  /** Tabela do STF: a forma curta de repercussão geral e súmulas do STF casadas leva a situação ou marca curta. */
+  tabelaStf?: TabelaDoStf;
 }
 
 /**
@@ -98,7 +101,7 @@ export function juntarQualificados(buscas: QualificadosDaBusca[], o: OpcoesQuali
       enquadramento927: formaCurta(
         { tribunal, tipo: q.tipo, numero: q.numero },
         q.enquadramento927,
-        reforcoDaTabela(o.tabela, tribunal, q.tipo, q.numero),
+        reforcoDaTabela(o.tabela, tribunal, q.tipo, q.numero) ?? reforcoDoStf(o.tabelaStf, tribunal, q.tipo, q.numero),
       ),
       tribunal,
       formulacoes: formulacoes.size,

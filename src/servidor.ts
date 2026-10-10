@@ -52,6 +52,14 @@ import {
   type TabelaDePrecedentes,
   TIPOS_NA_TABELA,
 } from "./tabelaDePrecedentes.js";
+import {
+  consultarPrecedenteStf,
+  reforcoDoStf,
+  sobreATabelaDoStf,
+  type TabelaDoStf,
+  type TipoNoStf,
+  TIPOS_NO_STF,
+} from "./tabelaDoStf.js";
 
 // Tribunal e datas são conferidos dentro da ferramenta, não no esquema: o erro do esquema sai embrulhado em texto
 // técnico de validação, e a chamada errada precisa de uma frase que diga como corrigir.
@@ -85,7 +93,11 @@ const SOBRE_A_TABELA_NAS_LISTAS =
   "(fotografia datada do Portal de Dados Abertos do STJ): a situação na fonte vem literal, com a data da tabela, e é " +
   "situação processual, nunca vigência; o tema sem tese no site e com tese firmada na tabela vai ao inciso III com " +
   "essa evidência; Cancelado ou Revisado ganham nota sem mudar o inciso; tese do site diferente da tabela é avisada; " +
-  "o que não consta na tabela diz isso. Quando a tabela é usada, o campo tabelaDePrecedentes traz atribuição e datas.";
+  "o que não consta na tabela diz isso. Repercussão geral, súmula e súmula vinculante do STF são conferidas na " +
+  "tabela do STF (fotografia datada obtida pelo mantenedor no portal do STF), quando a versão a traz: a situação do " +
+  "tema ou a marca da lista de súmulas entra no aviso de situação, sem mudar o inciso; a falta de marca não prova " +
+  "vigência; o campo tabelaDoStf traz atribuição, fundamento e data. " +
+  "Quando a tabela do STJ é usada, o campo tabelaDePrecedentes traz atribuição e datas.";
 
 /** Como a memória entra nas buscas: vai na descrição das duas. */
 const SOBRE_A_BUSCA_GUARDADA =
@@ -134,6 +146,12 @@ const AVISO_CITACAO_NA_EMENTA_CORTADA =
 const AVISO_DA_TABELA =
   "Fotografia da tabela de precedentes do STJ na data informada, não consulta ao vivo: a situação e a tese podem " +
   "ter mudado depois. Confira no portal do STJ antes de citar; a situação na fonte não é vigência.";
+
+/** Aviso de natureza jurídica das respostas que vêm da tabela do STF. */
+const AVISO_DA_TABELA_STF =
+  "Fotografia da tabela do STF na data informada (arquivos obtidos pelo mantenedor no portal do STF), não consulta " +
+  "ao vivo: a situação e o texto podem ter mudado depois. Confira no portal do STF antes de citar; a situação na " +
+  "fonte e a marca da lista de súmulas não são vigência.";
 
 /** Aviso de natureza jurídica do Falcão: a fonte é oficial, o Garimpo não; nunca diz que o acórdão foi conferido. */
 const AVISO_FALCAO =
@@ -208,6 +226,11 @@ export interface OpcoesServidor {
    * com erro e as listas de qualificados seguem a regra sem a tabela.
    */
   tabela?: TabelaDePrecedentes;
+  /**
+   * Tabela do STF (index.ts passa a empacotada em dados/). Sem ela, o consultar_precedente do STF responde com erro e
+   * as listas de qualificados do STF seguem a regra sem a tabela.
+   */
+  tabelaStf?: TabelaDoStf;
   /** Cliente do DataJud (padrão: o real, com os freios dele). */
   datajud?: Cliente;
   /** Cliente do DJEN (padrão: o real, com os freios dele). */
@@ -225,6 +248,7 @@ export function criarServidor(
     agora,
     tetoDaMemoria,
     tabela,
+    tabelaStf,
     datajud = clienteDoDataJud(),
     djen = clienteDoDjen(),
     falcao = clienteDoFalcao(),
@@ -243,10 +267,17 @@ export function criarServidor(
   const fonteDjen = new FonteDjen(djen);
 
   /** Atribuição e datas da tabela, quando ela reforçou algum tema ou IAC do STJ da lista de qualificados. */
-  const comATabela = (qualificados: { tribunal: string; tipo: string; numero?: string }[], { curta = false } = {}) =>
-    tabela && qualificados.some((q) => reforcoDaTabela(tabela, q.tribunal, q.tipo, q.numero))
-      ? { tabelaDePrecedentes: sobreATabela(tabela, (agora ?? Date.now)(), { curta }) }
-      : {};
+  const comATabela = (qualificados: { tribunal: string; tipo: string; numero?: string }[], { curta = false } = {}) => {
+    const doStf = tabelaStf && qualificados.find((q) => reforcoDoStf(tabelaStf, q.tribunal, q.tipo, q.numero));
+    return {
+      ...(tabela && qualificados.some((q) => reforcoDaTabela(tabela, q.tribunal, q.tipo, q.numero))
+        ? { tabelaDePrecedentes: sobreATabela(tabela, (agora ?? Date.now)(), { curta }) }
+        : {}),
+      ...(tabelaStf && doStf
+        ? { tabelaDoStf: sobreATabelaDoStf(tabelaStf, doStf.tipo as TipoNoStf, (agora ?? Date.now)(), { curta }) }
+        : {}),
+    };
+  };
 
   servidor.registerTool(
     "busca_direta",
@@ -286,7 +317,7 @@ export function criarServidor(
       try {
         conferirTribunais(args.tribunal);
         conferirDatas(args);
-        const r = await buscaDireta(site, args, memoria, { renovar, tabela, falcao });
+        const r = await buscaDireta(site, args, memoria, { renovar, tabela, tabelaStf, falcao });
         return comAvisoNaturezaJuridica(
           { ...r, ...comATabela(r.qualificados.map((q) => ({ ...q, tribunal: r.tribunal }))) },
           [r.tribunal],
@@ -365,7 +396,7 @@ export function criarServidor(
         conferirTribunais(...args.tribunais);
         conferirDatas(args);
         const filtrosLocais = lerFiltrosLocais({ deveConter, naoPodeConter });
-        const r = await buscaAmpla(site, { ...args, ...filtrosLocais }, memoria, { tabela, falcao });
+        const r = await buscaAmpla(site, { ...args, ...filtrosLocais }, memoria, { tabela, tabelaStf, falcao });
         return comAvisoNaturezaJuridica({ ...r, ...comATabela(r.qualificados, { curta: true }) }, args.tribunais);
       } catch (e) {
         return erro(e);
@@ -671,29 +702,50 @@ export function criarServidor(
   servidor.registerTool(
     "consultar_precedente",
     {
-      title: "Consultar precedente (tabela do STJ)",
+      title: "Consultar precedente (tabelas do STJ e do STF)",
       description:
-        "Consulta, sem internet, um tema repetitivo ou IAC do STJ pelo número na tabela de precedentes que vai no " +
-        "Garimpo: fotografia datada do conjunto \"Precedentes qualificados\" do Portal de Dados Abertos do STJ. " +
-        "Devolve a situação na fonte (literal, como o STJ escreve: situação processual, nunca vigência), a tese " +
+        "Consulta, sem internet, um precedente pelo número nas tabelas de precedentes que vão no Garimpo. STJ: tema " +
+        "repetitivo ou IAC, da fotografia datada do conjunto \"Precedentes qualificados\" do Portal de Dados Abertos do " +
+        "STJ; devolve a situação na fonte (literal, como o STJ escreve: situação processual, nunca vigência), a tese " +
         "firmada ou \"sem tese firmada na tabela\", a questão submetida (a pergunta, não a tese), órgão, datas, " +
         "processo paradigma quando a fonte o identifica, números de súmula e de tema de repercussão geral do STF " +
-        "ligados (sem enunciado), o enquadramento927 e a atribuição com as datas da tabela (coleta e atualização " +
-        "informada pela fonte; aviso se tiver mais de 90 dias). Número ausente volta como \"não consta na tabela de " +
-        "<data>\", nunca como inexistente. Tema e IAC têm numeração separada: o tipo é obrigatório. Só o STJ.",
+        "ligados (sem enunciado). STF: repercussão geral, súmula ou súmula vinculante, da fotografia datada que o " +
+        "mantenedor obteve no portal do STF (sem licença do STF; fundamento declarado: Lei 9.610/98, art. 8º, IV); " +
+        "devolve a situação do tema e a tese (RG) ou a marca de situação da lista do STF e o enunciado, quando a " +
+        "página da súmula foi obtida (súmulas), com o link; a falta de marca não prova vigência. Sempre com o " +
+        "enquadramento927 e a atribuição com as datas da tabela (aviso se tiver mais de 90 dias). Número ausente " +
+        "volta como \"não consta na tabela de <data>\", nunca como inexistente. O tipo é obrigatório: a numeração de " +
+        "cada tipo é separada.",
       annotations: { readOnlyHint: true, openWorldHint: false },
       inputSchema: {
-        tribunal: z.string().describe('Só "stj": a tabela de precedentes só tem o STJ'),
-        tipo: z.string().optional().describe('"tema repetitivo" ou "IAC" (obrigatório: a numeração é separada)'),
-        numero: z.number().int().min(1).describe("Número do tema repetitivo ou do IAC"),
+        tribunal: z.string().describe('"stj" ou "stf": as tabelas de precedentes só têm esses dois'),
+        tipo: z
+          .string()
+          .optional()
+          .describe('STJ: "tema repetitivo" ou "IAC"; STF: "repercussão geral", "súmula" ou "súmula vinculante" (obrigatório)'),
+        numero: z.number().int().min(1).describe("Número do tema, do IAC ou da súmula"),
       },
     },
     async ({ tribunal, tipo, numero }) => {
       try {
-        if (tribunal.trim().toLowerCase() !== "stj") {
+        const sigla = tribunal.trim().toLowerCase();
+        if (sigla === "stf") {
+          const doTipo = TIPOS_NO_STF.find((t) => t === tipo?.trim());
+          if (!doTipo) {
+            throw new Error(
+              `Diga o tipo do STF: "repercussão geral", "súmula" ou "súmula vinculante"${tipo ? ` ("${tipo}" não é um deles)` : ""}. ` +
+                "A numeração de cada tipo é separada: a Súmula 1 e a Súmula Vinculante 1 são precedentes diferentes.",
+            );
+          }
+          if (!tabelaStf) throw new Error("A tabela do STF não foi carregada neste servidor.");
+          const resposta = consultarPrecedenteStf(tabelaStf, doTipo, numero, (agora ?? Date.now)());
+          return json({ ...resposta, avisoNaturezaJuridica: AVISO_DA_TABELA_STF });
+        }
+        if (sigla !== "stj") {
           throw new Error(
-            `A tabela de precedentes só tem o STJ (temas repetitivos e IAC); "${tribunal}" não está nela. ` +
-              'Use tribunal "stj", ou busque o precedente com busca_direta.',
+            `As tabelas de precedentes só têm o STJ (temas repetitivos e IAC) e o STF (repercussão geral, súmulas e ` +
+              `súmulas vinculantes); "${tribunal}" não está nelas. Use tribunal "stj" ou "stf", ou busque o precedente ` +
+              "com busca_direta.",
           );
         }
         const doTipo = TIPOS_NA_TABELA.find((t) => t === tipo?.trim());
