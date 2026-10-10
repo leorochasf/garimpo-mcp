@@ -614,6 +614,14 @@ describe("conferência de citação — posição no julgado (G-09)", () => {
     expect(posicoes(r).posicoes).toEqual([{ secao: "voto", subparte: "fundamentação" }]);
   });
 
+  it.each(["Voto", "Voto-vista", "Voto vogal", "VOTO"])(
+    "título \"%s\" logo antes de \"Ante o exposto\": a fórmula abre o dispositivo (o título não continua a frase)",
+    (titulo) => {
+      const r = conferirNoInteiroTeor(inteiroTeor([`${titulo}\nAnte o exposto, ${FRASE}.`]), citar(FRASE));
+      expect(posicoes(r).posicoes[0].subparte).toBe("dispositivo");
+    },
+  );
+
   it("\"Ante o exposto\" no relatório não abre dispositivo: só o voto tem dispositivo", () => {
     const r = conferirNoInteiroTeor(inteiroTeor([`RELATÓRIO\nAnte o exposto, o autor pede que ${FRASE}.`]), citar(FRASE));
     expect(posicoes(r).posicoes).toEqual([{ secao: "relatório", subparte: undefined }]);

@@ -648,11 +648,19 @@ function marcasDoJulgado(texto: string, paginaEm: (i: number) => number): Marcas
     const nome = titulo ? SUBPARTES_DA_EMENTA[semAcentos(titulo[1]).toLowerCase()] : undefined;
     if (nome) daEmenta.push({ inicio: m.index, nome });
   }
+  const titulos = titulosDeSecao(texto, paginaEm);
+  // A linha de título de seção é limite: a letra minúscula do fim dela ("Voto vogal") não continua a frase.
+  const fimDeTitulo = new Set(titulos.map((t) => texto.indexOf("\n", t.inicio)));
+  const linhaAnterior = (i: number) => texto.lastIndexOf("\n", i - 1);
   return {
-    titulos: titulosDeSecao(texto, paginaEm),
+    titulos,
     daEmenta,
     dispositivos: [...texto.matchAll(DISPOSITIVO)]
-      .filter((m) => !CONTINUA_A_FRASE.test(texto.slice(Math.max(0, m.index - 80), m.index)))
+      .filter(
+        (m) =>
+          fimDeTitulo.has(linhaAnterior(m.index)) ||
+          !CONTINUA_A_FRASE.test(texto.slice(Math.max(0, m.index - 80), m.index)),
+      )
       .map((m) => m.index),
   };
 }
