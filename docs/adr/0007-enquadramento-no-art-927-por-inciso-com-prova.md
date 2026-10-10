@@ -41,6 +41,12 @@ Quando um tema repetitivo ou IAC do STJ da lista do site casa com a tabela de pr
   difere da do site, sem afirmar qual vale hoje;
 - número que não consta na tabela → "não consta na tabela de <data>", e vale a regra sem a tabela.
 
+Tabela do STF (repercussão geral, súmula e súmula vinculante; decisão do dono de 2026-10-09): entra **só a situação
+e notas**, nunca o inciso. A situação na fonte (a "Situação do Tema" literal, ou a marca da lista de súmulas) substitui
+o aviso "situação não verificada", com a data da tabela do STF; súmula sem marca diz que a falta de marca não prova
+vigência; número fora da tabela → "não consta na tabela do STF de <data>". O inciso e o motivo ficam os da regra sem
+a tabela.
+
 ## Opções consideradas
 
 - Escala doutrinária de 4 níveis: rejeitada; não se apoia no texto legal consultado.

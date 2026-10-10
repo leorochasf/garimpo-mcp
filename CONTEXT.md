@@ -255,7 +255,7 @@ _Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 �
 ## Tabela de precedentes
 
 **Tabela de precedentes**:
-A fotografia, dentro do Garimpo, de uma fonte oficial de precedentes qualificados (hoje: temas repetitivos e IAC do STJ, do Portal de Dados Abertos do STJ), com a data da coleta e a data de atualização informada pela fonte; consultada sem rede.
+A fotografia, dentro do Garimpo, de uma fonte oficial de precedentes qualificados (hoje: temas repetitivos e IAC do STJ, do Portal de Dados Abertos do STJ; repercussão geral, súmulas e súmulas vinculantes do STF, de arquivos obtidos pelo mantenedor no portal do STF), com a data da coleta ou da obtenção e, no STJ, a data de atualização informada pela fonte; consultada sem rede.
 _Evitar_: base, cache, banco, memória (é outra coisa: respostas do site por 24 h)
 _Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-09 — sujeito a revisão do dono._
 
@@ -268,6 +268,16 @@ _Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-09 �
 O número pedido não está na tabela de precedentes daquela data. Não prova que o precedente não existe (pode ser posterior à fotografia).
 _Evitar_: não existe, inexistente, número inválido
 _Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-09 — sujeito a revisão do dono._
+
+**Obtenção**:
+O momento em que o mantenedor baixa ou salva, no navegador, um arquivo do portal do STF para a tabela; a data é a de modificação do arquivo, que o navegador marca no download. É a data da tabela do STF.
+_Evitar_: coleta (é a do STJ, feita pelo próprio gerador), raspagem
+_Registrado em 2026-10-09 a partir da decisão do dono sobre o STF (ticket 04 do B8) — sujeito a revisão do dono._
+
+**Marca (da lista de súmulas)**:
+O texto entre parênteses que a lista de súmulas do STF põe no rótulo ("cancelada", "superada", "revogada"…); é a situação na fonte das súmulas do STF. A falta de marca não prova que a súmula está em vigor.
+_Evitar_: vigência, status
+_Registrado em 2026-10-09 a partir da decisão do dono sobre o STF (ticket 04 do B8) — sujeito a revisão do dono._
 
 ## Banco de provas
 
