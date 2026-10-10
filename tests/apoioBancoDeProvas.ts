@@ -1,6 +1,8 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { buscaAmpla } from "../src/ampla.js";
+import { buscaDireta } from "../src/busca.js";
 import { Cliente, Vagas } from "../src/cliente.js";
+import { ehOParadigma, lerParadigma } from "../scripts/montarRodadaDeProvas.js";
 import { respostaJson } from "./apoio.js";
 
 /**
@@ -270,14 +272,107 @@ export function carregarParadigmasOficiais(): ParadigmasOficiais {
   return JSON.parse(readFileSync(new URL("paradigmas-oficiais.json", PASTA), "utf8")) as ParadigmasOficiais;
 }
 
+/** [grupo de cópias (0 = sozinho), bits (1 órgão, 2 link, 4 sozinho), número, sigla da classe, bucket r/j] */
+type ItemDoRecorte = [number, number, string | null, string | null, "r" | "j"];
+
+interface TemaDoRecorte {
+  itens: ItemDoRecorte[];
+  /** Ordem de relevância do site: índices em `itens`. */
+  rer: number[];
+}
+
+/** Chave de um paradigma oficial no recorte: "stj/1311". */
+export const chaveDoParadigma = (o: Pick<ParadigmaOficial, "tribunal" | "numero">) => `${o.tribunal}/${o.numero}`;
+
+export function carregarRecorteDosParadigmas(): Record<string, TemaDoRecorte> {
+  return (JSON.parse(readFileSync(new URL("paradigmas-recorte.json", PASTA), "utf8")) as { temas: Record<string, TemaDoRecorte> }).temas;
+}
+
+export interface MexidaNaOrdem {
+  /** Chaves cujo paradigma vai para o fim da lista do site. */
+  rebaixar?: string[];
+  /** Chaves cujo paradigma some da resposta do site. */
+  remover?: string[];
+}
+
+/**
+ * Refaz a resposta crua do site (listas por bucket e ordem de relevância) a partir do recorte; `mexer` simula uma
+ * ordem pior: o paradigma vai para o fim da lista do site ou some dela.
+ */
+function respostaDoSite(tema: TemaDoRecorte, ehParadigma: (i: number) => boolean, mexer: { rebaixar: boolean; remover: boolean }) {
+  const todos = tema.itens.map((_, i) => i);
+  const ficam = mexer.remover ? todos.filter((i) => !ehParadigma(i)) : todos;
+  const rebaixados = mexer.rebaixar ? ficam.filter(ehParadigma) : [];
+  const ordem = (lista: number[]) => (rebaixados.length ? [...lista.filter((i) => !rebaixados.includes(i)), ...rebaixados] : lista);
+  const master = ordem(ficam);
+  const rer = ordem(tema.rer.filter((i) => ficam.includes(i)));
+  const registro = (i: number) => {
+    const [grupo, bits, numero, sigla] = tema.itens[i];
+    const sozinho = (bits & 4) !== 0;
+    return {
+      id: String(i),
+      ...(!sozinho && { texto_ementa: `e${grupo}`, data_julgamento: "2025-01-01T00:00:00.000Z" }),
+      ...(numero !== null && { numero_processo: numero }),
+      ...(sigla !== null && { sigla_classe: sigla }),
+      ...(bits & 1 && { orgao_julgador: "Órgão" }),
+      ...(bits & 2 && { link_pdf: "https://exemplo.invalid/" }),
+    };
+  };
+  const doBucket = (b: "r" | "j") => master.filter((i) => tema.itens[i][4] === b).map(registro);
+  return {
+    results: doBucket("r"),
+    juris: doBucket("j"),
+    reranked_results: rer.map((i) => ({ id: String(i), original_bucket: tema.itens[i][4] === "r" ? "results" : "juris" })),
+  };
+}
+
+/**
+ * A posição EFETIVA de cada paradigma oficial na lista que o Garimpo entrega: roda a busca direta de verdade (buscaDireta,
+ * com a junção de cópias e a ordem do site) com cliente falso sobre o recorte anonimizado, e acha o paradigma pelo
+ * número, como a rodada fez. `undefined` = o paradigma não veio. Sem rede.
+ */
+export async function posicoesDosParadigmas(
+  p: ParadigmasOficiais,
+  { rebaixar = [], remover = [] }: MexidaNaOrdem = {},
+): Promise<Record<string, number | undefined>> {
+  const recorte = carregarRecorteDosParadigmas();
+  const posicoes: Record<string, number | undefined> = {};
+  for (const o of p.obrigatoriosOficiais) {
+    const chave = chaveDoParadigma(o);
+    const tema = recorte[chave];
+    if (!tema) {
+      posicoes[chave] = undefined;
+      continue;
+    }
+    const paradigma = lerParadigma(o.paradigma)!;
+    const ehParadigma = (i: number) => {
+      const [, , numero, sigla] = tema.itens[i];
+      return numero !== null && ehOParadigma(sigla ? `${sigla} ${numero}` : numero, paradigma);
+    };
+    const resposta = respostaDoSite(tema, ehParadigma, { rebaixar: rebaixar.includes(chave), remover: remover.includes(chave) });
+    const cliente = new Cliente({
+      nome: "O site",
+      vagas: new Vagas(2),
+      esperar: async () => {},
+      fetch: (async () => respostaJson(resposta)) as typeof fetch,
+    });
+    const r = await buscaDireta(cliente, { tribunal: o.tribunal, texto: `tema ${o.numero}`, limite: 100 }, undefined, { guardarAcordaos: false });
+    const i = r.acordaos.findIndex((a) => ehOParadigma(a.numero, paradigma));
+    posicoes[chave] = i < 0 ? undefined : i + 1;
+  }
+  return posicoes;
+}
+
 /**
  * Confere os obrigatórios oficiais SEM rede: cada paradigma tem de continuar sendo o processo paradigma do tema na
- * tabela empacotada, e a posição medida na rodada tem de caber no topo. Quem acha o tema e o paradigma é a tabela
- * oficial (`achar`), não marcação de IA. Devolve as falhas.
+ * tabela empacotada (quem acha o tema e o paradigma é a tabela oficial, `achar`, não marcação de IA) e tem de estar,
+ * na lista que a busca REAL do Garimpo entrega hoje (`posicoes`, de `posicoesDosParadigmas`), entre os `topo`
+ * primeiros. O número `posicaoNaRodada` do JSON é só documentação da gravação: não entra na conta. Devolve as falhas.
  */
 export function conferirParadigmasOficiais(
   p: ParadigmasOficiais,
   achar: (tribunal: "stj" | "stf", tipo: ParadigmaOficial["tipo"], numero: number) => string[] | undefined,
+  posicoes: Record<string, number | undefined>,
 ): string[] {
   const falhas: string[] = [];
   for (const o of p.obrigatoriosOficiais) {
@@ -285,7 +380,9 @@ export function conferirParadigmasOficiais(
     const paradigmas = achar(o.tribunal, o.tipo, o.numero);
     if (!paradigmas) falhas.push(`${rotulo}: tema não está na tabela oficial`);
     else if (!paradigmas.includes(o.paradigma)) falhas.push(`${rotulo}: paradigma ${o.paradigma} não é mais o da tabela oficial`);
-    if (o.posicaoNaRodada === undefined || o.posicaoNaRodada > p.topo) falhas.push(`${rotulo}: posição na rodada fora do topo ${p.topo}`);
+    const posicao = posicoes[chaveDoParadigma(o)];
+    if (posicao === undefined) falhas.push(`${rotulo}: paradigma ${o.paradigma} fora da lista da busca`);
+    else if (posicao > p.topo) falhas.push(`${rotulo}: paradigma ${o.paradigma} na posição ${posicao}, fora do topo ${p.topo}`);
   }
   return falhas;
 }

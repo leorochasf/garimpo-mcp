@@ -27,7 +27,7 @@
 import { describe, expect, it } from "vitest";
 import { acharNaTabela, tabelaEmpacotada } from "../src/tabelaDePrecedentes.js";
 import { acharNoStf, tabelaDoStfEmpacotada } from "../src/tabelaDoStf.js";
-import { carregarParadigmasOficiais, carregarRecorte, carregarRegua, conferirParadigmasOficiais, conferirRegua, contarConfirmadosDoDono, medir, rodarBanco, rodarTese } from "./apoioBancoDeProvas.js";
+import { carregarParadigmasOficiais, carregarRecorte, carregarRegua, conferirParadigmasOficiais, conferirRegua, contarConfirmadosDoDono, medir, posicoesDosParadigmas, rodarBanco, rodarTese } from "./apoioBancoDeProvas.js";
 
 describe("trava de regressão da ordem sobre o recorte gravado (sem rede; NÃO é medida de qualidade)", () => {
   it("a tese 18 (só TSE) reproduz a medição da rodada 2: 50 mostrados, todos relevantes, cobertura 50 de 92", async () => {
@@ -117,11 +117,42 @@ describe("obrigatórios oficiais: processo paradigma da tabela oficial (ticket 2
       ? acharNaTabela(tabelaEmpacotada(), tipo as "tema repetitivo", numero)?.processosParadigma
       : acharNoStf(tabelaDoStfEmpacotada(), tipo as "repercussão geral", numero)?.processosParadigma;
 
-  it("são os 9 do STJ e os 11 do STF que a rodada achou no topo, e cada um segue sendo o paradigma da tabela oficial", () => {
+  it("são os 9 do STJ e os 11 do STF que a rodada achou no topo; cada um segue sendo o paradigma da tabela oficial e segue no topo da busca REAL de hoje", async () => {
     const p = carregarParadigmasOficiais();
     expect(p.obrigatoriosOficiais.filter((o) => o.tribunal === "stj")).toHaveLength(9);
     expect(p.obrigatoriosOficiais.filter((o) => o.tribunal === "stf")).toHaveLength(11);
-    expect(conferirParadigmasOficiais(p, achar)).toEqual([]);
+    expect(conferirParadigmasOficiais(p, achar, await posicoesDosParadigmas(p))).toEqual([]);
+  });
+
+  it("o recorte anonimizado reproduz as posições gravadas pela rodada (fidelidade do recorte; mudança intencional da ordem pede regravar)", async () => {
+    const p = carregarParadigmasOficiais();
+    const posicoes = await posicoesDosParadigmas(p);
+    for (const o of p.obrigatoriosOficiais) expect(posicoes[`${o.tribunal}/${o.numero}`], `${o.tribunal} ${o.numero}`).toBe(o.posicaoNaRodada);
+  });
+
+  it("a régua pega regressão: com a ordem do site embaralhada, os paradigmas do STJ saem do topo e a régua oficial FALHA", async () => {
+    const p = carregarParadigmasOficiais();
+    const stj = p.obrigatoriosOficiais.filter((o) => o.tribunal === "stj").map((o) => `${o.tribunal}/${o.numero}`);
+    const falhas = conferirParadigmasOficiais(p, achar, await posicoesDosParadigmas(p, { rebaixar: stj }));
+    // O tema 938 devolve um acórdão só (o paradigma): não tem para onde cair; ele é coberto pelo teste de "sumiu".
+    expect(falhas).toHaveLength(stj.length - 1);
+    expect(falhas.every((f) => /^STJ tema repetitivo \d+: paradigma REsp \d+ na posição \d+, fora do topo 10$/.test(f))).toBe(true);
+    expect(falhas.some((f) => f.includes("tema repetitivo 938"))).toBe(false);
+  });
+
+  it("a régua pega UM paradigma rebaixado para o fim da lista, e só ele", async () => {
+    const p = carregarParadigmasOficiais();
+    const falhas = conferirParadigmasOficiais(p, achar, await posicoesDosParadigmas(p, { rebaixar: ["stj/1311"] }));
+    expect(falhas).toEqual(["STJ tema repetitivo 1311: paradigma REsp 2057984 na posição 97, fora do topo 10"]);
+  });
+
+  it("a régua pega paradigma que sumiu da busca (STJ e STF), e só ele", async () => {
+    const p = carregarParadigmasOficiais();
+    const falhas = conferirParadigmasOficiais(p, achar, await posicoesDosParadigmas(p, { remover: ["stj/400", "stf/364"] }));
+    expect(falhas).toEqual([
+      "STF repercussão geral 364: paradigma RE 607886 fora da lista da busca",
+      "STJ tema repetitivo 400: paradigma REsp 1143320 fora da lista da busca",
+    ]);
   });
 
   it("os 3 não indexados e o fora do topo ficam fora da régua, anotados, e nenhum deles é obrigatório", () => {
@@ -133,21 +164,23 @@ describe("obrigatórios oficiais: processo paradigma da tabela oficial (ticket 2
     expect(p.foraDaRegua.some((o) => obrigatorios.has(`${o.tribunal}/${o.numero}`))).toBe(false);
   });
 
-  it("acusa paradigma que mudou na tabela, tema que sumiu e posição fora do topo", () => {
+  it("acusa paradigma que mudou na tabela, tema que sumiu, paradigma fora da lista e posição fora do topo", () => {
     const p = {
       topo: 10,
       obrigatoriosOficiais: [
-        { tribunal: "stj", tipo: "tema repetitivo", numero: 1, paradigma: "REsp 1", posicaoNaRodada: 2 },
-        { tribunal: "stj", tipo: "tema repetitivo", numero: 2, paradigma: "REsp 2", posicaoNaRodada: 11 },
-        { tribunal: "stf", tipo: "repercussão geral", numero: 3, paradigma: "RE 3", posicaoNaRodada: 1 },
+        { tribunal: "stj", tipo: "tema repetitivo", numero: 1, paradigma: "REsp 1" },
+        { tribunal: "stj", tipo: "tema repetitivo", numero: 2, paradigma: "REsp 2" },
+        { tribunal: "stf", tipo: "repercussão geral", numero: 3, paradigma: "RE 3" },
+        { tribunal: "stf", tipo: "repercussão geral", numero: 4, paradigma: "RE 4" },
       ],
       foraDaRegua: [],
     } as const;
-    const tabela = (_tribunal: string, _tipo: string, n: number) => (n === 1 ? ["REsp 9"] : n === 2 ? ["REsp 2"] : undefined);
-    expect(conferirParadigmasOficiais(p as never, tabela)).toEqual([
+    const tabela = (_tribunal: string, _tipo: string, n: number) => (n === 1 ? ["REsp 9"] : n === 2 || n === 4 ? [n === 2 ? "REsp 2" : "RE 4"] : undefined);
+    expect(conferirParadigmasOficiais(p as never, tabela, { "stj/1": 2, "stj/2": 11, "stf/3": 1, "stf/4": undefined })).toEqual([
       "STJ tema repetitivo 1: paradigma REsp 1 não é mais o da tabela oficial",
-      "STJ tema repetitivo 2: posição na rodada fora do topo 10",
+      "STJ tema repetitivo 2: paradigma REsp 2 na posição 11, fora do topo 10",
       "STF repercussão geral 3: tema não está na tabela oficial",
+      "STF repercussão geral 4: paradigma RE 4 fora da lista da busca",
     ]);
   });
 });
