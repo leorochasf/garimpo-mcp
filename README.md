@@ -359,6 +359,17 @@ civil do Estado por omissão."*
   dele bloqueia o IP por horas. O freio reduz esse risco, sem garanti-lo: outros usos do mesmo IP não são vistos pelo
   Garimpo.
 
+## Histórico de versões
+
+- **0.3.4**
+  - `consultar_precedente` consulta os precedentes qualificados do STJ e do STF **ao vivo no portal**, na hora da
+    pergunta, com memória de 24 h; a tabela do pacote vira plano B datado
+    ([ADR-0020](docs/adr/0020-precedentes-qualificados-ao-vivo-tabela-como-plano-b.md)).
+  - Tabela do STF no pacote com os temas de repercussão geral; súmulas e súmulas vinculantes ao vivo.
+  - Prompt `pesquisar_tese`: método de leitura do acórdão no passo 8; frase nova nas instructions.
+  - Correções das revisões.
+- Versões anteriores: ver as mensagens dos commits `chore: versão …` no repositório.
+
 ## Desenvolvimento
 
 ```bash
