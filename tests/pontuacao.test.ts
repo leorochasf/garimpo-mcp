@@ -84,6 +84,8 @@ describe("aderência e nova ordem", () => {
     ).toEqual(["stj-forte", "tjgo-meio", "stj-fraco"]);
   });
 
+  // Relógio real: com outra suíte rodando ao lado já passou de 100 ms. O teto folgado de 1 s não oscila com a carga e
+  // ainda pega uma ordenação que fique ordens de grandeza mais lenta.
   it("~1.200 ementas × 3 formulações pontuadas e ordenadas em milissegundos", () => {
     const trecho = "Responsabilidade civil por dano ambiental, reparação integral e obrigação propter rem do adquirente. ";
     const itens = Array.from({ length: 1200 }, (_, i) =>
@@ -93,6 +95,6 @@ describe("aderência e nova ordem", () => {
     const r = ordenarPorAderencia(itens, ["prescrição do dano ambiental", "imprescritibilidade da reparação", "dano ambiental imprescritível"]);
     const ms = performance.now() - inicio;
     expect(r).toHaveLength(1200);
-    expect(ms).toBeLessThan(50);
+    expect(ms).toBeLessThan(1000);
   });
 });
