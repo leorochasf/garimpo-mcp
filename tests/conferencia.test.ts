@@ -490,6 +490,23 @@ Texto do voto.`]);
     expect(o.secao).toBe("ementa");
   });
 
+  it("cabeçalho que fecha em ponto e tem 6+ palavras não conta como corpo: \"EMENTA: …\" depois dele abre a ementa", () => {
+    const o = ocorrencia([
+      `Apelacao Civel n. 0000000-00.0000.0.00.0000, da Comarca Ficticia.
+EMENTA: PROCESSUAL CIVIL. FICTICIO.
+Para ${CITACAO}.`,
+    ]);
+    expect(o.secao).toBe("ementa");
+  });
+
+  it("linha só de espaços entre o anúncio de transcrição e \"EMENTA: …\" não apaga o anúncio", () => {
+    const o = ocorrencia([`O tribunal decidiu assim:
+   
+EMENTA: PROCESSUAL CIVIL. FICTICIO.
+Para ${CITACAO}.`]);
+    expect(o.secao).toBe("não identificada");
+  });
+
   it.each([
     ["\"voto\" no corpo do texto", "Acompanho o voto do relator, no sentido de que"],
     ["\"relatório\" no corpo do texto", "Conforme o relatório, adoto o entendimento de que"],

@@ -775,6 +775,21 @@ const EMENTA_COM_TEXTO = /^EMENTA\s*[:\u2013\u2014-]\s*\S/;
  */
 const PALAVRAS_DE_LINHA_DE_CORPO = 6;
 
+/** Palavras a partir das quais a linha que fecha frase é de corpo mesmo com cara de cabeçalho. */
+const PALAVRAS_DE_CORPO_SEGURO = 12;
+
+/** Cara de cabeçalho: nº de processo no padrão CNJ ou rótulo de peça/parte ("Comarca", "Relator", "Apelante"…). */
+const CARA_DE_CABECALHO =
+  /\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}|\b(?:Comarca|Relatora?|Apelante|Agravante|Recorrente)\b/iu;
+
+/** Linha de corpo de texto: fecha frase, tem 6+ palavras e, parecendo cabeçalho, só conta com 12+ palavras. */
+function ehLinhaDeCorpo(linha: string): boolean {
+  if (!FECHA_FRASE.test(linha)) return false;
+  const palavras = linha.split(/\s+/).length;
+  if (palavras < PALAVRAS_DE_LINHA_DE_CORPO) return false;
+  return palavras >= PALAVRAS_DE_CORPO_SEGURO || !CARA_DE_CABECALHO.test(linha);
+}
+
 /** Seções que um "EMENTA" ou "ACÓRDÃO" sozinho na linha não fecha: é a transcrição de outra decisão dentro delas. */
 const TRANSCREVEM_DECISOES: Secao[] = ["relatório", "voto vencido"];
 
@@ -793,7 +808,7 @@ function titulosDeSecao(texto: string, paginaEm: (i: number) => number): TituloD
   for (const m of texto.matchAll(/^[^\n]+$/gm)) {
     const titulo = m[0].trim();
     const linhaAnterior = linhaDeAntes;
-    linhaDeAntes = titulo;
+    if (titulo) linhaDeAntes = titulo;
     if (
       !titulos.length &&
       !corpoAntes &&
@@ -803,7 +818,7 @@ function titulosDeSecao(texto: string, paginaEm: (i: number) => number): TituloD
       titulos.push({ inicio: m.index, secao: "ementa", titulo, pagina: paginaEm(m.index) });
       continue;
     }
-    if (FECHA_FRASE.test(titulo) && titulo.split(/\s+/).length >= PALAVRAS_DE_LINHA_DE_CORPO) corpoAntes = true;
+    if (ehLinhaDeCorpo(titulo)) corpoAntes = true;
     if (titulo.length > 80) continue;
     const linha = titulo.normalize("NFC").replace(/\s*:$/, "");
     const maiusculas = /^[\p{Lu}\s-]+$/u.test(linha);
@@ -1500,6 +1515,9 @@ const TRANSCREVEM_FECHOS: Secao[] = ["relatório", ...VOTOS];
  * O fecho em `i` é do próprio acórdão: fora do relatório e dos votos, fora de ementa ou acórdão aberto depois deles
  * ("ACÓRDÃO" sozinho na linha dentro do voto é de precedente transcrito) e fora de aspas abertas na seção (de outro
  * julgado transcrito, o órgão seria de outro processo).
+ *
+ * Limitação conhecida: o fecho do próprio acórdão numa seção ACÓRDÃO depois do voto é tratado como transcrito e fica
+ * em silêncio (sem aviso, nunca aviso errado); a medir no G-75.
  */
 function fechoDoProprioAcordao(texto: string, titulos: TituloDeSecao[], i: number): boolean {
   const antes = titulos.filter((t) => t.inicio <= i);
