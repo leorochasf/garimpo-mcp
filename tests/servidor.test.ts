@@ -995,7 +995,7 @@ describe("inteiro teor trazido pelo usuário (pela porta)", () => {
     });
 
     it("por tribunal + número: o que não foi informado fica \"não informado\"; número com outra pontuação no texto conta como encontrado", async () => {
-      const { caminho, chamar } = await trazido([["Recurso 1.000.002/0001 julgado."], pagina(2)]);
+      const { caminho, chamar } = await trazido([["Recurso 1.000.002/0001 julgado.", ...pagina(1).slice(0, 2)], pagina(2)]);
       const dado = JSON.parse((await chamar("ler_inteiro_teor", { caminho, tribunal: "tjgo", numero: "10000020001" })).texto);
       expect(dado.cabecalho).toMatchObject({
         tribunal: "TJGO",
@@ -1185,10 +1185,11 @@ describe("ordem de leitura do texto do PDF (pela porta)", () => {
 
   it("fim de página: o carimbo de assinatura aposto à parte sai na sua linha, não colado ao último parágrafo", async () => {
     const texto = await lido([
+      { x: 30, y: 700, texto: "Primeiro paragrafo generico do voto, com texto de sobra para a pagina contar como lida: a fundamentacao segue em linguagem comum, sem qualquer dado real, apenas para passar do limiar de leitura." },
       { x: 30, y: 650, texto: "Ultimo paragrafo do voto." },
       { x: 30, y: 30, texto: "Assinado eletronicamente em data generica.", tamanho: 7, carimbo: true },
     ]);
-    expect(texto).toBe("Ultimo paragrafo do voto.\nAssinado eletronicamente em data generica.");
+    expect(texto.endsWith("Ultimo paragrafo do voto.\nAssinado eletronicamente em data generica.")).toBe(true);
   });
 
   it("expoente de nota de rodapé fica na linha, e carimbo de margem girado em dois pedaços sai numa linha só", async () => {
@@ -1198,13 +1199,13 @@ describe("ordem de leitura do texto do PDF (pela porta)", () => {
       { x: 106, y: 800, texto: "e segue na mesma linha." },
       { x: 570, y: 100, texto: "Documento assinado", girado: true },
       { x: 570, y: 200, texto: "digitalmente", girado: true },
-      { x: 30, y: 788, texto: "Linha seguinte do voto." },
+      { x: 30, y: 788, texto: "Linha seguinte do voto, com texto de sobra para a pagina contar como lida, sem dado real." },
     ]);
     const linhas = texto.split("\n");
     expect(linhas).toHaveLength(3);
     expect(linhas[0]).toMatch(/^Texto do voto ?1 ?e segue na mesma linha\.$/);
     expect(linhas[1]).toMatch(/^Documento assinado ?digitalmente$/);
-    expect(linhas[2]).toBe("Linha seguinte do voto.");
+    expect(linhas[2]).toBe("Linha seguinte do voto, com texto de sobra para a pagina contar como lida, sem dado real.");
   });
 });
 
@@ -1903,11 +1904,13 @@ describe("PDF trazido pelo usuário e seção do acórdão na conferência (pela
   });
 
   it("seção do acórdão: aviso forte no relatório e no voto vencido; \"não identificada\" sem título; menção no corpo não muda", async () => {
+    // As linhas de enchimento levam cada página acima do limiar de texto; não têm título nem mudam a seção.
+    const enchimento = linhas(2);
     const { caminho } = await pdfTrazido([
-      ["Texto inicial ficticio sem titulo de secao.", "Antes de tudo, a culpa do ente ficticio deve ser provada pelo autor."],
-      ["RELATÓRIO", "O autor ficticio alega que", `${CITACAO} no caso.`],
-      ["VOTO", "Acompanho o voto do relator, porque o dever de indenizar depende de prova do dano efetivo."],
-      ["VOTO VENCIDO", "Divirjo, pois a omissao do ente ficticio dispensa a prova do dano efetivo."],
+      ["Texto inicial ficticio sem titulo de secao.", "Antes de tudo, a culpa do ente ficticio deve ser provada pelo autor.", ...enchimento],
+      ["RELATÓRIO", "O autor ficticio alega que", `${CITACAO} no caso.`, ...enchimento],
+      ["VOTO", "Acompanho o voto do relator, porque o dever de indenizar depende de prova do dano efetivo.", ...enchimento],
+      ["VOTO VENCIDO", "Divirjo, pois a omissao do ente ficticio dispensa a prova do dano efetivo.", ...enchimento],
     ]);
     const r = await conferirEm(await conectar(siteFalso([])), [
       { citacao: CITACAO, caminho },
