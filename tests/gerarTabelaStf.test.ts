@@ -125,6 +125,18 @@ describe("gerador da tabela do STF — súmulas e súmulas vinculantes (telas sa
     const fora = arquivo("x.html", Buffer.from(gravado("sumulas/sumula-1.html").toString("utf8").replace("Súmula 1", "Súmula 99")));
     expect(() => gerarTabelaStf(entrada({ paginasDeSumula: [fora] }), GERADA)).toThrow(ParadaDoGerador);
   });
+
+  it("nenhum item da lista some em silêncio: variante válida de HTML entra, item irreconhecível para", () => {
+    const sumulasCom = (de: string, para: string) =>
+      arquivo("sumulas.html", Buffer.from(gravado("sumulas.html").toString("utf8").replace(de, para)));
+    const aspasSimples = sumulasCom('href="sumariosumulas.asp?base=30&sumula=9002"', "href='sumariosumulas.asp?base=30&sumula=9002'");
+    const t = gerarTabelaStf(entrada({ sumulas: aspasSimples }), GERADA);
+    expect(t.linhas.filter((l) => l.tipo === "súmula").map((l) => l.numero)).toEqual([1, 2, 3]);
+    const outroAtributo = sumulasCom('<div class="sumula-item"><a target="_blank" href="sumariosumulas.asp?base=30&sumula=9002">', '<div class="sumula-item" id="s2"><a target="_blank" href="sumariosumulas.asp?base=30&sumula=9002">');
+    expect(gerarTabelaStf(entrada({ sumulas: outroAtributo }), GERADA).linhas.filter((l) => l.tipo === "súmula")).toHaveLength(3);
+    const semLink = sumulasCom('<a target="_blank" href="sumariosumulas.asp?base=30&sumula=9002">', '<a target="_blank">');
+    expect(() => gerarTabelaStf(entrada({ sumulas: semLink }), GERADA)).toThrow(ParadaDoGerador);
+  });
 });
 
 describe("gerador da tabela do STF — metadados", () => {

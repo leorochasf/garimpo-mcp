@@ -217,11 +217,15 @@ function linhasDeSumulas(tipo: TipoNoStf, a: ArquivoDoMantenedor): LinhaDoStf[] 
   }
   const vistos = new Set<number>();
   const saida: LinhaDoStf[] = [];
-  for (const m of html.matchAll(/<div class="sumula-item">\s*<a\b[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/g)) {
-    const rotulo = textoDeHtml(m[2]).match(ROTULO);
-    const href = m[1].replace(/&amp;/g, "&");
+  // Todo contêiner de item é visitado: item que não se reconhece para o gerador, nunca some da lista.
+  const itens = html.split(/<div\b[^>]*\bclass\s*=\s*(?:"[^"]*\bsumula-item\b[^"]*"|'[^']*\bsumula-item\b[^']*')[^>]*>/i).slice(1);
+  for (const [i, item] of itens.entries()) {
+    const m = item.match(/^\s*<a\b[^>]*?\bhref\s*=\s*(?:"([^"]*)"|'([^']*)')[^>]*>([\s\S]*?)<\/a>/i);
+    if (!m) throw new ParadaDoGerador(`${a.nome}: o item ${i + 1} da lista não tem a forma esperada (link com o rótulo).`);
+    const rotulo = textoDeHtml(m[3]).match(ROTULO);
+    const href = (m[1] ?? m[2]).replace(/&amp;/g, "&");
     if (!rotulo || Boolean(rotulo[1]) !== (tipo === "súmula vinculante")) {
-      throw new ParadaDoGerador(`${a.nome}: item "${textoDeHtml(m[2])}" fora da forma "Súmula N (marca)".`);
+      throw new ParadaDoGerador(`${a.nome}: item "${textoDeHtml(m[3])}" fora da forma "Súmula N (marca)".`);
     }
     if (!new RegExp(`^sumariosumulas\\.asp\\?base=${BASE[tipo]}&sumula=\\d+$`).test(href)) {
       throw new ParadaDoGerador(`${a.nome}: link "${href}" fora da forma esperada.`);
