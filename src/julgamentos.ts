@@ -143,7 +143,8 @@ export async function julgamentosDoProcesso(p: PedidoJulgamentos, fontes: Fontes
     djen,
     termoDeUso:
       `Dados do DataJud sob o termo de uso da API Pública do CNJ, v1.2 (${TERMO_DE_USO_DATAJUD}): fins legais e não ` +
-      "comerciais; o CNJ não garante a precisão, integridade ou atualidade dos dados.",
+      "comerciais; o CNJ não garante a precisão, integridade ou atualidade dos dados. A consulta sai do seu " +
+      "computador e as obrigações do termo são de quem usa a API.",
   };
 }
 

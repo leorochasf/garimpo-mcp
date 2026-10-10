@@ -137,6 +137,7 @@ describe("julgamentos_do_processo: DataJud (gravação real reduzida)", () => {
     ]);
     expect(d.sobreAsDatas).toMatch(/data do lançamento no DataJud, não é a data da sessão/);
     expect(r.json.termoDeUso).toMatch(/Termos-de-uso-api-publica-V1\.2\.pdf/);
+    expect(r.json.termoDeUso).toMatch(/obrigações do termo são de quem usa a API/);
     expect(r.texto).not.toMatch(/julgamento colegiado/i);
     expect(d.notas).toBeUndefined();
 

@@ -61,9 +61,11 @@ de decisão e sem nome de parte.
   (licença MIT) e sem cobrança; nas palavras do dono: "garimpo é opensource sem cobrança".
 - **Decidido pelo dono em 2026-10-09:** item 3, dar ciência ao CNJ quando o Garimpo for publicado (3.9) — não dar
   ciência ao CNJ; nas palavras do dono: "nao avisar".
-- **Pendência do dono (bloqueia a publicação, não o código):**
-  2. o alcance de "não distribuir [...] qualquer informação derivada dela" (3.8) para uma ferramenta que mostra o dado
-     ao próprio usuário.
+- **Decidido pelo dono em 2026-10-09:** item 2, o alcance de "não distribuir [...] qualquer informação derivada dela"
+  (3.8) — o Garimpo não distribui informação derivada: é um programa com que cada usuário consulta o DataJud do próprio
+  computador, sob demanda, e o resultado aparece só para ele; nenhum dado do DataJud vai no pacote; as obrigações do
+  termo são de quem usa a API, e o Garimpo avisa disso na ferramenta e no README; nas palavras do dono: "2. a".
+- Não resta pendência do dono sobre o termo do DataJud.
 
 ## DJEN (comunicações processuais do CNJ)
 

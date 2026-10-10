@@ -395,5 +395,7 @@ preventivo, texto integral sem PDF), [ADR-0019](adr/0019-acordao-que-falta-dataj
 DJEN sob pedido, sem inferir ausência) e o adendo ao [ADR-0009](adr/0009-disjuntor-por-servico-e-rede-parada.md)
 (espera de 60 s do DJEN). Termo do DataJud v1.2, uso "não comercial" (3.3): decidido pelo dono em 2026-10-09 — o
 Garimpo é open source (licença MIT) e sem cobrança ("garimpo é opensource sem cobrança"). Ciência ao CNJ (3.9):
-decidido pelo dono em 2026-10-09 — não dar ciência ao CNJ ("nao avisar"). Pendência do dono que bloqueia a
-publicação: "informação derivada" (3.8).
+decidido pelo dono em 2026-10-09 — não dar ciência ao CNJ ("nao avisar"). "Informação derivada" (3.8): decidido pelo
+dono em 2026-10-09 — o Garimpo não distribui informação derivada (cada usuário consulta o DataJud do próprio
+computador, sob demanda; nenhum dado do DataJud vai no pacote; as obrigações do termo são de quem usa a API) ("2. a").
+Não resta pendência do dono sobre o DataJud.
