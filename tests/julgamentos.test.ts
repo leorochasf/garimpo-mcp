@@ -4,7 +4,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Cliente, Vagas } from "../src/cliente.js";
-import { clienteDoDataJud } from "../src/datajud.js";
+import { AVISO_DO_DATAJUD, clienteDoDataJud, lerDataDoDataJud } from "../src/datajud.js";
 import { servicoDe } from "../src/disjuntor.js";
 import { criarServidor, type OpcoesServidor } from "../src/servidor.js";
 import { fixture, respostaJson } from "./apoio.js";
@@ -244,6 +244,102 @@ describe("julgamentos_do_processo: bordas do DataJud", () => {
     const { cliente } = dataJudFalso(() => new Response("negado", { status: 403 }));
     const d = (await chamar(await conectar({ datajud: cliente }), { numero: TJTO })).json.datajud;
     expect(d.estado).toBe("recusa");
+  });
+});
+
+describe("julgamentos_do_processo: DataJud defensivo (G-45)", () => {
+  const NUM = "00001237020208270001";
+  const g2 = (extra: object = {}) => ({
+    numeroProcesso: NUM,
+    grau: "G2",
+    movimentos: [mov(239, "Não-Provimento", "2021-03-05T10:00:00.000Z")],
+    ...extra,
+  });
+  const resposta = (corpo: object, ...fontes: unknown[]) =>
+    respostaJson({ hits: { total: { value: fontes.length }, hits: fontes.map((f) => ({ _source: f })) }, ...corpo });
+  const consultar = async (r: () => Response) => {
+    const { cliente } = dataJudFalso(r);
+    return (await chamar(await conectar({ datajud: cliente }), { numero: TJTO })).json;
+  };
+
+  it.each([
+    ["timed_out", { timed_out: true }, /tempo esgotado|timed_out/i],
+    ["pedaço do índice falhou", { _shards: { total: 5, successful: 4, skipped: 0, failed: 1 } }, /parte do índice|shards/i],
+  ])("%s: busca com erro, nunca vazia", async (_caso, corpo, motivo) => {
+    const d = (await consultar(() => resposta(corpo, g2()))).datajud;
+    expect(d.estado).toBe("erro");
+    expect(d.mensagem).toMatch(motivo);
+    expect(d).not.toHaveProperty("registros");
+  });
+
+  it("timed_out: false e _shards.failed: 0 passam como resposta completa", async () => {
+    const d = (await consultar(() => resposta({ timed_out: false, _shards: { total: 5, successful: 5, failed: 0 } }, g2()))).datajud;
+    expect(d.estado).toBe("ok");
+    expect(d.contagem).toBe("1 registro");
+    expect(d.totalEhMinimo).toBeUndefined();
+  });
+
+  it('relation "gte": a contagem vira "pelo menos N"', async () => {
+    const d = (
+      await consultar(() => respostaJson({ hits: { total: { value: 10000, relation: "gte" }, hits: [{ _source: g2() }] } }))
+    ).datajud;
+    expect(d).toMatchObject({ estado: "ok", total: 10000, totalEhMinimo: true, contagem: "pelo menos 10000 registros" });
+  });
+
+  it("relation \"eq\" é contagem exata", async () => {
+    const d = (await consultar(() => respostaJson({ hits: { total: { value: 1, relation: "eq" }, hits: [{ _source: g2() }] } }))).datajud;
+    expect(d.contagem).toBe("1 registro");
+    expect(d.totalEhMinimo).toBeUndefined();
+  });
+
+  it("registro com número diferente do pedido é descartado e contado", async () => {
+    const outro = g2({ numeroProcesso: "00001245520208270001", classe: { nome: "Outra Classe" } });
+    const d = (await consultar(() => resposta({}, g2(), outro))).datajud;
+    expect(d.registros).toHaveLength(1);
+    expect(d.registros[0].classe).toBeUndefined();
+    expect(d).toMatchObject({ total: 1, registrosDescartadosPorNumeroDiferente: 1 });
+  });
+
+  it("todos de outro número: vazia, com a nota de que isso não prova inexistência", async () => {
+    const d = (await consultar(() => resposta({}, g2({ numeroProcesso: "00001245520208270001" })))).datajud;
+    expect(d).toMatchObject({ estado: "vazia", total: 0, registrosDescartadosPorNumeroDiferente: 1 });
+  });
+
+  it("número igual com máscara no registro não é descartado", async () => {
+    const d = (await consultar(() => resposta({}, g2({ numeroProcesso: TJTO })))).datajud;
+    expect(d.registros).toHaveLength(1);
+    expect(d.registrosDescartadosPorNumeroDiferente).toBeUndefined();
+  });
+
+  it("lê data ISO e compacta (AAAAMMDDhhmmss) e ordena os dois juntos", async () => {
+    expect(lerDataDoDataJud("2021-03-05T10:00:00.000Z")).toBe(Date.UTC(2021, 2, 5, 10));
+    expect(lerDataDoDataJud("20210305100000")).toBe(Date.UTC(2021, 2, 5, 10));
+    expect(lerDataDoDataJud("2021-03-05T10:00:00")).toBeDefined();
+    for (const ruim of ["", "ontem", "20211305100000", "2021030510"]) expect(lerDataDoDataJud(ruim)).toBeUndefined();
+
+    const d = (
+      await consultar(() =>
+        resposta(
+          {},
+          g2({
+            movimentos: [
+              mov(239, "Não-Provimento", "20210301090000"),
+              mov(237, "Provimento", "2021-03-05T10:00:00.000Z"),
+              mov(200, "Não-Acolhimento de Embargos de Declaração", "2021-02-01T10:00:00.000Z"),
+            ],
+          }),
+        ),
+      )
+    ).datajud;
+    expect(d.registros[0].resultadosDeJulgamento.map((m: { codigo: number }) => m.codigo)).toEqual([200, 239, 237]);
+  });
+
+  it("aviso fixo de um registro por grau e de atraso, sem prazo numérico", async () => {
+    const d = (await consultar(() => resposta({}, g2()))).datajud;
+    expect(d.aviso).toBe(AVISO_DO_DATAJUD);
+    expect(d.aviso).toMatch(/um registro por grau/);
+    expect(d.aviso).toMatch(/atraso de semanas/);
+    expect(d.aviso).not.toMatch(/\d+ a \d+ semanas/);
   });
 });
 

@@ -174,11 +174,25 @@ export interface RegistroDataJud {
 
 /** O que a ferramenta mostra do DataJud (e o que a memória guarda): nada da resposta bruta. */
 export interface ConsultaDataJud {
-  /** Registros que o DataJud devolveu, de qualquer grau. */
+  /** Registros do número pedido que o DataJud devolveu, de qualquer grau (o total do índice, menos os descartados). */
   total: number;
+  /** O total em palavras: "pelo menos N registros" quando o DataJud só garante um mínimo (relation "gte"). */
+  contagem: string;
+  /** Só quando verdadeiro: o DataJud informou que o total é um mínimo, não a contagem exata. */
+  totalEhMinimo?: true;
+  /** Só quando há: registros de outro número, descartados e contados, nunca mostrados. */
+  registrosDescartadosPorNumeroDiferente?: number;
+  /** Texto fixo: o que a resposta do DataJud não diz (um registro por grau; atraso). */
+  aviso: string;
   registros: RegistroDataJud[];
   registrosDePrimeiroGrauNaoMostrados: number;
 }
+
+/** O que o DataJud não promete, dito sempre ao lado da resposta; sem prazo numérico, que não foi verificado. */
+export const AVISO_DO_DATAJUD =
+  "O DataJud tem um registro por grau (cada grau do processo é um registro à parte) e atualiza com atraso de " +
+  "semanas: um julgamento recente pode ainda não constar. Ausência aqui não prova que o acórdão não exista; confira " +
+  "no portal do tribunal.";
 
 /** A consulta guardada tem o formato desta versão? (memória de outra versão ou estragada = ausente). */
 export function ehConsultaDataJud(d: unknown): d is ConsultaDataJud {
@@ -187,6 +201,8 @@ export function ehConsultaDataJud(d: unknown): d is ConsultaDataJud {
     typeof c === "object" &&
     c !== null &&
     Number.isInteger(c.total) &&
+    typeof c.contagem === "string" &&
+    typeof c.aviso === "string" &&
     Number.isInteger(c.registrosDePrimeiroGrauNaoMostrados) &&
     Array.isArray(c.registros) &&
     c.registros.every((r) => Array.isArray(r?.resultadosDeJulgamento) && Array.isArray(r.juntadasComComplementoAcordao))
@@ -197,17 +213,63 @@ type Bruto = Record<string, unknown>;
 const texto = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined);
 const nomeDe = (v: unknown) => texto((v as Bruto | undefined)?.nome);
 
-/** Reduz a resposta do DataJud ao que a ferramenta mostra. */
-export function reduzirDataJud(json: unknown): ConsultaDataJud {
-  const hits = (json as { hits?: { total?: { value?: unknown }; hits?: unknown } })?.hits;
+/**
+ * A data do DataJud em milissegundos: ISO 8601 ("2021-03-05T10:00:00.000Z") ou compacta "AAAAMMDDhhmmss" (formato que
+ * alguns tribunais gravam; não verificado em resposta real). Sem fuso, vale como UTC: serve para ordenar, não para
+ * afirmar o instante. Ilegível = undefined.
+ */
+export function lerDataDoDataJud(valor: string): number | undefined {
+  const c = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/.exec(valor.trim());
+  if (c) {
+    const [, a, mes, d, h, mi, seg] = c.map(Number);
+    const t = Date.UTC(a, mes - 1, d, h, mi, seg);
+    const ok = new Date(t);
+    return ok.getUTCMonth() === mes - 1 && ok.getUTCDate() === d && h < 24 && mi < 60 && seg < 60 ? t : undefined;
+  }
+  if (!/^\d{4}-\d{2}-\d{2}/.test(valor)) return undefined;
+  const t = Date.parse(/(Z|[+-]\d{2}:?\d{2})$/.test(valor) || !valor.includes("T") ? valor : `${valor}Z`);
+  return Number.isNaN(t) ? undefined : t;
+}
+
+/** Ordem cronológica; o que não se lê como data vai depois, na ordem do texto. */
+function porDataDoDataJud(a: Bruto, b: Bruto): number {
+  const [x, y] = [String(a.dataHora ?? ""), String(b.dataHora ?? "")];
+  const [tx, ty] = [lerDataDoDataJud(x), lerDataDoDataJud(y)];
+  if (tx !== undefined && ty !== undefined) return tx - ty || x.localeCompare(y);
+  return tx !== undefined ? -1 : ty !== undefined ? 1 : x.localeCompare(y);
+}
+
+/**
+ * Reduz a resposta do DataJud ao que a ferramenta mostra. Resposta que o próprio DataJud diz incompleta (tempo
+ * esgotado, parte do índice falhou) é erro, nunca "vazia"; registro de outro número que o pedido é descartado.
+ */
+export function reduzirDataJud(json: unknown, digitos?: string): ConsultaDataJud {
+  const resposta = json as { timed_out?: unknown; _shards?: { failed?: unknown }; hits?: { total?: { value?: unknown; relation?: unknown }; hits?: unknown } };
+  if (resposta?.timed_out === true) {
+    throw new Error("O DataJud estourou o tempo da consulta (timed_out): a resposta pode estar incompleta. Tente de novo mais tarde; isto não é ausência de julgamentos.");
+  }
+  const falhas = resposta?._shards?.failed;
+  if (typeof falhas === "number" && falhas > 0) {
+    throw new Error(`O DataJud avisou que ${falhas} parte(s) do índice falharam (_shards.failed): a resposta pode estar incompleta. Tente de novo mais tarde; isto não é ausência de julgamentos.`);
+  }
+  const hits = resposta?.hits;
   if (!hits || !Array.isArray(hits.hits)) {
     throw new FormatoInesperadoError("O DataJud devolveu uma resposta sem a lista de processos (hits): o formato pode ter mudado.");
   }
-  const fontes = (hits.hits as Bruto[]).map((h) => (h._source ?? {}) as Bruto);
-  const total = Number.isInteger(hits.total?.value) ? (hits.total!.value as number) : fontes.length;
+  const todas = (hits.hits as Bruto[]).map((h) => (h._source ?? {}) as Bruto);
+  // Sem numeroProcesso no registro não há como conferir: fica. Só sai o que declara outro número.
+  const fontes = todas.filter((f) => !digitos || typeof f.numeroProcesso !== "string" || f.numeroProcesso.replace(/\D/g, "") === digitos);
+  const descartados = todas.length - fontes.length;
+  const informado = Number.isInteger(hits.total?.value) ? (hits.total!.value as number) : todas.length;
+  const total = Math.max(informado - descartados, 0);
+  const minimo = hits.total?.relation === "gte";
   const doPrimeiroGrau = fontes.filter((f) => PRIMEIRO_GRAU.has(String(f.grau)));
   return {
     total,
+    contagem: `${minimo ? "pelo menos " : ""}${total} ${total === 1 ? "registro" : "registros"}`,
+    ...(minimo && { totalEhMinimo: true as const }),
+    ...(descartados && { registrosDescartadosPorNumeroDiferente: descartados }),
+    aviso: AVISO_DO_DATAJUD,
     registros: fontes.filter((f) => !doPrimeiroGrau.includes(f)).map(registro),
     registrosDePrimeiroGrauNaoMostrados: doPrimeiroGrau.length,
   };
@@ -219,7 +281,7 @@ function registro(f: Bruto): RegistroDataJud {
   let semCodigo = 0;
   const vistos = new Set<string>();
   const movimentos = (Array.isArray(f.movimentos) ? (f.movimentos as Bruto[]) : []).slice();
-  movimentos.sort((a, b) => String(a.dataHora ?? "").localeCompare(String(b.dataHora ?? "")));
+  movimentos.sort(porDataDoDataJud);
   for (const m of movimentos) {
     const codigo = Number.isInteger(m.codigo) ? (m.codigo as number) : undefined;
     const nome = texto(m.nome);
@@ -295,6 +357,8 @@ export async function consultarDataJud(
     cliente.requisitar(`https://${HOST_API}/api_publica_${rota}/_search`, {
       method: "POST",
       headers: { Authorization: `APIKey ${valor}`, "Content-Type": "application/json" },
+      // Pesquisa futura, não verificada, nada implementado: filtro nivelSigilo = 0 e `terms` com vários números (só
+      // serviria com consulta em lote, que não existe).
       body: JSON.stringify({ query: { match: { numeroProcesso: digitos } }, size: 20 }),
     });
   const { valor, daVariavel } = chave.atual();
@@ -333,5 +397,5 @@ export async function consultarDataJud(
   } catch {
     throw new FormatoInesperadoError("O DataJud devolveu algo que não é JSON.");
   }
-  return reduzirDataJud(json);
+  return reduzirDataJud(json, digitos);
 }
