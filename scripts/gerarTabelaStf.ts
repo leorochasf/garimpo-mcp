@@ -17,7 +17,8 @@
  * Texto: HTML → texto por regra fixa (espaços do código-fonte viram um espaço, <br>, </p> e </div> viram quebra de
  * linha, marcação removida, entidades decodificadas, linhas vazias e espaço das pontas removidos). A única correção é
  * a da coluna "Há Repercussão", que o STF exporta com acentuação duplamente codificada ("HÃ¡"); acentuação corrompida
- * em qualquer outra coluna para o gerador. Cabeçalho diferente do esperado, rótulo fora da forma, número repetido ou
+ * em qualquer outra coluna para o gerador. Cabeçalho diferente do esperado, rótulo fora da forma, número repetido,
+ * entidade HTML nomeada fora da lista de src/html.ts (Latin-1 e tipográficas) ou
  * arquivo sem nenhuma linha também param. Qualquer parada acontece antes da gravação.
  *
  * Uso: npx vite-node scripts/rodarGeradorStf.ts [pasta de entrada]
@@ -36,6 +37,7 @@ import {
   type TabelaDoStf,
   type TipoNoStf,
 } from "../src/tabelaDoStf.js";
+import { ENTIDADES } from "../src/html.js";
 
 export const VERSAO_DO_GERADOR_STF = "1";
 export const DESTINO_PADRAO_STF = fileURLToPath(new URL("../dados/tabela-precedentes-stf.json", import.meta.url));
@@ -269,8 +271,6 @@ function campo<K extends string>(nome: K, valor: string | undefined): Partial<Re
   return valor ? ({ [nome]: valor } as Record<K, string>) : {};
 }
 
-const ENTIDADES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
-
 /** HTML → texto pela regra fixa descrita em TRANSFORMACAO. */
 export function textoDeHtml(html: string): string {
   return html
@@ -280,7 +280,9 @@ export function textoDeHtml(html: string): string {
     .replace(/<[^>]+>/g, "")
     .replace(/&(#\d+|#x[0-9a-f]+|[a-z]+);/gi, (todo, e: string) => {
       if (e[0] === "#") return String.fromCodePoint(e[1].toLowerCase() === "x" ? parseInt(e.slice(2), 16) : Number(e.slice(1)));
-      return ENTIDADES[e.toLowerCase()] ?? todo;
+      // Fora da lista (Latin-1 e tipográficas, nome com maiúsculas significativas), para: nunca grava "&nome;" como texto.
+      if (Object.hasOwn(ENTIDADES, e)) return ENTIDADES[e];
+      throw new ParadaDoGerador(`entidade HTML "${todo}" desconhecida pelo gerador; decida antes de gerar.`);
     })
     .split("\n")
     .map((l) => l.replace(/[ \t ]+/g, " ").trim())

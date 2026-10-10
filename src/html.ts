@@ -13,7 +13,7 @@ const BLOCOS = new Set([
 ]);
 
 /** Entidades nomeadas mais comuns em texto jurídico em português; as numéricas são decodificadas todas. */
-const ENTIDADES: Record<string, string> = {
+export const ENTIDADES: Record<string, string> = {
   amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ",
   ndash: "–", mdash: "—", lsquo: "‘", rsquo: "’", sbquo: "‚", ldquo: "“", rdquo: "”", bdquo: "„", hellip: "…",
   bull: "•", middot: "·", ordm: "º", ordf: "ª", sect: "§", para: "¶", deg: "°", euro: "€", trade: "™", copy: "©",

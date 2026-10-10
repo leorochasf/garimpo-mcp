@@ -53,6 +53,17 @@ describe("gerador da tabela do STF — repercussão geral (exportação do mante
     expect(linha(tabela, "repercussão geral", 2)!.teseFirmada).toBeUndefined();
   });
 
+  it("entidades nomeadas decodificadas, com maiúsculas significativas; entidade desconhecida para o gerador", () => {
+    const t = gerarTabelaStf(
+      entrada({ repercussaoGeral: rgCom("Tese fictícia do tema um", "Tese fict&iacute;cia do tema um (art. 5&ordm;, &sect; 1&ordm;, &Aacute;rea)") }),
+      GERADA,
+    );
+    expect(linha(t, "repercussão geral", 1)!.teseFirmada).toMatch(/^Tese fictícia do tema um \(art\. 5º, § 1º, Área\)/);
+    expect(() => gerarTabelaStf(entrada({ repercussaoGeral: rgCom("Tese fictícia", "Tese fict&inexistente;cia") }), GERADA)).toThrow(
+      /entidade/,
+    );
+  });
+
   it('"Há Repercussão": desfaz só a dupla codificação conhecida da coluna e registra isso na tabela', () => {
     expect(linha(tabela, "repercussão geral", 1)!.haRepercussao).toBe("Há");
     expect(linha(tabela, "repercussão geral", 2)!.haRepercussao).toBe("Não há (questão infraconstitucional)");
