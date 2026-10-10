@@ -1185,11 +1185,14 @@ describe("ordem de leitura do texto do PDF (pela porta)", () => {
 
   it("fim de página: o carimbo de assinatura aposto à parte sai na sua linha, não colado ao último parágrafo", async () => {
     const texto = await lido([
-      { x: 30, y: 700, texto: "Primeiro paragrafo generico do voto, com texto de sobra para a pagina contar como lida: a fundamentacao segue em linguagem comum, sem qualquer dado real, apenas para passar do limiar de leitura." },
+      { x: 30, y: 700, texto: "Primeiro paragrafo generico do voto, com texto de sobra para a pagina contar como lida: a fundamentacao segue em linguagem comum." },
       { x: 30, y: 650, texto: "Ultimo paragrafo do voto." },
       { x: 30, y: 30, texto: "Assinado eletronicamente em data generica.", tamanho: 7, carimbo: true },
     ]);
-    expect(texto.endsWith("Ultimo paragrafo do voto.\nAssinado eletronicamente em data generica.")).toBe(true);
+    expect(texto).toBe(
+      "Primeiro paragrafo generico do voto, com texto de sobra para a pagina contar como lida: a fundamentacao segue em linguagem comum.\n" +
+        "Ultimo paragrafo do voto.\nAssinado eletronicamente em data generica.",
+    );
   });
 
   it("expoente de nota de rodapé fica na linha, e carimbo de margem girado em dois pedaços sai numa linha só", async () => {
