@@ -566,6 +566,17 @@ const NAO_UNANIME = palavra([
   "vencid[oa]s?\\s+(?:o|a|os|as)\\s+(?:eminente|relator|relatora|desembargador|desembargadora|ministro|ministra|ju[ií]z|ju[ií]za)",
 ]);
 
+/** Marcas de raciocínio hipotético: só localizam a passagem, nunca dizem o que ela é. */
+const HIPOTESE = palavra([
+  "(?:ainda|mesmo)\\s+que\\s+assim\\s+n[aã]o\\s+fosse",
+  "se\\s+assim\\s+n[aã]o\\s+fosse",
+  "(?:ainda|mesmo)\\s+que\\s+(?:assim\\s+)?se\\s+admitisse",
+  "ad\\s+argumentandum(?:\\s+tantum)?",
+  "apenas\\s+para\\s+argumentar",
+  "por\\s+amor\\s+ao\\s+debate",
+  "a\\s+t[ií]tulo\\s+de\\s+argumenta[cç][aã]o",
+]);
+
 /** O texto depois da última pontuação dada, ou o texto todo se não houver nenhuma. */
 function depoisDaUltima(texto: string, pontuacao: RegExp): string {
   const ultimo = [...texto.matchAll(pontuacao)].pop();
@@ -580,7 +591,8 @@ function ultima(texto: string, expressao: RegExp): string | undefined {
 /**
  * Sinal de outro autor no inteiro teor: a passagem no relatório ou num voto vencido (aviso forte, pelo título de
  * seção), entre aspas, ou com um marcador de transcrição ("in verbis", "confira-se"…) logo antes dela, copiado como
- * está na fonte. É indício, não autoria; a falta dele não prova nada.
+ * está na fonte; e, se ligados, os sinais de "quem disse" (SinaisDeQuemDisse). É indício, não autoria; a falta dele
+ * não prova nada.
  */
 function sinalNoInteiroTeor(
   texto: string,
@@ -630,6 +642,8 @@ function sinalNoInteiroTeor(
         "um voto divergente sem título",
     );
   }
+  const hipotese = ligados.raciocinioHipotetico && ultima(texto.slice(Math.max(0, a - JANELA_DO_MARCADOR), a), HIPOTESE);
+  if (hipotese) sinais.push(`logo antes da passagem há marca de raciocínio hipotético ("${hipotese}")`);
   if (!sinais.length) return undefined;
   return `${fortes.length ? "ATENÇÃO, pode" : "pode"} ser de outro autor: ${sinais.join("; ")}`;
 }

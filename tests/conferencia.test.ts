@@ -809,4 +809,42 @@ describe("conferência de citação — sinais de \"quem disse\" (G-08), desliga
     );
     expect(sinal(r)).toBeUndefined();
   });
+
+  it("raciocínio hipotético ligado: a marca logo antes vira sinal, só como localização", async () => {
+    const leitura = await lerPdf(pdfComSinaisDeAutoria());
+    const r = conferirNoInteiroTeor(
+      leitura,
+      citar("o resultado seria o mesmo, pois o prazo ja estaria vencido"),
+      so("raciocinioHipotetico"),
+    );
+    expect(sinal(r)).toMatch(/; logo antes da passagem há marca de raciocínio hipotético \("Ainda que assim nao fosse"\)$/);
+  });
+
+  it.each([
+    ["\"ainda que\" sem hipótese", "VOTO\nAinda que tardia, a prova mostra que o prazo generico e de cinco anos."],
+    [
+      "marca longe da passagem",
+      `VOTO\nAinda que assim nao fosse, nada mudaria. ${"Texto ficticio de fundamentacao do relator. ".repeat(6)}Assim, o prazo generico e de cinco anos.`,
+    ],
+  ])("raciocínio hipotético ligado: %s não vira sinal", (_caso, pagina) => {
+    const r = conferirNoInteiroTeor(inteiroTeor([pagina]), citar("o prazo generico e de cinco anos"), so("raciocinioHipotetico"));
+    expect(sinal(r)).toBeUndefined();
+  });
+
+  it("todos ligados: cada passagem tem o seu sinal, e nenhum aviso diz \"obiter\" nem \"autoria\"", async () => {
+    const leitura = await lerPdf(pdfComSinaisDeAutoria());
+    const todos = { negacao: true, alegacaoDaParte: true, ementaTranscrita: true, divergencia: true, raciocinioHipotetico: true };
+    const avisos = [
+      ["o negocio generico e nulo por vicio de forma", "a negação"],
+      ["o prazo generico seria decenal", "alegação da parte"],
+      ["A prescricao da pretensao generica ocorre em tres anos", "ementa de outro julgado"],
+      ["para negar provimento, por entender valido o negocio generico", "fórmula de divergência"],
+      ["o resultado seria o mesmo, pois o prazo ja estaria vencido", "raciocínio hipotético"],
+    ].map(([citacao, esperado]) => {
+      const aviso = sinal(conferirNoInteiroTeor(leitura, citar(citacao), todos));
+      expect(aviso).toContain(esperado);
+      return aviso;
+    });
+    for (const aviso of avisos) expect(aviso).not.toMatch(/obiter|autoria/i);
+  });
 });
