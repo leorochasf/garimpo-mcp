@@ -1,0 +1,22 @@
+{
+ "fonte": {
+  "tribunal": "STF",
+  "paginas": {
+   "repercussão geral": "https://portal.stf.jus.br/jurisprudenciaRepercussao/todostemas.asp",
+   "súmula": "https://portal.stf.jus.br/jurisprudencia/sumariosumulas.asp?base=30",
+   "súmula vinculante": "https://portal.stf.jus.br/jurisprudencia/sumariosumulas.asp?base=26"
+  }
+ },
+ "atribuicao": "Fonte: STF — portal do STF (exportação \"Todos os temas\" de repercussão geral e telas de súmulas e súmulas vinculantes), obtidos pelo mantenedor do Garimpo no navegador",
+ "fundamento": "Lei 9.610/98, art. 8º, IV: \"os textos de tratados ou convenções, leis, decretos, regulamentos, decisões judiciais e demais atos oficiais\" não são objeto de proteção como direitos autorais. O STF não publica termo de uso nem licença para estes dados (não encontrado em 2026-10-09).",
+ "arquivos": [],
+ "partesAusentes": [
+  "repercussão geral",
+  "súmula",
+  "súmula vinculante"
+ ],
+ "geradaEm": "2026-10-10T02:00:43.877Z",
+ "versaoDoGerador": "1",
+ "transformacaoDosTextos": "HTML → texto por regra fixa (espaços do código-fonte viram um espaço; <br>, </p> e </div> viram quebra de linha; marcação removida; entidades decodificadas; linhas vazias e espaço das pontas removidos); na coluna \"Há Repercussão\" do export de repercussão geral, a acentuação duplamente codificada pelo STF (ex.: \"HÃ¡\") é desfeita (bytes Latin-1 relidos como UTF-8); nenhuma outra mudança",
+ "linhas": []
+}

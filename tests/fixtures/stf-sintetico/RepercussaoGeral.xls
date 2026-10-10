@@ -1,0 +1,11 @@
+<html xmlns:x="urn:schemas-microsoft-com:office:excel">
+<head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
+<body>
+<table border="1">
+<tr><th>Tema</th><th>Leading Case</th><th>Relator</th><th>Título</th><th>Descrição</th><th>Assuntos</th><th>Manifestação</th><th>Acórdão</th><th>Plenário Virtual</th><th>Há Repercussão</th><th>Data do Julgamento</th><th>Situação do Tema</th><th>Tese</th><th>Data da Tese</th><th>Observação</th></tr>
+<tr><td>0001</td><td>RE 100001</td><td>MIN. FICTÍCIO UM</td><td>Título fictício do tema um.</td><td>Descrição fictícia.</td><td>Assunto fictício</td><td>-</td><td>-</td><td>Sim</td><td>HÃ¡</td><td>01/02/2010</td><td>Trânsito em Julgado</td><td>Tese fictícia do tema um, &quot;com aspas&quot; &amp; e comercial.<br>Segunda linha da tese.</td><td>01/02/2010</td><td></td></tr>
+<tr><td>0002</td><td>ARE 100002</td><td>MIN. FICTÍCIO DOIS</td><td>Título fictício do tema dois.</td><td>Descrição fictícia.</td><td>Assunto fictício</td><td>-</td><td>-</td><td>Sim</td><td>NÃ£o hÃ¡ (questÃ£o infraconstitucional)</td><td>03/04/2011</td><td>Cancelado</td><td></td><td></td><td></td></tr>
+<tr><td>0003</td><td>RE 100003</td><td>MIN. FICTÍCIO TRÊS</td><td>Título fictício do tema três.</td><td>Descrição fictícia.</td><td>Assunto fictício</td><td>-</td><td>-</td><td>Sim</td><td>Há (com reafirmação de jurisprudência)</td><td></td><td>Em julgamento</td><td></td><td></td><td></td></tr>
+</table>
+</body>
+</html>
