@@ -39,6 +39,7 @@ import {
   type Saida,
   servicoDe,
 } from "./disjuntor.js";
+import { htmlParaTexto } from "./html.js";
 import { dataEHora } from "./memoria.js";
 import { anotarRestante, decidirFreio, type Freio, lerRestante, type RestanteLido, temFreio } from "./freio.js";
 
@@ -716,19 +717,43 @@ const FORMATO_ESPERADO: Record<string, "json" | "html"> = {
   jt: "json",
 };
 
-/** Marcas da página, sem acento e em minúsculas: desafio de navegador ou página de bloqueio (não verificadas ao vivo). */
+/** Marcas fortes, sem acento e em minúsculas: valem na página inteira (não verificadas ao vivo). */
 const MARCAS_DE_BLOQUEIO: [RegExp, "desafio" | "bloqueio"][] = [
   [/pagina bloqueada|acesso bloqueado/, "bloqueio"],
-  [/verificacao de seguranca|captcha|just a moment/, "desafio"],
+  [/verificacao de seguranca/, "desafio"],
 ];
+
+/** Marcas fracas: "captcha" aparece até em script de reCAPTCHA de página normal, então só valem no <title>. */
+const MARCAS_SO_NO_TITULO = /captcha|just a moment/;
 
 /** Carregador do desafio do F5 (TSPD), que pode vir sem título. Só fora das fontes HTML. */
 const CARREGADOR_DE_DESAFIO = /src=["'][^"']*\/tspd\//;
 
+/** Título maior que isso é ementa-título de conteúdo, não de página de desafio. */
+const LIMITE_TITULO = 80;
+
+/** Texto do <title> do <head> (ou, sem <head>, de antes do <body>), com entidades decodificadas; "" se não houver. */
+function tituloDaPagina(html: string): string {
+  const topo = html.split(/<body[\s>]/i)[0] ?? "";
+  const titulo = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(topo)?.[1] ?? "";
+  return htmlParaTexto(titulo);
+}
+
 /**
- * A página é de desafio ou de bloqueio? Com `soTitulo` (fonte que responde HTML), só o <title> conta; senão, a página
- * inteira, que nessas fontes nunca é conteúdo.
+ * A página é de desafio ou de bloqueio? As marcas fortes valem na página inteira (entidades decodificadas) só nas
+ * fontes que não respondem HTML (`soTitulo` falso), onde a página nunca é conteúdo; "captcha" e "just a moment" valem
+ * só no <title> curto, em qualquer fonte.
  */
+function paginaDeBloqueio(html: string, soTitulo: boolean): "desafio" | "bloqueio" | undefined {
+  const normal = (t: string) => t.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+  const titulo = tituloDaPagina(html);
+  const noTitulo = titulo.length <= LIMITE_TITULO ? normal(titulo) : "";
+  const onde = soTitulo ? noTitulo : `${normal(htmlParaTexto(html))}\n${noTitulo}`;
+  for (const [marca, tipo] of MARCAS_DE_BLOQUEIO) if (marca.test(onde)) return tipo;
+  if (MARCAS_SO_NO_TITULO.test(noTitulo)) return "desafio";
+  return !soTitulo && CARREGADOR_DE_DESAFIO.test(normal(html)) ? "desafio" : undefined;
+}
+
 /**
  * Texto no conjunto de caracteres que a resposta declara (cabeçalho Content-Type ou, na falta, meta charset / XML
  * encoding nos primeiros bytes); sem declaração ou com nome desconhecido, UTF-8.
@@ -743,13 +768,6 @@ function decodificar(bytes: Uint8Array, contentType: string): string {
   } catch {
     return new TextDecoder().decode(bytes);
   }
-}
-
-function paginaDeBloqueio(html: string, soTitulo: boolean): "desafio" | "bloqueio" | undefined {
-  const normal = (t: string) => t.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
-  const onde = normal(soTitulo ? (/<title[^>]*>([\s\S]*?)<\/title>/i.exec(html)?.[1] ?? "") : html);
-  for (const [marca, tipo] of MARCAS_DE_BLOQUEIO) if (marca.test(onde)) return tipo;
-  return !soTitulo && CARREGADOR_DE_DESAFIO.test(onde) ? "desafio" : undefined;
 }
 
 /** O código HPE_* do parser HTTP do Node, no erro ou na sua causa (o fetch do Node 22 o põe em `cause`). */

@@ -575,6 +575,38 @@ describe("recusa reconhecida pela página da fonte (desafio com HTTP 200) e pelo
     expect(await (await cliente.requisitar(JSON_URL)).text()).toBe(grande);
   });
 
+  it("casca HTML com script do reCAPTCHA numa fonte JSON não é recusa (segue como formato inesperado)", async () => {
+    const { cliente } = clienteFalso([pagina("casca-com-recaptcha.html")]);
+    const r = await cliente.requisitar(JSON_URL);
+    expect(await r.text()).toMatch(/recaptcha\/api\.js/);
+  });
+
+  it("título com entidades HTML (&ccedil;&atilde;) é reconhecido: recusa, numa fonte JSON e num portal HTML", async () => {
+    const json = clienteFalso([pagina("titulo-com-entidades.html")]);
+    expect(await json.cliente.requisitar(JSON_URL).catch((x) => x)).toBeInstanceOf(RecusaError);
+    const html = clienteFalso([pagina("titulo-com-entidades.html")]);
+    expect(await html.cliente.requisitar("https://www.tjxx.jus.br/acordao?id=1").catch((x) => x)).toBeInstanceOf(RecusaError);
+  });
+
+  it("entidade numérica (&#225;) em 'Página Bloqueada' é reconhecida como bloqueio", async () => {
+    const { cliente } = clienteFalso([pagina("titulo-bloqueio-numerico.html")]);
+    const e = await cliente.requisitar(JSON_URL).catch((x) => x);
+    expect(e).toBeInstanceOf(RecusaError);
+    expect(e.message).toMatch(/acesso bloqueado/);
+  });
+
+  it("<title> de um <svg> no corpo do portal não é o título da página: não é recusa", async () => {
+    const { cliente } = clienteFalso([pagina("portal-com-svg-title.html")]);
+    const r = await cliente.requisitar("https://www.tjxx.jus.br/acordao?id=1");
+    expect(await r.text()).toMatch(/Resultado da consulta/);
+  });
+
+  it("título longo (ementa-título, mais de 80 caracteres) com a palavra captcha não é recusa", async () => {
+    const { cliente } = clienteFalso([pagina("portal-com-titulo-longo.html")]);
+    const r = await cliente.requisitar("https://www.tjxx.jus.br/acordao?id=1");
+    expect(await r.text()).toMatch(/Conteúdo/);
+  });
+
   /** Erro como o do fetch do Node 22: TypeError "fetch failed" com o erro de baixo nível em `cause`. */
   const falhaDoFetch = (code: string) => () => {
     throw new TypeError("fetch failed", { cause: Object.assign(new Error("falha de baixo nível"), { code }) });
