@@ -231,16 +231,16 @@ function semEspera(d: Disjuntor): Disjuntor {
 export function disjuntorValido(d: unknown): d is Disjuntor {
   const x = d as Disjuntor;
   const numero = (v: unknown) => Number.isFinite(v);
-  const chamada = (c: unknown) =>
-    typeof c === "object" && c !== null && Number.isInteger((c as Chamada).pid) && typeof (c as Chamada).id === "string";
+  const objeto = (o: unknown): o is Record<string, unknown> => typeof o === "object" && o !== null;
+  const chamada = (c: unknown) => objeto(c) && Number.isInteger(c.pid) && typeof c.id === "string";
   return (
     typeof x === "object" &&
     x !== null &&
     Number.isInteger(x.geracao) &&
     Number.isInteger(x.aberturas) &&
-    (x.espera === undefined || (numero(x.espera.ate) && chamada(x.espera.dono))) &&
-    (x.pausa === undefined || (numero(x.pausa.ate) && typeof x.pausa.aviso === "string")) &&
-    (x.adiada === undefined || (numero(x.adiada.ate) && typeof x.adiada.aviso === "string")) &&
+    (x.espera === undefined || (objeto(x.espera) && numero(x.espera.ate) && chamada(x.espera.dono))) &&
+    (x.pausa === undefined || (objeto(x.pausa) && numero(x.pausa.ate) && typeof x.pausa.aviso === "string")) &&
+    (x.adiada === undefined || (objeto(x.adiada) && numero(x.adiada.ate) && typeof x.adiada.aviso === "string")) &&
     (x.prova === undefined || chamada(x.prova)) &&
     (x.proximaProvaEm === undefined || numero(x.proximaProvaEm))
   );

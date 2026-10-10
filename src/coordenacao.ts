@@ -658,6 +658,8 @@ export interface DiagnosticoDosFreios {
   avisoDeGravacao?: string;
 }
 
+const EM_ANDAMENTO = "nova tentativa em andamento";
+
 export interface FonteNoDiagnostico {
   servico: string;
   situacao: string;
@@ -715,16 +717,21 @@ function explicar(estado: Estado | undefined, agora: number): DiagnosticoDosFrei
   const recusas = recentes.filter((o) => o.tipo === "recusou" || o.tipo === "recusou-a-prova").length;
   // Com `ate`, a pausa está em vigor; sem ele, venceu e a próxima chamada é a que confere se a fonte voltou.
   const paradas = fontes.filter((f) => f.ate).map((f) => f.servico);
-  const aguardando = fontes.filter((f) => !f.ate).map((f) => f.servico);
+  const emAndamento = fontes.filter((f) => f.situacao === EM_ANDAMENTO).map((f) => f.servico);
+  const aguardando = fontes.filter((f) => !f.ate && f.situacao !== EM_ANDAMENTO).map((f) => f.servico);
   const resumo =
     (paradas.length
       ? `Fontes com chamadas paradas agora: ${paradas.join(", ")} (detalhes em "fontes").`
-      : aguardando.length
+      : aguardando.length || emAndamento.length
         ? ""
         : "Nenhuma fonte está pausada agora: as chamadas podem sair.") +
     (aguardando.length
       ? `${paradas.length ? " " : ""}Pausa vencida, aguardando a chamada de prova (o próximo pedido a faz): ` +
         `${aguardando.join(", ")} (detalhes em "fontes").`
+      : "") +
+    (emAndamento.length
+      ? `${paradas.length || aguardando.length ? " " : ""}Nova tentativa em andamento (as outras chamadas esperam a ` +
+        `decisão dela; não precisa repetir): ${emAndamento.join(", ")} (detalhes em "fontes").`
       : "") +
     (sistematicas.length
       ? ` Indício de recusa sistemática em: ${sistematicas.join(", ")} (esperar provavelmente não resolve).`
@@ -800,6 +807,18 @@ function fonteDoDisjuntor(
       explicacao:
         "A fonte pediu para esperar (429/503). Todas as janelas esperam; só a chamada recusada faz a única nova " +
         "tentativa. Recusada de novo, a fonte é pausada.",
+    };
+  }
+  if (d.espera && !donoMorto(d.espera.dono)) {
+    // Vencida a espera, a única nova tentativa segue em andamento (dono vivo): as outras chamadas continuam
+    // esperando a decisão dela (decidirSaida), então a fonte não está liberada nem aguarda a chamada de prova.
+    return {
+      servico,
+      situacao: EM_ANDAMENTO,
+      explicacao:
+        "A fonte pediu para esperar (429/503) e o prazo passou; a única nova tentativa ainda está em andamento em " +
+        "outra chamada. As outras chamadas esperam a decisão dela, sem você precisar repetir nada: aceita, as " +
+        "chamadas voltam; recusada de novo, a fonte é pausada.",
     };
   }
   return undefined;

@@ -375,3 +375,41 @@ describe("histórico de recusas", { timeout: 90_000 }, () => {
     expect(await readFile(join(protecao, "estado.json"), "utf8")).toBe("{ isto não é o estado");
   });
 });
+
+describe("diagnostico_dos_freios com estado de proteção delicado", () => {
+  const AGORA = 1_800_000_000_000;
+  async function diagnosticarEstado(estado: object) {
+    await mkdir(protecao, { recursive: true });
+    await writeFile(join(protecao, "estado.json"), JSON.stringify({ formato: "garimpo-protecao", versao: 2, pausas: {}, ...estado }));
+    return new CoordenacaoEmArquivo({ pasta, agora: () => AGORA }).diagnosticar();
+  }
+
+  it.each([
+    ["pausa", { pausa: null }],
+    ["espera", { espera: null }],
+    ["adiada", { adiada: null }],
+    ["prova", { prova: null }],
+  ])("%s nula no disjuntor vira rede parada com a instrução, não TypeError", async (_campo, extra) => {
+    const d = await diagnosticarEstado({ disjuntores: { jt: { geracao: 1, aberturas: 1, ...extra } } });
+    expect(d.redeParada).toBe(true);
+    expect(d.resumo).toMatch(/Rede parada: o estado compartilhado de proteção do Garimpo está ilegível/);
+    expect(d.resumo).toContain("estado.json");
+  });
+
+  it("tentativa única em andamento (espera vencida, dono vivo): não diz que as chamadas podem sair", async () => {
+    const d = await diagnosticarEstado({
+      disjuntores: {
+        jurisprudenciaia: { geracao: 1, aberturas: 0, espera: { ate: AGORA - 1000, dono: { pid: process.pid, id: "dono-vivo" } } },
+      },
+    });
+    expect(d.resumo).not.toMatch(/as chamadas podem sair/);
+    expect(d.resumo).toMatch(/nova tentativa em andamento/i);
+    expect(d.resumo).toMatch(/jurisprudenciaia/);
+    const fonte = d.fontes?.find((f) => f.servico === "jurisprudenciaia");
+    expect(fonte?.situacao).toBe("nova tentativa em andamento");
+    expect(fonte?.ate).toBeUndefined();
+    expect(fonte?.explicacao).toMatch(/única nova tentativa/);
+    expect(fonte?.explicacao).not.toMatch(/repita|tente de novo|insista/i);
+    expect(fonte?.explicacao).not.toMatch(/pausa venceu/);
+  });
+});
