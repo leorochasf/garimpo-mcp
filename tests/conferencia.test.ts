@@ -1,7 +1,11 @@
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { conferirNaEmenta, conferirNoInteiroTeor, lerCitacao } from "../src/conferencia.js";
+import { conferirNaEmenta, conferirNoInteiroTeor, conferirNoTextoIntegral, lerCitacao } from "../src/conferencia.js";
 import type { ConferenciaFeita, ResultadoDaFonte } from "../src/conferencia.js";
+import { lerParaConferir } from "../src/leitura.js";
 import type { InteiroTeorParaConferir } from "../src/leitura.js";
+import { pdfComDispositivoECertidao, pdfEmentaPadronizada } from "./pdfSintetico.js";
 
 /** Ementa fictícia, sem processo real (regra 2). */
 const EMENTA =
@@ -491,5 +495,128 @@ Texto do voto.`]);
   it("na ementa do JurisprudênciaIA não há seção: o campo não aparece", () => {
     const r = conferirNaEmenta(`EMENTA FICTÍCIA. Para ${CITACAO}.`, lerCitacao(CITACAO, { reticenciasComoCorte: false }));
     expect((r as { ocorrencias: object[] }).ocorrencias[0]).not.toHaveProperty("secao");
+  });
+});
+
+describe("conferência de citação — posição no julgado (G-09)", () => {
+  /** Lê um PDF sintético como o conferir_citacao lê o PDF trazido: gravado numa pasta temporária. */
+  async function lerPdf(bytes: Uint8Array): Promise<InteiroTeorParaConferir> {
+    const pasta = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-posicao-"));
+    const caminho = join(pasta, "acordao-ficticio.pdf");
+    await writeFile(caminho, bytes);
+    return lerParaConferir(caminho);
+  }
+  function inteiroTeor(paginas: string[]): InteiroTeorParaConferir {
+    return {
+      origem: "não conferida",
+      totalDePaginas: paginas.length,
+      totalDePartes: 1,
+      unidades: paginas.map((texto, i) => ({ pagina: i + 1, parte: 1, texto })),
+    };
+  }
+  /** O veredito, o total e a seção e a subparte de cada ocorrência. */
+  function posicoes(r: ResultadoDaFonte) {
+    if (r.veredito === "não verificável") throw new Error(`conferência não verificável: ${r.motivo}`);
+    return {
+      veredito: r.veredito,
+      total: r.total,
+      posicoes: (r.ocorrencias as { secao?: string; subparte?: string }[]).map(({ secao, subparte }) => ({ secao, subparte })),
+    };
+  }
+  const citar = (citacao: string) => lerCitacao(citacao, { reticenciasComoCorte: false });
+  const FRASE = "o prazo generico de prescricao e de cinco anos";
+
+  it.each([
+    ["Apelacao contra sentenca que julgou improcedente o pedido", "caso em exame"],
+    ["Ha duas questoes em discussao: (i) a validade do negocio", "questão em discussão"],
+    ["O negocio e valido quando presentes os requisitos legais genericos", "razões de decidir"],
+    ["Tese de julgamento: o negocio generico e valido", "dispositivo e tese"],
+  ])("ementa padronizada (títulos I a IV): \"%s\" fica na ementa, em %s", async (citacao, subparte) => {
+    const r = conferirNoInteiroTeor(await lerPdf(pdfEmentaPadronizada()), citar(citacao));
+    expect(posicoes(r)).toEqual({ veredito: "encontrado literalmente", total: 1, posicoes: [{ secao: "ementa", subparte }] });
+  });
+
+  it("depois da ementa padronizada, o relatório (título sem acento) não herda a subparte da ementa", async () => {
+    const r = conferirNoInteiroTeor(await lerPdf(pdfEmentaPadronizada()), citar("Trata-se de apelacao interposta contra sentenca"));
+    expect(posicoes(r).posicoes).toEqual([{ secao: "relatório", subparte: undefined }]);
+  });
+
+  it.each([
+    ["Trata-se de recurso contra decisao generica de primeiro grau", "relatório", undefined],
+    [
+      "Fundamentacao generica do relator. Ante o exposto, voto",
+      "voto",
+      "fundamentação e dispositivo (a passagem atravessa a fórmula que abre o dispositivo)",
+    ],
+    ["Ante o exposto, voto por dar provimento ao recurso", "voto", "dispositivo"],
+    ["proferiu a seguinte decisao: recurso provido", "certidão", undefined],
+  ])("voto com dispositivo aberto por \"Ante o exposto\" e certidão: \"%s\" em %s, %s", async (citacao, secao, subparte) => {
+    const r = conferirNoInteiroTeor(await lerPdf(pdfComDispositivoECertidao()), citar(citacao));
+    expect(posicoes(r).posicoes).toEqual([{ secao, subparte }]);
+  });
+
+  it("texto integral do Falcão sem títulos: seção não identificada, sem subparte inventada", () => {
+    const texto =
+      "Texto ficticio do acordao trabalhista sem titulo nenhum. A responsabilidade do ente ficticio exige prova do " +
+      "nexo causal. Ante o exposto, nega-se provimento ao recurso ficticio.";
+    const r = conferirNoTextoIntegral(texto, citar("Ante o exposto, nega-se provimento ao recurso ficticio"));
+    expect(posicoes(r)).toEqual({
+      veredito: "encontrado literalmente",
+      total: 1,
+      posicoes: [{ secao: "não identificada", subparte: undefined }],
+    });
+    expect((r as ConferenciaFeita).ocorrencias[0]).not.toHaveProperty("subparte");
+  });
+
+  it("a posição nunca amplia nem restringe a busca: com ou sem títulos, o mesmo veredito e as mesmas ocorrências", () => {
+    const comTitulos = [
+      `EMENTA\nI. Caso em exame\n1. Recurso ficticio.\nII. Questão em discussão\n2. Saber se ${FRASE}.`,
+      `VOTO\nNo merito, ${FRASE}, como ja decidido.\nAnte o exposto, nego provimento.`,
+    ];
+    const semTitulos = [`Texto ficticio.\n1. Recurso ficticio.\n2. Saber se ${FRASE}.`, `No merito, ${FRASE}, como ja decidido.`];
+    const com = posicoes(conferirNoInteiroTeor(inteiroTeor(comTitulos), citar(FRASE)));
+    const sem = posicoes(conferirNoInteiroTeor(inteiroTeor(semTitulos), citar(FRASE)));
+    expect(com).toEqual({
+      veredito: "encontrado literalmente",
+      total: 2,
+      posicoes: [
+        { secao: "ementa", subparte: "questão em discussão" },
+        { secao: "voto", subparte: "fundamentação" },
+      ],
+    });
+    expect({ ...sem, posicoes: undefined }).toEqual({ ...com, posicoes: undefined });
+    expect(sem.posicoes).toEqual([
+      { secao: "não identificada", subparte: undefined },
+      { secao: "não identificada", subparte: undefined },
+    ]);
+  });
+
+  it("passagem que atravessa o título da subparte: as duas subpartes, ditas como atravessadas", () => {
+    const paginas = ["EMENTA\nI. Caso em exame\n1. Recurso ficticio generico de apelacao.\nII. Questão em discussão\n2. Saber algo."];
+    const r = conferirNoInteiroTeor(
+      inteiroTeor(paginas),
+      citar("Recurso ficticio generico de apelacao. II. Questão em discussão 2. Saber"),
+    );
+    expect(posicoes(r).posicoes).toEqual([
+      { secao: "ementa", subparte: "caso em exame e questão em discussão (a passagem atravessa um título)" },
+    ]);
+  });
+
+  it.each([
+    ["título da ementa padronizada fora da ementa (no voto)", `VOTO\nQuestão em discussão\nNo merito, ${FRASE}.`],
+    ["\"ante o exposto\" no meio da frase do voto", `VOTO\nO autor, ante o exposto na inicial, pede algo. No merito, ${FRASE}.`],
+  ])("%s: não muda a posição (fundamentação do voto)", (_caso, pagina) => {
+    const r = conferirNoInteiroTeor(inteiroTeor([pagina]), citar(FRASE));
+    expect(posicoes(r).posicoes).toEqual([{ secao: "voto", subparte: "fundamentação" }]);
+  });
+
+  it("\"Ante o exposto\" no relatório não abre dispositivo: só o voto tem dispositivo", () => {
+    const r = conferirNoInteiroTeor(inteiroTeor([`RELATÓRIO\nAnte o exposto, o autor pede que ${FRASE}.`]), citar(FRASE));
+    expect(posicoes(r).posicoes).toEqual([{ secao: "relatório", subparte: undefined }]);
+  });
+
+  it("na ementa do JurisprudênciaIA não há subparte: o campo não aparece", () => {
+    const r = conferirNaEmenta(`EMENTA FICTÍCIA. I. Caso em exame. 1. Para ${FRASE}.`, citar(FRASE));
+    expect((r as ConferenciaFeita).ocorrencias[0]).not.toHaveProperty("subparte");
   });
 });
