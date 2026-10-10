@@ -24,7 +24,7 @@ os avisos são publicados, também os de taxa ruim**: aviso reprovado fica desli
 ## A amostra que o dono monta
 
 Uma pasta **fora do repositório** (por exemplo na pasta de documentos; nunca dentro do projeto, nunca em
-OneDrive/Google Drive), porque PDF real e citação de caso real não entram no git (regra 2). Conteúdo:
+pasta sincronizada de nuvem), porque PDF real e citação de caso real não entram no git (regra 2). Conteúdo:
 
 - os PDFs de inteiro teor já baixados (ou texto de outro formato convertido em PDF);
 - `amostra.json`, com um item por PDF:

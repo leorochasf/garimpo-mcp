@@ -136,7 +136,7 @@ export function pdfEmentaPadronizada(): Uint8Array<ArrayBuffer> {
  */
 export function pdfComDispositivoECertidao(camaraDoFecho = 3): Uint8Array<ArrayBuffer> {
   return pdfSintetico([
-    ["RELATORIO", "Trata-se de recurso contra decisao generica de primeiro grau.", "VOTO", "Fundamentacao generica do relator."],
+    ["RELATORIO", "Trata-se de recurso contra decisao generica de primeiro grau.", ENCHIMENTO, "VOTO", "Fundamentacao generica do relator."],
     [
       "Ante o exposto, voto por dar provimento ao recurso para reformar a decisao.",
       "CERTIDAO DE JULGAMENTO",
