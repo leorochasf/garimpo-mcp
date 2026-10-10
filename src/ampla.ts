@@ -34,7 +34,7 @@ export interface ParametrosAmpla extends FiltrosBusca, FiltrosLocais {
   limitePorBusca?: number;
   /** Máximo de itens na saída compacta (padrão 50). */
   maximo?: number;
-  /** Caracteres do trecho da ementa na saída compacta (padrão 120, sem o rótulo "Ementa:"). */
+  /** Caracteres do trecho da ementa na saída compacta (padrão 110, sem o rótulo "Ementa:"). */
   tamanhoTrecho?: number;
   /** Ignora as buscas guardadas e faz todas no site; a que falhar é busca com erro. */
   renovar?: boolean;
@@ -138,7 +138,7 @@ export interface CabecalhoDeCobertura {
 }
 
 export interface ResultadoAmplo {
-  /** Só em busca grande que vai ao site: quantas chamadas e quanto tempo, sempre "até" (é número de partida). */
+  /** Só em busca grande que vai ao site: quantas chamadas ("até": é teto de verdade) e o tempo ("cerca de": estimativa que pode passar). */
   estimativa?: string;
   buscasFeitas: number;
   buscasPlanejadas: number;
@@ -160,7 +160,7 @@ export interface ResultadoAmplo {
 export const PAGINAS_DO_FALCAO_POR_CHAMADA = 5;
 /** A estimativa só aparece com mais de 6 chamadas ao site (a de 6 com 50 acórdãos de campos longos já beira o teto); abaixo disso não há o que avisar. */
 const CHAMADAS_PARA_ESTIMAR = 7;
-/** Tempo por rodada de 2 chamadas simultâneas: número de partida, não medido; por isso a estimativa diz "até". */
+/** Tempo por rodada de 2 chamadas simultâneas: número de partida, não medido (pico ~7 s por busca, prazo 120 s, Retry-After até 30 s, vagas divididas com outras janelas); por isso a estimativa diz "cerca de", nunca "até". */
 const SEGUNDOS_POR_RODADA = 3;
 
 /**
@@ -171,7 +171,7 @@ function estimar(chamadas: number): string | undefined {
   if (chamadas < CHAMADAS_PARA_ESTIMAR) return undefined;
   const segundos = Math.ceil(chamadas / 2) * SEGUNDOS_POR_RODADA;
   return (
-    `Estimativa: até ${chamadas} chamadas (2 por vez), até ${segundos} s; busca guardada reduz.`
+    `Estimativa: até ${chamadas} chamadas (2 por vez), cerca de ${segundos} s (pode passar: espera do site, 429/503, outras janelas); busca guardada reduz.`
   );
 }
 
@@ -413,7 +413,7 @@ export async function buscaAmpla(
   const mostrados = reservarPorTribunal(sobreviventes, { maximo, naFaixaDeCima: (x) => x.faixa === 0 });
   // Tamanhos escolhidos para 50 acórdãos + 10 qualificados caberem numa resposta (< 25 mil caracteres) com campos
   // de tamanho real (número CNJ, links longos): ver o teste de tamanho em tests/ampla.test.ts.
-  const tamanho = p.tamanhoTrecho ?? 120;
+  const tamanho = p.tamanhoTrecho ?? 110;
   const cabecalho: CabecalhoDeCobertura = {
     porTribunal: [...porTribunal].map(([tribunal, { planejadas, guardadas, maisAntiga, ...contas }]) => {
       const doTribunal = tarefas.filter((t) => t.tribunal === tribunal);
@@ -467,8 +467,8 @@ export async function buscaAmpla(
   if (mostrados.length < sobreviventes.length) {
     // "Limite não é amostra" entra no lugar de palavras antigas: a resposta com 50 acórdãos já beira o teto de 25 mil.
     cabecalho.listaCortada =
-      `mostrando ${mostrados.length} de ${sobreviventes.length}; limite não é amostra; ` +
-      (maximo < 200 ? "peça mais (até 200)" : "200 é o máximo por resposta");
+      `mostrando ${mostrados.length} de ${sobreviventes.length}; limite não é amostra (os primeiros por aderência, não um retrato do todo); ` +
+      (maximo < 200 ? "peça maximo maior (até 200)" : "200 é o máximo por resposta");
   }
   // Uma vez, nunca por item: o recorrido achado e cortado da lista (ou filtrado) não está ausente.
   const recorrido = avisoDeRecorridoAusenteAmplo(

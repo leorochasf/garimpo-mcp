@@ -289,7 +289,7 @@ describe("busca ampla", () => {
         [3, 150],
         [3, 150],
       ]);
-      expect(r.cabecalhoDeCobertura.listaCortada).toBe("mostrando 50 de 300; limite não é amostra; peça mais (até 200)");
+      expect(r.cabecalhoDeCobertura.listaCortada).toBe("mostrando 50 de 300; limite não é amostra (os primeiros por aderência, não um retrato do todo); peça maximo maior (até 200)");
       expect(r.acordaos).toHaveLength(50);
       expect(r.qualificados).toHaveLength(10);
       expect(JSON.stringify(r).length).toBeLessThan(25_000);
@@ -691,7 +691,7 @@ describe("cabeçalho de cobertura da busca ampla", () => {
 
     const r = await buscaAmpla(cliente, { formulacoes: ["a"], tribunais: ["stj"], maximo: 5 });
 
-    expect(r.cabecalhoDeCobertura.listaCortada).toBe("mostrando 5 de 12; limite não é amostra; peça mais (até 200)");
+    expect(r.cabecalhoDeCobertura.listaCortada).toBe("mostrando 5 de 12; limite não é amostra (os primeiros por aderência, não um retrato do todo); peça maximo maior (até 200)");
     expect(r.cabecalhoDeCobertura.porTribunal).toEqual([{ tribunal: "stj", buscasFeitas: 1, vazias: 0, comErro: 0, achados: 12, mostrados: 5 }]);
   });
 
@@ -702,7 +702,7 @@ describe("cabeçalho de cobertura da busca ampla", () => {
 
     const r = await buscaAmpla(cliente, { formulacoes: ["a", "bb", "ccc"], tribunais: ["stj"], maximo: 200 });
 
-    expect(r.cabecalhoDeCobertura.listaCortada).toBe("mostrando 200 de 300; limite não é amostra; 200 é o máximo por resposta");
+    expect(r.cabecalhoDeCobertura.listaCortada).toBe("mostrando 200 de 300; limite não é amostra (os primeiros por aderência, não um retrato do todo); 200 é o máximo por resposta");
   });
 });
 
@@ -748,7 +748,7 @@ describe("filtros locais da busca ampla (deveConter, naoPodeConter)", () => {
       },
     ]);
     // O que o filtro tirou não é lista cortada: o corte conta só os 5 que passaram.
-    expect(r.cabecalhoDeCobertura.listaCortada).toBe("mostrando 3 de 5; limite não é amostra; peça mais (até 200)");
+    expect(r.cabecalhoDeCobertura.listaCortada).toBe("mostrando 3 de 5; limite não é amostra (os primeiros por aderência, não um retrato do todo); peça maximo maior (até 200)");
     expect(r.cabecalhoDeCobertura).not.toHaveProperty("filtroLocal");
   });
 
@@ -1036,7 +1036,8 @@ describe("estimativa antes de buscar e \"limite não é amostra\"", () => {
     const { cliente } = siteFalso(vazio);
     const r = await buscaAmpla(cliente, { formulacoes: seis, tribunais: trib3 });
     expect(r.estimativa).toMatch(/até 18 chamadas/);
-    expect(r.estimativa).toMatch(/27 s/);
+    expect(r.estimativa).toContain("cerca de 27 s (pode passar: espera do site, 429/503, outras janelas)");
+    expect(r.estimativa).not.toMatch(/até 27 s/);
     expect(r.estimativa).toMatch(/2 por vez/);
     expect(r.estimativa).toMatch(/guardada/);
     expect(Object.keys(r)[0]).toBe("estimativa");
@@ -1062,7 +1063,7 @@ describe("estimativa antes de buscar e \"limite não é amostra\"", () => {
       // Dois tribunais novos: só as 12 buscas deles vão ao site (as 12 do stj e do tjsp seguem na memória).
       const parcial = await buscaAmpla(cliente, { formulacoes: seis, tribunais: ["stj", "tjsp", "tjrs", "tjmg"] }, memoria);
       expect(parcial.estimativa).toMatch(/até 12 chamadas/);
-      expect(parcial.estimativa).toMatch(/18 s/);
+      expect(parcial.estimativa).toMatch(/cerca de 18 s/);
     } finally {
       await rm(dados, { recursive: true, force: true, maxRetries: 10 });
     }
@@ -1073,7 +1074,7 @@ describe("estimativa antes de buscar e \"limite não é amostra\"", () => {
     const porPedido = () => pagina([documento({ tribunal: "trt2", idDocumentoAcordao: "1", numeroProcesso: "0000001-00.2024.5.02.0001", ementa: "<p>x.</p>" })]);
     const r = await buscaAmpla(cliente, { formulacoes: seis, tribunais: ["stj", "trt2"] }, undefined, { falcao: falcaoFalso(porPedido).cliente });
     expect(r.estimativa).toMatch(/até 11 chamadas/);
-    expect(r.estimativa).toMatch(/18 s/);
+    expect(r.estimativa).toMatch(/cerca de 18 s/);
   });
 
   it("com a estimativa e a lista cortada, campos de tamanho realista, 9 buscas e 40 acórdãos: continua < 25 mil caracteres", async () => {
