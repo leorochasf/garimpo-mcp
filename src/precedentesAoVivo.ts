@@ -271,7 +271,7 @@ export class PrecedentesAoVivo {
       const endereco = `${lista}&sumula=${item[1]}`;
       const enunciado = lerPaginaDaSumula(await textoDe(this.stf, endereco), tipo, numero);
       return { linha: { tipo, numero, ...opcional("situacao", item[2]), enunciado, link: endereco }, endereco, listaObtidaEm };
-    });
+    }, { comLista: tipo !== "repercussão geral" });
   }
 
   /** O dado guardado na memória (24 h) no formato esperado, ou o buscado agora, que é guardado. */
@@ -285,12 +285,20 @@ export class PrecedentesAoVivo {
 
   /**
    * A resposta da memória (24 h) ou buscada agora. A resposta composta vence junto com o componente mais antigo: nas
-   * súmulas, a lista de onde veio a marca, que pode ter sido lida antes da página.
+   * súmulas, a lista de onde veio a marca, que pode ter sido lida antes da página. Súmula guardada sem a hora da lista
+   * (gravada antes dessa regra) conta como vencida: a hora da lista não se reconstrói pela da página.
    */
-  private async lembrado<L>(k: string, buscar: () => Promise<Guardado<L>>): Promise<DoPortal<L>> {
+  private async lembrado<L>(
+    k: string,
+    buscar: () => Promise<Guardado<L>>,
+    { comLista = false } = {},
+  ): Promise<DoPortal<L>> {
     const guardada = await this.memoria.obterConsulta(k, "precedentes", ehGuardado).catch(() => undefined);
     const dado = guardada?.dado as Guardado<L> | undefined;
-    const listaVencida = dado?.listaObtidaEm !== undefined && this.agora() - dado.listaObtidaEm >= VALIDADE_MS;
+    const lista = dado?.listaObtidaEm;
+    const listaVencida = comLista
+      ? !Number.isFinite(lista) || this.agora() - lista! >= VALIDADE_MS
+      : lista !== undefined && this.agora() - lista >= VALIDADE_MS;
     if (guardada && dado && !listaVencida) return { ...dado, consultadoEm: guardada.obtidoEm, daMemoria: true };
     const novo = await buscar();
     this.memoria.guardarConsulta(k, "precedentes", novo);

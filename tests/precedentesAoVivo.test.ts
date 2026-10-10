@@ -1,4 +1,5 @@
-import { mkdtemp, readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
@@ -436,6 +437,39 @@ describe("achados da revisão Codex (813af04..07c2d2c)", () => {
       "https://portal.stf.jus.br/jurisprudencia/sumariosumulas.asp?base=26&sumula=7002",
     ]);
     expect(denovo.situacaoEm).toMatch(new RegExp(`^lista do portal do STF em ${escapar(dataEHora(agora))}:`));
+  });
+
+  it("súmula guardada antes da correção (sem a hora da lista) não é servida: lista e página são lidas de novo", async () => {
+    const agora = Date.parse("2026-10-10T12:00:00Z");
+    const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "janela-"));
+    // Registro no formato gravado por b9b4854 (memória versão 1): resposta composta sem listaObtidaEm, marca antiga.
+    const pasta = join(dados, "memoria", "consultas-1");
+    await mkdir(pasta, { recursive: true });
+    const k = createHash("sha256").update("precedente-ao-vivo|stf|súmula vinculante|2").digest("hex");
+    const endereco = "https://portal.stf.jus.br/jurisprudencia/sumariosumulas.asp?base=26&sumula=7002";
+    await writeFile(
+      join(pasta, `${k}.json`),
+      JSON.stringify({
+        formato: "garimpo-memoria-consulta",
+        versao: 1,
+        fonte: "precedentes",
+        dado: { linha: { tipo: "súmula vinculante", numero: 2, situacao: "antiga", enunciado: "Enunciado antigo.", link: endereco }, endereco },
+        obtidoEm: agora - 3_600_000,
+      }),
+    );
+    const { cliente, chamadas } = clienteFalso(
+      [listaDeSv(), paginaDaSumula("Súmula Vinculante 2", "Enunciado sintético dois.")],
+      { nome: "O portal do STF" },
+    );
+    const mcp = await conectar({ precedentesStf: cliente, dados, agora: () => agora });
+    const { dado } = await consultar(mcp, { tribunal: "stf", tipo: "súmula vinculante", numero: 2 });
+    expect(chamadas.map((c) => c.url)).toEqual([
+      "https://portal.stf.jus.br/jurisprudencia/sumariosumulas.asp?base=26",
+      endereco,
+    ]);
+    expect(dado.enunciado).toBe("Enunciado sintético dois.");
+    expect(dado.situacaoNaFonte).toBe('marcada como "cancelada" na lista do STF');
+    expect(dado.origem).toBe(`consultado no portal do STF em ${dataEHora(agora)}`);
   });
 });
 
