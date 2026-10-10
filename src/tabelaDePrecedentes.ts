@@ -279,11 +279,17 @@ export interface MetaDoRelatorio {
 }
 
 const MARCAS_DE_SITUACAO: { padrao: RegExp; masculino: string; feminino: string }[] = [
-  { padrao: /cancelad/i, masculino: "cancelado", feminino: "cancelada" },
-  { padrao: /revis/i, masculino: "revisado", feminino: "revista" },
-  { padrao: /supera/i, masculino: "superado", feminino: "superada" },
-  { padrao: /revogad/i, masculino: "revogado", feminino: "revogada" },
+  { padrao: /\bcancelad[oa]\b/i, masculino: "cancelado", feminino: "cancelada" },
+  // Só a revisão concluída ("Tese Revisada", "súmula revista"); "Possível Revisão de Tese" é revisão pendente, sem marca.
+  { padrao: /\brevisad[oa]\b|\brevista\b/i, masculino: "revisado", feminino: "revista" },
+  { padrao: /\bsuperad[oa]\b/i, masculino: "superado", feminino: "superada" },
+  { padrao: /\brevogad[oa]\b/i, masculino: "revogado", feminino: "revogada" },
 ];
+
+/** Números de processo (CNJ e formato STJ) não vão para o relatório, que é versionado no repositório. */
+const NUMERO_CNJ = /\b\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}\b/g;
+const NUMERO_STJ = /\b\d\.\d{3}\.\d{3}\/[A-Z]{2}\b/g;
+const sanearProcessos = (texto: string): string => texto.replace(NUMERO_CNJ, "[nº de processo omitido]").replace(NUMERO_STJ, "[nº de processo omitido]");
 
 /** Marca da mudança de situação: só quando a situação mudou e a nova diz cancelado, revisado, superado ou revogado. */
 function marcaDaMudanca(antes: LinhaGenerica, depois: LinhaGenerica): string | undefined {
@@ -320,7 +326,7 @@ export function relatorioDeMudancas(anterior: LinhaGenerica[], candidato: LinhaG
   ];
   if (!removidas.length && !adicionadas.length && !alteradas.length) {
     saida.push("Sem mudanças desde a versão anterior.", "");
-    return saida.join("\n");
+    return sanearProcessos(saida.join("\n"));
   }
   if (alteradas.length) {
     saida.push(`## Alteradas (${alteradas.length})`, "");
@@ -343,7 +349,19 @@ export function relatorioDeMudancas(anterior: LinhaGenerica[], candidato: LinhaG
   };
   lista("Adicionadas", adicionadas, depois);
   lista("Removidas", removidas, antes);
-  return saida.join("\n");
+  return sanearProcessos(saida.join("\n"));
+}
+
+/** Grava `<base>.md`; se já existe (outra geração no mesmo dia), `<base>-2.md`, `-3`…: nunca apaga o relatório anterior. */
+function gravarSemSobrescrever(pasta: string, base: string, texto: string): void {
+  for (let n = 1; ; n++) {
+    try {
+      writeFileSync(join(pasta, n === 1 ? `${base}.md` : `${base}-${n}.md`), texto, { flag: "wx" });
+      return;
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+    }
+  }
 }
 
 export interface OpcoesDaTrava {
@@ -389,6 +407,6 @@ export function conferirComAAnterior(
       proveniencia: relato.proveniencia,
     });
     mkdirSync(opcoes.pastaDoRelatorio, { recursive: true });
-    writeFileSync(join(opcoes.pastaDoRelatorio, `${candidato.geradaEm.slice(0, 10)}-${relato.nome}.md`), texto);
+    gravarSemSobrescrever(opcoes.pastaDoRelatorio, `${candidato.geradaEm.slice(0, 10)}-${relato.nome}`, texto);
   }
 }

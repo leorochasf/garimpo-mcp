@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -315,6 +315,30 @@ describe("gerador da tabela de precedentes — rede (fetch falso)", () => {
       expect(readFileSync(join(pasta, "mudancas", `${tabela.geradaEm.slice(0, 10)}-stj.md`), "utf8")).toMatch(/sem mudanças/i);
     });
 
+    it("duas gerações no mesmo dia preservam as duas (a segunda não apaga a primeira)", async () => {
+      const pasta = pastaNova();
+      const destino = anteriorEm(pasta, (t) => (t.linhas[0].teseFirmada = "Tese antiga sintética."));
+      const opcoes = { pastaDoRelatorio: join(pasta, "mudancas"), revisado: true };
+      const t1 = await gerar(destino, opcoes);
+      const t2 = await gerar(destino, opcoes);
+      const dia = t1.geradaEm.slice(0, 10);
+      expect(t2.geradaEm.slice(0, 10)).toBe(dia);
+      expect(readdirSync(join(pasta, "mudancas")).sort()).toEqual([`${dia}-stj-2.md`, `${dia}-stj.md`]);
+      expect(readFileSync(join(pasta, "mudancas", `${dia}-stj.md`), "utf8")).toContain("Tese antiga sintética.");
+      expect(readFileSync(join(pasta, "mudancas", `${dia}-stj-2.md`), "utf8")).toMatch(/sem mudanças/i);
+    });
+
+    it("relatório gravado com número de processo na tese passa na varredura de dados reais", async () => {
+      const pasta = pastaNova();
+      const cnj = "1111111-" + "22.2023.8.09.0001";
+      const stj = "2.345.678" + "/SP";
+      const destino = anteriorEm(pasta, (t) => (t.linhas[0].teseFirmada = `Tese antiga, processo ${cnj} e REsp ${stj}.`));
+      const tabela = await gerar(destino, { pastaDoRelatorio: join(pasta, "mudancas") });
+      const texto = readFileSync(join(pasta, "mudancas", `${tabela.geradaEm.slice(0, 10)}-stj.md`), "utf8");
+      expect(texto.match(/\b\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}\b/g)).toBeNull();
+      expect(texto.match(/\b\d\.\d{3}\.\d{3}\/[A-Z]{2}\b/g)).toBeNull();
+    });
+
     it("trava recusa: nenhum relatório gravado; primeira geração: nenhum relatório", async () => {
       const pasta = pastaNova();
       const destino = anteriorEm(pasta, (t) => t.linhas.push({ tipo: "tema repetitivo", numero: 9999 }));
@@ -376,6 +400,28 @@ describe("relatório de mudanças entre versões (G-59, puro, sintético)", () =
     );
     expect(r).toMatch(/tema repetitivo 7[\s\S]*Marca: tema cancelado/);
     expect(r).toMatch(/súmula 3[\s\S]*Marca: súmula revista/);
+  });
+
+  it("revisão possível/pendente ('Afetado - Possível Revisão de Tese') não ganha a marca 'tema revisado'", () => {
+    const r = relatorioDeMudancas([tema(5)], [tema(5, { situacao: "Afetado - Possível Revisão de Tese" })], meta);
+    expect(r).toContain("Afetado - Possível Revisão de Tese");
+    expect(r).not.toContain("Marca:");
+    const conclusiva = relatorioDeMudancas([tema(5)], [tema(5, { situacao: "Tese Revisada" })], meta);
+    expect(conclusiva).toContain("Marca: tema revisado");
+  });
+
+  it("números de processo (CNJ e formato STJ) viram marcador neutro; fictícios do repositório também", () => {
+    const cnj = "1111111-" + "22.2023.8.09.0001";
+    const stj = "2.345.678" + "/SP";
+    const r = relatorioDeMudancas(
+      [tema(1, { teseFirmada: `Tese do processo ${cnj}.` })],
+      [tema(1, { teseFirmada: `Tese nova, REsp ${stj} e ${cnj}.`, numeroDoProcesso: cnj })],
+      meta,
+    );
+    expect(r).not.toContain(cnj);
+    expect(r).not.toContain(stj);
+    expect(r).toContain("[nº de processo omitido]");
+    expect(r).toContain("Tese nova, REsp");
   });
 
   it("linhas novas e removidas aparecem separadas; mudança sem marca não inventa marca", () => {
