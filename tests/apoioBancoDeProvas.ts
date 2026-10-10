@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { buscaAmpla } from "../src/ampla.js";
 import { Cliente, Vagas } from "../src/cliente.js";
 import { respostaJson } from "./apoio.js";
@@ -42,10 +42,37 @@ export function carregarRecorte(tese: number): Recorte {
   return JSON.parse(readFileSync(new URL(`tese-${String(tese).padStart(2, "0")}.json`, PASTA), "utf8")) as Recorte;
 }
 
+export function carregarRegua(): Regua {
+  return JSON.parse(readFileSync(new URL("regua.json", PASTA), "utf8")) as Regua;
+}
+
+/** Embaralhamento fixo (mesma semente, mesma ordem), para a prova de regressão ser repetível. */
+function embaralhado<T>(lista: readonly T[], semente: number): T[] {
+  const copia = [...lista];
+  let x = semente || 1;
+  for (let i = copia.length - 1; i > 0; i--) {
+    x = (x * 1103515245 + 12345) % 2147483648;
+    const j = x % (i + 1);
+    [copia[i], copia[j]] = [copia[j], copia[i]];
+  }
+  return copia;
+}
+
+export interface OpcoesDaRodada {
+  /**
+   * Prova de regressão: o site falso devolve cada busca em ordem embaralhada e a ementa sem as palavras da tese (só o
+   * marcador de cópias), como uma ordem que ignorasse a tese.
+   */
+  embaralhar?: boolean;
+}
+
 /** Roda a busca ampla de verdade sobre o recorte, com um site falso que só responde o que foi gravado. */
-export async function rodarTese(r: Recorte): Promise<Mostrado[]> {
-  const porBusca = new Map(r.buscas.map((b) => [`${b.t}|${r.formulacoes[b.f]}`, b.ids]));
-  const ementa = (e: string) => e && e.split(" ").map((x, i) => (i ? r.vocabulario[+x] : x)).join(" ");
+export async function rodarTese(r: Recorte, { embaralhar = false }: OpcoesDaRodada = {}): Promise<Mostrado[]> {
+  const porBusca = new Map(
+    r.buscas.map((b, i) => [`${b.t}|${r.formulacoes[b.f]}`, embaralhar ? embaralhado(b.ids, r.tese * 100 + i) : b.ids]),
+  );
+  const ementa = (e: string) =>
+    embaralhar ? e.split(" ")[0] : e && e.split(" ").map((x, i) => (i ? r.vocabulario[+x] : x)).join(" ");
   const cliente = new Cliente({
     nome: "O site",
     vagas: new Vagas(2),
@@ -75,6 +102,23 @@ export async function rodarTese(r: Recorte): Promise<Mostrado[]> {
     const [tribunal, , , , , , marca, chave, dono] = r.acordaos[indice];
     return { indice, tribunal, marca, chave, doDono: dono === 1 };
   });
+}
+
+/** Todas as teses do recorte: a medição, e por tese os índices dos mostrados, na ordem. */
+export async function rodarBanco(opcoes: OpcoesDaRodada = {}): Promise<{ medicao: Medicao; posicoes: Record<number, number[]> }> {
+  const teses = readdirSync(PASTA)
+    .map((f) => f.match(/^tese-(\d+)\.json$/)?.[1])
+    .filter((n): n is string => n !== undefined)
+    .map(Number);
+  const itens = [];
+  for (const t of teses) {
+    const recorte = carregarRecorte(t);
+    itens.push({ recorte, lista: await rodarTese(recorte, opcoes) });
+  }
+  return {
+    medicao: medir(itens),
+    posicoes: Object.fromEntries(itens.map((i) => [i.recorte.tese, i.lista.map((x) => x.indice)])),
+  };
 }
 
 export interface Conta {
@@ -120,6 +164,52 @@ function contar(itens: { recorte: Recorte; lista: Mostrado[] }[], tribunal?: str
     precisao: mostrados ? relevantes / mostrados : 0,
     ...(comLista && { relevantesNaLista: naLista, achados, cobertura: achados / naLista }),
   };
+}
+
+export interface Limiar {
+  precisao: number;
+  cobertura?: number;
+}
+
+export interface Regua {
+  /** Os obrigatórios têm de estar entre os `topo` primeiros. */
+  topo: number;
+  limiares: { global: Limiar; porTribunal: Record<string, Limiar>; porTese: Record<number, Limiar> };
+  /** Por tese: índices, no recorte, dos acórdãos obrigatórios. */
+  obrigatorios: Record<number, number[]>;
+}
+
+const pct = (x: number) => `${(x * 100).toFixed(1).replace(".", ",")}%`;
+
+/**
+ * As falhas da medição contra a régua, uma frase por falha (lista vazia = passou). `posicoes`: por tese, os índices
+ * dos acórdãos mostrados, na ordem.
+ */
+export function conferirRegua(
+  medicao: { global: Partial<Conta>; porTribunal: Record<string, Partial<Conta>>; porTese: Record<number, Partial<Conta>> },
+  posicoes: Record<number, number[]>,
+  regua: Regua,
+): string[] {
+  const falhas: string[] = [];
+  const conferir = (rotulo: string, conta: Partial<Conta> | undefined, limiar: Limiar) => {
+    const precisao = conta?.precisao ?? 0;
+    if (precisao < limiar.precisao) falhas.push(`${rotulo}: precisão ${pct(precisao)} abaixo do limiar ${pct(limiar.precisao)}`);
+    if (limiar.cobertura === undefined) return;
+    const cobertura = conta?.cobertura ?? 0;
+    if (cobertura < limiar.cobertura) falhas.push(`${rotulo}: cobertura ${pct(cobertura)} abaixo do limiar ${pct(limiar.cobertura)}`);
+  };
+  conferir("global", medicao.global, regua.limiares.global);
+  for (const [t, limiar] of Object.entries(regua.limiares.porTribunal)) conferir(t.toUpperCase(), medicao.porTribunal[t], limiar);
+  for (const [t, limiar] of Object.entries(regua.limiares.porTese)) conferir(`tese ${t}`, medicao.porTese[+t], limiar);
+  for (const [t, obrigatorios] of Object.entries(regua.obrigatorios)) {
+    const lista = posicoes[+t] ?? [];
+    for (const o of obrigatorios) {
+      const p = lista.indexOf(o);
+      if (p < 0) falhas.push(`tese ${t}: obrigatório ${o} fora da lista`);
+      else if (p >= regua.topo) falhas.push(`tese ${t}: obrigatório ${o} na posição ${p + 1}, fora do topo ${regua.topo}`);
+    }
+  }
+  return falhas;
 }
 
 export function medir(itens: { recorte: Recorte; lista: Mostrado[] }[]): Medicao {

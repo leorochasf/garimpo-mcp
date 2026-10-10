@@ -1,0 +1,290 @@
+{
+ "_leia": "Régua do banco de provas (tests/bancoDeProvas.test.ts). Limiar = valor medido na data abaixo menos a folga, arredondado para baixo (3 casas). Obrigatórios = índices no recorte (tests/fixtures/banco-de-provas/tese-NN.json, campo acordaos) que têm de ficar no topo. Mudar limiar ou obrigatório só com motivo escrito no commit; afrouxar para um caso passar não vale: o caso sai da régua, com o motivo.",
+ "medidoEm": "2026-10-10",
+ "base": "commit 3da30f8 (main), busca ampla com os padrões (máximo 50, faixas 1/0,85/0,7)",
+ "gabarito": "gabarito do ticket 10 da rodada 2 (pré-marcação por IA, ainda sem revisão completa do dono) + as marcas do dono da lista curta do B5; sem marca e dúvida contam como não relevantes",
+ "folga": 0.05,
+ "topo": 10,
+ "obrigatoriosComo": "partida mecânica: os 3 primeiros relevantes de cada tese na medição de partida; o dono troca pela lista dele (e o G-73 acrescenta os paradigmas)",
+ "obrigatorios": {
+  "1": [
+   897,
+   88,
+   566
+  ],
+  "9": [
+   42,
+   58,
+   90
+  ],
+  "10": [
+   773,
+   784,
+   575
+  ],
+  "11": [
+   265,
+   48,
+   621
+  ],
+  "15": [
+   78,
+   76,
+   0
+  ],
+  "16": [
+   9,
+   13,
+   213
+  ],
+  "17": [
+   15,
+   51,
+   487
+  ],
+  "18": [
+   31,
+   80,
+   11
+  ],
+  "19": [
+   99,
+   95,
+   0
+  ],
+  "20": [
+   363,
+   610,
+   308
+  ],
+  "21": [
+   66,
+   894,
+   5
+  ]
+ },
+ "medido": {
+  "global": {
+   "mostrados": 550,
+   "relevantes": 518,
+   "precisao": 0.9418181818181818,
+   "relevantesNaLista": 793,
+   "achados": 347,
+   "cobertura": 0.43757881462799497
+  },
+  "porTribunal": {
+   "stf": {
+    "mostrados": 16,
+    "relevantes": 15,
+    "precisao": 0.9375,
+    "relevantesNaLista": 45,
+    "achados": 13,
+    "cobertura": 0.28888888888888886
+   },
+   "stj": {
+    "mostrados": 157,
+    "relevantes": 150,
+    "precisao": 0.9554140127388535,
+    "relevantesNaLista": 152,
+    "achados": 49,
+    "cobertura": 0.3223684210526316
+   },
+   "tjmg": {
+    "mostrados": 115,
+    "relevantes": 107,
+    "precisao": 0.9304347826086956,
+    "relevantesNaLista": 182,
+    "achados": 79,
+    "cobertura": 0.4340659340659341
+   },
+   "tjrs": {
+    "mostrados": 73,
+    "relevantes": 67,
+    "precisao": 0.9178082191780822,
+    "relevantesNaLista": 101,
+    "achados": 50,
+    "cobertura": 0.49504950495049505
+   },
+   "tjsp": {
+    "mostrados": 92,
+    "relevantes": 82,
+    "precisao": 0.8913043478260869,
+    "relevantesNaLista": 98,
+    "achados": 59,
+    "cobertura": 0.6020408163265306
+   },
+   "tse": {
+    "mostrados": 50,
+    "relevantes": 50,
+    "precisao": 1,
+    "relevantesNaLista": 92,
+    "achados": 50,
+    "cobertura": 0.5434782608695652
+   },
+   "tst": {
+    "mostrados": 47,
+    "relevantes": 47,
+    "precisao": 1,
+    "relevantesNaLista": 123,
+    "achados": 47,
+    "cobertura": 0.3821138211382114
+   }
+  },
+  "porTese": {
+   "1": {
+    "mostrados": 50,
+    "relevantes": 50,
+    "precisao": 1,
+    "relevantesNaLista": 129,
+    "achados": 50,
+    "cobertura": 0.3875968992248062
+   },
+   "9": {
+    "mostrados": 50,
+    "relevantes": 48,
+    "precisao": 0.96
+   },
+   "10": {
+    "mostrados": 50,
+    "relevantes": 49,
+    "precisao": 0.98,
+    "relevantesNaLista": 71,
+    "achados": 48,
+    "cobertura": 0.676056338028169
+   },
+   "11": {
+    "mostrados": 50,
+    "relevantes": 46,
+    "precisao": 0.92
+   },
+   "15": {
+    "mostrados": 50,
+    "relevantes": 50,
+    "precisao": 1,
+    "relevantesNaLista": 136,
+    "achados": 50,
+    "cobertura": 0.36764705882352944
+   },
+   "16": {
+    "mostrados": 50,
+    "relevantes": 49,
+    "precisao": 0.98,
+    "relevantesNaLista": 142,
+    "achados": 49,
+    "cobertura": 0.34507042253521125
+   },
+   "17": {
+    "mostrados": 50,
+    "relevantes": 50,
+    "precisao": 1,
+    "relevantesNaLista": 105,
+    "achados": 50,
+    "cobertura": 0.47619047619047616
+   },
+   "18": {
+    "mostrados": 50,
+    "relevantes": 50,
+    "precisao": 1,
+    "relevantesNaLista": 92,
+    "achados": 50,
+    "cobertura": 0.5434782608695652
+   },
+   "19": {
+    "mostrados": 50,
+    "relevantes": 47,
+    "precisao": 0.94
+   },
+   "20": {
+    "mostrados": 50,
+    "relevantes": 50,
+    "precisao": 1,
+    "relevantesNaLista": 118,
+    "achados": 50,
+    "cobertura": 0.423728813559322
+   },
+   "21": {
+    "mostrados": 50,
+    "relevantes": 29,
+    "precisao": 0.58
+   }
+  }
+ },
+ "limiares": {
+  "global": {
+   "precisao": 0.891,
+   "cobertura": 0.387
+  },
+  "porTribunal": {
+   "stf": {
+    "precisao": 0.887,
+    "cobertura": 0.238
+   },
+   "stj": {
+    "precisao": 0.905,
+    "cobertura": 0.272
+   },
+   "tjmg": {
+    "precisao": 0.88,
+    "cobertura": 0.384
+   },
+   "tjrs": {
+    "precisao": 0.867,
+    "cobertura": 0.445
+   },
+   "tjsp": {
+    "precisao": 0.841,
+    "cobertura": 0.552
+   },
+   "tse": {
+    "precisao": 0.95,
+    "cobertura": 0.493
+   },
+   "tst": {
+    "precisao": 0.95,
+    "cobertura": 0.332
+   }
+  },
+  "porTese": {
+   "1": {
+    "precisao": 0.95,
+    "cobertura": 0.337
+   },
+   "9": {
+    "precisao": 0.909
+   },
+   "10": {
+    "precisao": 0.929,
+    "cobertura": 0.626
+   },
+   "11": {
+    "precisao": 0.87
+   },
+   "15": {
+    "precisao": 0.95,
+    "cobertura": 0.317
+   },
+   "16": {
+    "precisao": 0.929,
+    "cobertura": 0.295
+   },
+   "17": {
+    "precisao": 0.95,
+    "cobertura": 0.426
+   },
+   "18": {
+    "precisao": 0.95,
+    "cobertura": 0.493
+   },
+   "19": {
+    "precisao": 0.889
+   },
+   "20": {
+    "precisao": 0.95,
+    "cobertura": 0.373
+   },
+   "21": {
+    "precisao": 0.529
+   }
+  }
+ }
+}
