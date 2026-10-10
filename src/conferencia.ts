@@ -210,9 +210,10 @@ export function conferirNoTextoIntegral(
   texto: string,
   citacao: Citacao,
   ligados: SinaisDeQuemDisse = SINAIS_DE_QUEM_DISSE,
+  posicao: boolean = POSICAO_NO_JULGADO,
 ): ResultadoDaFonte {
   if (!texto.trim()) return naoVerificavel("O texto integral veio vazio do Falcão: não há texto para conferir.");
-  return conferirNoTextoCorrido(texto, citacao, "no texto integral", ligados);
+  return conferirNoTextoCorrido(texto, citacao, "no texto integral", ligados, posicao);
 }
 
 function conferirNoTextoCorrido(
@@ -220,15 +221,17 @@ function conferirNoTextoCorrido(
   citacao: Citacao,
   local: OndeNaEmenta["local"],
   ligados: SinaisDeQuemDisse = SINAIS_DE_QUEM_DISSE,
+  posicao = false,
 ): ResultadoDaFonte {
-  // No texto integral (convertido do HTML, com linhas), a posição no julgado pelos mesmos títulos do PDF; sem página.
-  const marcas = local === "no texto integral" ? marcasDoJulgado(texto, () => 0) : undefined;
+  // No texto integral (convertido do HTML, com linhas), os mesmos títulos do PDF; sem página. A posição no julgado
+  // (seção e subparte na resposta) só sai com o interruptor ligado; os sinais de "quem disse" usam os títulos de qualquer modo.
+  const marcas = local === "no texto integral" ? marcasDoJulgado(texto, () => 0, posicao) : undefined;
   let proclamado: string | undefined;
   const fonte: Fonte = {
     texto,
     onde: () => ({ local }),
     frase: (a, b) => fraseEm(texto, a, b),
-    ...(marcas
+    ...(marcas && posicao
       ? {
           secao: (a: number, b: number) => secaoAfirmada(marcas, a, b),
           subparte: (a: number, b: number) => subparteEm(marcas, a, b),
@@ -387,6 +390,7 @@ interface Variante {
 }
 
 const fontesDoInteiroTeor = new WeakMap<InteiroTeorParaConferir, FonteDoInteiroTeor>();
+const fontesComPosicao = new WeakMap<InteiroTeorParaConferir, FonteDoInteiroTeor>();
 
 /**
  * Conferência no inteiro teor (ADR-0006): no texto corrido de todas as páginas do PDF, com a posição como página do
@@ -398,6 +402,7 @@ export function conferirNoInteiroTeor(
   leitura: InteiroTeorParaConferir,
   citacao: Citacao,
   ligados: SinaisDeQuemDisse = SINAIS_DE_QUEM_DISSE,
+  posicao: boolean = POSICAO_NO_JULGADO,
 ): ResultadoDaFonte {
   const semTexto = [...new Set(leitura.unidades.filter((t) => !t.texto && !t.naoLida).map((t) => t.pagina))];
   const naoLidas = [...new Set(leitura.unidades.filter((t) => t.naoLida).map((t) => t.pagina))];
@@ -407,8 +412,9 @@ export function conferirNoInteiroTeor(
         "abrindo o arquivo. Isso não quer dizer que a citação não esteja no PDF.",
     );
   }
-  let fonte = fontesDoInteiroTeor.get(leitura);
-  if (!fonte) fontesDoInteiroTeor.set(leitura, (fonte = fonteDoInteiroTeor(leitura)));
+  const fontes = posicao ? fontesComPosicao : fontesDoInteiroTeor;
+  let fonte = fontes.get(leitura);
+  if (!fonte) fontes.set(leitura, (fonte = fonteDoInteiroTeor(leitura, posicao)));
   const feita = conferir(fonte, citacao, ligados);
   if (feita) return feita;
   const candidata = passagemCandidata(fonte, citacao);
@@ -452,7 +458,7 @@ function intervaloDePaginas(paginas: number[]): string {
   return seguidas ? `páginas ${paginas[0]} a ${paginas[paginas.length - 1]}` : listaDePaginas(paginas);
 }
 
-function fonteDoInteiroTeor(leitura: InteiroTeorParaConferir): FonteDoInteiroTeor {
+function fonteDoInteiroTeor(leitura: InteiroTeorParaConferir, posicao: boolean): FonteDoInteiroTeor {
   const { unidades, totalDePaginas, totalDePartes } = leitura;
   const inicios: number[] = [];
   let texto = "";
@@ -470,7 +476,7 @@ function fonteDoInteiroTeor(leitura: InteiroTeorParaConferir): FonteDoInteiroTeo
     }
     return unidades[lo];
   };
-  const marcas = marcasDoJulgado(texto, (i) => unidadeEm(i).pagina);
+  const marcas = marcasDoJulgado(texto, (i) => unidadeEm(i).pagina, posicao);
   const { titulos } = marcas;
   let proclamado: string | undefined;
   return {
@@ -729,6 +735,14 @@ function sinalNoInteiroTeor(
   return `${fortes.length ? "ATENÇÃO, pode" : "pode"} ser de outro autor: ${sinais.join("; ")}`;
 }
 
+/**
+ * O interruptor da posição no julgado (G-09, ticket 07): seção e subparte da passagem na resposta, com a regra de
+ * transcrição. Desligado até a medição cega (tickets 19 e 10): sete rodadas de revisão ainda acharam localização
+ * afirmada errada em transcrições. Desligado, a resposta é a de antes do ticket 07: a seção do inteiro teor pelos títulos
+ * de antes, os avisos de relatório e voto vencido, e nenhuma seção no texto integral nem subparte em lugar nenhum.
+ */
+export const POSICAO_NO_JULGADO = false;
+
 type Secao = "ementa" | "acórdão" | "relatório" | "voto" | "voto-vista" | "voto vencido" | "voto vogal" | "certidão";
 
 /**
@@ -746,6 +760,19 @@ const SECOES: Record<string, Secao> = {
   VOTOVOGAL: "voto vogal",
   CERTIDAO: "certidão",
   CERTIDAODEJULGAMENTO: "certidão",
+};
+
+/** Os títulos fixos de antes do ticket 07, só com a grafia acentuada. */
+const SECOES_DE_ANTES: Record<string, Secao> = {
+  EMENTA: "ementa",
+  ACÓRDÃO: "acórdão",
+  RELATÓRIO: "relatório",
+  VOTO: "voto",
+  VOTOVISTA: "voto-vista",
+  VOTOVENCIDO: "voto vencido",
+  VOTOVOGAL: "voto vogal",
+  CERTIDÃO: "certidão",
+  CERTIDÃODEJULGAMENTO: "certidão",
 };
 
 const semAcentos = (texto: string) => texto.normalize("NFD").replace(/\p{M}/gu, "");
@@ -905,6 +932,24 @@ function titulosDeSecao(texto: string, paginaEm: (i: number) => number): Titulos
   return { titulos, transcricoes, ambiguos };
 }
 
+/** Os títulos de seção como eram antes da posição no julgado: linhas de até 80 caracteres, sem lógica de transcrição. */
+function titulosDeAntesDaPosicao(texto: string, paginaEm: (i: number) => number): TituloDeSecao[] {
+  const titulos: TituloDeSecao[] = [];
+  for (const m of texto.matchAll(/^[^\n]{1,80}$/gm)) {
+    const titulo = m[0].trim();
+    const linha = titulo.normalize("NFC").replace(/\s*:$/, "");
+    const maiusculas = /^[\p{Lu}\s-]+$/u.test(linha);
+    if (!maiusculas && !/^\p{Lu}[\p{Ll}\s-]+$/u.test(linha)) continue;
+    const chave = linha.toUpperCase().replace(/[\s-]/g, "");
+    const secao = SECOES_DE_ANTES[chave] ?? (maiusculas && chave.startsWith("VOTOVENCIDO") ? "voto vencido" : undefined);
+    if (!secao) continue;
+    const anterior = titulos[titulos.length - 1];
+    if ((secao === "ementa" || secao === "acórdão") && anterior && TRANSCREVEM_DECISOES.includes(anterior.secao)) continue;
+    titulos.push({ inicio: m.index, secao, titulo, pagina: paginaEm(m.index) });
+  }
+  return titulos;
+}
+
 /** As seções por que passa o intervalo [a, b): a do último título antes dele (se houver) e as que se abrem nele. */
 interface Secoes {
   identificada: boolean;
@@ -1024,7 +1069,11 @@ function continuaDecidindo(texto: string, depoisDaFormula: number): boolean {
 /** Seções de voto: a parte delas antes da fórmula do dispositivo é a fundamentação. */
 const VOTOS: Secao[] = ["voto", "voto-vista", "voto vencido", "voto vogal"];
 
-function marcasDoJulgado(texto: string, paginaEm: (i: number) => number): MarcasDoJulgado {
+function marcasDoJulgado(texto: string, paginaEm: (i: number) => number, posicao: boolean): MarcasDoJulgado {
+  // Desligado: só os títulos de relatório e voto vencido de antes da posição no julgado; nada de subparte nem de ambiguidade.
+  if (!posicao) {
+    return { titulos: titulosDeAntesDaPosicao(texto, paginaEm), transcricoes: [], ambiguos: [], daEmenta: [], dispositivos: [] };
+  }
   const daEmenta: MarcasDoJulgado["daEmenta"] = [];
   for (const m of texto.matchAll(/^[^\n]{1,80}$/gm)) {
     const titulo = TITULO_DA_EMENTA.exec(m[0].trim());

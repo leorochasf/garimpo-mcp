@@ -6,8 +6,9 @@ import {
   SINAIS_DE_QUEM_DISSE,
   avisoDeOrgaoDoFecho,
   conferirNaEmenta,
-  conferirNoInteiroTeor,
-  conferirNoTextoIntegral,
+  POSICAO_NO_JULGADO,
+  conferirNoInteiroTeor as conferirNoInteiroTeorDoModulo,
+  conferirNoTextoIntegral as conferirNoTextoIntegralDoModulo,
   lerCitacao,
 } from "../src/conferencia.js";
 import type { ConferenciaFeita, ResultadoDaFonte } from "../src/conferencia.js";
@@ -22,6 +23,23 @@ import {
   pdfSintetico,
   pdfUnanimeComDivergencia,
 } from "./pdfSintetico.js";
+
+/**
+ * Os testes de posição, de relatório e de sinais rodam com a posição no julgado LIGADA (a medição cega futura, tickets
+ * 19/10); o padrão do módulo, desligado, tem testes próprios ("posição no julgado desligada"), que passam `false`.
+ */
+const conferirNoInteiroTeor = (
+  leitura: Parameters<typeof conferirNoInteiroTeorDoModulo>[0],
+  citacao: Parameters<typeof conferirNoInteiroTeorDoModulo>[1],
+  ligados: Parameters<typeof conferirNoInteiroTeorDoModulo>[2] = SINAIS_DE_QUEM_DISSE,
+  posicao = true,
+) => conferirNoInteiroTeorDoModulo(leitura, citacao, ligados, posicao);
+const conferirNoTextoIntegral = (
+  texto: string,
+  citacao: Parameters<typeof conferirNoTextoIntegralDoModulo>[1],
+  ligados: Parameters<typeof conferirNoTextoIntegralDoModulo>[2] = SINAIS_DE_QUEM_DISSE,
+  posicao = true,
+) => conferirNoTextoIntegralDoModulo(texto, citacao, ligados, posicao);
 
 /** Ementa fictícia, sem processo real (regra 2). */
 const EMENTA =
@@ -1329,5 +1347,97 @@ describe("conferência no inteiro teor com páginas não lidas (teto de leitura,
   it("frase numa página lida: encontrada, mesmo com páginas não lidas depois", async () => {
     const leitura = await ler([1, 2, 3].map(pagina), 1);
     expect(conferirNoInteiroTeor(leitura, citar("em linguagem comum e sem dado real")).veredito).toBe("encontrado literalmente");
+  });
+});
+
+describe("conferência de citação — posição no julgado desligada (G-09, ticket 07)", () => {
+  function inteiroTeor(paginas: string[]): InteiroTeorParaConferir {
+    return {
+      origem: "não conferida",
+      totalDePaginas: paginas.length,
+      totalDePartes: 1,
+      unidades: paginas.map((texto, i) => ({ pagina: i + 1, parte: 1, texto })),
+    };
+  }
+  const citar = (citacao: string) => lerCitacao(citacao, { reticenciasComoCorte: false });
+  const FRASE = "o prazo generico de prescricao e de cinco anos";
+  const DESLIGADO = (leitura: InteiroTeorParaConferir, citacao: string) =>
+    conferirNoInteiroTeor(leitura, citar(citacao), SINAIS_DE_QUEM_DISSE, false);
+  const LIGADO = (leitura: InteiroTeorParaConferir, citacao: string) =>
+    conferirNoInteiroTeor(leitura, citar(citacao), SINAIS_DE_QUEM_DISSE, true);
+
+  /** Documentos fictícios: sem transcrição, com transcrição anunciada no voto e com "EMENTA:" transcrita no começo. */
+  const SEM_TRANSCRICAO = [
+    `EMENTA\nI. Caso em exame\n1. Recurso ficticio.\nII. Questão em discussão\n2. Saber se ${FRASE}.\nVOTO\nNo merito, ${FRASE}.\nAnte o exposto, nego provimento ao recurso ficticio.`,
+  ];
+  const COM_TRANSCRICAO = [
+    `VOTO\nA sentenca assim decidiu:\nEMENTA\n${FRASE}.\nACÓRDÃO\nNegaram provimento.\nRetomando, ${FRASE}.\nAnte o exposto, nego provimento.`,
+  ];
+  const ATRAS_DE_RELATORIO = [`RELATÓRIO\nO autor alega que ${FRASE}.\nVOTO\nAnte o exposto, nego provimento.`];
+
+  it("o interruptor nasce desligado", () => {
+    expect(POSICAO_NO_JULGADO).toBe(false);
+  });
+
+  it("padrão do módulo = desligado: sem passar o argumento, a resposta é a do desligado", () => {
+    for (const paginas of [SEM_TRANSCRICAO, COM_TRANSCRICAO]) {
+      const leitura = inteiroTeor(paginas);
+      expect(conferirNoInteiroTeorDoModulo(leitura, citar(FRASE))).toEqual(DESLIGADO(leitura, FRASE));
+    }
+  });
+
+  it("sem transcrição, desligado: seção do inteiro teor como era antes, e nenhuma subparte", () => {
+    const r = DESLIGADO(inteiroTeor(SEM_TRANSCRICAO), "Ante o exposto, nego provimento ao recurso ficticio") as ConferenciaFeita;
+    expect(r.ocorrencias).toEqual([
+      { local: "no inteiro teor", paginasDoPdf: "página 1 de 1", parte: "parte 1 de 1", secao: "voto" },
+    ]);
+  });
+
+  it("sem transcrição, ligado: a mesma passagem ganha a subparte (a medição futura)", () => {
+    const r = LIGADO(inteiroTeor(SEM_TRANSCRICAO), "Ante o exposto, nego provimento ao recurso ficticio") as ConferenciaFeita;
+    expect(r.ocorrencias).toEqual([
+      { local: "no inteiro teor", paginasDoPdf: "página 1 de 1", parte: "parte 1 de 1", secao: "voto", subparte: "dispositivo" },
+    ]);
+  });
+
+  it("com transcrição, desligado: a seção é a de antes da posição (EMENTA e ACÓRDÃO dentro do voto contam como títulos)", () => {
+    const r = DESLIGADO(inteiroTeor(COM_TRANSCRICAO), "Ante o exposto, nego provimento.") as ConferenciaFeita;
+    expect(r.ocorrencias).toEqual([
+      { local: "no inteiro teor", paginasDoPdf: "página 1 de 1", parte: "parte 1 de 1", secao: "acórdão" },
+    ]);
+  });
+
+  it("com transcrição, ligado: nenhuma seção afirmada na transcrição aberta", () => {
+    const r = LIGADO(inteiroTeor(COM_TRANSCRICAO), FRASE) as ConferenciaFeita;
+    for (const o of r.ocorrencias as { secao?: string; subparte?: string }[]) {
+      expect(o).not.toHaveProperty("subparte");
+    }
+  });
+
+  it("texto integral do Falcão, desligado: nem seção nem subparte, como antes do 07", () => {
+    const texto = `EMENTA\nResumo ficticio.\nVOTO\nNo merito, ${FRASE}.\nAnte o exposto, nego provimento ao recurso ficticio.`;
+    const r = conferirNoTextoIntegralDoModulo(texto, citar("Ante o exposto, nego provimento ao recurso ficticio"), SINAIS_DE_QUEM_DISSE, false);
+    expect((r as ConferenciaFeita).ocorrencias).toEqual([{ local: "no texto integral", frase: expect.any(String) }]);
+    const ligado = conferirNoTextoIntegralDoModulo(texto, citar("Ante o exposto, nego provimento ao recurso ficticio"), SINAIS_DE_QUEM_DISSE, true);
+    expect((ligado as ConferenciaFeita).ocorrencias[0]).toMatchObject({ secao: "voto", subparte: "dispositivo" });
+  });
+
+  it("desligado, o aviso do relatório de antes continua", () => {
+    const r = DESLIGADO(inteiroTeor(ATRAS_DE_RELATORIO), FRASE) as ConferenciaFeita;
+    const o = r.ocorrencias[0] as { secao: string; sinalDeOutroAutor: string };
+    expect(o.secao).toBe("relatório");
+    expect(o.sinalDeOutroAutor).toContain("a passagem está no relatório");
+  });
+
+  it.each([
+    ["sem transcrição", SEM_TRANSCRICAO],
+    ["com transcrição", COM_TRANSCRICAO],
+    ["relatório", ATRAS_DE_RELATORIO],
+  ])("o veredito e o total não mudam com o interruptor (%s)", (_nome, paginas) => {
+    for (const citacao of [FRASE, "Ante o exposto, nego provimento", "texto que nao esta em lugar nenhum do acordao ficticio"]) {
+      const leitura = inteiroTeor(paginas);
+      const [off, on] = [DESLIGADO(leitura, citacao), LIGADO(leitura, citacao)] as ConferenciaFeita[];
+      expect([off.veredito, off.total]).toEqual([on.veredito, on.total]);
+    }
   });
 });
