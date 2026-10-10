@@ -671,7 +671,7 @@ export function criarServidor(
           fontes.push({ fonte: "ementa", id, ...conferida, ...cortada });
           if (doFalcao) {
             const t = await memoria.obterTexto(id);
-            const semTexto = a?.motivoSemTextoIntegral;
+            const semTexto = t?.motivoSemTexto;
             const noTexto = semTexto
               ? naoVerificavel(`${avisoSemTextoIntegral(semTexto)} Não há acórdão para conferir além da ementa.`)
               : t

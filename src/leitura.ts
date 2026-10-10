@@ -192,7 +192,7 @@ export async function lerTextoIntegral(id: string, parte = 1, memoria?: Memoria)
   const guardado = await memoria?.obterTexto(id);
   if (!guardado) throw new Error(textoForaDaMemoria(id));
   const a = (await memoria?.obter(id))?.acordao;
-  const semTexto = a?.motivoSemTextoIntegral ?? (guardado.texto ? undefined : "o texto integral veio vazio do Falcão");
+  const semTexto = guardado.motivoSemTexto ?? (guardado.texto ? undefined : "o texto integral veio vazio do Falcão");
   const base = (partes: string, proxima?: number): ParteDoTextoIntegral => ({
     cabecalho: {
       tribunal: (a?.tribunal ?? id.split(":")[0]).toUpperCase(),

@@ -69,6 +69,8 @@ export interface TextoIntegral {
   texto: string;
   /** O HTML parecia cortado: o texto nunca é apresentado como completo. */
   indicioDeCorte: boolean;
+  /** Por que este id não tem texto integral (texto vazio de propósito); decide a leitura e a conferência deste id, não do acórdão juntado. */
+  motivoSemTexto?: string;
 }
 
 export interface TextoGuardado extends TextoIntegral {
@@ -470,7 +472,13 @@ async function lerTexto(arquivo: string) {
   if (!lido || typeof r?.id !== "string" || typeof r.texto !== "string" || typeof r.indicioDeCorte !== "boolean") {
     return undefined;
   }
-  const guardado: TextoGuardado = { id: r.id, texto: r.texto, indicioDeCorte: r.indicioDeCorte, obtidoEm: lido.obtidoEm };
+  const guardado: TextoGuardado = {
+    id: r.id,
+    texto: r.texto,
+    indicioDeCorte: r.indicioDeCorte,
+    ...(typeof r.motivoSemTexto === "string" && { motivoSemTexto: r.motivoSemTexto }),
+    obtidoEm: lido.obtidoEm,
+  };
   return { id: r.id as string, obtidoEm: lido.obtidoEm, bytes: lido.bytes, guardado };
 }
 

@@ -340,7 +340,7 @@ export function normalizarDoFalcao(tribunal: string, documentos: unknown[]) {
     if (soAEmenta) {
       // A ementa repetida não é o acórdão: guarda sem texto, para nada ser lido nem conferido como se fosse o inteiro.
       integraisIguaisAEmenta++;
-      textos.push({ id, texto: "", indicioDeCorte: false });
+      textos.push({ id, texto: "", indicioDeCorte: false, motivoSemTexto: MOTIVO_INTEGRAL_IGUAL_A_EMENTA });
     } else {
       textos.push({ id, texto: integral, indicioDeCorte: htmlComIndicioDeCorte(html) });
     }

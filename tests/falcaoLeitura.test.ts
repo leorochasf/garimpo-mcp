@@ -82,6 +82,29 @@ describe("ler o texto integral de um TRT pelo id", () => {
     expect(r.dado.avisos.join(" ")).toMatch(/Sem texto integral: texto integral do Falcão igual à ementa; só a ementa está disponível/);
   });
 
+  for (const [rotulo, ordem] of [["sem texto primeiro", [true, false]], ["texto real primeiro", [false, true]]] as const) {
+    it(`cópias equivalentes, uma sem texto integral e outra com (${rotulo}): cada id é lido e conferido pelo próprio texto`, async () => {
+      const ementaHtml = "<p>INTERVALO INTRAJORNADA. SUPRESSÃO PARCIAL. Texto fictício de ementa.</p>";
+      const copia = (semTexto: boolean, id: string) =>
+        documento({ idDocumentoAcordao: id, textoAcordao: semTexto ? ementaHtml : "<p>Fundamentação fictícia exclusiva da cópia com texto.</p>" });
+      const { mcp } = await comBusca(() => pagina([copia(ordem[0], "70000001"), copia(ordem[1], "70000002")]));
+      const idSem = ordem[0] ? "trt3:70000001" : "trt3:70000002";
+      const idCom = ordem[0] ? "trt3:70000002" : "trt3:70000001";
+      const sem = await chamar(mcp, "ler_inteiro_teor", { id: idSem });
+      expect(sem.dado.texto).toBe("");
+      expect(sem.dado.cabecalho.completo).toBe("não: texto integral do Falcão igual à ementa");
+      const com = await chamar(mcp, "ler_inteiro_teor", { id: idCom });
+      expect(com.dado.texto).toMatch(/exclusiva da cópia com texto/);
+      expect(com.dado.cabecalho.completo).toBeUndefined();
+      expect(com.dado.avisos.join(" ")).not.toMatch(/Sem texto integral/);
+      const citacao = "Fundamentação fictícia exclusiva da cópia com texto.";
+      const r = await chamar(mcp, "conferir_citacao", { citacoes: [{ citacao, id: idCom }, { citacao, id: idSem }] });
+      expect(r.dado.resultados[0].fontes[1].veredito).toBe("encontrado literalmente");
+      expect(r.dado.resultados[1].fontes[1].veredito).toBe("não verificável");
+      expect(r.dado.resultados[1].fontes[1].motivo).toMatch(/igual à ementa/);
+    });
+  }
+
   it("texto fora da memória: erro que ensina a refazer a busca, sem prometer o mesmo acórdão; nenhuma chamada", async () => {
     const falcao = falcaoFalso();
     const { mcp } = await conectar(siteFalso().cliente, falcao.cliente);
