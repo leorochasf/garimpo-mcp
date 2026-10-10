@@ -25,3 +25,11 @@ o repetiria como fonte, e o Garimpo passaria a afirmar o que nunca conferiu.
 - O passo do roteiro é "separar pelo enquadramento no art. 927" (ADR-0007): "não classificado" quer dizer que os
   dados não provam inciso — nunca fraco, persuasivo ou fora do rol; não se usa "separar por força", e o rótulo da
   lista de qualificados não cria hierarquia.
+
+## Emenda de 2026-10-09: método de leitura do acórdão
+
+O dono aprovou em 2026-10-09 ("aprovo") o método de leitura do acórdão: o passo 8 do `pesquisar_tese` ganhou as
+letras a) a h) (certidão, relatório, admissibilidade, ratio, votos, tese e modulação, dispositivo, o que veio depois),
+ligadas às ferramentas que existem, e as `instructions` ganharam uma frase no fim, para quem não abre o prompt. É a
+única mudança no texto aprovado das `instructions`; o teste de igualdade exata foi atualizado junto. O exemplo do dono
+que citava súmula com número virou "por óbice ao reexame de fatos e provas", pela regra deste ADR.

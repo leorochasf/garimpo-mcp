@@ -4,7 +4,7 @@
  * Mudar o texto exige reler: o teste de padrões é trava parcial.
  */
 
-/** Texto aprovado das instructions (ADR-0014), sem mudar uma vírgula. */
+/** Texto aprovado das instructions (ADR-0014; frase da leitura do acórdão aprovada em 2026-10-09), sem mudar uma vírgula. */
 export const INSTRUCTIONS =
   "O Garimpo pesquisa jurisprudência brasileira em base não oficial e baixa o inteiro teor oficial quando " +
   "disponível; use busca_ampla com 3 a 6 formulações, obter_ementa dos acórdãos que apresentar (até 10), " +
@@ -12,7 +12,9 @@ export const INSTRUCTIONS =
   "citação literal com conferir_citacao antes de entregá-la. Nunca afirme jurisprudência sem fonte devolvida pelas " +
   "ferramentas nem complete lacunas de memória: indique o que não foi verificado; diante de recusa ou rede parada, " +
   "cesse novas chamadas e avise, podendo continuar a consulta local. O roteiro completo está no prompt " +
-  "pesquisar_tese.";
+  "pesquisar_tese. Ao ler um acórdão, comece pela certidão de julgamento e separe admissibilidade, ratio do voto " +
+  "condutor, votos divergentes, tese, dispositivo e o que veio depois (julgamentos_do_processo); o que as " +
+  'ferramentas não mostrarem é "não verificado".';
 
 function passoDosTribunais(tribunais: string | undefined): string {
   if (!tribunais?.trim()) {
@@ -55,7 +57,33 @@ export function roteiroDePesquisa(tese: string, tribunais?: string): string {
       "prometa que não haverá nova chamada ao site.",
     "7. Baixe pelo obter_inteiro_teor o inteiro teor dos acórdãos que for citar, até 3 inteiros teores, salvo pedido " +
       "do usuário. Tribunal que só dá link: entregue o link e a explicação, sem tentar outro caminho.",
-    "8. Leia o inteiro teor pelo ler_inteiro_teor, parte por parte, antes de tirar conclusão dele.",
+    "8. Leia o inteiro teor pelo ler_inteiro_teor, parte por parte, antes de tirar conclusão dele. O cabeçalho de " +
+      "cada parte diz o total de partes; ache cada trecho pelo título de seção no texto e leia nesta ordem:",
+    "a) Certidão ou extrato de julgamento: órgão julgador, resultado, se foi unânime ou por maioria, quem ficou " +
+      "vencido e quem redigiu o acórdão. Isso define o peso do precedente antes de qualquer leitura de mérito. Sem " +
+      'certidão no texto, diga "não verificado"; os movimentos do julgamentos_do_processo não a substituem.',
+    "b) Relatório e quadro fático: o que se pediu, o que a instância anterior decidiu e o que o recurso atacou. É " +
+      "daqui que sai a comparação com o caso do usuário (a peça ou parecer), ou a distinção.",
+    "c) Juízo de admissibilidade: se o recurso não foi conhecido (por exemplo, por óbice ao reexame de fatos e " +
+      "provas), o que se disse sobre o mérito é obiter dictum, por mais bem escrito que esteja; diga isso ao " +
+      "apresentar o acórdão.",
+    "d) Delimitação da controvérsia e núcleo do voto condutor: ache o ponto em que o relator fixa a questão (\"a " +
+      "controvérsia cinge-se a...\") e o passo do raciocínio sem o qual o resultado não se sustenta. Essa é a ratio; " +
+      "o resto é reforço argumentativo. Apontar a ratio é leitura sua, não da fonte: apresente-a assim.",
+    "e) Votos-vista, concorrentes e vencidos: como os tribunais decidem por soma de votos, a maioria pode coincidir " +
+      "no resultado e divergir no fundamento; conte os votos por fundamento. O voto vencido antecipa as objeções que " +
+      "a peça terá de enfrentar (passo 5), mas não é fundamento do tribunal: o conferir_citacao diz a seção de cada " +
+      "trecho.",
+    "f) Tese fixada e modulação de efeitos: em repetitivo, repercussão geral, IAC ou IRDR, leia o texto exato da " +
+      "tese e o marco temporal. Tema repetitivo ou IAC do STJ e repercussão geral do STF: compare com o " +
+      "consultar_precedente (tese e situação na fonte, que é situação processual, não vigência). IRDR e os demais, " +
+      'só pelo texto do acórdão. Modulação e marco temporal só valem lidos no acórdão; senão, "não verificado".',
+    "g) Dispositivo: confira se houve provimento total ou parcial, ou retorno dos autos à origem, porque às vezes o " +
+      "tribunal afirma a tese e não a aplica ao caso.",
+    "h) O que veio depois: pelo julgamentos_do_processo (número CNJ; tribunal, se o processo subiu), veja os " +
+      "embargos de declaração, que podem esclarecer, restringir ou modular, e leia o acórdão deles pelo obter_ementa " +
+      "quando vier o id. Trânsito em julgado e superação posterior não aparecem nas ferramentas: diga \"não " +
+      'verificado". O DataJud não cobre o STF, e a falta de registro não prova que algo não aconteceu.',
     "9. Antes de entregar qualquer citação literal, confira-a com o conferir_citacao; o que não for encontrado " +
       "literalmente não é citação.",
     "10. Ao responder: conclusão sem fonte devolvida pelas ferramentas vai marcada \"não verificado\"; metadado " +

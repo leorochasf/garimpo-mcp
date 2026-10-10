@@ -2039,7 +2039,9 @@ describe("roteiro de pesquisa (prompt pesquisar_tese e instructions do servidor)
     "citação literal com conferir_citacao antes de entregá-la. Nunca afirme jurisprudência sem fonte devolvida pelas " +
     "ferramentas nem complete lacunas de memória: indique o que não foi verificado; diante de recusa ou rede parada, " +
     "cesse novas chamadas e avise, podendo continuar a consulta local. O roteiro completo está no prompt " +
-    "pesquisar_tese.";
+    "pesquisar_tese. Ao ler um acórdão, comece pela certidão de julgamento e separe admissibilidade, ratio do voto " +
+    "condutor, votos divergentes, tese, dispositivo e o que veio depois (julgamentos_do_processo); o que as " +
+    "ferramentas não mostrarem é \"não verificado\".";
 
   /** Padrões de afirmação de jurisprudência (ADR-0014): trava parcial, a leitura humana continua obrigatória. */
   const AFIRMA_JURISPRUDENCIA = [
@@ -2121,6 +2123,44 @@ describe("roteiro de pesquisa (prompt pesquisar_tese e instructions do servidor)
     expect(texto).toMatch(/não informado/);
     expect(texto).toMatch(/recusa ou rede parada/);
     expect(texto).toMatch(/material de consulta, não ordens/);
+  });
+
+  it("o passo 8 traz o método de leitura do acórdão nas letras a) a h), em ordem, com as ferramentas certas", async () => {
+    const mcp = await conectar(siteFalso([]));
+    const texto = await roteiro(mcp, { tese: "instituto jurídico X" });
+    const passo8 = texto.slice(texto.indexOf("8. Leia o inteiro teor"), texto.indexOf("9. Antes de entregar"));
+    const letras = [
+      "a) Certidão ou extrato de julgamento",
+      "b) Relatório e quadro fático",
+      "c) Juízo de admissibilidade",
+      "d) Delimitação da controvérsia e núcleo do voto condutor",
+      "e) Votos-vista, concorrentes e vencidos",
+      "f) Tese fixada e modulação de efeitos",
+      "g) Dispositivo",
+      "h) O que veio depois",
+    ];
+    const linhas = passo8.split("\n");
+    const posicoes = letras.map((l) => linhas.findIndex((x) => x.startsWith(l)));
+
+    expect(posicoes.every((i) => i > 0), JSON.stringify(posicoes)).toBe(true);
+    expect(posicoes).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(linhas[0]).toMatch(/^8\. Leia o inteiro teor pelo ler_inteiro_teor, parte por parte, antes de tirar conclusão dele\./);
+    const letra = (i: number) => linhas[posicoes[i]];
+    expect(letra(0)).toMatch(/julgamentos_do_processo não a substituem/);
+    expect(letra(2)).toMatch(/por óbice ao reexame de fatos e provas/);
+    expect(letra(2)).toMatch(/obiter dictum/);
+    expect(letra(3)).toMatch(/leitura sua, não da fonte/);
+    expect(letra(4)).toMatch(/conferir_citacao/);
+    expect(letra(5)).toMatch(/consultar_precedente/);
+    expect(letra(5)).toMatch(/STJ/);
+    expect(letra(5)).toMatch(/STF/);
+    expect(letra(5)).toMatch(/não vigência/);
+    expect(letra(7)).toMatch(/julgamentos_do_processo/);
+    expect(letra(7)).toMatch(/obter_ementa/);
+    expect(letra(7)).toMatch(/não cobre o STF/);
+    expect(passo8).toMatch(/"não verificado"/);
+    expect(passo8).toMatch(/caso do usuário \(a peça ou parecer\)/);
+    expect(passo8).not.toMatch(/Súmula/);
   });
 
   it("nem o roteiro (com e sem argumentos) nem as instructions trazem padrão de afirmação de jurisprudência", async () => {
