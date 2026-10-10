@@ -1,0 +1,177 @@
+{
+ "_leia": "OBRIGATÓRIOS OFICIAIS da régua (ticket 21): o processo paradigma de cada tema, copiado da tabela OFICIAL (STJ: precedentes qualificados; STF: repercussão geral). Campo oficial independente: NÃO é marcação de IA nem do dono, e NÃO se mistura com os 33 obrigatórios mecânicos provisórios de regua.json. Entram os paradigmas que a rodada de 2026-10-10 achou no topo (1–10) da busca pela tese; ficam de fora, anotados, os 3 'não indexados' e o 'fora do topo'. Só números públicos de paradigma; nenhum dado de partes. Mede cobertura de UM item por tema, nunca precisão; a busca pelo texto da tese infla o acerto. Decisão do piloto, em 2026-10-10, na recomendação sobre o ticket 21, sobre a rodada de 2026-10-10 (docs/banco-de-provas/rodada-paradigmas-e-versao-leiga.md); o dono ainda não revisou estes paradigmas.",
+ "origem": "rodada de gravação de 2026-10-10 (ticket 21), 78 chamadas, semente 20261010; posições vêm das gravações cruas (fora do git)",
+ "topo": 10,
+ "obrigatoriosOficiais": [
+  {
+   "tribunal": "stf",
+   "tipo": "repercussão geral",
+   "numero": 364,
+   "paradigma": "RE 607886",
+   "posicaoNaRodada": 1
+  },
+  {
+   "tribunal": "stf",
+   "tipo": "repercussão geral",
+   "numero": 365,
+   "paradigma": "RE 580252",
+   "posicaoNaRodada": 1
+  },
+  {
+   "tribunal": "stf",
+   "tipo": "repercussão geral",
+   "numero": 475,
+   "paradigma": "RE 754917",
+   "posicaoNaRodada": 2
+  },
+  {
+   "tribunal": "stf",
+   "tipo": "repercussão geral",
+   "numero": 512,
+   "paradigma": "RE 662405",
+   "posicaoNaRodada": 1
+  },
+  {
+   "tribunal": "stf",
+   "tipo": "repercussão geral",
+   "numero": 540,
+   "paradigma": "RE 704292",
+   "posicaoNaRodada": 3
+  },
+  {
+   "tribunal": "stf",
+   "tipo": "repercussão geral",
+   "numero": 864,
+   "paradigma": "RE 905357",
+   "posicaoNaRodada": 1
+  },
+  {
+   "tribunal": "stf",
+   "tipo": "repercussão geral",
+   "numero": 874,
+   "paradigma": "RE 917285",
+   "posicaoNaRodada": 1
+  },
+  {
+   "tribunal": "stf",
+   "tipo": "repercussão geral",
+   "numero": 939,
+   "paradigma": "RE 1043313",
+   "posicaoNaRodada": 2
+  },
+  {
+   "tribunal": "stf",
+   "tipo": "repercussão geral",
+   "numero": 994,
+   "paradigma": "RE 1089282",
+   "posicaoNaRodada": 1
+  },
+  {
+   "tribunal": "stf",
+   "tipo": "repercussão geral",
+   "numero": 1184,
+   "paradigma": "RE 1355208",
+   "posicaoNaRodada": 2
+  },
+  {
+   "tribunal": "stf",
+   "tipo": "repercussão geral",
+   "numero": 1253,
+   "paradigma": "RE 1163774",
+   "posicaoNaRodada": 1
+  },
+  {
+   "tribunal": "stj",
+   "tipo": "tema repetitivo",
+   "numero": 172,
+   "paradigma": "REsp 1111159",
+   "posicaoNaRodada": 4
+  },
+  {
+   "tribunal": "stj",
+   "tipo": "tema repetitivo",
+   "numero": 400,
+   "paradigma": "REsp 1143320",
+   "posicaoNaRodada": 1
+  },
+  {
+   "tribunal": "stj",
+   "tipo": "tema repetitivo",
+   "numero": 506,
+   "paradigma": "REsp 1252412",
+   "posicaoNaRodada": 4
+  },
+  {
+   "tribunal": "stj",
+   "tipo": "tema repetitivo",
+   "numero": 574,
+   "paradigma": "REsp 1220934",
+   "posicaoNaRodada": 1
+  },
+  {
+   "tribunal": "stj",
+   "tipo": "tema repetitivo",
+   "numero": 938,
+   "paradigma": "REsp 1551956",
+   "posicaoNaRodada": 1
+  },
+  {
+   "tribunal": "stj",
+   "tipo": "tema repetitivo",
+   "numero": 1018,
+   "paradigma": "REsp 1767789",
+   "posicaoNaRodada": 4
+  },
+  {
+   "tribunal": "stj",
+   "tipo": "tema repetitivo",
+   "numero": 1135,
+   "paradigma": "REsp 1954503",
+   "posicaoNaRodada": 5
+  },
+  {
+   "tribunal": "stj",
+   "tipo": "tema repetitivo",
+   "numero": 1277,
+   "paradigma": "REsp 2069773",
+   "posicaoNaRodada": 1
+  },
+  {
+   "tribunal": "stj",
+   "tipo": "tema repetitivo",
+   "numero": 1311,
+   "paradigma": "REsp 2057984",
+   "posicaoNaRodada": 1
+  }
+ ],
+ "foraDaRegua": [
+  {
+   "tribunal": "stf",
+   "tipo": "repercussão geral",
+   "numero": 141,
+   "paradigma": "RE 572921",
+   "motivo": "não indexado (inferência, não verificado)"
+  },
+  {
+   "tribunal": "stj",
+   "tipo": "tema repetitivo",
+   "numero": 143,
+   "paradigma": "REsp 1111002",
+   "motivo": "não indexado (inferência, não verificado)"
+  },
+  {
+   "tribunal": "stj",
+   "tipo": "tema repetitivo",
+   "numero": 181,
+   "paradigma": "REsp 1112884",
+   "motivo": "não indexado (inferência, não verificado)"
+  },
+  {
+   "tribunal": "stj",
+   "tipo": "tema repetitivo",
+   "numero": 687,
+   "paradigma": "REsp 1358281",
+   "motivo": "fora do topo (posição 16)"
+  }
+ ]
+}

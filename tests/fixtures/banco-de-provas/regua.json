@@ -5,7 +5,7 @@
  "gabarito": "NÃO é gabarito do dono: pré-marcação por IA (ticket 10 da rodada 2, sem revisão completa do dono) + as marcas do dono da lista curta do B5; sem marca e dúvida contam como não relevantes. Serve só para travar regressão da ordem.",
  "folga": 0.05,
  "topo": 10,
- "obrigatoriosComo": "PROVISÓRIOS, aguardando confirmação do dono: os 3 primeiros relevantes (pela pré-marcação da IA) de cada tese na medição de partida, escolhidos mecanicamente, sem marca do dono. O dono troca pela lista dele (e o G-73 acrescenta os paradigmas).",
+ "obrigatoriosComo": "PROVISÓRIOS, aguardando confirmação do dono: os 3 primeiros relevantes (pela pré-marcação da IA) de cada tese na medição de partida, escolhidos mecanicamente, sem marca do dono. O dono troca pela lista dele. Os paradigmas oficiais (G-73) ficam em paradigmas-oficiais.json, separados destes, e estes continuam provisórios (não viram gabarito).",
  "qualidadeDoDono": {
   "explicacao": "Qualidade = precisão contra relevantes confirmados pelo dono (doDono). Com menos relevantes confirmados que o mínimo, o teste de qualidade é pulado com a lacuna escrita, nunca aprovado. Definir limiarDePrecisao quando houver confirmações suficientes.",
   "minimoDeRelevantesConfirmados": 100

@@ -247,3 +247,45 @@ export function medir(itens: { recorte: Recorte; lista: Mostrado[] }[], gabarito
     porTese: Object.fromEntries(itens.map((i) => [i.recorte.tese, contar([i], undefined, gabarito)])),
   };
 }
+
+/** Um paradigma oficial da régua: o processo paradigma de um tema, como a tabela OFICIAL o traz. */
+export interface ParadigmaOficial {
+  tribunal: "stj" | "stf";
+  tipo: "tema repetitivo" | "repercussão geral";
+  numero: number;
+  paradigma: string;
+  /** Posição na busca pela tese, na rodada de 2026-10-10 (nas gravações cruas, fora do git). */
+  posicaoNaRodada?: number;
+  /** Só nos que ficaram fora da régua. */
+  motivo?: string;
+}
+
+export interface ParadigmasOficiais {
+  topo: number;
+  obrigatoriosOficiais: ParadigmaOficial[];
+  foraDaRegua: ParadigmaOficial[];
+}
+
+export function carregarParadigmasOficiais(): ParadigmasOficiais {
+  return JSON.parse(readFileSync(new URL("paradigmas-oficiais.json", PASTA), "utf8")) as ParadigmasOficiais;
+}
+
+/**
+ * Confere os obrigatórios oficiais SEM rede: cada paradigma tem de continuar sendo o processo paradigma do tema na
+ * tabela empacotada, e a posição medida na rodada tem de caber no topo. Quem acha o tema e o paradigma é a tabela
+ * oficial (`achar`), não marcação de IA. Devolve as falhas.
+ */
+export function conferirParadigmasOficiais(
+  p: ParadigmasOficiais,
+  achar: (tribunal: "stj" | "stf", tipo: ParadigmaOficial["tipo"], numero: number) => string[] | undefined,
+): string[] {
+  const falhas: string[] = [];
+  for (const o of p.obrigatoriosOficiais) {
+    const rotulo = `${o.tribunal.toUpperCase()} ${o.tipo} ${o.numero}`;
+    const paradigmas = achar(o.tribunal, o.tipo, o.numero);
+    if (!paradigmas) falhas.push(`${rotulo}: tema não está na tabela oficial`);
+    else if (!paradigmas.includes(o.paradigma)) falhas.push(`${rotulo}: paradigma ${o.paradigma} não é mais o da tabela oficial`);
+    if (o.posicaoNaRodada === undefined || o.posicaoNaRodada > p.topo) falhas.push(`${rotulo}: posição na rodada fora do topo ${p.topo}`);
+  }
+  return falhas;
+}

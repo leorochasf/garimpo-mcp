@@ -144,9 +144,12 @@ devolvidos): são dois pedidos que o site entende de modo bem diferente; isso n�
 - Não prova que o site "não tem" os três acórdãos que ficaram ausentes (ver a ressalva em 1).
 - A transferência para a busca ampla (várias formulações × vários tribunais) **não foi medida** aqui: cada tese teve 1 busca
   por versão. **Não verificado.**
-- Os "obrigatórios" do banco de provas (`tests/fixtures/banco-de-provas/regua.json`) **não** ganharam os paradigmas:
-  o recorte versionável do ticket 18 só guarda as teses da rodada 2, sem rodapé de paradigma. Falta uma regra do dono para
-  quais paradigmas valem como obrigatórios; ver `## Comentários` do ticket.
+- **Obrigatórios oficiais da régua (decisão do piloto, 2026-10-10, ainda não revisada pelo dono):** os 20 paradigmas que
+  apareceram no topo (9 do STJ e 11 do STF) viram *obrigatórios oficiais* em
+  `tests/fixtures/banco-de-provas/paradigmas-oficiais.json`: campo oficial independente (o paradigma da tabela do tribunal),
+  **não** marcação de IA, separado dos 33 obrigatórios mecânicos provisórios de `regua.json`. Ficam fora, anotados no mesmo
+  arquivo, os 3 "não indexados" (STJ 143 e 181, STF RG 141) e o "fora do topo" (STJ 687). O teste (sem rede) confere que cada
+  paradigma segue sendo o da tabela empacotada; conferir a posição na busca exige recorte gravado, que não existe para eles.
 
 ## 4. Reprodução (sem rede)
 
