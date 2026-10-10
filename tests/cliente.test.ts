@@ -578,4 +578,23 @@ describe("recusa reconhecida pela página da fonte (desafio com HTTP 200) e pelo
     expect(e.message).toMatch(/Verifique a conexão/);
     expect(await (await cliente.requisitar(JSON_URL)).json()).toEqual({ depois: true });
   });
+
+  it("a recusa pela página dobra a pausa como as outras: a prova recusada pausa 2 min", async () => {
+    const relogio = { agora: 1_000_000 };
+    const { cliente, chamadas } = clienteFalso(
+      [pagina("verificacao-de-seguranca.html"), pagina("pagina-bloqueada.html"), respostaJson({ voltou: true })],
+      { agora: () => relogio.agora },
+    );
+    expect(await cliente.requisitar(JSON_URL).catch((x) => x)).toBeInstanceOf(RecusaError);
+    relogio.agora += 61_000; // venceu a 1ª pausa (1 min): sai a prova, que também é recusada
+    const prova = await cliente.requisitar(JSON_URL).catch((x) => x);
+    expect(prova.message).toMatch(/página de acesso bloqueado/);
+    expect(chamadas).toHaveLength(2);
+    relogio.agora += 61_000; // 1 min depois: a pausa agora é de 2 min, nada sai
+    expect((await cliente.requisitar(JSON_URL).catch((x) => x)).message).toMatch(/não foi feita/);
+    expect(chamadas).toHaveLength(2);
+    relogio.agora += 60_000; // 2 min depois da prova recusada: sai a nova prova
+    expect(await (await cliente.requisitar(JSON_URL)).json()).toEqual({ voltou: true });
+    expect(chamadas).toHaveLength(3);
+  });
 });

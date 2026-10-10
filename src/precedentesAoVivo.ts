@@ -2,7 +2,9 @@
  * Precedentes qualificados ao vivo (ADR-0020): o consultar_precedente busca o precedente no portal do tribunal, na
  * hora da pergunta, pelo cliente único (serviços próprios no disjuntor: stj-precedentes e stf-precedentes), e guarda o
  * resultado na memória por 24 h. Qualquer falha (recusa, pausa, rede, página que o Garimpo não reconhece) sobe como
- * erro: quem chama usa a tabela empacotada como plano B. Rotas e formato: docs/banco-de-provas/precedentes-ao-vivo-prova.md.
+ * erro: quem chama usa a tabela empacotada como plano B. Página de verificação anti-robô ou de bloqueio com HTTP 200
+ * (reconhecida pelo título, no cliente) é recusa: além do plano B, pausa o serviço em todas as janelas. Página só
+ * estranha não pausa nada. Rotas e formato: docs/banco-de-provas/precedentes-ao-vivo-prova.md.
  */
 
 import { createHash } from "node:crypto";

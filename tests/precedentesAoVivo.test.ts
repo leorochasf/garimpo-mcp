@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -359,6 +360,22 @@ describe("identificação e disjuntor dos portais de precedentes", () => {
     const mcp = await conectar({ precedentesStj: cliente });
     await consultar(mcp, { tribunal: "stj", tipo: "tema repetitivo", numero: 1198 });
     expect(new Headers(chamadas[0].init.headers).get("User-Agent")).toBe(USER_AGENT);
+  });
+
+  it("página de verificação com HTTP 200: plano B e o disjuntor dos precedentes aberto (nada sai na consulta seguinte)", async () => {
+    const desafio = () =>
+      new Response(readFileSync(new URL("./fixtures/desafios/verificacao-de-seguranca.html", import.meta.url)), {
+        status: 200,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      });
+    const { cliente, chamadas } = clienteFalso([desafio, paginaStj({ numero: 1 })], { nome: "O portal do STJ" });
+    const mcp = await conectar({ precedentesStj: cliente, tabela: await tabelaPequena() });
+    const { dado } = await consultar(mcp, { tribunal: "stj", tipo: "tema repetitivo", numero: 1 });
+    expect(dado.origem).toBe("tabela de 2026-10-09, o portal do STJ não respondeu");
+    expect(dado.motivoDoPlanoB).toMatch(/página de verificação anti-robô \(HTTP 200\)/);
+    const depois = await consultar(mcp, { tribunal: "stj", tipo: "tema repetitivo", numero: 2 });
+    expect(depois.dado.motivoDoPlanoB).toMatch(/não foi feita/);
+    expect(chamadas).toHaveLength(1);
   });
 
   it("serviço próprio no disjuntor: uma recusa nos precedentes não pausa o resto do tribunal", () => {
