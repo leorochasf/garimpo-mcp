@@ -77,6 +77,9 @@ describe("ler o texto integral de um TRT pelo id", () => {
     const r = await chamar(mcp, "ler_inteiro_teor", { id: ID });
     expect(r.isError).toBe(false);
     expect(r.dado.texto).toBe("");
+    expect(r.dado.cabecalho.natureza).not.toMatch(/repositório oficial/);
+    expect(r.dado.cabecalho.completo).toBe("não: texto integral do Falcão igual à ementa");
+    expect(r.dado.avisos.join(" ")).toMatch(/Sem texto integral: texto integral do Falcão igual à ementa; só a ementa está disponível/);
   });
 
   it("texto fora da memória: erro que ensina a refazer a busca, sem prometer o mesmo acórdão; nenhuma chamada", async () => {
@@ -161,6 +164,8 @@ describe("conferir citação num acórdão de TRT", () => {
     const [ementa, texto] = r.dado.resultados[0].fontes;
     expect(ementa.veredito).toBe("encontrado literalmente");
     expect(texto.veredito).toBe("não verificável");
+    expect(texto.origem).not.toMatch(/repositório oficial/);
+    expect(texto.motivo).toMatch(/igual à ementa/);
   });
 
   it("texto com indício de corte: citação não achada ganha o aviso de que pode estar no trecho que faltou", async () => {

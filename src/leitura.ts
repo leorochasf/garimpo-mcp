@@ -150,6 +150,13 @@ export async function lerInteiroTeor(
 export const NATUREZA_DO_TEXTO_INTEGRAL =
   "texto integral do repositório oficial (Falcão), convertido de HTML pelo Garimpo: não é PDF e não tem recibo de origem";
 
+/** O que o registro é quando o Falcão não deu texto integral de verdade (só a ementa repetida): nada de "repositório oficial". */
+export const NATUREZA_SEM_TEXTO_INTEGRAL = "sem texto integral: o Falcão não mandou o acórdão, só a ementa";
+
+export function avisoSemTextoIntegral(motivo: string): string {
+  return `Sem texto integral: ${motivo}; só a ementa está disponível.`;
+}
+
 export const AVISO_DE_CORTE =
   "Texto com indício de corte: o HTML do Falcão parecia terminar no meio; o texto pode estar incompleto.";
 
@@ -185,6 +192,7 @@ export async function lerTextoIntegral(id: string, parte = 1, memoria?: Memoria)
   const guardado = await memoria?.obterTexto(id);
   if (!guardado) throw new Error(textoForaDaMemoria(id));
   const a = (await memoria?.obter(id))?.acordao;
+  const semTexto = a?.motivoSemTextoIntegral ?? (guardado.texto ? undefined : "o texto integral veio vazio do Falcão");
   const base = (partes: string, proxima?: number): ParteDoTextoIntegral => ({
     cabecalho: {
       tribunal: (a?.tribunal ?? id.split(":")[0]).toUpperCase(),
@@ -193,11 +201,15 @@ export async function lerTextoIntegral(id: string, parte = 1, memoria?: Memoria)
       juntadoEm: a?.dataJuntada ?? NAO_INFORMADO,
       id,
       fonte: ROTULO_FALCAO,
-      natureza: NATUREZA_DO_TEXTO_INTEGRAL,
+      natureza: semTexto ? NATUREZA_SEM_TEXTO_INTEGRAL : NATUREZA_DO_TEXTO_INTEGRAL,
       partes,
-      ...(guardado.indicioDeCorte ? { completo: "não: há indício de corte" } : {}),
+      ...(semTexto
+        ? { completo: `não: ${semTexto}` }
+        : guardado.indicioDeCorte
+          ? { completo: "não: há indício de corte" }
+          : {}),
     },
-    avisos: guardado.indicioDeCorte ? [AVISO_DE_CORTE] : [],
+    avisos: semTexto ? [avisoSemTextoIntegral(semTexto)] : guardado.indicioDeCorte ? [AVISO_DE_CORTE] : [],
     texto: "",
     ...(proxima ? { proximaParte: { ferramenta: "ler_inteiro_teor", argumentos: { id, parte: proxima } } } : {}),
   });

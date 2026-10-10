@@ -43,6 +43,8 @@ export interface Acordao {
   avisoDeEmenta?: string;
   /** Só no Falcão: o rótulo da fonte (repositório oficial da Justiça do Trabalho). */
   fonte?: string;
+  /** Só no Falcão: por que não há texto integral (ex.: o "texto integral" veio igual à ementa); só a ementa vale. */
+  motivoSemTextoIntegral?: string;
   /** Link oficial que o Garimpo pediu à rota de link do site, porque a busca não trouxe nenhum (obter_inteiro_teor). */
   linkDaRota?: string;
   relevancia?: number;

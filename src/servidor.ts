@@ -28,6 +28,8 @@ import {
   lerParaConferir,
   lerTextoIntegral,
   NATUREZA_DO_TEXTO_INTEGRAL,
+  NATUREZA_SEM_TEXTO_INTEGRAL,
+  avisoSemTextoIntegral,
   textoForaDaMemoria,
 } from "./leitura.js";
 import { Memoria, obtidoDoSite } from "./memoria.js";
@@ -669,12 +671,17 @@ export function criarServidor(
           fontes.push({ fonte: "ementa", id, ...conferida, ...cortada });
           if (doFalcao) {
             const t = await memoria.obterTexto(id);
-            const noTexto = t ? conferirNoTextoIntegral(t.texto, lida) : naoVerificavel(textoForaDaMemoria(id));
+            const semTexto = a?.motivoSemTextoIntegral;
+            const noTexto = semTexto
+              ? naoVerificavel(`${avisoSemTextoIntegral(semTexto)} Não há acórdão para conferir além da ementa.`)
+              : t
+                ? conferirNoTextoIntegral(t.texto, lida)
+                : naoVerificavel(textoForaDaMemoria(id));
             const corte =
               t?.indicioDeCorte && noTexto.veredito !== "não verificável"
                 ? { aviso: `${AVISO_DE_CORTE} Uma citação "não encontrada" pode estar no trecho que faltou.` }
                 : {};
-            fontes.push({ fonte: "texto integral", id, origem: NATUREZA_DO_TEXTO_INTEGRAL, ...noTexto, ...corte });
+            fontes.push({ fonte: "texto integral", id, origem: semTexto ? NATUREZA_SEM_TEXTO_INTEGRAL : NATUREZA_DO_TEXTO_INTEGRAL, ...noTexto, ...corte });
           }
         }
         if (caminho !== undefined) {

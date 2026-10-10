@@ -286,7 +286,7 @@ const MOTIVO_INTEGRAL_IGUAL_A_EMENTA = "texto integral do Falcão igual à ement
 
 /** Normaliza os documentos do Falcão: acórdão (sem o texto integral) e, à parte, o texto integral convertido. */
 export function normalizarDoFalcao(tribunal: string, documentos: unknown[]) {
-  const acordaos: (Acordao & { motivoSemTextoIntegral?: string })[] = [];
+  const acordaos: Acordao[] = [];
   const textos: TextoIntegral[] = [];
   let descartados = 0;
   let divergencias = 0;
