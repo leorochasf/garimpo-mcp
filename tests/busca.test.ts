@@ -116,7 +116,7 @@ describe("busca direta", () => {
 describe("cabeçalho de cobertura da busca direta", () => {
   const registros = (n: number) =>
     Array.from({ length: n }, (_, i) => ({ id: `d${i}`, texto_ementa: `EMENTA FICTÍCIA ${i}.`, numero_processo: `${i}/UF` }));
-  const cabecalho = async (tribunal: string, n: number, p: { limite?: number; de?: string } = {}) => {
+  const cabecalho = async (tribunal: string, n: number, p: { limite?: number; de?: string; relator?: string; orgao?: string } = {}) => {
     const { cliente } = clienteFalso([respostaJson({ results: registros(n) })]);
     return (await buscaDireta(cliente, { tribunal, texto: "exemplo", ...p })).cabecalhoDeCobertura;
   };
@@ -139,6 +139,42 @@ describe("cabeçalho de cobertura da busca direta", () => {
     expect(await cabecalho("stj", 0, { de: "2024-01-01" })).toBe(
       "O site devolveu 0 registros, menos que os 10 pedidos: a base não tem mais para este texto e estes filtros.",
     );
+  });
+
+  it("relator sem nenhum resultado: avisa que pode ser a grafia do nome e sugere repetir sem o filtro", async () => {
+    const linha = await cabecalho("stj", 0, { relator: "Fulano de Tal" });
+    expect(linha).toMatch(/^O site devolveu 0 registros, menos que os 10 pedidos: a base não tem mais para este texto e estes filtros\./);
+    expect(linha).toMatch(/relator/);
+    expect(linha).toMatch(/pode ser a grafia/);
+    expect(linha).toMatch(/repita sem o filtro/);
+    expect(linha).not.toMatch(/não existe|nunca julgou|nunca decidiu/i);
+  });
+
+  it("órgão com poucos resultados: a mesma ressalva, falando do órgão", async () => {
+    const linha = await cabecalho("stj", 2, { orgao: "Segunda Turma" });
+    expect(linha).toMatch(/órgão/);
+    expect(linha).toMatch(/pode ser a grafia/);
+    expect(linha).toMatch(/repita sem o filtro/);
+  });
+
+  it("relator e órgão juntos: a ressalva cita os dois, uma vez só", async () => {
+    const linha = await cabecalho("stj", 0, { relator: "Fulano", orgao: "Segunda Turma" });
+    expect(linha).toMatch(/relator e órgão/);
+    expect(linha.match(/pode ser a grafia/g)).toHaveLength(1);
+  });
+
+  it("filtro de relator com resultados suficientes (mais que poucos), ou sem filtro de relator ou órgão: texto de sempre", async () => {
+    expect(await cabecalho("stj", 5, { relator: "Fulano" })).toBe(
+      "O site devolveu 5 registros, menos que os 10 pedidos: a base não tem mais para este texto e estes filtros.",
+    );
+    expect(await cabecalho("stj", 0)).toBe("O site devolveu 0 registros, menos que os 10 pedidos: a base não tem mais para este texto.");
+    expect(await cabecalho("stj", 0, { de: "2024-01-01" })).not.toMatch(/grafia/);
+  });
+
+  it("STF com relator e poucos resultados: segue dizendo que o site devolve poucos por busca, e leva a ressalva", async () => {
+    const linha = await cabecalho("stf", 1, { relator: "Fulano" });
+    expect(linha).toMatch(/neste tribunal ele devolve poucos por busca/);
+    expect(linha).toMatch(/pode ser a grafia/);
   });
 
   it("STF com menos que o pedido: não diz que a base acabou, porque o site devolve poucos por busca", async () => {
