@@ -206,7 +206,15 @@ function marcaDePausa(e: unknown): { estruturada: { liberadoEm: string } & Recor
   // Erro que junta outros (busca ampla sem nenhuma resposta): a marca da pausa que acaba por último.
   if (!(e instanceof RecusaError || e instanceof PausaPreventivaError) && e instanceof Error && e.cause !== undefined) {
     const marcas = [e.cause].flat().map(marcaDePausa).filter((m) => m !== undefined);
-    return marcas.sort((a, b) => Date.parse(b.estruturada.liberadoEm) - Date.parse(a.estruturada.liberadoEm))[0];
+    const maisTardia = marcas.sort((a, b) => Date.parse(b.estruturada.liberadoEm) - Date.parse(a.estruturada.liberadoEm))[0];
+    // Se qualquer fonte já recusou a prova, a marca final é a de "não repita", mesmo que outra pausa termine depois.
+    const recusada = marcas.find((m) => m.estruturada.indicioDeRecusaSistematica === true);
+    if (!maisTardia || !recusada || maisTardia === recusada) return maisTardia;
+    const liberadoEm = maisTardia.estruturada.liberadoEm;
+    return {
+      estruturada: { tipoDePausa: "recusa-da-fonte", liberadoEm, indicioDeRecusaSistematica: true },
+      texto: recusada.texto.replace(/liberadoEm=\S+/, `liberadoEm=${liberadoEm}`),
+    };
   }
   if (e instanceof RecusaError && e.pausa && e.pausa.aberturas >= RECUSAS_PARA_INDICIO) {
     const liberadoEm = new Date(e.pausa.ate).toISOString();

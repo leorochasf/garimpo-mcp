@@ -2641,6 +2641,32 @@ describe("marca de pausa legível por máquina (G-06)", () => {
     expect(siteMaisTarde.content[1].text).toMatch(/^\[PAUSA tipo=recusa-da-fonte /);
   });
 
+  it("busca_ampla: fonte que já recusou a prova + outra em pausa que termina depois: a marca diz para não repetir", async () => {
+    const lancando = (e: Error) =>
+      new (class extends Cliente {
+        override async requisitar(): Promise<Response> {
+          throw e;
+        }
+      })({ nome: "O site", agora: () => AGORA });
+    const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "marca-"));
+    const mcp = await conectar(
+      lancando(new RecusaError("O site recusou.", 429, { ate: AGORA + 60_000, segundos: 60, aberturas: 2 })),
+      { dados, agora: () => AGORA, falcao: lancando(new PausaPreventivaError("Pausa preventiva.", AGORA + 900_000, 900)) },
+    );
+    const r = (await mcp.callTool({
+      name: "busca_ampla",
+      arguments: { formulacoes: ["termo de exemplo"], tribunais: ["stj", "trt2"] },
+    })) as Resposta;
+    expect(r.isError).toBe(true);
+    expect(r.structuredContent).toEqual({
+      tipoDePausa: "recusa-da-fonte",
+      liberadoEm: new Date(AGORA + 900_000).toISOString(),
+      indicioDeRecusaSistematica: true,
+    });
+    expect(r.content[1].text).toMatch(/indicioDeRecusaSistematica=true\] .*não repita/);
+    expect(r.content[1].text).not.toMatch(/esperaSegundos|Não repita antes de liberadoEm/);
+  });
+
   it("recusa final sem pausa e erro comum: nenhuma marca, nem convite a esperar", async () => {
     const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "marca-"));
     const comum = await buscaStj(
