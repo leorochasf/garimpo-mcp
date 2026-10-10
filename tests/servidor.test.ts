@@ -2426,6 +2426,65 @@ describe("diagnóstico dos freios", () => {
     expect(r.content[0].text).not.toMatch(/termo de exemplo/);
   });
 
+  it("histórico cheio de recusas de outra fonte não apaga o indício da fonte pausada com prova recusada", async () => {
+    const outras = Array.from({ length: 30 }, (_, i) => ({ servico: "stf", em: AGORA - HORA + i, tipo: "recusou" }));
+    const { resposta } = await diagnosticar(estadoCom({ "jurisprudenciaia": pausado(3) }, outras));
+    const fonte = resposta.fontes.find((f: { servico: string }) => f.servico === "jurisprudenciaia");
+    expect(fonte).toMatchObject({ pausasSeguidas: 3, indicioDeRecusaSistematica: true });
+    expect(fonte.explicacao).not.toMatch(/Parece uma rajada|costuma passar/);
+  });
+
+  it("a mensagem da recusa fica em campo próprio; a explicação termina na leitura, sem mandar insistir", async () => {
+    const aviso =
+      "O site pediu para esperar 120 s antes de nova chamada (HTTP 429), mais que o teto de 30 s do Garimpo. O " +
+      "Garimpo parou em vez de tentar mais cedo. Espere esse tempo e tente de novo.";
+    const { resposta } = await diagnosticar(
+      estadoCom({ "jurisprudenciaia": { ...pausado(2), pausa: { ate: AGORA + 30 * 60_000, aviso } } }, [
+        { servico: "jurisprudenciaia", em: AGORA - 5 * HORA, tipo: "recusou" },
+        { servico: "jurisprudenciaia", em: AGORA - HORA, tipo: "recusou-a-prova" },
+      ]),
+    );
+    const [fonte] = resposta.fontes;
+    expect(fonte.indicioDeRecusaSistematica).toBe(true);
+    expect(fonte.explicacao).not.toMatch(/Espere esse tempo|tente de novo/);
+    expect(fonte.explicacao).toMatch(/É indício, não certeza\.$/);
+    expect(fonte.mensagemDaRecusa).toContain(aviso);
+  });
+
+  it("pausa vencida sem prova feita: aguardando a chamada de prova, não \"parada agora\" nem \"a chamada nem sai\"", async () => {
+    const { resposta } = await diagnosticar(
+      JSON.stringify({
+        formato: "garimpo-protecao",
+        versao: 2,
+        pausas: {},
+        disjuntores: {
+          jurisprudenciaia: { geracao: 2, aberturas: 1, pausa: { ate: AGORA - 60_000, aviso: "O site recusou (HTTP 429)." } },
+        },
+        freios: { jt: { restante: 8, pausaAte: AGORA - 60_000 } },
+        historico: [{ servico: "jurisprudenciaia", em: AGORA - HORA, tipo: "recusou" }],
+      }),
+    );
+    expect(resposta.resumo).not.toMatch(/paradas agora/);
+    expect(resposta.resumo).toMatch(/aguardando/);
+    expect(resposta.resumo).toMatch(/jurisprudenciaia/);
+    expect(resposta.resumo).toMatch(/jt/);
+    const fonte = resposta.fontes.find((f: { servico: string }) => f.servico === "jurisprudenciaia");
+    expect(fonte.situacao).toBe("aguardando a chamada de prova");
+    expect(fonte.explicacao).not.toMatch(/antes da hora|nem sai/);
+  });
+
+  it("linha de histórico de tipo desconhecido é ignorada: o resto do estado vale e a rede não para", async () => {
+    const { resposta } = await diagnosticar(
+      estadoCom({ "jurisprudenciaia": pausado(1) }, [
+        { servico: "jurisprudenciaia", em: AGORA - 2 * HORA, tipo: "novo-tipo" },
+        { servico: "jurisprudenciaia", em: AGORA - HORA, tipo: "recusou" },
+      ]),
+    );
+    expect(resposta.redeParada).toBeUndefined();
+    expect(resposta.fontes[0]).toMatchObject({ servico: "jurisprudenciaia", situacao: "pausada" });
+    expect(resposta.ultimas24h).toHaveLength(1);
+  });
+
   it("estado ilegível: diz rede parada, estado de proteção ilegível, sem quebrar", async () => {
     const { resposta } = await diagnosticar("{ isto não é o estado");
     expect(resposta.redeParada).toBe(true);

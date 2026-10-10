@@ -660,6 +660,8 @@ export interface FonteNoDiagnostico {
   /** Pausas por recusa seguidas, sem chamada de prova aceita (a dobra da pausa). */
   pausasSeguidas?: number;
   indicioDeRecusaSistematica?: true;
+  /** A mensagem dada quando a recusa aconteceu, guardada como estava; a leitura de agora fica em `explicacao`. */
+  mensagemDaRecusa?: string;
   restanteInformado?: number;
   reservaDoFreio?: number;
 }
@@ -705,10 +707,19 @@ function explicar(estado: Estado | undefined, agora: number): DiagnosticoDosFrei
   }
   const sistematicas = fontes.filter((f) => f.indicioDeRecusaSistematica).map((f) => f.servico);
   const recusas = recentes.filter((o) => o.tipo === "recusou" || o.tipo === "recusou-a-prova").length;
+  // Com `ate`, a pausa está em vigor; sem ele, venceu e a próxima chamada é a que confere se a fonte voltou.
+  const paradas = fontes.filter((f) => f.ate).map((f) => f.servico);
+  const aguardando = fontes.filter((f) => !f.ate).map((f) => f.servico);
   const resumo =
-    (fontes.length
-      ? `Fontes com chamadas paradas agora: ${fontes.map((f) => f.servico).join(", ")} (detalhes em "fontes").`
-      : "Nenhuma fonte está pausada agora: as chamadas podem sair.") +
+    (paradas.length
+      ? `Fontes com chamadas paradas agora: ${paradas.join(", ")} (detalhes em "fontes").`
+      : aguardando.length
+        ? ""
+        : "Nenhuma fonte está pausada agora: as chamadas podem sair.") +
+    (aguardando.length
+      ? `${paradas.length ? " " : ""}Pausa vencida, aguardando a chamada de prova (o próximo pedido a faz): ` +
+        `${aguardando.join(", ")} (detalhes em "fontes").`
+      : "") +
     (sistematicas.length
       ? ` Indício de recusa sistemática em: ${sistematicas.join(", ")} (esperar provavelmente não resolve).`
       : "") +
@@ -736,14 +747,20 @@ function fonteDoDisjuntor(
   agora: number,
 ): FonteNoDiagnostico | undefined {
   if (d.pausa) {
-    const indicio = indicioDeRecusaSistematica(historico, servico, agora);
+    // Sem linhas da fonte no histórico (estado de versão anterior), o próprio disjuntor basta: 2 aberturas seguidas
+    // só acontecem com a chamada de prova recusada, sem prova aceita no meio.
+    const indicio =
+      indicioDeRecusaSistematica(historico, servico, agora) ||
+      (d.aberturas >= RECUSAS_PARA_INDICIO && !historico.some((o) => o.servico === servico));
     const vigente = agora < d.pausa.ate;
     const leitura = indicio
-      ? `Indício de recusa sistemática: ${RECUSAS_PARA_INDICIO} ou mais recusas nas últimas 24 h, uma delas na chamada ` +
-        "de prova (uma única chamada, depois da pausa), sem nenhuma chamada aceita no meio. Parece que a fonte recusa o " +
-        "programa, não uma rajada sua: esperar a pausa provavelmente não resolve. Não insista; se precisar do " +
-        "conteúdo, consulte a fonte pelo navegador. É indício, não certeza."
-      : "Parece uma rajada: a pausa costuma passar. Insistir antes da hora não adianta, a chamada nem sai.";
+      ? `Indício de recusa sistemática: ao menos ${RECUSAS_PARA_INDICIO} recusas seguidas, uma delas na chamada de ` +
+        "prova (uma única chamada, depois da pausa), sem nenhuma chamada aceita no meio. Parece que a fonte recusa o " +
+        "programa, não uma rajada sua: esperar a pausa provavelmente não resolve, mesmo que a mensagem da recusa peça " +
+        "para esperar e tentar de novo. Não insista; se precisar do conteúdo, consulte a fonte pelo navegador. É " +
+        "indício, não certeza."
+      : "Parece uma rajada: a pausa costuma passar." +
+        (vigente ? " Insistir antes da hora não adianta, a chamada nem sai." : "");
     return {
       servico,
       situacao: vigente ? "pausada" : "aguardando a chamada de prova",
@@ -754,9 +771,10 @@ function fonteDoDisjuntor(
             `${diaEHora(d.pausa.ate)}. Depois, uma única chamada de prova confere se ela voltou a aceitar. `
           : "A pausa venceu: o próximo pedido seu faz a chamada de prova; aceita, as chamadas voltam; recusada, a " +
             "pausa recomeça dobrada. ") +
-        `${leitura} Aviso da recusa: ${d.pausa.aviso}`,
+        leitura,
       ...(d.aberturas > 0 && { pausasSeguidas: d.aberturas }),
       ...(indicio && { indicioDeRecusaSistematica: true as const }),
+      mensagemDaRecusa: `Mensagem de quando a recusa aconteceu (a leitura de agora está em "explicacao"): ${d.pausa.aviso}`,
     };
   }
   if (d.adiada && agora < d.adiada.ate) {
