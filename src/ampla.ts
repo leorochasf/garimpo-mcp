@@ -20,7 +20,7 @@ import { ehDoFalcao, infoTribunal, ROTULO_FALCAO } from "./tribunais.js";
 import { juntarEquivalentes, type Ocorrencia } from "./equivalencia.js";
 import { filtroLocal, type FiltrosLocais } from "./filtroLocal.js";
 import { diaEHora, FalhaNaMemoriaError, type Memoria } from "./memoria.js";
-import { ordenarPorAderencia, trecho } from "./pontuacao.js";
+import { ordenarPorAderencia, ordenarPorData, trecho } from "./pontuacao.js";
 import { avisoDeRecorridoAusenteAmplo } from "./recorrido.js";
 import type { TabelaDePrecedentes } from "./tabelaDePrecedentes.js";
 import type { TabelaDoStf } from "./tabelaDoStf.js";
@@ -37,6 +37,11 @@ export interface ParametrosAmpla extends FiltrosBusca, FiltrosLocais {
   tamanhoTrecho?: number;
   /** Ignora as buscas guardadas e faz todas no site; a que falhar é busca com erro. */
   renovar?: boolean;
+  /**
+   * Apresentação da lista (padrão "aderencia"). Com "data", os mesmos acórdãos escolhidos pela aderência saem do
+   * julgamento mais antigo ao mais recente; o corte pelo máximo continua pela aderência.
+   */
+  ordem?: "aderencia" | "data";
 }
 
 export interface ItemAmplo {
@@ -408,6 +413,19 @@ export async function buscaAmpla(
     ordenados.map((x) => x.acordao),
   );
   if (recorrido) avisos.push(recorrido);
+  // Ordem por data só depois da escolha e do corte pela aderência: muda a apresentação, nunca quem entra na lista.
+  let apresentados = mostrados;
+  if (p.ordem === "data") {
+    const porData = ordenarPorData(mostrados, (x) => x.acordao.dataJulgamento);
+    apresentados = porData.itens;
+    if (porData.semData) {
+      avisos.push(
+        porData.semData === 1
+          ? "Ordem por data: 1 acórdão sem data foi para o fim da lista."
+          : `Ordem por data: ${porData.semData} acórdãos sem data foram para o fim da lista.`,
+      );
+    }
+  }
   return {
     buscasFeitas: feitas,
     buscasPlanejadas: tarefas.length,
@@ -415,7 +433,7 @@ export async function buscaAmpla(
     totalAcordaos: ordenados.length,
     mostrados: mostrados.length,
     cabecalhoDeCobertura: cabecalho,
-    acordaos: mostrados.map(({ acordao: a, formulacoes }) => {
+    acordaos: apresentados.map(({ acordao: a, formulacoes }) => {
       const ementa = a.ementa.replace(/^\s*ementa\b\s*[:.\-–—]?\s*/i, "");
       const item: ItemAmplo = {
         id: a.id,

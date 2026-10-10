@@ -221,3 +221,19 @@ export function ordenarPorAderencia<T extends Candidato>(
   }
   return pontuados;
 }
+
+/**
+ * Ordem por data de julgamento, do mais antigo ao mais recente, só para apresentar uma lista já escolhida pela
+ * aderência. Estável: datas iguais mantêm a ordem recebida. Sem data (ou fora do formato AAAA-MM-DD) vai ao fim, na
+ * ordem recebida; `semData` conta quantos.
+ */
+export function ordenarPorData<T>(itens: readonly T[], dataDe: (item: T) => string | undefined): { itens: T[]; semData: number } {
+  const chave = (item: T) => {
+    const d = dataDe(item)?.slice(0, 10);
+    return d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : undefined;
+  };
+  const comData = itens.filter((x) => chave(x) !== undefined);
+  const semData = itens.filter((x) => chave(x) === undefined);
+  comData.sort((a, b) => (chave(a)! < chave(b)! ? -1 : chave(a)! > chave(b)! ? 1 : 0));
+  return { itens: [...comData, ...semData], semData: semData.length };
+}

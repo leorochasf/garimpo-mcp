@@ -50,7 +50,7 @@ const FORMULACOES_REALISTAS = ["dano moral coletivo", "dano moral difuso", "dano
  * Site falso com campos de tamanho realista: tudo fictício, mas com o tamanho dos campos reais: id longo, número CNJ
  * com sigla, órgão por extenso, link de ~95 caracteres, ementa longa; qualificados com tese longa, paradigma e link longo.
  */
-function siteRealista() {
+function siteRealista(dataDo = (_i: number) => "2024-01-02T00:00:00.000Z") {
   const link = (i: number) => `https://jurisprudencia.tribunal-exemplo.invalid/consulta/inteiro-teor/documento?id=${String(i).padStart(10, "0")}`;
   const realista = (texto: string, i: number) => ({
     id: `${texto}${String(i).padStart(9, "0")}`,
@@ -60,7 +60,7 @@ function siteRealista() {
     sigla_classe: "ApCiv",
     numero_processo: `50${String(i).padStart(5, "0")}-${texto.length}1.2024.8.21.0001`,
     orgao_julgador: "Décima Segunda Câmara Cível",
-    data_julgamento: "2024-01-02T00:00:00.000Z",
+    data_julgamento: dataDo(i),
     link_pdf: link(i),
   });
   const tema = (i: number) => ({
@@ -443,6 +443,65 @@ describe("busca ampla", () => {
     const antes = estado.chamadas;
     expect((await memoria.obter(r.acordaos[0].id))?.acordao.ementa).toBe(ementaLonga);
     expect(estado.chamadas).toBe(antes);
+  });
+});
+
+describe("busca ampla em ordem de data", () => {
+  /** Quatro acórdãos: três com a tese inteira na ementa (um sem data) e um só com parte dela. */
+  const site = () =>
+    siteFalso(() =>
+      respostaJson({
+        results: [
+          { ...bruto("recente", 0.5, "EMENTA FICTÍCIA. DANO MORAL COLETIVO."), data_julgamento: "2022-05-10T00:00:00.000Z" },
+          { ...bruto("parcial", 0.5, "EMENTA FICTÍCIA. DANO."), data_julgamento: "2010-01-01T00:00:00.000Z" },
+          { ...bruto("semdata", 0.5, "EMENTA FICTÍCIA. DANO MORAL COLETIVO."), data_julgamento: null },
+          { ...bruto("antigo", 0.5, "EMENTA FICTÍCIA. DANO MORAL COLETIVO."), data_julgamento: "2019-03-04T00:00:00.000Z" },
+        ],
+      }),
+    );
+  const pedido = { formulacoes: ["dano moral coletivo"], tribunais: ["stj"], maximo: 3 };
+
+  it("mesma lista nas duas ordens: o corte pelo máximo segue a aderência, a data só muda a apresentação", async () => {
+    const { cliente, estado } = site();
+    const porAderencia = await buscaAmpla(cliente, pedido);
+    const chamadas = estado.chamadas;
+    const porData = await buscaAmpla(cliente, { ...pedido, ordem: "data" });
+
+    // O de menor aderência (e mais antigo) fica fora nas duas: a ordem por data não o traz de volta.
+    expect(porAderencia.acordaos.map((a) => a.id).sort()).toEqual(["stj:antigo", "stj:recente", "stj:semdata"]);
+    expect(porData.acordaos.map((a) => a.id)).toEqual(["stj:antigo", "stj:recente", "stj:semdata"]);
+    expect(porData.cabecalhoDeCobertura).toEqual(porAderencia.cabecalhoDeCobertura);
+    expect(porData.avisos).toContain("Ordem por data: 1 acórdão sem data foi para o fim da lista.");
+    expect(porAderencia.avisos.some((a) => a.startsWith("Ordem por data"))).toBe(false);
+    // Sem memória, a segunda faz as mesmas buscas: o parâmetro não acrescenta chamada.
+    expect(estado.chamadas - chamadas).toBe(chamadas);
+  });
+
+  it("5 tribunais, repetida da memória e campos de tamanho realista: em ordem de data, o mesmo tamanho da ordem padrão", async () => {
+    const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-ampla-"));
+    try {
+      const memoria = new Memoria({ dados });
+      // Datas que embaralham a ordem: a data não acompanha a posição na busca.
+      const { cliente, estado } = siteRealista((i) => `20${String(10 + ((i * 7) % 15))}-0${1 + (i % 9)}-1${i % 10}T00:00:00.000Z`);
+      const pedido = { formulacoes: FORMULACOES_REALISTAS, tribunais: ["tjrs", "stj", "tjsp", "tjmg", "tjpr"] };
+      await buscaAmpla(cliente, pedido, memoria);
+      const chamadas = estado.chamadas;
+
+      const porAderencia = await buscaAmpla(cliente, pedido, memoria);
+      const porData = await buscaAmpla(cliente, { ...pedido, ordem: "data" }, memoria);
+
+      expect(estado.chamadas).toBe(chamadas);
+      expect(porData.cabecalhoDeCobertura.porTribunal.every((t) => t.guardadas === 3)).toBe(true);
+      expect(porData.acordaos.map((a) => a.id)).not.toEqual(porAderencia.acordaos.map((a) => a.id));
+      expect(porData.acordaos.map((a) => a.id).sort()).toEqual(porAderencia.acordaos.map((a) => a.id).sort());
+      const datas = porData.acordaos.map((a) => a.data!);
+      expect(datas).toEqual([...datas].sort());
+      // O parâmetro não acrescenta nada à resposta. Com 5 tribunais e estes campos, a ordem padrão já passa um pouco
+      // dos 25 mil caracteres (25.458 em 2026-10-10, antes desta mudança): o teto é do conjunto, não desta ordem.
+      expect(JSON.stringify(porData).length).toBe(JSON.stringify(porAderencia).length);
+    } finally {
+      await rm(dados, { recursive: true, force: true, maxRetries: 10 });
+    }
   });
 });
 
