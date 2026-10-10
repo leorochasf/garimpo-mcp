@@ -4,7 +4,8 @@
  * ao Falcão, 1 página por formulação × TRT, com teto de páginas por chamada (ADR-0018).
  */
 
-import { Cliente, PausaPreventivaError, RecusaError, umaProvaPorFerramenta } from "./cliente.js";
+import { Cliente, FormatoInesperadoError, PausaPreventivaError, RecusaError, umaProvaPorFerramenta } from "./cliente.js";
+import { RedeParadaError } from "./coordenacao.js";
 import {
   type Acordao,
   buscaDireta,
@@ -57,6 +58,27 @@ export interface ItemAmplo {
   fonte?: string;
 }
 
+/** Por que uma busca não deu resposta: vocabulário fechado, uma palavra, derivado do tipo de erro do cliente. */
+export type MotivoDeFalha = "recusa" | "pausa" | "rede-parada" | "tempo-esgotado" | "formato-inesperado" | "nao-executada";
+
+/** Começo fixo da mensagem do cliente (src/cliente.ts) para a chamada que não saiu porque a pausa do serviço já valia. */
+const CHAMADA_NAO_FEITA = "Esta chamada não foi feita";
+
+/**
+ * O motivo certo de cada tipo de erro do cliente; erro de outro tipo (ex.: rede que não chegou ao site) fica sem
+ * motivo: o vocabulário é fechado e não inventa. O prazo
+ * esgotado não tem classe própria no cliente: é reconhecido pela frase fixa dele.
+ */
+function motivoDoErro(e: unknown): MotivoDeFalha | undefined {
+  if (e instanceof PausaPreventivaError) return "pausa";
+  // Recusa com pausa: a que acabou de abrir a pausa é recusa; a chamada que nem saiu porque a pausa já valia é pausa.
+  if (e instanceof RecusaError) return e.pausa && e.message.startsWith(CHAMADA_NAO_FEITA) ? "pausa" : "recusa";
+  if (e instanceof RedeParadaError) return "rede-parada";
+  if (e instanceof FormatoInesperadoError) return "formato-inesperado";
+  if (e instanceof Error && /não respondeu em \d+ s;/.test(e.message)) return "tempo-esgotado";
+  return undefined;
+}
+
 /** Linha do cabeçalho de cobertura de um tribunal. Busca vazia e busca com erro nunca se confundem. */
 export interface CoberturaTribunal {
   tribunal: string;
@@ -69,6 +91,11 @@ export interface CoberturaTribunal {
   foraDoTeto?: number;
   /** Só em TRT: formulações não executadas pela pausa preventiva do Falcão (nunca busca vazia). */
   pausaPreventiva?: number;
+  /**
+   * Só quando alguma busca não deu resposta: quantas, por motivo (palavra fixa). Busca vazia nunca entra aqui; vazio
+   * não é falha (ADR-0001). Os campos acima continuam dizendo o mesmo em números.
+   */
+  motivos?: Partial<Record<MotivoDeFalha, number>>;
   /**
    * Só quando alguma busca veio da memória (nomes e data curtos: com 2 tribunais, a resposta já beira o teto de 25 mil
    * caracteres): quantas das buscasFeitas são buscas guardadas...
@@ -152,6 +179,8 @@ export async function buscaAmpla(
       guardadaEm: undefined as number | undefined,
       /** Só em TRT: por que não foi executada (teto de páginas do Falcão ou pausa preventiva). */
       naoExecutada: undefined as "teto" | "pausa" | undefined,
+      /** Motivo da busca com erro, derivado do tipo do erro; sem ele, o erro não é de nenhum tipo conhecido. */
+      codigo: undefined as MotivoDeFalha | undefined,
     })),
   );
   const juntos = new Map<string, Ocorrencia<Acordao>>();
@@ -266,6 +295,7 @@ export async function buscaAmpla(
           continue;
         }
         porTribunal.get(t.tribunal)!.comErro++;
+        t.codigo = motivoDoErro(e);
         if (e instanceof RecusaError) {
           recusa ??= e;
           t.motivo = `${t.rotulo}: recusa`;
@@ -364,6 +394,12 @@ export async function buscaAmpla(
       const doTribunal = tarefas.filter((t) => t.tribunal === tribunal);
       const foraDoTeto = doTribunal.filter((t) => t.naoExecutada === "teto").length;
       const pausaPreventiva = doTribunal.filter((t) => t.naoExecutada === "pausa").length;
+      const motivos: Partial<Record<MotivoDeFalha, number>> = {};
+      for (const t of doTribunal) {
+        // Sem resposta e sem nunca ter saído da fila (a recusa parou a busca) = não executada.
+        const m = t.resposta ? undefined : motivoDaTarefa(t);
+        if (m) motivos[m] = (motivos[m] ?? 0) + 1;
+      }
       const naoFeitas = planejadas - contas.buscasFeitas - contas.comErro - foraDoTeto - pausaPreventiva;
       const linha: CoberturaTribunal = {
         tribunal,
@@ -371,6 +407,7 @@ export async function buscaAmpla(
         ...(naoFeitas ? { naoFeitas } : {}),
         ...(foraDoTeto ? { foraDoTeto } : {}),
         ...(pausaPreventiva ? { pausaPreventiva } : {}),
+        ...(Object.keys(motivos).length ? { motivos } : {}),
         ...(guardadas && { guardadas, feitasAgora: contas.buscasFeitas - guardadas, maisAntiga: diaEHora(maisAntiga) }),
       };
       if (contas.buscasFeitas === 0) return { ...linha, situacao: contas.comErro ? "com erro" : "não pesquisado" };
@@ -463,6 +500,13 @@ export async function buscaAmpla(
     }),
     avisos,
   };
+}
+
+/** Motivo de uma busca que não deu resposta (nunca chamada para busca vazia, que deu resposta). */
+function motivoDaTarefa(t: { naoExecutada?: "teto" | "pausa"; motivo?: string; codigo?: MotivoDeFalha }): MotivoDeFalha | undefined {
+  if (t.naoExecutada === "teto") return "nao-executada";
+  if (t.naoExecutada === "pausa") return "pausa";
+  return t.motivo === undefined ? "nao-executada" : t.codigo;
 }
 
 /** Por que a busca não saiu, na resposta de erro da falha total. */

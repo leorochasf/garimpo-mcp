@@ -3,9 +3,11 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buscaAmpla } from "../src/ampla.js";
 import { buscaDireta } from "../src/busca.js";
-import { Cliente, RecusaError, Vagas } from "../src/cliente.js";
+import { Cliente, FormatoInesperadoError, PausaPreventivaError, RecusaError, Vagas } from "../src/cliente.js";
+import { RedeParadaError } from "../src/coordenacao.js";
 import { Memoria } from "../src/memoria.js";
 import { respostaJson } from "./apoio.js";
+import { documento, falcaoFalso, pagina } from "./apoioFalcao.js";
 
 /** Acórdão fictício no formato do site. */
 function bruto(id: string, rerank: number, ementa = `EMENTA FICTÍCIA ${id}.`) {
@@ -596,7 +598,7 @@ describe("cabeçalho de cobertura da busca ampla", () => {
     const r = await buscaAmpla(cliente, { formulacoes: ["a", "b"], tribunais: ["stj", "tjgo"] });
 
     const tjgo = r.cabecalhoDeCobertura.porTribunal.find((t) => t.tribunal === "tjgo");
-    expect(tjgo).toEqual({ tribunal: "tjgo", buscasFeitas: 0, vazias: 0, comErro: 2, situacao: "com erro" });
+    expect(tjgo).toEqual({ tribunal: "tjgo", buscasFeitas: 0, vazias: 0, comErro: 2, situacao: "com erro", motivos: { "formato-inesperado": 2 } });
     expect(tjgo).not.toHaveProperty("achados");
     expect(r.cabecalhoDeCobertura.porTribunal.find((t) => t.tribunal === "stj")).toMatchObject({ comErro: 0, achados: 2 });
   });
@@ -608,7 +610,7 @@ describe("cabeçalho de cobertura da busca ampla", () => {
 
     const r = await buscaAmpla(cliente, { formulacoes: ["a", "b", "c"], tribunais: ["stj"] });
 
-    expect(r.cabecalhoDeCobertura.porTribunal).toEqual([{ tribunal: "stj", buscasFeitas: 2, vazias: 0, comErro: 1, achados: 2, mostrados: 2 }]);
+    expect(r.cabecalhoDeCobertura.porTribunal).toEqual([{ tribunal: "stj", buscasFeitas: 2, vazias: 0, comErro: 1, motivos: { "formato-inesperado": 1 }, achados: 2, mostrados: 2 }]);
   });
 
   it("recusa antes de chegar a um tribunal: ele aparece \"não pesquisado\", nunca \"0 achados\"", async () => {
@@ -635,8 +637,8 @@ describe("cabeçalho de cobertura da busca ampla", () => {
 
     expect(r.cabecalhoDeCobertura.porTribunal).toEqual([
       { tribunal: "stj", buscasFeitas: 1, vazias: 0, comErro: 0, achados: 1, mostrados: 1 },
-      { tribunal: "tjgo", buscasFeitas: 0, vazias: 0, comErro: 1, situacao: "com erro" },
-      { tribunal: "tjrs", buscasFeitas: 0, vazias: 0, comErro: 0, naoFeitas: 1, situacao: "não pesquisado" },
+      { tribunal: "tjgo", buscasFeitas: 0, vazias: 0, comErro: 1, motivos: { recusa: 1 }, situacao: "com erro" },
+      { tribunal: "tjrs", buscasFeitas: 0, vazias: 0, comErro: 0, naoFeitas: 1, motivos: { "nao-executada": 1 }, situacao: "não pesquisado" },
     ]);
   });
 
@@ -818,5 +820,171 @@ describe("filtros locais: sem ementa, lista vazia, falha total e precedentes qua
 
     expect(r.acordaos).toEqual([]);
     expect(r.qualificados.map((q) => [q.tipo, q.numero])).toEqual([["repercussão geral", "900"]]);
+  });
+});
+
+describe("motivo de falha por tribunal na busca ampla", () => {
+  /** O tjsp falha como o teste manda; os demais tribunais respondem 1 acórdão (ou o que `outros` devolver). */
+  function comFalhaNoTjsp(falha: (url: string) => Promise<Response>, prazoMs?: number) {
+    return new (class extends Cliente {
+      requisitar(url: string, init: RequestInit = {}): Promise<Response> {
+        return url.includes("/tribunais/tjsp/") ? falha(url) : super.requisitar(url, init);
+      }
+    })({
+      nome: "O site",
+      esperar: async () => {},
+      prazoMs,
+      fetch: (async (url: string) => respostaJson({ results: [bruto(`ok-${String(url).length}`, 0.5)] })) as typeof fetch,
+    });
+  }
+  const motivosDoTjsp = async (cliente: Cliente) => {
+    const r = await buscaAmpla(cliente, { formulacoes: ["a"], tribunais: ["stj", "tjsp"] });
+    const [stj, tjsp] = r.cabecalhoDeCobertura.porTribunal;
+    expect(stj.motivos).toBeUndefined();
+    return tjsp.motivos;
+  };
+
+  it("recusa do site: motivo recusa", async () => {
+    const motivos = await motivosDoTjsp(comFalhaNoTjsp(() => Promise.reject(new RecusaError("O site recusou a chamada duas vezes.", 429))));
+    expect(motivos).toEqual({ recusa: 1 });
+  });
+
+  it("chamada que nem saiu porque a pausa aberta por uma recusa ainda vale: motivo pausa (e a recusa que a abriu, recusa)", async () => {
+    const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-ampla-"));
+    try {
+      const memoria = new Memoria({ dados });
+      const cliente = new Cliente({
+        nome: "O site",
+        vagas: new Vagas(2),
+        esperar: async () => {},
+        fetch: (async (url: string) =>
+          String(url).includes("/tribunais/tjsp/") ? new Response("", { status: 429 }) : respostaJson({ results: [bruto("s", 0.5)] })) as typeof fetch,
+      });
+      await buscaAmpla(cliente, { formulacoes: ["a"], tribunais: ["stj"] }, memoria); // o STJ fica guardado
+      // A recusa que abre a pausa.
+      const aberta = await buscaAmpla(cliente, { formulacoes: ["a"], tribunais: ["stj", "tjsp"] }, memoria);
+      expect(aberta.cabecalhoDeCobertura.porTribunal[1].motivos).toEqual({ recusa: 1 });
+      // Pausa aberta: a chamada ao TJSP nem sai.
+      const pausada = await buscaAmpla(cliente, { formulacoes: ["a"], tribunais: ["stj", "tjsp"] }, memoria);
+      expect(pausada.cabecalhoDeCobertura.porTribunal[1].motivos).toEqual({ pausa: 1 });
+    } finally {
+      await rm(dados, { recursive: true, force: true, maxRetries: 10 });
+    }
+  });
+
+  it("pausa preventiva do freio: motivo pausa", async () => {
+    const motivos = await motivosDoTjsp(comFalhaNoTjsp(() => Promise.reject(new PausaPreventivaError("Pausa preventiva.", Date.now() + 60_000, 60))));
+    expect(motivos).toEqual({ pausa: 1 });
+  });
+
+  it("estado de proteção ilegível: motivo rede-parada", async () => {
+    const motivos = await motivosDoTjsp(comFalhaNoTjsp(() => Promise.reject(new RedeParadaError("Rede parada: estado ilegível."))));
+    expect(motivos).toEqual({ "rede-parada": 1 });
+  });
+
+  it("formato que o Garimpo não reconhece: motivo formato-inesperado", async () => {
+    const motivos = await motivosDoTjsp(comFalhaNoTjsp(() => Promise.reject(new FormatoInesperadoError("Formato inesperado."))));
+    expect(motivos).toEqual({ "formato-inesperado": 1 });
+  });
+
+  it("prazo da chamada esgotado, de verdade, no cliente: motivo tempo-esgotado", async () => {
+    const cliente = new (class extends Cliente {
+      requisitar(url: string, init: RequestInit = {}): Promise<Response> {
+        return super.requisitar(url, init);
+      }
+    })({
+      nome: "O site",
+      esperar: async () => {},
+      prazoMs: 20,
+      fetch: ((url: string, init: RequestInit) =>
+        String(url).includes("/tribunais/tjsp/")
+          ? new Promise<Response>((_, rejeitar) => init.signal!.addEventListener("abort", () => rejeitar(new Error("abortado"))))
+          : Promise.resolve(respostaJson({ results: [bruto("ok", 0.5)] }))) as typeof fetch,
+    });
+    expect(await motivosDoTjsp(cliente)).toEqual({ "tempo-esgotado": 1 });
+  });
+
+  it("busca vazia nunca recebe motivo (vazio ≠ ausência), e sem falha o campo não existe", async () => {
+    const cliente = comFalhaNoTjsp(async () => respostaJson({ results: [] }));
+    const r = await buscaAmpla(cliente, { formulacoes: ["a"], tribunais: ["stj", "tjsp"] });
+    const tjsp = r.cabecalhoDeCobertura.porTribunal[1];
+    expect(tjsp.vazias).toBe(1);
+    expect(tjsp.comErro).toBe(0);
+    expect(tjsp.motivos).toBeUndefined();
+    expect(JSON.stringify(r)).not.toContain("motivos");
+  });
+
+  it("erro que não é de nenhum desses tipos não ganha motivo inventado; segue contado em comErro e no aviso", async () => {
+    const cliente = comFalhaNoTjsp(() => Promise.reject(new Error("Não foi possível falar com O site (x). Verifique a conexão.")));
+    const r = await buscaAmpla(cliente, { formulacoes: ["a"], tribunais: ["stj", "tjsp"] });
+    const tjsp = r.cabecalhoDeCobertura.porTribunal[1];
+    expect(tjsp.comErro).toBe(1);
+    expect(tjsp.motivos).toBeUndefined();
+    expect(r.avisos.some((a) => /Verifique a conexão/.test(a))).toBe(true);
+  });
+
+  it("recusa que para a busca: o que ficou sem executar sai como nao-executada, junto da recusa", async () => {
+    const cliente = new Cliente({
+      nome: "O site",
+      vagas: new Vagas(2),
+      esperar: async () => {},
+      fetch: (async (url: string) =>
+        String(url).includes("/tribunais/stj/") ? respostaJson({ results: [bruto("x", 0.5)] }) : new Response("", { status: 429 })) as typeof fetch,
+    });
+    // Uma fila só para a ordem ser previsível: stj (3 buscas) ... o tjsp recebe a recusa e deixa as outras sem executar.
+    const r = await buscaAmpla(cliente, { formulacoes: ["a", "b", "c", "d", "e", "f"], tribunais: ["stj", "tjsp"] });
+    const tjsp = r.cabecalhoDeCobertura.porTribunal[1];
+    expect(tjsp.motivos?.recusa).toBeGreaterThanOrEqual(1);
+    // Nenhuma das 6 buscas do TJSP deu resposta: todas têm motivo (a que levou a recusa, a que já achou a pausa
+    // aberta e as que nem saíram da fila).
+    expect(Object.values(tjsp.motivos!).reduce((soma, n) => soma + (n ?? 0), 0)).toBe(6);
+    expect(tjsp.motivos?.["nao-executada"]).toBe(tjsp.naoFeitas);
+    expect(Object.keys(tjsp.motivos!).every((m) => ["recusa", "pausa", "nao-executada"].includes(m))).toBe(true);
+  });
+
+  it("buscas além do teto de páginas do Falcão: nao-executada (nunca vazia); a que a pausa preventiva barrou: pausa", async () => {
+    const porPedido = (url: URL) => {
+      const trt = url.searchParams.get("tribunais")!;
+      const texto = url.searchParams.get("texto")!;
+      const n = [...`${trt}${texto}`].reduce((s, c) => (s * 31 + c.charCodeAt(0)) % 9_000_000, 7) + 1_000_000;
+      return pagina([documento({ tribunal: trt, idDocumentoAcordao: String(n), numeroProcesso: `0${n}-00.2024.5.01.0001`, ementa: `<p>${texto}.</p>` })]);
+    };
+    const doTeto = await buscaAmpla(siteFalso(() => respostaJson({ results: [] })).cliente, {
+      formulacoes: ["horas extras", "jornada excessiva", "banco de horas"],
+      tribunais: ["trt2", "trt15"],
+    }, undefined, { falcao: falcaoFalso(porPedido).cliente });
+    const [trt2, trt15] = doTeto.cabecalhoDeCobertura.porTribunal;
+    expect(trt2.motivos).toBeUndefined();
+    expect(trt15).toMatchObject({ foraDoTeto: 1, vazias: 0, motivos: { "nao-executada": 1 } });
+
+    const pausado = await buscaAmpla(siteFalso(() => respostaJson({ results: [] })).cliente, {
+      formulacoes: ["horas extras"],
+      tribunais: ["trt1", "trt2", "trt3"],
+    }, undefined, { falcao: falcaoFalso((url) => { const r = porPedido(url); r.headers.set("x-rate-limit-remaining", "10"); return r; }).cliente });
+    const linhas = pausado.cabecalhoDeCobertura.porTribunal;
+    const pausadas = linhas.reduce((s, l) => s + (l.pausaPreventiva ?? 0), 0);
+    expect(pausadas).toBeGreaterThan(0);
+    expect(linhas.reduce((s, l) => s + (l.motivos?.pausa ?? 0), 0)).toBe(pausadas);
+    expect(linhas.every((l) => !l.pausaPreventiva || l.motivos?.pausa === l.pausaPreventiva)).toBe(true);
+  });
+
+  it("5 tribunais, 2 deles com falha, campos de tamanho realista: o motivo é curto e a resposta fica < 25 mil caracteres", async () => {
+    const { cliente: base } = siteRealista();
+    const cliente = new (class extends Cliente {
+      requisitar(url: string, init: RequestInit = {}): Promise<Response> {
+        if (url.includes("/tribunais/tjmg/")) return Promise.reject(new FormatoInesperadoError("Formato inesperado."));
+        if (url.includes("/tribunais/tjpr/")) return Promise.reject(new RedeParadaError("Rede parada."));
+        return base.requisitar(url, init);
+      }
+    })({ nome: "O site", esperar: async () => {} });
+    const pedido = { formulacoes: FORMULACOES_REALISTAS, tribunais: ["tjrs", "stj", "tjsp", "tjmg", "tjpr"] };
+    const r = await buscaAmpla(cliente, pedido);
+    const linhas = r.cabecalhoDeCobertura.porTribunal;
+    expect(linhas.filter((t) => t.motivos).map((t) => t.tribunal)).toEqual(["tjmg", "tjpr"]);
+    const tamanhoDosMotivos = JSON.stringify(linhas.map((t) => t.motivos ?? null)).length;
+    expect(tamanhoDosMotivos).toBeLessThan(120);
+    // O campo novo é o único acréscimo: sem ele a resposta tem o mesmo tamanho de antes desta mudança.
+    const semMotivos = { ...r, cabecalhoDeCobertura: { ...r.cabecalhoDeCobertura, porTribunal: linhas.map(({ motivos: _, ...resto }) => resto) } };
+    expect(JSON.stringify(r).length - JSON.stringify(semMotivos).length).toBeLessThan(120);
   });
 });
