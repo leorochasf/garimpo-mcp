@@ -682,6 +682,23 @@ describe("erros que ensinam e listas como texto", () => {
     expect(buscas).toHaveLength(2);
   });
 
+  it("texto só de espaços, ou curto depois de juntar os espaços: erro que ensina, sem chamar o site", async () => {
+    const { site, buscas } = siteQueAnota();
+    const respostas = [
+      await chamar(site, "busca_direta", { tribunal: "stj", texto: "   \n  " }),
+      await chamar(site, "busca_direta", { tribunal: "stj", texto: "  a  " }),
+      await chamar(site, "busca_ampla", { formulacoes: ["responsabilidade civil", " \t "], tribunais: ["stj"] }),
+    ];
+
+    for (const r of respostas) {
+      expect(r.isError).toBe(true);
+      expect(r.texto).toMatch(/ao menos 2 caracteres/);
+      expect(r.texto).toMatch(/palavras-chave/);
+      expect(r.texto).not.toMatch(TECNICO);
+    }
+    expect(buscas).toEqual([]);
+  });
+
   it("espaços repetidos e quebras de linha são juntados antes de contar e antes de buscar", async () => {
     const { site, buscas } = siteQueAnota();
     const espalhado = "  responsabilidade   civil\n\n  do   estado  " + " ".repeat(400);

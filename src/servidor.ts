@@ -87,9 +87,18 @@ function conferirTribunais(...tribunais: (string | undefined)[]) {
 // de 3 vezes essa folga e fica muito abaixo de um trecho de petição, que não deve ir ao site (CLAUDE.md, regra 2).
 const TETO_DA_FORMULACAO = 300;
 
-/** Junta espaços e quebras repetidos e recusa, com frase que ensina a corrigir, texto acima do teto. */
+/**
+ * Junta espaços e quebras repetidos e recusa, com frase que ensina a corrigir, texto curto (o mínimo do esquema vale
+ * depois de juntar os espaços: texto só de espaços não vai ao site) ou acima do teto.
+ */
 function conferirFormulacao(texto: string): string {
   const limpo = texto.replace(/\s+/g, " ").trim();
+  if (limpo.length < 2) {
+    throw new Error(
+      "A formulação precisa de ao menos 2 caracteres além dos espaços. Escreva a tese em palavras-chave " +
+        "(instituto, dispositivo legal, tema).",
+    );
+  }
   if (limpo.length > TETO_DA_FORMULACAO) {
     throw new Error(
       `A formulação tem ${limpo.length} caracteres e o teto é de ${TETO_DA_FORMULACAO} caracteres. A busca é por tese em abstrato: ` +
