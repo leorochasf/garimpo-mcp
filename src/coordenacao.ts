@@ -14,7 +14,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 import { readFileSync, unlinkSync } from "node:fs";
-import { access, link, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { link, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { homedir, hostname } from "node:os";
 import { join } from "node:path";
 import {
@@ -270,8 +270,19 @@ export interface Ocorrencia {
   ferramenta?: string;
 }
 
-/** Teto do histórico, somados todos os serviços: ficam as mais recentes. */
-export const HISTORICO_MAXIMO = 30;
+/** Teto do histórico por serviço: ficam as mais recentes de cada um, e um serviço não expulsa as linhas de outro. */
+export const HISTORICO_MAXIMO_POR_SERVICO = 10;
+
+function comTeto(historico: readonly Ocorrencia[]): Ocorrencia[] {
+  const contagem = new Map<string, number>();
+  const ficam: Ocorrencia[] = [];
+  for (let i = historico.length - 1; i >= 0; i--) {
+    const n = (contagem.get(historico[i].servico) ?? 0) + 1;
+    contagem.set(historico[i].servico, n);
+    if (n <= HISTORICO_MAXIMO_POR_SERVICO) ficam.push(historico[i]);
+  }
+  return ficam.reverse();
+}
 
 function ocorrenciaDe(r: Resultado, saida: Saida): TipoDeOcorrencia | undefined {
   switch (r.tipo) {
@@ -330,8 +341,8 @@ export class CoordenacaoEmArquivo implements Coordenacao {
   /** Acorda quem espera vaga neste processo assim que uma vaga daqui é liberada. */
   private avisarLiberacao: () => void = () => {};
   private liberacao = this.novaLiberacao();
-  /** Última vez que esta janela não conseguiu anotar um resultado no estado. */
-  private falhaAoGravar?: { em: number; motivo: string };
+  /** Última vez que esta janela não conseguiu anotar um resultado no estado; `depois`: gravou com sucesso desde então. */
+  private falhaAoGravar?: { em: number; motivo: string; depois?: true };
 
   constructor(opcoes: OpcoesCoordenacao = {}) {
     this.protecao = join(opcoes.pasta ?? pastaDeDados(), "protecao");
@@ -416,7 +427,7 @@ export class CoordenacaoEmArquivo implements Coordenacao {
         if (tipo) {
           const ferramenta = ferramentaAtual.getStore();
           const ocorrencia: Ocorrencia = { servico, em: agora(), tipo, ...(ferramenta && { ferramenta }) };
-          estado.historico = [...(estado.historico ?? []), ocorrencia].slice(-HISTORICO_MAXIMO);
+          estado.historico = comTeto([...(estado.historico ?? []), ocorrencia]);
         }
         await this.gravarEstado(estado);
       }
@@ -464,15 +475,6 @@ export class CoordenacaoEmArquivo implements Coordenacao {
     }
   }
 
-  /** O estado como está no disco; ausente = undefined, sem criá-lo. */
-  private async lerEstadoGuardado(): Promise<Estado | undefined> {
-    try {
-      await access(this.estado);
-    } catch (e) {
-      if (codigo(e) === "ENOENT") return undefined;
-    }
-    return this.lerEstado();
-  }
 
   private novaLiberacao(): Promise<void> {
     return new Promise<void>((r) => (this.avisarLiberacao = r));
@@ -575,16 +577,21 @@ export class CoordenacaoEmArquivo implements Coordenacao {
 
   /** Lê e confere o estado; ausente = primeiro uso, inicializado sob a trava (nunca sem ela). */
   private async lerEstado(sobTrava = false): Promise<Estado> {
+    const guardado = await this.lerEstadoGuardado();
+    if (guardado) return guardado;
+    if (!sobTrava) return this.comTrava(() => this.lerEstado(true));
+    const novo: Estado = { formato: FORMATO_ESTADO, versao: VERSAO_ESTADO, pausas: {}, disjuntores: {} };
+    await this.gravarEstado(novo);
+    return novo;
+  }
+
+  /** O estado como está no disco, conferido; ausente = undefined, sem criar pasta, trava nem estado. */
+  private async lerEstadoGuardado(): Promise<Estado | undefined> {
     let texto: string;
     try {
       texto = await insistir(() => readFile(this.estado, "utf8"));
     } catch (e) {
-      if (codigo(e) === "ENOENT") {
-        if (!sobTrava) return this.comTrava(() => this.lerEstado(true));
-        const novo: Estado = { formato: FORMATO_ESTADO, versao: VERSAO_ESTADO, pausas: {}, disjuntores: {} };
-        await this.gravarEstado(novo);
-        return novo;
-      }
+      if (codigo(e) === "ENOENT") return undefined;
       throw ehPermissao(e) ? semPermissao(this.estado) : ilegivel(this.estado);
     }
     let estado: {
@@ -613,10 +620,12 @@ export class CoordenacaoEmArquivo implements Coordenacao {
       typeof disjuntores === "object" &&
       disjuntores !== null &&
       Object.values(disjuntores).every(disjuntorValido) &&
-      (freios === undefined || (typeof freios === "object" && freios !== null && Object.values(freios).every(freioValido))) &&
-      (historico === undefined || (Array.isArray(historico) && historico.every(ocorrenciaValida)));
+      (freios === undefined || (typeof freios === "object" && freios !== null && Object.values(freios).every(freioValido)));
     if (!valido) throw ilegivel(this.estado);
-    return { ...estado, versao: VERSAO_ESTADO, pausas, disjuntores } as Estado;
+    // O histórico só serve ao diagnóstico: linha que esta versão não entende é descartada, nunca para a rede.
+    const lido = { ...estado, versao: VERSAO_ESTADO, pausas, disjuntores } as Estado;
+    if (historico !== undefined) lido.historico = Array.isArray(historico) ? historico.filter(ocorrenciaValida) : [];
+    return lido;
   }
 
   /** Grava por temporário + renomeação: quem lê vê o estado anterior ou o novo, nunca pela metade. */
@@ -625,6 +634,7 @@ export class CoordenacaoEmArquivo implements Coordenacao {
     try {
       await insistir(() => writeFile(temporario, JSON.stringify(estado), { flag: "wx" }));
       await insistir(() => rename(temporario, this.estado));
+      if (this.falhaAoGravar) this.falhaAoGravar.depois = true;
     } catch (e) {
       await rm(temporario, { force: true }).catch(() => {});
       throw ehPermissao(e) ? semPermissao(this.estado) : e;
@@ -789,10 +799,11 @@ function fonteDoFreio(servico: string, f: Freio, pausaAte: number, agora: number
   };
 }
 
-function avisoDeFalha(f: { em: number; motivo: string }): string {
+function avisoDeFalha(f: { em: number; motivo: string; depois?: true }): string {
   return (
     `Em ${diaEHora(f.em)}, esta janela não conseguiu gravar no estado de proteção o resultado de uma chamada (por ` +
-    `exemplo, uma recusa): as outras janelas podem não saber dessa recusa nem da pausa. Motivo: ${f.motivo}`
+    `exemplo, uma recusa): as outras janelas podem não saber dessa recusa nem da pausa. Motivo: ${f.motivo}` +
+    (f.depois ? " Desde então, gravações seguintes desta janela funcionaram; aquela recusa continua sem registro." : "")
   );
 }
 

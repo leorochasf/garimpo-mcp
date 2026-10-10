@@ -292,7 +292,7 @@ describe("histórico de recusas", { timeout: 90_000 }, () => {
     }
   });
 
-  it("tem teto: com o histórico cheio, a ocorrência nova entra e a mais antiga sai", async () => {
+  it("tem teto por serviço: o histórico cheio de outro serviço não expulsa as ocorrências deste", async () => {
     await mkdir(protecao, { recursive: true });
     const antigas = Array.from({ length: 30 }, (_, i) => ({ servico: "outro.test", em: i, tipo: "recusou" }));
     await writeFile(
@@ -304,9 +304,27 @@ describe("histórico de recusas", { timeout: 90_000 }, () => {
     await cliente.requisitar("https://exemplo.test/a").catch(() => {});
 
     const { historico } = JSON.parse(await readFile(join(protecao, "estado.json"), "utf8"));
-    expect(historico).toHaveLength(30);
-    expect(historico[0].em).toBe(2);
-    expect(historico.at(-1)).toEqual({ servico: "exemplo.test", em: 1_000_000, tipo: "recusou" });
+    const doOutro = historico.filter((h: { servico: string }) => h.servico === "outro.test");
+    expect(doOutro.map((h: { em: number }) => h.em)).toEqual(Array.from({ length: 10 }, (_, i) => 20 + i));
+    expect(historico.filter((h: { servico: string }) => h.servico === "exemplo.test").map((h: { tipo: string }) => h.tipo))
+      .toEqual(["pediu-espera", "recusou"]);
+  });
+
+  it("linha do histórico de tipo desconhecido é descartada: a rede não para e o estado continua valendo", async () => {
+    await mkdir(protecao, { recursive: true });
+    await writeFile(
+      join(protecao, "estado.json"),
+      JSON.stringify({
+        formato: "garimpo-protecao",
+        versao: 2,
+        pausas: {},
+        disjuntores: {},
+        historico: [{ servico: "exemplo.test", em: 1, tipo: "novo-tipo" }],
+      }),
+    );
+    const { cliente } = clienteNaPasta([() => respostaJson({ ok: true })]);
+
+    expect(await (await cliente.requisitar("https://exemplo.test/a")).json()).toEqual({ ok: true });
   });
 
   it("o diagnóstico avisa quando uma recusa não pôde ser gravada no estado; estado ilegível vira rede parada, sem quebrar", async (ctx) => {
@@ -340,6 +358,15 @@ describe("histórico de recusas", { timeout: 90_000 }, () => {
     } finally {
       devolver();
     }
+    // Depois que a gravação volta a funcionar, o aviso diz isso (a recusa perdida continua sem registro).
+    const mesmaJanela = new Cliente({
+      nome: "O site",
+      vagas: coordenacao,
+      esperar: async () => {},
+      fetch: (async () => recusa()) as typeof fetch,
+    });
+    await mesmaJanela.requisitar("https://exemplo.test/c").catch(() => {});
+    expect((await coordenacao.diagnosticar()).avisoDeGravacao).toMatch(/gravações seguintes desta janela funcionaram/);
 
     await writeFile(join(protecao, "estado.json"), "{ isto não é o estado");
     const ilegivel = await new CoordenacaoEmArquivo({ pasta }).diagnosticar();
