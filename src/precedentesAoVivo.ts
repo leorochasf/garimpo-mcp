@@ -42,6 +42,8 @@ export interface DoPortal<L> {
   daMemoria: boolean;
   /** STJ: "Última atualização" que a página informa. */
   ultimaAtualizacao?: string;
+  /** Súmulas: instante (ms) em que a lista, de onde vem a marca de situação, foi lida no portal. */
+  listaObtidaEm?: number;
 }
 
 /**
@@ -206,7 +208,11 @@ interface Guardado<L> {
   linha: L;
   endereco: string;
   ultimaAtualizacao?: string;
+  listaObtidaEm?: number;
 }
+
+/** A mesma validade da memória do Garimpo (24 h). */
+const VALIDADE_MS = 24 * 3_600_000;
 
 const ehGuardado = (d: unknown): d is Guardado<unknown> =>
   typeof d === "object" && d !== null && typeof (d as Guardado<unknown>).endereco === "string" &&
@@ -253,7 +259,7 @@ export class PrecedentesAoVivo {
         return { linha, endereco: ficha.paginaDaTese };
       }
       const lista = PAGINAS_DO_STF[tipo];
-      const { dado: itens } = await this.guardadoOu(chave("stf-lista", tipo), ehLista, async () =>
+      const { dado: itens, obtidoEm: listaObtidaEm } = await this.guardadoOu(chave("stf-lista", tipo), ehLista, async () =>
         lerListaDeSumulas(await textoDe(this.stf, lista), tipo),
       );
       const item = itens.find(([n]) => n === numero);
@@ -264,7 +270,7 @@ export class PrecedentesAoVivo {
       }
       const endereco = `${lista}&sumula=${item[1]}`;
       const enunciado = lerPaginaDaSumula(await textoDe(this.stf, endereco), tipo, numero);
-      return { linha: { tipo, numero, ...opcional("situacao", item[2]), enunciado, link: endereco }, endereco };
+      return { linha: { tipo, numero, ...opcional("situacao", item[2]), enunciado, link: endereco }, endereco, listaObtidaEm };
     });
   }
 
@@ -277,9 +283,18 @@ export class PrecedentesAoVivo {
     return { dado, obtidoEm: this.agora(), daMemoria: false };
   }
 
+  /**
+   * A resposta da memória (24 h) ou buscada agora. A resposta composta vence junto com o componente mais antigo: nas
+   * súmulas, a lista de onde veio a marca, que pode ter sido lida antes da página.
+   */
   private async lembrado<L>(k: string, buscar: () => Promise<Guardado<L>>): Promise<DoPortal<L>> {
-    const { dado, obtidoEm, daMemoria } = await this.guardadoOu(k, ehGuardado, buscar);
-    return { ...(dado as Guardado<L>), consultadoEm: obtidoEm, daMemoria };
+    const guardada = await this.memoria.obterConsulta(k, "precedentes", ehGuardado).catch(() => undefined);
+    const dado = guardada?.dado as Guardado<L> | undefined;
+    const listaVencida = dado?.listaObtidaEm !== undefined && this.agora() - dado.listaObtidaEm >= VALIDADE_MS;
+    if (guardada && dado && !listaVencida) return { ...dado, consultadoEm: guardada.obtidoEm, daMemoria: true };
+    const novo = await buscar();
+    this.memoria.guardarConsulta(k, "precedentes", novo);
+    return { ...novo, consultadoEm: this.agora(), daMemoria: false };
   }
 }
 
@@ -321,11 +336,13 @@ export function respostaDoStf(d: DoPortal<LinhaDoStf>) {
   const { linha } = d;
   const quando = dataEHora(d.consultadoEm);
   const sumula = linha.tipo !== "repercussão geral";
+  // Nas súmulas, a marca é da lista, com a hora em que a lista foi lida (pode ser anterior à da página).
+  const daLista = dataEHora(d.listaObtidaEm ?? d.consultadoEm);
   const situacao = sumula
     ? {
         situacaoNaFonte: linha.situacao ? `marcada como "${linha.situacao}" na lista do STF` : "sem marca de situação na lista do STF",
         situacaoEm:
-          `lista do portal do STF em ${quando}: a marca é o rótulo entre parênteses da lista, não vigência; a falta de ` +
+          `lista do portal do STF em ${daLista}: a marca é o rótulo entre parênteses da lista, não vigência; a falta de ` +
           "marca não prova que a súmula está em vigor",
       }
     : {
@@ -349,7 +366,9 @@ export function respostaDoStf(d: DoPortal<LinhaDoStf>) {
     endereco: d.endereco,
     enquadramento927: enquadrarQualificado(
       { tribunal: "stf", tipo: linha.tipo, numero: String(linha.numero), tese: linha.teseFirmada },
-      { tribunal: "stf", data: quando, linha, consulta: true, portal: `portal do STF em ${quando}` },
+      sumula
+        ? { tribunal: "stf", data: daLista, linha, consulta: true, portal: `lista do portal do STF em ${daLista}` }
+        : { tribunal: "stf", data: quando, linha, consulta: true, portal: `portal do STF em ${quando}` },
     ),
   };
 }

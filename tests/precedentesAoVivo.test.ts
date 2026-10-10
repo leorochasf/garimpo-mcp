@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { Cliente, UA_NAVEGADOR, USER_AGENT, Vagas } from "../src/cliente.js";
+import { dataEHora } from "../src/memoria.js";
 import { servicoDe } from "../src/disjuntor.js";
 import { criarServidor, type OpcoesServidor } from "../src/servidor.js";
 import type { TabelaDePrecedentes } from "../src/tabelaDePrecedentes.js";
@@ -405,4 +406,37 @@ describe("achados da revisão Codex (813af04..07c2d2c)", () => {
       servidor.close();
     }
   });
+
+  it("a marca da lista guarda a hora da lista: aparece na situação e a resposta vence junto com a lista", async () => {
+    const t0 = Date.parse("2026-10-09T12:00:00Z");
+    let agora = t0;
+    const { cliente, chamadas } = clienteFalso(
+      [
+        listaDeSv(),
+        paginaDaSumula("Súmula Vinculante 1", "Enunciado sintético um."),
+        paginaDaSumula("Súmula Vinculante 2", "Enunciado sintético dois."),
+        listaDeSv(),
+        paginaDaSumula("Súmula Vinculante 2", "Enunciado sintético dois."),
+      ],
+      { nome: "O portal do STF" },
+    );
+    const mcp = await conectar({ precedentesStf: cliente, agora: () => agora });
+    await consultar(mcp, { tribunal: "stf", tipo: "súmula vinculante", numero: 1 });
+    agora = t0 + 23 * 3_600_000;
+    const dois = (await consultar(mcp, { tribunal: "stf", tipo: "súmula vinculante", numero: 2 })).dado;
+    expect(chamadas).toHaveLength(3);
+    expect(dois.origem).toBe(`consultado no portal do STF em ${dataEHora(agora)}`);
+    expect(dois.situacaoEm).toMatch(new RegExp(`^lista do portal do STF em ${escapar(dataEHora(t0))}:`));
+    expect(dois.enquadramento927.avisoSituacao).toContain(`(lista do portal do STF em ${dataEHora(t0)})`);
+    // Vencida a lista (24 h da obtenção dela), a resposta composta também vence: lista e página são lidas de novo.
+    agora = t0 + 25 * 3_600_000;
+    const denovo = (await consultar(mcp, { tribunal: "stf", tipo: "súmula vinculante", numero: 2 })).dado;
+    expect(chamadas.map((c) => c.url).slice(3)).toEqual([
+      "https://portal.stf.jus.br/jurisprudencia/sumariosumulas.asp?base=26",
+      "https://portal.stf.jus.br/jurisprudencia/sumariosumulas.asp?base=26&sumula=7002",
+    ]);
+    expect(denovo.situacaoEm).toMatch(new RegExp(`^lista do portal do STF em ${escapar(dataEHora(agora))}:`));
+  });
 });
+
+const escapar = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
