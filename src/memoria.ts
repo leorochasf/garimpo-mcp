@@ -71,6 +71,8 @@ export interface TextoIntegral {
   texto: string;
   /** O HTML parecia cortado: o texto nunca é apresentado como completo. */
   indicioDeCorte: boolean;
+  /** O HTML de origem tinha trechos marcados como ocultos; o texto foi mantido inteiro e a leitura avisa. */
+  conteudoOculto?: boolean;
   /** Por que este id não tem texto integral (texto vazio de propósito); decide a leitura e a conferência deste id, não do acórdão juntado. */
   motivoSemTexto?: string;
 }
@@ -479,6 +481,7 @@ async function lerTexto(arquivo: string) {
     id: r.id,
     texto: r.texto,
     indicioDeCorte: r.indicioDeCorte,
+    ...(r.conteudoOculto === true && { conteudoOculto: true }),
     ...(typeof r.motivoSemTexto === "string" && { motivoSemTexto: r.motivoSemTexto }),
     obtidoEm: lido.obtidoEm,
   };

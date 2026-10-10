@@ -62,3 +62,18 @@ export function htmlComIndicioDeCorte(html: string): boolean {
   const fim = html.trim();
   return fim !== "" && !fim.endsWith(">");
 }
+
+/** Aviso fixo de quem entrega texto vindo de HTML que tinha trechos marcados como ocultos. */
+export const AVISO_CONTEUDO_OCULTO =
+  "O texto de origem tinha trechos marcados como ocultos; eles foram mantidos. Confira no portal antes de citar.";
+
+/**
+ * Indício de conteúdo marcado como oculto no HTML de origem: atributo hidden, aria-hidden="true", ou display:none /
+ * visibility:hidden em style inline. Só detecta: o texto nunca é apagado. Detecção simples e imperfeita; erra para
+ * mais ou para menos o aviso, nunca o texto.
+ */
+export function htmlComConteudoOculto(html: string): boolean {
+  return /<[a-z][a-z0-9]*\b[^>]*(?:\shidden(?=[\s=>/])|\saria-hidden\s*=\s*["']?true\b|\sstyle\s*=\s*["'][^"']*(?:display\s*:\s*none|visibility\s*:\s*hidden))/i.test(
+    html,
+  );
+}

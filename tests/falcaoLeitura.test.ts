@@ -72,6 +72,22 @@ describe("ler o texto integral de um TRT pelo id", () => {
     expect(r.dado.avisos.join(" ")).toMatch(/indício de corte/);
   });
 
+  it("HTML com trecho marcado como oculto: o texto vem inteiro e a leitura leva o aviso fixo", async () => {
+    const html = '<p>Fundamentacao ficticia visivel.</p><p hidden>Trecho ficticio marcado oculto.</p>';
+    const { mcp } = await comBusca(() => pagina([documento({ textoAcordao: html })]));
+    const r = await chamar(mcp, "ler_inteiro_teor", { id: ID });
+    expect(r.dado.texto).toMatch(/Fundamentacao ficticia visivel\.\n+Trecho ficticio marcado oculto\./);
+    expect(r.dado.avisos).toContain(
+      "O texto de origem tinha trechos marcados como ocultos; eles foram mantidos. Confira no portal antes de citar.",
+    );
+    expect(r.dado.cabecalho.completo).toBeUndefined();
+  });
+
+  it("HTML sem trecho oculto: nenhum aviso de conteúdo oculto", async () => {
+    const { mcp } = await comBusca();
+    const r = await chamar(mcp, "ler_inteiro_teor", { id: ID });
+    expect(r.dado.avisos.join(" ")).not.toMatch(/ocultos/);
+  });
   it("texto integral igual à ementa: ler_inteiro_teor devolve texto vazio, nunca a ementa como se fosse o acórdão", async () => {
     const { mcp } = await comBusca(() => pagina([documento({ textoAcordao: "<p>INTERVALO INTRAJORNADA. SUPRESSÃO PARCIAL. Texto fictício de ementa.</p>" })]));
     const r = await chamar(mcp, "ler_inteiro_teor", { id: ID });

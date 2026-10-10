@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { htmlComIndicioDeCorte, htmlParaTexto } from "../src/html.js";
+import { htmlComConteudoOculto, htmlComIndicioDeCorte, htmlParaTexto } from "../src/html.js";
 
 describe("HTML → texto do Falcão", () => {
   it("decodifica entidades nomeadas e numéricas; entidade desconhecida fica como veio", () => {
@@ -40,5 +40,21 @@ describe("HTML → texto do Falcão", () => {
     expect(htmlComIndicioDeCorte("<p>cortado no mei")).toBe(true);
     expect(htmlComIndicioDeCorte("<p>cortado</p><p cla")).toBe(true);
     expect(htmlComIndicioDeCorte("")).toBe(false);
+  });
+
+  it("indício de conteúdo oculto: hidden, aria-hidden, display:none ou visibility:hidden inline; o texto não muda", () => {
+    for (const oculto of [
+      '<p hidden>x</p>',
+      '<div aria-hidden="true">x</div>',
+      "<span aria-hidden='true'>x</span>",
+      '<p style="color:red; display : none">x</p>',
+      '<p style="VISIBILITY:hidden">x</p>',
+    ]) {
+      expect(htmlComConteudoOculto(`<p>visível</p>${oculto}`), oculto).toBe(true);
+      expect(htmlParaTexto(`<p>visível</p>${oculto}`), oculto).toContain("x");
+    }
+    for (const visivel of ['<p>visível</p>', '<p class="hidden" style="color:red">x</p>', '<p aria-hidden="false">x</p>', "<p>display:none no texto</p>"]) {
+      expect(htmlComConteudoOculto(visivel), visivel).toBe(false);
+    }
   });
 });

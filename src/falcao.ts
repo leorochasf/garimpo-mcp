@@ -11,7 +11,7 @@ import type { Acordao, ParametrosBusca, ResultadoBusca } from "./busca.js";
 import { enquadrarAcordao } from "./enquadramento.js";
 import { juntarEquivalentes } from "./equivalencia.js";
 import { nomesDoFiltro, ressalvaSePoucos } from "./grafia.js";
-import { htmlComIndicioDeCorte, htmlParaTexto } from "./html.js";
+import { htmlComConteudoOculto, htmlComIndicioDeCorte, htmlParaTexto } from "./html.js";
 import { fotografiaDaBusca, type Memoria, type TextoIntegral } from "./memoria.js";
 import { RedeParadaError } from "./coordenacao.js";
 import { ehDoFalcao, ROTULO_FALCAO } from "./tribunais.js";
@@ -404,7 +404,12 @@ export function normalizarDoFalcao(tribunal: string, documentos: unknown[]) {
       integraisIguaisAEmenta++;
       textos.push({ id, texto: "", indicioDeCorte: false, motivoSemTexto: MOTIVO_INTEGRAL_IGUAL_A_EMENTA });
     } else {
-      textos.push({ id, texto: integral, indicioDeCorte: htmlComIndicioDeCorte(html) });
+      textos.push({
+        id,
+        texto: integral,
+        indicioDeCorte: htmlComIndicioDeCorte(html),
+        ...(htmlComConteudoOculto(html) && { conteudoOculto: true }),
+      });
     }
   }
   return { acordaos, textos, descartados, divergencias, integraisIguaisAEmenta };

@@ -9,6 +9,7 @@ import { readFile, stat } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import type { Acordao } from "./busca.js";
+import { AVISO_CONTEUDO_OCULTO } from "./html.js";
 import type { Memoria } from "./memoria.js";
 import { ROTULO_FALCAO } from "./tribunais.js";
 
@@ -209,7 +210,9 @@ export async function lerTextoIntegral(id: string, parte = 1, memoria?: Memoria)
           ? { completo: "não: há indício de corte" }
           : {}),
     },
-    avisos: semTexto ? [avisoSemTextoIntegral(semTexto)] : guardado.indicioDeCorte ? [AVISO_DE_CORTE] : [],
+    avisos: semTexto
+      ? [avisoSemTextoIntegral(semTexto)]
+      : [...(guardado.indicioDeCorte ? [AVISO_DE_CORTE] : []), ...(guardado.conteudoOculto ? [AVISO_CONTEUDO_OCULTO] : [])],
     texto: "",
     ...(proxima ? { proximaParte: { ferramenta: "ler_inteiro_teor", argumentos: { id, parte: proxima } } } : {}),
   });
