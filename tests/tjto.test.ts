@@ -5,7 +5,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { describe, expect, it } from "vitest";
 import type { Acordao } from "../src/busca.js";
-import { Cliente, UA_NAVEGADOR } from "../src/cliente.js";
+import { Cliente, RecusaError, UA_NAVEGADOR } from "../src/cliente.js";
 import { obterInteiroTeor } from "../src/inteiroTeor.js";
 import { lerTextoIntegral } from "../src/leitura.js";
 import { Memoria } from "../src/memoria.js";
@@ -135,5 +135,64 @@ describe("servidor — TJTO de ponta a ponta (busca, obter, ler, conferir)", () 
     const doTexto = fontes.find((f) => f.fonte === "texto integral");
     expect(doTexto?.veredito).toBe("encontrado literalmente");
     expect(doTexto?.origem).toMatch(/^texto do portal do tribunal/);
+  });
+});
+
+describe("achados da revisão Codex (TJTO)", () => {
+  const pagina = (corpo: Uint8Array | string, tipo = "text/html; charset=ISO-8859-1") => () =>
+    new Response(corpo, { headers: { "content-type": tipo } });
+  const fixtureTjto = (nome: string) => readFileSync(new URL(`./fixtures/${nome}`, import.meta.url));
+
+  it("página de erro com HTTP 200 (documento não encontrado): nada vai para a memória; devolve o link com explicação honesta", async () => {
+    const memoria = memoriaComAcordao();
+    const { cliente } = clienteFalso([redireciona(), pagina(fixtureTjto("tjto-nao-encontrado.html"))]);
+    const r = await obterInteiroTeor({ id: "tjto:777" }, () => cliente, memoria);
+
+    expect(r).toMatchObject({ baixado: false, link: VIEW });
+    if (r.baixado) return;
+    expect(r.explicacao).toMatch(/não é a página do acórdão/);
+    expect(r.explicacao).not.toMatch(/converteu em texto/);
+    expect(await memoria.obterTexto("tjto:777")).toBeUndefined();
+  });
+
+  it("página com a estrutura do documento mas quase sem texto: não entrega", async () => {
+    const memoria = memoriaComAcordao();
+    const vazia =
+      '<html><head><title>Documento:1</title></head><body><section data-nome="identificacao_processo"><p>X</p></section>' +
+      '<section data-nome="ementa"><p>EMENTA.</p></section></body></html>';
+    const { cliente } = clienteFalso([redireciona(), pagina(vazia)]);
+    const r = await obterInteiroTeor({ id: "tjto:777" }, () => cliente, memoria);
+    expect(r).toMatchObject({ baixado: false, link: VIEW });
+    expect(await memoria.obterTexto("tjto:777")).toBeUndefined();
+  });
+
+  it("página de desafio com HTTP 200 (marca só no corpo): recusa pelos freios, e o disjuntor do TJTO fica aberto", async () => {
+    const memoria = memoriaComAcordao();
+    const { cliente, chamadas } = clienteFalso([redireciona(), pagina(fixtureTjto("tjto-desafio.html")), documento()], {
+      nome: "O portal do TJTO",
+    });
+    const e = await obterInteiroTeor({ id: "tjto:777" }, () => cliente, memoria).catch((x) => x);
+    expect(e).toBeInstanceOf(RecusaError);
+    expect(e.message).toMatch(/página de verificação anti-robô \(HTTP 200\)/);
+    expect(await memoria.obterTexto("tjto:777")).toBeUndefined();
+    const depois = await cliente.requisitar(DOCUMENTO).catch((x) => x);
+    expect(depois).toBeInstanceOf(RecusaError);
+    expect(depois.message).toMatch(/não foi feita/);
+    expect(chamadas).toHaveLength(2);
+  });
+
+  it("charset ausente no cabeçalho: lê o do <meta>, com os acentos certos", async () => {
+    const memoria = memoriaComAcordao();
+    const { cliente } = clienteFalso([redireciona(), pagina(HTML_TJTO, "text/html")]);
+    await obterInteiroTeor({ id: "tjto:777" }, () => cliente, memoria);
+    expect((await memoria.obterTexto("tjto:777"))?.texto).toMatch(/ACÓRDÃO[\s\S]*EXEMPLO FICTÍCIO/);
+  });
+
+  it("charset ausente no cabeçalho e no HTML: ISO-8859-1, o que o portal usa", async () => {
+    const memoria = memoriaComAcordao();
+    const semMeta = Buffer.from(HTML_TJTO.toString("latin1").replace(/<meta charset="ISO-8859-1"\/>/g, ""), "latin1");
+    const { cliente } = clienteFalso([redireciona(), pagina(semMeta, "text/html")]);
+    await obterInteiroTeor({ id: "tjto:777" }, () => cliente, memoria);
+    expect((await memoria.obterTexto("tjto:777"))?.texto).toMatch(/ACÓRDÃO[\s\S]*EXEMPLO FICTÍCIO/);
   });
 });

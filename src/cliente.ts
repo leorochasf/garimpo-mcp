@@ -60,6 +60,15 @@ export const HOST_PORTAL_STF = "portal.stf.jus.br";
 /** Portal de jurisprudência do TJTO: recusa (403) o UA do Garimpo; o dono autorizou o UA de navegador nele (ADR-0021). */
 export const HOST_TJTO = "jurisprudencia.tjto.jus.br";
 
+/**
+ * Marcas estruturais do documento do eproc que o portal do TJTO entrega (prova de 2026-10-11): seções com
+ * data-nome "identificacao_processo" e "ementa". Página de erro, de aviso ou de desafio não as tem.
+ */
+export const MARCAS_DO_DOCUMENTO_TJTO = [
+  /<section[^>]*\sdata-nome=["']identificacao_processo["']/i,
+  /<section[^>]*\sdata-nome=["']ementa["']/i,
+];
+
 /** Cabeçalhos de identificação por host; host fora daqui vai com o UA honesto. Cada fonte nova acrescenta o seu. */
 const IDENTIFICACAO_POR_HOST: Record<string, Record<string, string>> = {
   [HOST_FALCAO]: {
@@ -633,10 +642,12 @@ export class Cliente {
    * página da fonte, nunca no conteúdo: numa fonte que não responde HTML, a página inteira (pequena) é o envelope;
    * nas que respondem HTML, só o <title> de página pequena.
    */
-  private barrarPaginaDeBloqueio(ida: Ida, servico: string): void {
+  private barrarPaginaDeBloqueio(ida: Ida, servico: string, host: string): void {
     const corpo = ida.corpoPequeno();
     if (corpo === undefined) return;
-    const tipo = paginaDeBloqueio(corpo, (FORMATO_ESPERADO[servico] ?? "html") === "html");
+    // Host cujo conteúdo tem marcas conhecidas: página sem nenhuma delas é envelope, e a marca vale na página inteira.
+    const semConteudo = CONTEUDO_ESPERADO_POR_HOST[host]?.every((marca) => !marca.test(corpo)) ?? false;
+    const tipo = paginaDeBloqueio(corpo, (FORMATO_ESPERADO[servico] ?? "html") === "html" && !semConteudo);
     if (!tipo) return;
     const { status } = ida.resposta;
     const pagina = tipo === "bloqueio" ? "de acesso bloqueado" : "de verificação anti-robô";
@@ -682,7 +693,7 @@ export class Cliente {
       if (!pedeEspera(ida)) {
         const html = ida.resposta.ok && /html/i.test(ida.resposta.headers.get("content-type") ?? "");
         await ida.lerAviso(html ? LIMITE_PAGINA_PEQUENA : LIMITE_AVISO);
-        if (html) this.barrarPaginaDeBloqueio(ida, servico);
+        if (html) this.barrarPaginaDeBloqueio(ida, servico, new URL(url).host);
       }
       return ida;
     } catch (e) {
@@ -740,6 +751,9 @@ const FORMATO_ESPERADO: Record<string, "json" | "html"> = {
   jt: "json",
 };
 
+/** Marcas que só o conteúdo do host tem (no HTML cru); página pequena sem nenhuma delas é tratada como envelope. */
+const CONTEUDO_ESPERADO_POR_HOST: Record<string, RegExp[]> = { [HOST_TJTO]: MARCAS_DO_DOCUMENTO_TJTO };
+
 /** Marcas fortes, sem acento e em minúsculas: valem na página inteira (não verificadas ao vivo). */
 const MARCAS_DE_BLOQUEIO: [RegExp, "desafio" | "bloqueio"][] = [
   [/pagina bloqueada|acesso bloqueado/, "bloqueio"],
@@ -779,15 +793,15 @@ function paginaDeBloqueio(html: string, soTitulo: boolean): "desafio" | "bloquei
 
 /**
  * Texto no conjunto de caracteres que a resposta declara (cabeçalho Content-Type ou, na falta, meta charset / XML
- * encoding nos primeiros bytes); sem declaração ou com nome desconhecido, UTF-8.
+ * encoding nos primeiros bytes); sem declaração, o padrão (UTF-8, salvo pedido); com nome desconhecido, UTF-8.
  */
-function decodificar(bytes: Uint8Array, contentType: string): string {
+export function decodificar(bytes: Uint8Array, contentType: string, padrao = "utf-8"): string {
   const declarado =
     /charset\s*=\s*["']?([\w.:-]+)/i.exec(contentType)?.[1] ??
     /<meta[^>]+charset\s*=\s*["']?([\w.:-]+)/i.exec(Buffer.from(bytes.subarray(0, 1024)).toString("latin1"))?.[1] ??
     /^<\?xml[^>]+encoding\s*=\s*["']([\w.:-]+)/i.exec(Buffer.from(bytes.subarray(0, 200)).toString("latin1"))?.[1];
   try {
-    return new TextDecoder(declarado ?? "utf-8").decode(bytes);
+    return new TextDecoder(declarado ?? padrao).decode(bytes);
   } catch {
     return new TextDecoder().decode(bytes);
   }

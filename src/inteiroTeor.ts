@@ -11,7 +11,7 @@ import { copyFile, link as ligar, lstat, mkdir, readdir, readFile, rm, writeFile
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { type Acordao, SITE } from "./busca.js";
-import { Cliente, HOST_TJTO, RecusaError, VERSAO } from "./cliente.js";
+import { Cliente, decodificar, HOST_TJTO, MARCAS_DO_DOCUMENTO_TJTO, RecusaError, VERSAO } from "./cliente.js";
 import { RedeParadaError } from "./coordenacao.js";
 import {
   avisoJaNaPasta,
@@ -277,7 +277,18 @@ async function textoDoPortal(
     `Leia com o ler_inteiro_teor com o id ${acordao.id} (fica na memória do Garimpo por 24 h) e confira citações ` +
     "com o conferir_citacao pelo mesmo id.";
   if (!(await memoria.obterTexto(acordao.id))) {
-    memoria.lembrarTextos([{ id: acordao.id, ...(await baixarTextoTjto(cliente, link)) }]);
+    const trazido = await baixarTextoTjto(cliente, link);
+    if (!trazido) {
+      return {
+        baixado: false,
+        link,
+        explicacao:
+          `O portal do ${nomeTribunal} respondeu, mas com uma página que não é a página do acórdão (aviso ou erro do ` +
+          "portal, como documento não encontrado): o Garimpo não guardou texto nenhum. Abra o link no navegador para " +
+          "conferir o documento.",
+      };
+    }
+    memoria.lembrarTextos([{ id: acordao.id, ...trazido }]);
   }
   return {
     baixado: false,
@@ -288,11 +299,16 @@ async function textoDoPortal(
   };
 }
 
+/** Texto útil mínimo do documento do TJTO (caracteres): um acórdão com ementa, relatório e voto passa disso com folga. */
+const MINIMO_TEXTO_TJTO = 500;
+
 /**
  * O documento do TJTO: viewFileDoc.php responde 302 para documento.php (Location escapado como HTML, "&amp;"); o
- * Garimpo pede documento.php só com o uuid, o endereço da prova de 2026-10-11. Só https no portal do TJTO.
+ * Garimpo pede documento.php só com o uuid, o endereço da prova de 2026-10-11. Só https no portal do TJTO. Só é o
+ * acórdão a página com as marcas estruturais do documento do eproc e texto útil mínimo; outra = undefined (página de
+ * desafio ou de bloqueio já foi recusada pelo cliente, com o disjuntor do TJTO aberto).
  */
-async function baixarTextoTjto(cliente: Cliente, link: string): Promise<Omit<TextoIntegral, "id">> {
+async function baixarTextoTjto(cliente: Cliente, link: string): Promise<Omit<TextoIntegral, "id"> | undefined> {
   const oficial = (endereco: string, contexto: string) => {
     const url = new URL(endereco);
     if (url.protocol !== "https:" || url.host !== HOST_TJTO) {
@@ -319,9 +335,10 @@ async function baixarTextoTjto(cliente: Cliente, link: string): Promise<Omit<Tex
     if (!/text\/html/i.test(tipo)) {
       throw new Error(`O TJTO devolveu ${tipo || "conteúdo sem tipo"} no lugar da página do acórdão (${url.href}).`);
     }
-    const html = new TextDecoder(/charset=["']?([\w-]+)/i.exec(tipo)?.[1] ?? "utf-8").decode(bytes);
+    // Charset: cabeçalho, depois <meta> do HTML; sem nenhum, ISO-8859-1, o que o portal usa (prova de 2026-10-11).
+    const html = decodificar(bytes, tipo, "iso-8859-1");
     const texto = htmlParaTexto(html);
-    if (!texto) throw new Error(`O TJTO devolveu uma página sem texto (${url.href}).`);
+    if (!MARCAS_DO_DOCUMENTO_TJTO.every((marca) => marca.test(html)) || texto.length < MINIMO_TEXTO_TJTO) return undefined;
     return {
       texto,
       indicioDeCorte: htmlComIndicioDeCorte(html),
