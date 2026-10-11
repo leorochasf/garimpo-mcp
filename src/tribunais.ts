@@ -42,9 +42,27 @@ const EXPLICA_STF =
   "O portal do STF protege o download com um desafio anti-robô (AWS WAF) que exige JavaScript. " +
   "O Garimpo não contorna proteções.";
 
+/** Pesquisa pública de jurisprudência do TJGO (prova B11, docs/banco-de-provas/b11-prova-ao-vivo.md). */
+const PESQUISA_TJGO = "https://projudi.tjgo.jus.br/ConsultaJurisprudencia";
+
 const EXPLICA_TJGO =
   "O portal do TJGO (Projudi) exige resolver um reCAPTCHA na pesquisa e o download só vale dentro " +
-  "dessa sessão. O Garimpo não contorna captchas: pesquise pelo número CNJ no portal e baixe lá.";
+  "dessa sessão. O Garimpo não contorna captchas: pesquise pelo número CNJ no portal e baixe lá. " +
+  "O link que vem na busca é do Projudi e, aberto fora de uma sessão, costuma mostrar «Sem Permissão para o " +
+  "Usuário (nº 78)» em vez do acórdão.";
+
+/** Link de acórdão do Projudi do TJGO: não abre o acórdão fora de uma sessão do portal. */
+const LINK_PROJUDI_TJGO = /projudi\.tjgo\.jus\.br\/ConsultaJurisprudencia/i;
+
+/** Aviso fixo, uma vez por resposta (nunca por acórdão), quando algum link é do Projudi do TJGO. */
+export function avisoDeLinkDoTjgo(acordaos: ReadonlyArray<{ link?: string; linkConsulta?: string }>): string[] {
+  if (!acordaos.some((a) => LINK_PROJUDI_TJGO.test(a.link ?? a.linkConsulta ?? ""))) return [];
+  return [
+    "Link do Projudi do TJGO: aberto fora de uma sessão do portal pode mostrar «Sem Permissão para o Usuário " +
+      "(nº 78)» e não abrir o acórdão. Para ver o acórdão, use a pesquisa de jurisprudência do TJGO " +
+      `(${PESQUISA_TJGO}, que pede verificação anti-robô) e procure pelo número do processo.`,
+  ];
+}
 
 const EXPLICA_GENERICO =
   "O Garimpo ainda não testou o download automático do portal deste tribunal; abra o link no navegador.";

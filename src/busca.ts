@@ -13,7 +13,7 @@ import { nomesDoFiltro, ressalvaSePoucos } from "./grafia.js";
 import { FalhaNaMemoriaError, fotografiaDaBusca, type Memoria } from "./memoria.js";
 import { buscaNoFalcao, clienteDoFalcao, lerBuscaGuardadaNoFalcao } from "./falcao.js";
 import { avisoDeRecorridoAusente } from "./recorrido.js";
-import { ehDoFalcao, infoTribunal, ROTULO_FALCAO } from "./tribunais.js";
+import { avisoDeLinkDoTjgo, ehDoFalcao, infoTribunal, ROTULO_FALCAO } from "./tribunais.js";
 
 export const SITE = "https://www.jurisprudenciaia.com.br";
 
@@ -244,7 +244,7 @@ export async function buscaDiretaSemMarca(
       const guardada = await lerBuscaGuardada(memoria, p, { tabela, tabelaStf });
       if (guardada) {
         const { acordaos, avisos } = guardada.resultado;
-        avisos.push(...avisoDoRecorrido(acordaos), ...avisosDaMemoria(memoria));
+        avisos.push(...avisoDoRecorrido(acordaos), ...avisoDeLinkDoTjgo(acordaos), ...avisosDaMemoria(memoria));
         return guardada.resultado;
       }
     } catch (e) {
@@ -295,7 +295,12 @@ export async function buscaDiretaSemMarca(
     qualificados: resultado.qualificados,
     ressalvaQualificados: resultado.ressalvaQualificados,
     // Depois de guardar: o aviso do recorrido e o da memória valem só para esta resposta.
-    avisos: [...resultado.avisos, ...avisoDoRecorrido(resultado.acordaos), ...avisosDaMemoria(memoria, falhaAoLer)],
+    avisos: [
+      ...resultado.avisos,
+      ...avisoDoRecorrido(resultado.acordaos),
+      ...avisoDeLinkDoTjgo(resultado.acordaos),
+      ...avisosDaMemoria(memoria, falhaAoLer),
+    ],
   };
 }
 

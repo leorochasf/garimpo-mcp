@@ -20,7 +20,7 @@ import {
 import { nomesDoFiltro, ressalvaSePoucos } from "./grafia.js";
 import { ART_927_CONFERIDO_EM } from "./enquadramento.js";
 import { conferirPedidoAoFalcao } from "./falcao.js";
-import { ehDoFalcao, infoTribunal, ROTULO_FALCAO } from "./tribunais.js";
+import { avisoDeLinkDoTjgo, ehDoFalcao, infoTribunal, ROTULO_FALCAO } from "./tribunais.js";
 import { juntarEquivalentes, type Ocorrencia } from "./equivalencia.js";
 import { filtroLocal, type FiltrosLocais } from "./filtroLocal.js";
 import { diaEHora, FalhaNaMemoriaError, type Memoria } from "./memoria.js";
@@ -510,6 +510,7 @@ export async function buscaAmpla(
     ordenados.map((x) => x.acordao),
   );
   if (recorrido) avisos.push(recorrido);
+  avisos.push(...avisoDeLinkDoTjgo(mostrados.map((x) => x.acordao)));
   const estimativa = estimar(noSite.length);
   const itemDe = ({ acordao: a, formulacoes }: (typeof mostrados)[number], tamanhoDoTrecho: number): ItemAmplo => {
     const ementa = a.ementa.replace(/^\s*ementa\b\s*[:.\-–—]?\s*/i, "");

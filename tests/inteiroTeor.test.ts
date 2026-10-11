@@ -163,6 +163,7 @@ describe("inteiro teor — link + explicação", () => {
     if (r.baixado) return;
     expect(r.link).toMatch(/^https:\/\/projudi\.tjgo\.jus\.br/);
     expect(r.explicacao).toMatch(/reCAPTCHA/);
+    expect(r.explicacao).toMatch(/Sem Permissão/);
     expect(r.explicacao).toMatch(/0000001-11\.2025\.8\.09\.0001/);
     expect(chamadas).toHaveLength(0);
   });
