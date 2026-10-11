@@ -9,6 +9,8 @@
 [![Node.js 22.13+](https://img.shields.io/badge/node-%E2%89%A5%2022.13-339933?logo=nodedotjs&logoColor=white)](#instalação)
 [![MCP](https://img.shields.io/badge/MCP-servidor%20local-6e56cf)](https://modelcontextprotocol.io)
 
+by [ia.de.gabinete](https://www.instagram.com/ia.de.gabinete/)
+
 </div>
 
 > [!IMPORTANT]
