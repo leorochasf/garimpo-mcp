@@ -1,4 +1,19 @@
-# Garimpo
+<div align="center">
+
+# ⛏️ Garimpo
+
+**Pesquisa de jurisprudência que acha o acórdão, traz o texto do tribunal e confere a citação antes de ela ir para a peça.**
+
+[![npm](https://img.shields.io/npm/v/garimpo-mcp?label=npm&color=cb3837)](https://www.npmjs.com/package/garimpo-mcp)
+[![Licença MIT](https://img.shields.io/badge/licen%C3%A7a-MIT-blue)](#licença)
+[![Node.js 22.13+](https://img.shields.io/badge/node-%E2%89%A5%2022.13-339933?logo=nodedotjs&logoColor=white)](#instalação)
+[![MCP](https://img.shields.io/badge/MCP-servidor%20local-6e56cf)](https://modelcontextprotocol.io)
+
+</div>
+
+> [!IMPORTANT]
+> **Cliente não oficial.** O Garimpo não é afiliado ao JurisprudênciaIA, à JAI, ao CSJT nem a nenhuma outra fonte. A
+> API usada não é documentada e pode mudar sem aviso. Licença MIT.
 
 Servidor MCP local (stdio) para pesquisar jurisprudência brasileira pela **busca direta** do
 [JurisprudênciaIA](https://www.jurisprudenciaia.com.br) e baixar o **inteiro teor oficial** dos tribunais. Os 24 TRTs
@@ -7,8 +22,34 @@ texto integral do acórdão.
 Devolve dados crus e verificáveis (ementa como veio do site, número, órgão, data, link oficial); quem interpreta é a IA
 de quem usa.
 
-> **Cliente não oficial.** O Garimpo não é afiliado ao JurisprudênciaIA, à JAI, ao CSJT nem a nenhuma outra fonte. A API usada não é
-> documentada e pode mudar sem aviso. Licença MIT.
+## Por que o Garimpo é mais que buscar jurisprudência
+
+Achar o acórdão é o começo. O trabalho está em saber se ele diz mesmo o que você vai citar, se o texto veio do
+tribunal e se o precedente ainda vale. O Garimpo cuida dessa parte.
+
+| | O que você ganha |
+|---|---|
+| 🔎 **Várias fontes num pedido só** | Até 20 formulações da mesma tese em até 5 tribunais, numa lista única e sem repetidos. Cobre STF, STJ, TST, TSE, STM, os 27 TJs e os 24 TRTs. |
+| 📄 **Inteiro teor oficial, com recibo** | Baixa o PDF do portal do tribunal (STJ, TJMG, TJSP, TSE) e grava ao lado um recibo de origem com o link oficial, a data e o sha256. Nos TRTs, o texto integral vem do repositório oficial da Justiça do Trabalho. |
+| ✅ **Citação conferida antes da peça** | Confere, por regra fixa e sem IA, se o trecho está literalmente na ementa ou no inteiro teor, com a página e a seção (ementa, voto, voto vencido…). Página que não foi lida dá "não verificável", nunca "não encontrado". |
+| ⚖️ **Precedente qualificado à parte** | Temas e súmulas vêm separados dos acórdãos comuns, com o enquadramento no art. 927 do CPC. A situação e a tese do tema ou da súmula podem ser consultadas no portal do STJ ou do STF na hora da pergunta. |
+| 🗂️ **O processo pelo número** | Pelo número CNJ, os julgamentos registrados no DataJud e as comunicações no DJEN, ao lado dos acórdãos que a busca acha. Nunca afirma que um acórdão falta. |
+| 🛡️ **Freios que protegem o seu IP** | No máximo 2 chamadas simultâneas. Se a fonte recusar, o Garimpo para e avisa, sem insistir. O `diagnostico_dos_freios` explica por que parou e até quando. |
+| 🧭 **Respostas honestas** | Falha não vira "zero resultados". Vem aviso quando falta dado (órgão, data, link), quando a lista foi cortada e quando o texto traz trecho oculto. |
+| 💻 **Tudo no seu computador** | Sem conta, sem cadastro, sem servidor do Garimpo. A memória de 24 h fica numa pasta local: na medição do projeto, repetir uma busca ampla passou de 3 chamadas e 2,6 s para nenhuma chamada e 31 ms ([B3](docs/banco-de-provas/b3-medicao.md)). |
+
+> O Garimpo encontra, baixa e confere. Não substitui a leitura do inteiro teor nem o juízo de quem assina a peça.
+
+## Comece em 1 minuto
+
+Com o **Node.js 22.13 ou mais novo** instalado, no Claude Code:
+
+```bash
+claude mcp add garimpo -- npx -y garimpo-mcp
+```
+
+Reinicie o Claude e peça, por exemplo: *"Use o Garimpo para buscar no STJ acórdãos sobre responsabilidade civil do
+Estado por omissão."* Claude Desktop, instalação pelo código-fonte e pasta dos PDFs: veja [Instalação](#instalação).
 
 ## Ferramentas
 
@@ -382,3 +423,8 @@ npm test          # testes sem internet, sobre respostas gravadas
 Os testes não acessam a internet nem o site ou os tribunais: rodam sobre respostas gravadas e, para a
 concorrência, sobre um servidor local controlado. Os de disputa entre janelas abrem processos Node reais que chamam
 um servidor falso na própria máquina (`127.0.0.1`), com pasta de dados temporária.
+
+## Licença
+
+Código sob a licença MIT ([`LICENSE`](LICENSE)). Os dados da tabela de precedentes do STJ seguem a licença declarada
+pela fonte (veja [Tabela de precedentes do STJ](#tabela-de-precedentes-do-stj)).
