@@ -11,7 +11,7 @@ import { copyFile, link as ligar, lstat, mkdir, readdir, readFile, rm, writeFile
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { type Acordao, SITE } from "./busca.js";
-import { Cliente, decodificar, HOST_TJTO, MARCAS_DO_DOCUMENTO_TJTO, RecusaError, VERSAO } from "./cliente.js";
+import { Cliente, decodificarDoHost, ehDocumentoTjto, HOST_TJTO, RecusaError, VERSAO } from "./cliente.js";
 import { RedeParadaError } from "./coordenacao.js";
 import {
   avisoJaNaPasta,
@@ -299,9 +299,6 @@ async function textoDoPortal(
   };
 }
 
-/** Texto útil mínimo do documento do TJTO (caracteres): um acórdão com ementa, relatório e voto passa disso com folga. */
-const MINIMO_TEXTO_TJTO = 500;
-
 /**
  * O documento do TJTO: viewFileDoc.php responde 302 para documento.php (Location escapado como HTML, "&amp;"); o
  * Garimpo pede documento.php só com o uuid, o endereço da prova de 2026-10-11. Só https no portal do TJTO. Só é o
@@ -335,12 +332,11 @@ async function baixarTextoTjto(cliente: Cliente, link: string): Promise<Omit<Tex
     if (!/text\/html/i.test(tipo)) {
       throw new Error(`O TJTO devolveu ${tipo || "conteúdo sem tipo"} no lugar da página do acórdão (${url.href}).`);
     }
-    // Charset: cabeçalho, depois <meta> do HTML; sem nenhum, ISO-8859-1, o que o portal usa (prova de 2026-10-11).
-    const html = decodificar(bytes, tipo, "iso-8859-1");
-    const texto = htmlParaTexto(html);
-    if (!MARCAS_DO_DOCUMENTO_TJTO.every((marca) => marca.test(html)) || texto.length < MINIMO_TEXTO_TJTO) return undefined;
+    // Charset: cabeçalho, depois <meta> do HTML; sem nenhum, ISO-8859-1 (a mesma decodificação do detector do cliente).
+    const html = decodificarDoHost(bytes, tipo, HOST_TJTO);
+    if (!ehDocumentoTjto(html)) return undefined;
     return {
-      texto,
+      texto: htmlParaTexto(html),
       indicioDeCorte: htmlComIndicioDeCorte(html),
       ...(htmlComConteudoOculto(html) && { conteudoOculto: true }),
     };

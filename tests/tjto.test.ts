@@ -196,3 +196,94 @@ describe("achados da revisão Codex (TJTO)", () => {
     expect((await memoria.obterTexto("tjto:777"))?.texto).toMatch(/ACÓRDÃO[\s\S]*EXEMPLO FICTÍCIO/);
   });
 });
+
+describe("achados da 2ª revisão Codex (TJTO): desafio no corpo, página longa e charset", () => {
+  const latin1 = (html: string) => Buffer.from(html, "latin1");
+  const pagina = (corpo: Uint8Array | string, tipo = "text/html; charset=ISO-8859-1") => () =>
+    new Response(corpo, { headers: { "content-type": tipo } });
+  const html = (titulo: string, corpo: string) =>
+    `<!DOCTYPE html><html><head><title>${titulo}</title></head><body>${corpo}</body></html>`;
+  const recheio = "Texto institucional genérico do portal, repetido para passar do mínimo de texto útil. ".repeat(12);
+
+  /** Recusa pela via dos freios: RecusaError, nada na memória e o disjuntor do TJTO aberto (nenhuma 3ª chamada). */
+  async function esperaRecusa(corpo: Uint8Array | string, tipo?: string) {
+    const memoria = memoriaComAcordao();
+    const { cliente, chamadas } = clienteFalso([redireciona(), pagina(corpo, tipo), documento()], { nome: "O portal do TJTO" });
+    const e = await obterInteiroTeor({ id: "tjto:777" }, () => cliente, memoria).catch((x) => x);
+    expect(e).toBeInstanceOf(RecusaError);
+    expect(e.message).toMatch(/página de verificação anti-robô \(HTTP 200\)/);
+    expect(await memoria.obterTexto("tjto:777")).toBeUndefined();
+    const depois = await cliente.requisitar(DOCUMENTO).catch((x) => x);
+    expect(depois).toBeInstanceOf(RecusaError);
+    expect(depois.message).toMatch(/não foi feita/);
+    expect(chamadas).toHaveLength(2);
+  }
+
+  /** Página que não é o acórdão nem desafio: link com explicação, nada na memória e o disjuntor fechado. */
+  async function esperaFallback(corpo: Uint8Array | string) {
+    const memoria = memoriaComAcordao();
+    const { cliente, chamadas } = clienteFalso([redireciona(), pagina(corpo), documento()], { nome: "O portal do TJTO" });
+    const r = await obterInteiroTeor({ id: "tjto:777" }, () => cliente, memoria);
+    expect(r).toMatchObject({ baixado: false, link: VIEW });
+    if (r.baixado) return;
+    expect(r.explicacao).toMatch(/não é a página do acórdão/);
+    expect(await memoria.obterTexto("tjto:777")).toBeUndefined();
+    await (await cliente.requisitar(DOCUMENTO)).text();
+    expect(chamadas).toHaveLength(3);
+  }
+
+  it("título genérico e captcha só no corpo (cf-turnstile): recusa", async () => {
+    await esperaRecusa(
+      html("Portal", '<p>Confirme o captcha para continuar.</p><div class="cf-turnstile" data-sitekey="x"></div>'),
+    );
+  });
+
+  it("título do portal e 'Verify you are human' com challenge-platform no corpo: recusa", async () => {
+    await esperaRecusa(
+      html(
+        "Jurisprudência - TJTO",
+        '<p>Verify you are human by completing the action below.</p><script src="/cdn-cgi/challenge-platform/h/b/orchestrate/x"></script>',
+      ),
+    );
+  });
+
+  it("página de desafio com mais de 64 KiB: recusa como a curta", async () => {
+    await esperaRecusa(latin1(html("Just a moment...", `<h1>Verificação de segurança</h1>${" ".repeat(66_000)}`)));
+  });
+
+  it("página de desafio acima do teto de leitura (4 MiB): o começo basta para recusar", async () => {
+    await esperaRecusa(latin1(html("Just a moment...", `<h1>Verificação de segurança</h1>${" ".repeat(4 * 1024 * 1024)}`)));
+  });
+
+  it("bytes ISO-8859-1 sem charset no cabeçalho nem <meta>: o detector decodifica como o extrator e recusa", async () => {
+    await esperaRecusa(latin1(html("Aviso", "<h1>Verificação de segurança</h1>")), "text/html");
+  });
+
+  it("erro longo do portal (documento não encontrado, mais de 500 caracteres): link, sem recusa", async () => {
+    await esperaFallback(latin1(html("Jurisprudência - TJTO", `<p>Documento não encontrado.</p><p>${recheio}</p>`)));
+  });
+
+  it("portal genérico com mais de 500 caracteres: link, sem recusa", async () => {
+    await esperaFallback(latin1(html("Jurisprudência - TJTO", `<nav>Início | Pesquisa | Ajuda</nav><p>${recheio}</p>`)));
+  });
+
+  it("página de login: link, sem recusa", async () => {
+    await esperaFallback(
+      latin1(html("Acesso", '<form><label>Usuário</label><input name="u"/><label>Senha</label><input type="password"/></form>')),
+    );
+  });
+
+  for (const [caso, destino] of [
+    ["host externo", "https://outro.exemplo.com/documento.php?uuid=1"],
+    ["http", `http://jurisprudencia.tjto.jus.br/documento.php?uuid=${UUID}`],
+  ] as const) {
+    it(`redirecionamento para ${caso}: não segue, nada na memória`, async () => {
+      const memoria = memoriaComAcordao();
+      const sai = () => new Response("", { status: 302, headers: { location: destino } });
+      const { cliente, chamadas } = clienteFalso([sai, documento()]);
+      await expect(obterInteiroTeor({ id: "tjto:777" }, () => cliente, memoria)).rejects.toThrow(/fora do portal oficial/);
+      expect(chamadas).toHaveLength(1);
+      expect(await memoria.obterTexto("tjto:777")).toBeUndefined();
+    });
+  }
+});

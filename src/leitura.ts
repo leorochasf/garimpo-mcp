@@ -164,6 +164,12 @@ export function ehTextoDoPortal(id: string): boolean {
 /** O que o registro é quando o Falcão não deu texto integral de verdade (só a ementa repetida): nada de "repositório oficial". */
 export const NATUREZA_SEM_TEXTO_INTEGRAL = "sem texto integral: o Falcão não mandou o acórdão, só a ementa";
 
+/** O que o texto guardado na memória é: sem texto integral, texto do portal do tribunal (TJTO) ou texto do Falcão. */
+export function naturezaDoTexto(semTexto: boolean, doPortal: boolean): string {
+  if (semTexto) return NATUREZA_SEM_TEXTO_INTEGRAL;
+  return doPortal ? NATUREZA_DO_TEXTO_DO_PORTAL : NATUREZA_DO_TEXTO_INTEGRAL;
+}
+
 export function avisoSemTextoIntegral(motivo: string): string {
   return `Sem texto integral: ${motivo}; só a ementa está disponível.`;
 }
@@ -220,7 +226,7 @@ export async function lerTextoIntegral(id: string, parte = 1, memoria?: Memoria)
       juntadoEm: a?.dataJuntada ?? NAO_INFORMADO,
       id,
       fonte: doPortal ? ROTULO_PORTAL_TJTO : ROTULO_FALCAO,
-      natureza: semTexto ? NATUREZA_SEM_TEXTO_INTEGRAL : doPortal ? NATUREZA_DO_TEXTO_DO_PORTAL : NATUREZA_DO_TEXTO_INTEGRAL,
+      natureza: naturezaDoTexto(Boolean(semTexto), doPortal),
       partes,
       ...(semTexto
         ? { completo: `não: ${semTexto}` }

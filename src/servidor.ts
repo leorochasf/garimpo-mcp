@@ -35,9 +35,7 @@ import {
   lerInteiroTeor,
   lerParaConferir,
   lerTextoIntegral,
-  NATUREZA_DO_TEXTO_DO_PORTAL,
-  NATUREZA_DO_TEXTO_INTEGRAL,
-  NATUREZA_SEM_TEXTO_INTEGRAL,
+  naturezaDoTexto,
   avisoSemTextoIntegral,
   textoForaDaMemoria,
 } from "./leitura.js";
@@ -798,7 +796,7 @@ export function criarServidor(
             const avisos = [(corte as { aviso?: string }).aviso, t?.conteudoOculto ? AVISO_CONTEUDO_OCULTO : undefined].filter(Boolean);
             fontes.push({
               fonte: "texto integral", id,
-              origem: semTexto ? NATUREZA_SEM_TEXTO_INTEGRAL : doPortal ? NATUREZA_DO_TEXTO_DO_PORTAL : NATUREZA_DO_TEXTO_INTEGRAL,
+              origem: naturezaDoTexto(Boolean(semTexto), doPortal),
               ...noTexto,
               ...(avisos.length > 0 && { aviso: avisos.join(" ") }),
             });

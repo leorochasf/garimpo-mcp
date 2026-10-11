@@ -64,10 +64,29 @@ export const HOST_TJTO = "jurisprudencia.tjto.jus.br";
  * Marcas estruturais do documento do eproc que o portal do TJTO entrega (prova de 2026-10-11): seções com
  * data-nome "identificacao_processo" e "ementa". Página de erro, de aviso ou de desafio não as tem.
  */
-export const MARCAS_DO_DOCUMENTO_TJTO = [
+const MARCAS_DO_DOCUMENTO_TJTO = [
   /<section[^>]*\sdata-nome=["']identificacao_processo["']/i,
   /<section[^>]*\sdata-nome=["']ementa["']/i,
 ];
+
+/** Texto útil mínimo do documento do TJTO (caracteres): um acórdão com ementa, relatório e voto passa disso com folga. */
+const MINIMO_TEXTO_TJTO = 500;
+
+/**
+ * A página é o acórdão do TJTO? Tem as marcas estruturais do documento do eproc e texto útil mínimo. A mesma regra
+ * vale no cliente (página que não é o acórdão é procurada inteira por desafio) e no extrator (só o acórdão é entregue).
+ */
+export function ehDocumentoTjto(html: string): boolean {
+  return MARCAS_DO_DOCUMENTO_TJTO.every((marca) => marca.test(html)) && htmlParaTexto(html).length >= MINIMO_TEXTO_TJTO;
+}
+
+/** Charset de quem não declara nenhum (cabeçalho nem <meta>), por host: o portal do TJTO usa ISO-8859-1 (prova de 2026-10-11). */
+const CHARSET_PADRAO_POR_HOST: Record<string, string> = { [HOST_TJTO]: "iso-8859-1" };
+
+/** Decodifica a resposta de um host: Content-Type, depois <meta>, depois o padrão do host (UTF-8 fora da lista). */
+export function decodificarDoHost(bytes: Uint8Array, contentType: string, host: string): string {
+  return decodificar(bytes, contentType, CHARSET_PADRAO_POR_HOST[host]);
+}
 
 /** Cabeçalhos de identificação por host; host fora daqui vai com o UA honesto. Cada fonte nova acrescenta o seu. */
 const IDENTIFICACAO_POR_HOST: Record<string, Record<string, string>> = {
@@ -279,7 +298,8 @@ class Ida {
   private encerrada = false;
   private dono = () => {};
 
-  constructor(prazoMs: number, estouro: Error) {
+  /** `host`: o da URL pedida, que escolhe o charset de quem não declara nenhum. */
+  constructor(prazoMs: number, estouro: Error, private readonly host = "") {
     this.relogio = setTimeout(() => this.controle.abort(estouro), prazoMs);
     this.relogio.unref?.();
     this.controle.signal.addEventListener("abort", () => this.encerrar(), { once: true });
@@ -298,11 +318,12 @@ class Ida {
    * O TSE responde "Excesso de requisições" no corpo, às vezes com status 200. Só o começo do corpo de texto
    * é lido (até LIMITE_AVISO bytes, mais o pedaço em curso) e fica guardado para quem ler a resposta.
    */
-  async lerAviso(limite = LIMITE_AVISO): Promise<void> {
+  async lerAviso(limite = LIMITE_AVISO, mesmoMaior = false): Promise<void> {
     const r = this.resposta;
     const tipo = r.headers.get("content-type") ?? "";
     if (!tipo.includes("text") && !tipo.includes("json") && !tipo.includes("xhtml")) return;
-    if (Number(r.headers.get("content-length")) > limite || !r.body) return;
+    // `mesmoMaior`: lê o começo (até o limite) também de corpo declarado maior que ele.
+    if ((!mesmoMaior && Number(r.headers.get("content-length")) > limite) || !r.body) return;
     const leitor = (this.leitor = r.body.getReader());
     let total = 0;
     while (!this.fim && total <= limite) {
@@ -321,9 +342,10 @@ class Ida {
     return this.fim ? this.textoLido() : undefined;
   }
 
-  private textoLido(): string {
+  /** O que foi lido do corpo (inteiro ou só o começo), decodificado. */
+  textoLido(): string {
     const bytes = Buffer.concat(this.lidos);
-    return decodificar(bytes, this.resposta.headers.get("content-type") ?? "");
+    return decodificarDoHost(bytes, this.resposta.headers.get("content-type") ?? "", this.host);
   }
 
   /** O `userMessage` de um corpo JSON curto (recusa do Falcão), já limpo; qualquer outra coisa = undefined. */
@@ -640,14 +662,21 @@ export class Cliente {
   /**
    * Página de desafio ou de bloqueio que chega com HTTP 2xx: recusa, como o 403 (G-02). A marca só é procurada na
    * página da fonte, nunca no conteúdo: numa fonte que não responde HTML, a página inteira (pequena) é o envelope;
-   * nas que respondem HTML, só o <title> de página pequena.
+   * nas que respondem HTML, só o <title> de página pequena. Host cujo conteúdo se reconhece (TJTO): página que não é
+   * o conteúdo é envelope, procurada inteira (até LIMITE_PAGINA_DO_HOST), com as marcas de desafio do corpo também.
    */
   private barrarPaginaDeBloqueio(ida: Ida, servico: string, host: string): void {
-    const corpo = ida.corpoPequeno();
-    if (corpo === undefined) return;
-    // Host cujo conteúdo tem marcas conhecidas: página sem nenhuma delas é envelope, e a marca vale na página inteira.
-    const semConteudo = CONTEUDO_ESPERADO_POR_HOST[host]?.every((marca) => !marca.test(corpo)) ?? false;
-    const tipo = paginaDeBloqueio(corpo, (FORMATO_ESPERADO[servico] ?? "html") === "html" && !semConteudo);
+    const ehConteudo = CONTEUDO_ESPERADO_POR_HOST[host];
+    let tipo: "desafio" | "bloqueio" | undefined;
+    if (ehConteudo) {
+      const corpo = ida.textoLido();
+      if (ehConteudo(corpo)) return;
+      tipo = paginaDeBloqueio(corpo, false) ?? (desafioNoCorpo(corpo) ? "desafio" : undefined);
+    } else {
+      const corpo = ida.corpoPequeno();
+      if (corpo === undefined) return;
+      tipo = paginaDeBloqueio(corpo, (FORMATO_ESPERADO[servico] ?? "html") === "html");
+    }
     if (!tipo) return;
     const { status } = ida.resposta;
     const pagina = tipo === "bloqueio" ? "de acesso bloqueado" : "de verificação anti-robô";
@@ -671,7 +700,8 @@ export class Cliente {
     const estouro = new Error(
       `${this.opcoes.nome} não respondeu em ${Math.ceil(prazoMs / 1000)} s; o Garimpo desistiu da chamada. Tente mais tarde.`,
     );
-    const ida = new Ida(prazoMs, estouro);
+    const host = new URL(url).host;
+    const ida = new Ida(prazoMs, estouro, host);
     // O freio do serviço anota o restante de toda resposta, ou a falta dela (a liberação não fica presa).
     const anotarFreio = (lido: RestanteLido) =>
       temFreio(servico) ? this.vagas.anotarFreio(servico, chamada, lido, this.agora) : Promise.resolve();
@@ -692,8 +722,9 @@ export class Cliente {
       await this.barrarBloqueio(ida, url);
       if (!pedeEspera(ida)) {
         const html = ida.resposta.ok && /html/i.test(ida.resposta.headers.get("content-type") ?? "");
-        await ida.lerAviso(html ? LIMITE_PAGINA_PEQUENA : LIMITE_AVISO);
-        if (html) this.barrarPaginaDeBloqueio(ida, servico, new URL(url).host);
+        if (html && CONTEUDO_ESPERADO_POR_HOST[host]) await ida.lerAviso(LIMITE_PAGINA_DO_HOST, true);
+        else await ida.lerAviso(html ? LIMITE_PAGINA_PEQUENA : LIMITE_AVISO);
+        if (html) this.barrarPaginaDeBloqueio(ida, servico, host);
       }
       return ida;
     } catch (e) {
@@ -751,8 +782,14 @@ const FORMATO_ESPERADO: Record<string, "json" | "html"> = {
   jt: "json",
 };
 
-/** Marcas que só o conteúdo do host tem (no HTML cru); página pequena sem nenhuma delas é tratada como envelope. */
-const CONTEUDO_ESPERADO_POR_HOST: Record<string, RegExp[]> = { [HOST_TJTO]: MARCAS_DO_DOCUMENTO_TJTO };
+/** Hosts cujo conteúdo se reconhece no HTML: o que não é o conteúdo é envelope, procurado inteiro por desafio. */
+const CONTEUDO_ESPERADO_POR_HOST: Record<string, (html: string) => boolean> = { [HOST_TJTO]: ehDocumentoTjto };
+
+/**
+ * Teto do que se lê do corpo HTML desses hosts antes de entregar (bytes): o acórdão do TJTO tem ~174 KB (prova de
+ * 2026-10-11). Acima disso, só o começo é examinado; se ele não é o acórdão, o extrator também não o entrega.
+ */
+const LIMITE_PAGINA_DO_HOST = 4 * 1024 * 1024;
 
 /** Marcas fortes, sem acento e em minúsculas: valem na página inteira (não verificadas ao vivo). */
 const MARCAS_DE_BLOQUEIO: [RegExp, "desafio" | "bloqueio"][] = [
@@ -762,6 +799,26 @@ const MARCAS_DE_BLOQUEIO: [RegExp, "desafio" | "bloqueio"][] = [
 
 /** Marcas fracas: "captcha" aparece até em script de reCAPTCHA de página normal, então só valem no <title>. */
 const MARCAS_SO_NO_TITULO = /captcha|just a moment/;
+
+/**
+ * Marcas de desafio que só valem no envelope (página que não é o conteúdo esperado do host): no texto, sem acento e
+ * em minúsculas; e no HTML cru, o widget do Turnstile e o script do desafio do Cloudflare.
+ */
+const MARCAS_DE_DESAFIO_NO_TEXTO = /captcha|just a moment|verify you are human/;
+const MARCAS_DE_DESAFIO_NO_HTML = /cf-turnstile|\/cdn-cgi\/challenge-platform\//i;
+
+/** O envelope tem marca de desafio no corpo ou no título? */
+function desafioNoCorpo(html: string): boolean {
+  return (
+    MARCAS_DE_DESAFIO_NO_TEXTO.test(`${normal(htmlParaTexto(html))}\n${normal(tituloDaPagina(html))}`) ||
+    MARCAS_DE_DESAFIO_NO_HTML.test(html)
+  );
+}
+
+/** Sem acento e em minúsculas, para comparar com as marcas. */
+function normal(t: string): string {
+  return t.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+}
 
 /** Carregador do desafio do F5 (TSPD), que pode vir sem título. Só fora das fontes HTML. */
 const CARREGADOR_DE_DESAFIO = /src=["'][^"']*\/tspd\//;
@@ -782,7 +839,6 @@ function tituloDaPagina(html: string): string {
  * só no <title> curto, em qualquer fonte.
  */
 function paginaDeBloqueio(html: string, soTitulo: boolean): "desafio" | "bloqueio" | undefined {
-  const normal = (t: string) => t.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
   const titulo = tituloDaPagina(html);
   const noTitulo = titulo.length <= LIMITE_TITULO ? normal(titulo) : "";
   const onde = soTitulo ? noTitulo : `${normal(htmlParaTexto(html))}\n${noTitulo}`;
