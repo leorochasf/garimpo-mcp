@@ -86,7 +86,13 @@ Com o **Node.js 22.13 ou mais novo** instalado, no Claude Code:
 claude mcp add garimpo -- npx -y garimpo-mcp
 ```
 
-Reinicie o Claude e peça, por exemplo: *"Use o Garimpo para buscar no STJ acórdãos sobre responsabilidade civil do
+No Antigravity CLI (`agy`):
+
+```bash
+agy mcp add garimpo -- npx -y garimpo-mcp
+```
+
+Confira com `agy mcp list`. Reinicie o Claude (ou abra uma nova sessão do `agy`) e peça, por exemplo: *"Use o Garimpo para buscar no STJ acórdãos sobre responsabilidade civil do
 Estado por omissão."* Claude Desktop, instalação pelo código-fonte e pasta dos PDFs: veja [Instalação](#instalação).
 
 ## Ferramentas
@@ -379,6 +385,39 @@ claude mcp add garimpo -- npx -y garimpo-mcp
 
 No Windows, se o Claude Desktop não achar o `npx`, use `"command": "cmd"` e
 `"args": ["/c", "npx", "-y", "garimpo-mcp"]`.
+
+### Antigravity (CLI `agy`)
+
+Testado no Windows com `agy` 1.3.3. Não testado no app/IDE do Antigravity.
+
+```bash
+agy mcp add garimpo -- npx -y garimpo-mcp
+```
+
+Para conferir, rode `agy mcp list` (deve aparecer `garimpo stdio enabled npx -y garimpo-mcp`) ou digite `/mcp` dentro do `agy`.
+
+Para definir a pasta dos PDFs (`GARIMPO_PASTA`), as flags vêm **antes** do nome:
+
+```bash
+agy mcp add -e GARIMPO_PASTA=C:\caminho\dos\pdfs garimpo -- npx -y garimpo-mcp
+```
+
+O `agy` pede autorização a cada ferramenta. Para liberar todas as do Garimpo, use `mcp(garimpo/*)` nas permissões
+([documentação](https://antigravity.google/docs/cli/permissions.md)).
+
+Configuração manual, opcional: em `%USERPROFILE%\.gemini\config\mcp_config.json`
+([documentação](https://antigravity.google/docs/cli/mcp.md)):
+
+```json
+{
+  "mcpServers": {
+    "garimpo": {
+      "command": "npx",
+      "args": ["-y", "garimpo-mcp"]
+    }
+  }
+}
+```
 
 ### Pelo código-fonte
 
