@@ -1,8 +1,11 @@
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { describe, expect, it } from "vitest";
 import { buscaAmpla } from "../src/ampla.js";
 import { buscaDireta } from "../src/busca.js";
 import { Cliente } from "../src/cliente.js";
 import { Memoria } from "../src/memoria.js";
+import { criarServidor } from "../src/servidor.js";
 import { avisoDeLinkDoTjgo } from "../src/tribunais.js";
 import { clienteFalso, fixture, respostaJson } from "./apoio.js";
 
@@ -45,5 +48,80 @@ describe("link do Projudi do TJGO", () => {
     const r = await buscaAmpla(cliente, { formulacoes: ["dano moral coletivo"], tribunais: ["tjgo"] });
     expect(r.acordaos).toHaveLength(3);
     expect(r.avisos.filter((a) => /Sem Permissão/.test(a))).toHaveLength(1);
+  });
+
+  it("busca ampla: o aviso vale para o que sobra depois do corte por tamanho (sem TJGO sobrando, sem aviso)", async () => {
+    const longo = "x".repeat(400);
+    const site = (linkTjgo: string, scoreTjgo: number) =>
+      new Cliente({
+        nome: "O site",
+        esperar: async () => {},
+        fetch: (async (url: string, init: RequestInit) => {
+          const tjgo = /tribunais\/tjgo\//.test(String(url));
+          const texto = JSON.parse(String(init.body)).query as string;
+          // O acórdão do TJGO só aparece numa formulação; os do STJ, nas duas: no mesmo nível, o do TJGO fica no fim.
+          const itens = tjgo
+            ? texto === "dano moral"
+              ? [{ id: "g1", texto_ementa: "DANO MORAL. FICTÍCIO TJGO.", numero_processo: "1/GO", link_pdf: linkTjgo, rerank_score: scoreTjgo }]
+              : []
+            : Array.from({ length: 50 }, (_, i) => ({
+                id: `s${i}`,
+                texto_ementa: `DANO MORAL. FICTÍCIO STJ ${i}. ${longo}`,
+                numero_processo: `${i}/DF`,
+                orgao_julgador: "Turma Exemplo ".repeat(10),
+                link_pdf: `https://exemplo.test/${i}/${longo}`,
+                rerank_score: 0.9,
+              }));
+          return respostaJson({ results: itens });
+        }) as unknown as typeof fetch,
+      });
+    const pedido = { formulacoes: ["dano moral", "dano moral coletivo"], tribunais: ["stj", "tjgo"], maximo: 200 };
+
+    const cortado = await buscaAmpla(site(LINK, 0.1), pedido);
+    expect(cortado.cabecalhoDeCobertura.listaCortada).toMatch(/25 mil caracteres/);
+    expect(cortado.acordaos.some((a) => a.tribunal === "tjgo")).toBe(false);
+    expect(cortado.avisos.filter((a) => /Sem Permissão/.test(a))).toHaveLength(0);
+  });
+
+  it("busca ampla: sobrou acórdão do TJGO depois do corte, o aviso fica", async () => {
+    const cliente = new Cliente({
+      nome: "O site",
+      esperar: async () => {},
+      fetch: (async (url: string) => {
+        const tjgo = /tribunais\/tjgo\//.test(String(url));
+        const itens = tjgo
+          ? [{ id: "g1", texto_ementa: "DANO MORAL. FICTÍCIO TJGO.", numero_processo: "1/GO", link_pdf: LINK, rerank_score: 0.9 }]
+          : Array.from({ length: 50 }, (_, i) => ({
+              id: `s${i}`,
+              texto_ementa: `DANO MORAL. FICTÍCIO STJ ${i}. ${"x".repeat(400)}`,
+              numero_processo: `${i}/DF`,
+              link_pdf: `https://exemplo.test/${i}/${"x".repeat(400)}`,
+              rerank_score: 0.5,
+            }));
+        return respostaJson({ results: itens });
+      }) as unknown as typeof fetch,
+    });
+    const r = await buscaAmpla(cliente, { formulacoes: ["dano moral"], tribunais: ["stj", "tjgo"], maximo: 200 });
+    expect(r.acordaos.some((a) => a.tribunal === "tjgo")).toBe(true);
+    expect(r.avisos.filter((a) => /Sem Permissão/.test(a))).toHaveLength(1);
+  });
+});
+
+describe("obter_ementa com acórdão do TJGO", () => {
+  async function ementaDe(fixtureNome: string, tribunal: string, id: string) {
+    const { cliente } = clienteFalso([respostaJson(fixture(fixtureNome))]);
+    const [ladoCliente, ladoServidor] = InMemoryTransport.createLinkedPair();
+    await criarServidor(cliente, { dados: process.env.GARIMPO_DADOS! }).connect(ladoServidor);
+    const mcp = new Client({ name: "teste", version: "0" });
+    await mcp.connect(ladoCliente);
+    const chamar = async (name: string, args: Record<string, unknown>) =>
+      JSON.parse(((await mcp.callTool({ name, arguments: args })) as { content: { text: string }[] }).content[0].text);
+    const busca = await chamar("busca_direta", { tribunal, texto: "exemplo" });
+    return chamar("obter_ementa", { id: busca.acordaos[0].id ?? id });
+  }
+
+  it("traz o aviso do link do Projudi uma vez", async () => {
+    const e = await ementaDe("tjgo.json", "tjgo", "tjgo:301");
+    expect(JSON.stringify(e).match(/Sem Permissão/g) ?? []).toHaveLength(1);
   });
 });

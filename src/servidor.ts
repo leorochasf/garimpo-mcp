@@ -48,6 +48,7 @@ import { INSTRUCTIONS, roteiroDePesquisa } from "./roteiro.js";
 import { clienteDoFalcao } from "./falcao.js";
 import { clienteDosPrecedentes, PrecedentesAoVivo, respostaDoStf, respostaDoStj } from "./precedentesAoVivo.js";
 import {
+  avisoDeLinkDoTjgo,
   ehDoFalcao,
   INTEIRO_TEOR_TRT,
   paginaDeTribunais,
@@ -560,12 +561,14 @@ export function criarServidor(
         );
       }
       const avisoRecorrido = avisoRecorridoDoAcordao(guardado.acordao);
+      const [avisoLink] = avisoDeLinkDoTjgo([guardado.acordao]);
       const obtido = obtidoDoSite(guardado.obtidoEm);
       return comAvisoNaturezaJuridica(
         {
           ...guardado.acordao,
           obtidoDoSite: ehDoFalcao(guardado.acordao.tribunal) ? obtido.replace("do site", "do Falcão") : obtido,
           ...(avisoRecorrido && { avisoRecorrido }),
+          ...(avisoLink && { avisoDeLink: avisoLink }),
         },
         [guardado.acordao.tribunal],
       );

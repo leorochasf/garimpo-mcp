@@ -510,7 +510,6 @@ export async function buscaAmpla(
     ordenados.map((x) => x.acordao),
   );
   if (recorrido) avisos.push(recorrido);
-  avisos.push(...avisoDeLinkDoTjgo(mostrados.map((x) => x.acordao)));
   const estimativa = estimar(noSite.length);
   const itemDe = ({ acordao: a, formulacoes }: (typeof mostrados)[number], tamanhoDoTrecho: number): ItemAmplo => {
     const ementa = a.ementa.replace(/^\s*ementa\b\s*[:.\-–—]?\s*/i, "");
@@ -607,6 +606,8 @@ function ajustarAoTeto<T>(
               ? "Ordem por data: 1 acórdão sem data foi para o fim da lista."
               : `Ordem por data: ${porOrdem.semData} acórdãos sem data foram para o fim da lista.`,
           ];
+    // Decidido depois do corte: só avisa se algum acórdão do TJGO ficou na lista.
+    const linkTjgo = avisoDeLinkDoTjgo(itens);
     const porTribunal = r.cabecalhoDeCobertura.porTribunal.map((l, i) =>
       mostradosBase[i] === undefined ? l : { ...l, mostrados: itens.filter((x) => x.tribunal === l.tribunal).length },
     );
@@ -620,7 +621,7 @@ function ajustarAoTeto<T>(
       mostrados: n,
       acordaos: itens,
       cabecalhoDeCobertura: { ...r.cabecalhoDeCobertura, porTribunal, ...(listaCortada && { listaCortada }) },
-      avisos: tam < tamanho ? [...avisosBase, ...semData, `Trechos encurtados para ${tam} caracteres para a resposta caber em ${TETO_DA_RESPOSTA / 1000} mil caracteres.`] : [...avisosBase, ...semData],
+      avisos: tam < tamanho ? [...avisosBase, ...semData, ...linkTjgo, `Trechos encurtados para ${tam} caracteres para a resposta caber em ${TETO_DA_RESPOSTA / 1000} mil caracteres.`] : [...avisosBase, ...semData, ...linkTjgo],
     };
   };
   // Mede o texto final: os campos que o servidor acrescenta (tabelas, aviso de natureza jurídica) contam.
