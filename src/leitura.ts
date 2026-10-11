@@ -11,7 +11,7 @@ import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import type { Acordao } from "./busca.js";
 import { AVISO_CONTEUDO_OCULTO } from "./html.js";
 import type { Memoria } from "./memoria.js";
-import { ROTULO_FALCAO } from "./tribunais.js";
+import { infoTribunal, ROTULO_FALCAO } from "./tribunais.js";
 
 /**
  * Teto de uma resposta, cabeçalho incluído: cerca de 8 mil tokens estimados, a 3 caracteres por token (estimativa
@@ -151,6 +151,16 @@ export async function lerInteiroTeor(
 export const NATUREZA_DO_TEXTO_INTEGRAL =
   "texto integral do repositório oficial (Falcão), convertido de HTML pelo Garimpo: não é PDF e não tem recibo de origem";
 
+/** O texto do portal do TJTO, trazido pelo obter_inteiro_teor (ADR-0021): a fonte e o que ele é. */
+export const ROTULO_PORTAL_TJTO = "portal de jurisprudência do TJTO (jurisprudencia.tjto.jus.br)";
+export const NATUREZA_DO_TEXTO_DO_PORTAL =
+  "texto do portal do tribunal (TJTO), convertido de HTML pelo Garimpo: não é PDF e não tem recibo de origem";
+
+/** O tribunal do id entrega o texto do portal do tribunal (TJTO), não o do Falcão. */
+export function ehTextoDoPortal(id: string): boolean {
+  return infoTribunal(id.split(":")[0])?.inteiroTeor === "portal";
+}
+
 /** O que o registro é quando o Falcão não deu texto integral de verdade (só a ementa repetida): nada de "repositório oficial". */
 export const NATUREZA_SEM_TEXTO_INTEGRAL = "sem texto integral: o Falcão não mandou o acórdão, só a ementa";
 
@@ -163,6 +173,12 @@ export const AVISO_DE_CORTE =
 
 /** O erro que ensina quando o texto integral já saiu da memória: não há como pedir ao Falcão um acórdão pelo id. */
 export function textoForaDaMemoria(id: string): string {
+  if (ehTextoDoPortal(id)) {
+    return (
+      `O texto do acórdão ${id} não está na memória do Garimpo, que o guarda por 24 h: chame o obter_inteiro_teor ` +
+      "com o id para trazê-lo de novo do portal do tribunal (o acórdão precisa estar na memória da busca)."
+    );
+  }
   return (
     `O texto integral do acórdão ${id} não está na memória do Garimpo, que o guarda por 24 h desde a busca; o Falcão ` +
     "não oferece busca pelo id. Refaça a busca que o trouxe (uma busca nova pode não trazer o mesmo acórdão)."
@@ -193,7 +209,9 @@ export async function lerTextoIntegral(id: string, parte = 1, memoria?: Memoria)
   const guardado = await memoria?.obterTexto(id);
   if (!guardado) throw new Error(textoForaDaMemoria(id));
   const a = (await memoria?.obter(id))?.acordao;
-  const semTexto = guardado.motivoSemTexto ?? (guardado.texto ? undefined : "o texto integral veio vazio do Falcão");
+  const doPortal = ehTextoDoPortal(id);
+  const semTexto =
+    guardado.motivoSemTexto ?? (guardado.texto ? undefined : `o texto integral veio vazio do ${doPortal ? "portal" : "Falcão"}`);
   const base = (partes: string, proxima?: number): ParteDoTextoIntegral => ({
     cabecalho: {
       tribunal: (a?.tribunal ?? id.split(":")[0]).toUpperCase(),
@@ -201,8 +219,8 @@ export async function lerTextoIntegral(id: string, parte = 1, memoria?: Memoria)
       julgadoEm: a?.dataJulgamento ?? NAO_INFORMADO,
       juntadoEm: a?.dataJuntada ?? NAO_INFORMADO,
       id,
-      fonte: ROTULO_FALCAO,
-      natureza: semTexto ? NATUREZA_SEM_TEXTO_INTEGRAL : NATUREZA_DO_TEXTO_INTEGRAL,
+      fonte: doPortal ? ROTULO_PORTAL_TJTO : ROTULO_FALCAO,
+      natureza: semTexto ? NATUREZA_SEM_TEXTO_INTEGRAL : doPortal ? NATUREZA_DO_TEXTO_DO_PORTAL : NATUREZA_DO_TEXTO_INTEGRAL,
       partes,
       ...(semTexto
         ? { completo: `não: ${semTexto}` }
@@ -212,7 +230,10 @@ export async function lerTextoIntegral(id: string, parte = 1, memoria?: Memoria)
     },
     avisos: semTexto
       ? [avisoSemTextoIntegral(semTexto)]
-      : [...(guardado.indicioDeCorte ? [AVISO_DE_CORTE] : []), ...(guardado.conteudoOculto ? [AVISO_CONTEUDO_OCULTO] : [])],
+      : [
+          ...(guardado.indicioDeCorte ? [doPortal ? AVISO_DE_CORTE.replace("do Falcão", "do portal") : AVISO_DE_CORTE] : []),
+          ...(guardado.conteudoOculto ? [AVISO_CONTEUDO_OCULTO] : []),
+        ],
     texto: "",
     ...(proxima ? { proximaParte: { ferramenta: "ler_inteiro_teor", argumentos: { id, parte: proxima } } } : {}),
   });

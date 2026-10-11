@@ -7,9 +7,9 @@
  * - recusa final (nova recusa, 403, desafio anti-robô por cabeçalho ou pela página, resposta corrompida pelo filtro,
  *   pedido acima do teto) abre o disjuntor do serviço para todas as janelas: as chamadas a ele falham na hora até a
  *   pausa vencer, e então sai uma só chamada de prova (disjuntor.ts);
- * - identificação por fonte: User-Agent honesto identificando o Garimpo; só o Falcão (ADR-0018) e o portal do STF
- *   (ADR-0020), que recusam quem não se apresenta como navegador, recebem UA de navegador fixo por versão e
- *   cabeçalhos de navegador;
+ * - identificação por fonte: User-Agent honesto identificando o Garimpo; só o Falcão (ADR-0018), o portal do STF
+ *   (ADR-0020) e o portal de jurisprudência do TJTO (ADR-0021), que recusam quem não se apresenta como navegador,
+ *   recebem UA de navegador fixo por versão e cabeçalhos de navegador;
  * - intervalo mínimo entre chamadas ao mesmo host (opcional, ex.: TSE; sempre 1 s no Falcão), também entre janelas; a
  *   espera dessa pausa não ocupa vaga;
  * - opcional (DJEN): pedido de espera acima do teto vira adiamento, não recusa: a chamada volta na hora com o
@@ -57,6 +57,9 @@ export const UA_NAVEGADOR = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:139.0)
  */
 export const HOST_PORTAL_STF = "portal.stf.jus.br";
 
+/** Portal de jurisprudência do TJTO: recusa (403) o UA do Garimpo; o dono autorizou o UA de navegador nele (ADR-0021). */
+export const HOST_TJTO = "jurisprudencia.tjto.jus.br";
+
 /** Cabeçalhos de identificação por host; host fora daqui vai com o UA honesto. Cada fonte nova acrescenta o seu. */
 const IDENTIFICACAO_POR_HOST: Record<string, Record<string, string>> = {
   [HOST_FALCAO]: {
@@ -66,6 +69,11 @@ const IDENTIFICACAO_POR_HOST: Record<string, Record<string, string>> = {
     Accept: "application/json, text/plain, */*",
   },
   [HOST_PORTAL_STF]: {
+    "User-Agent": UA_NAVEGADOR,
+    Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "pt-BR,pt;q=0.9",
+  },
+  [HOST_TJTO]: {
     "User-Agent": UA_NAVEGADOR,
     Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "pt-BR,pt;q=0.9",

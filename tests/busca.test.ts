@@ -72,12 +72,12 @@ describe("busca direta", () => {
     expect(a.link).toMatch(/^https:\/\/projudi/);
   });
 
-  it("TJTO: busca na rota do TJTO e lê o acórdão como os outros TJs; inteiro teor só por link", async () => {
+  it("TJTO: busca na rota do TJTO e lê o acórdão como os outros TJs; inteiro teor como texto do portal", async () => {
     const { cliente, chamadas } = clienteFalso([respostaJson(fixture("tjto.json"))]);
     const r = await buscaDireta(cliente, { tribunal: "TJTO", texto: "exemplo" });
     expect(chamadas[0].url).toMatch(/\/api\/tribunais\/tjto\/search$/);
     expect(r.acordaos[0]).toMatchObject({ id: "tjto:401", numeroCnj: "0000001-11.2025.8.27.0001", dataJulgamento: "2026-03-13" });
-    expect(infoTribunal("tjto")).toMatchObject({ nome: "TJ do Tocantins", inteiroTeor: "link", tetoResultados: 100 });
+    expect(infoTribunal("tjto")).toMatchObject({ nome: "TJ do Tocantins", inteiroTeor: "portal", tetoResultados: 100 });
     expect(SIGLAS.filter((s) => s.startsWith("tj"))).toHaveLength(27);
   });
 

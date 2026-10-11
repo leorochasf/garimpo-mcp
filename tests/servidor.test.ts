@@ -1261,7 +1261,8 @@ describe("textos honestos por tribunal: o observado, com data, ou \"ainda não t
     expect(m.get("tst")).toMatch(/endereço encurtado da Justiça do Trabalho, fora do portal do TST/);
     expect(m.get("tjdft")).toMatch(/^Testado em 2026-10-09 sem conclusão; o download automático não está disponível\./);
     expect(m.get("tjdft")).toMatch(/página de aplicação no lugar do PDF/);
-    expect(m.get("tjto")).toMatch(/^Testado em 2026-10-09: o portal respondeu HTTP 403 \(acesso negado\)\./);
+    // TJTO: 403 em 2026-10-09 com o UA do Garimpo; com o UA de navegador (ADR-0021) deixou de ser só link.
+    expect(m.has("tjto")).toBe(false);
   });
 
   it("a explicação do obter_inteiro_teor traz o mesmo motivo datado, com a ponte para o ler_inteiro_teor", async () => {
@@ -2205,7 +2206,12 @@ describe("página de tribunais (recurso garimpo://tribunais)", () => {
 
     expect(linhas.map((l) => l.split("|")[1].trim().toLowerCase())).toEqual(tribunais.map((t) => t.tribunal));
     for (const [i, t] of tribunais.entries()) {
-      const esperado = { baixa: "baixado pelo Garimpo", texto: "texto integral do repositório oficial (sem PDF)", link: "só link" };
+      const esperado = {
+        baixa: "baixado pelo Garimpo",
+        texto: "texto integral do repositório oficial (sem PDF)",
+        portal: "texto do portal do tribunal",
+        link: "só link",
+      };
       expect(linhas[i]).toContain(esperado[t.inteiroTeor as keyof typeof esperado]);
       expect(linhas[i]).toContain(`| ${t.tetoResultados} |`);
       if (t.motivo) expect(linhas[i]).toContain(t.motivo);

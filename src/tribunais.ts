@@ -4,8 +4,11 @@
  * docs/fonte-falcao.md (Falcão, os 24 TRTs).
  */
 
-/** "baixa" = o Garimpo baixa o PDF oficial; "link" = devolve link + explicação; "texto" = texto integral na busca. */
-export type InteiroTeorModo = "baixa" | "link" | "texto";
+/**
+ * "baixa" = o Garimpo baixa o PDF oficial; "link" = devolve link + explicação; "texto" = texto integral na busca;
+ * "portal" = o obter_inteiro_teor traz o texto do portal do tribunal (HTML convertido) para a memória (ADR-0021).
+ */
+export type InteiroTeorModo = "baixa" | "link" | "texto" | "portal";
 
 /** De onde vem a busca do tribunal. */
 export type Fonte = "JurisprudênciaIA" | "Falcão (CSJT)";
@@ -13,6 +16,8 @@ export type Fonte = "JurisprudênciaIA" | "Falcão (CSJT)";
 /** O que a tabela diz dos TRTs: precedentes qualificados e inteiro teor. */
 export const QUALIFICADOS_TRT = "qualificados não pesquisados no B12";
 export const INTEIRO_TEOR_TRT = "texto integral do repositório oficial (sem PDF)";
+/** O que a tabela diz do TJTO (ADR-0021). */
+export const INTEIRO_TEOR_PORTAL = "texto do portal do tribunal, trazido pelo obter_inteiro_teor (sem PDF)";
 
 /** Rótulo de cada acórdão de TRT (ADR-0018). */
 export const ROTULO_FALCAO =
@@ -97,8 +102,6 @@ const EXPLICA_TST =
 
 const EXPLICA_TJDFT =
   `${INCONCLUSIVO_B11} O portal devolveu uma página de aplicação no lugar do PDF, sem link para o PDF.`;
-
-const EXPLICA_TJTO = "Testado em 2026-10-09: o portal respondeu HTTP 403 (acesso negado).";
 
 function tj(sigla: string, nome: string): InfoTribunal {
   return {
@@ -199,7 +202,7 @@ export const TRIBUNAIS: InfoTribunal[] = [
   { ...tj("tjsc", "TJ de Santa Catarina") },
   { ...tj("tjse", "TJ de Sergipe") },
   { ...tj("tjsp", "TJ de São Paulo"), inteiroTeor: "baixa", motivoLink: undefined },
-  { ...tj("tjto", "TJ do Tocantins"), motivoLink: EXPLICA_TJTO },
+  { ...tj("tjto", "TJ do Tocantins"), inteiroTeor: "portal", motivoLink: undefined },
   ...Array.from({ length: 24 }, (_, i): InfoTribunal => ({
     sigla: `trt${i + 1}`,
     nome: `TRT da ${i + 1}ª Região`,
@@ -237,7 +240,9 @@ export function paginaDeTribunais(): string {
         ? "baixado pelo Garimpo"
         : t.inteiroTeor === "texto"
           ? INTEIRO_TEOR_TRT
-          : `só link: ${t.motivoLink}`;
+          : t.inteiroTeor === "portal"
+            ? INTEIRO_TEOR_PORTAL
+            : `só link: ${t.motivoLink}`;
     return `| ${t.sigla.toUpperCase()} | ${t.nome} | ${t.fonte} | ${qualificados} | ${t.tetoResultados} | ${inteiroTeor} |`;
   });
   return [

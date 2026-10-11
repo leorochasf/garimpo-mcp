@@ -1,6 +1,7 @@
 /**
  * Inteiro teor oficial: o PDF do acórdão baixado do portal do próprio tribunal.
- * Baixa só o que sai por HTTP comum (STJ, TJMG, TJSP, TSE). Para os demais devolve link + explicação:
+ * Baixa só o que sai por HTTP comum (STJ, TJMG, TJSP, TSE). No TJTO, o portal entrega o acórdão em HTML: vira o
+ * texto do portal do tribunal, guardado na memória (ADR-0021). Para os demais devolve link + explicação:
  * nunca navegador automatizado, captcha ou contorno de proteção.
  */
 
@@ -10,7 +11,7 @@ import { copyFile, link as ligar, lstat, mkdir, readdir, readFile, rm, writeFile
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { type Acordao, SITE } from "./busca.js";
-import { Cliente, RecusaError, VERSAO } from "./cliente.js";
+import { Cliente, HOST_TJTO, RecusaError, VERSAO } from "./cliente.js";
 import { RedeParadaError } from "./coordenacao.js";
 import {
   avisoJaNaPasta,
@@ -21,7 +22,8 @@ import {
   NAO_INFORMADO,
   ORIGEM_DOWNLOAD,
 } from "./leitura.js";
-import type { Guardado, Memoria } from "./memoria.js";
+import { htmlComConteudoOculto, htmlComIndicioDeCorte, htmlParaTexto } from "./html.js";
+import type { Guardado, Memoria, TextoIntegral } from "./memoria.js";
 import { ehDoFalcao, infoTribunal } from "./tribunais.js";
 
 export interface PedidoInteiroTeor {
@@ -176,6 +178,8 @@ export async function obterInteiroTeor(
   const linkDaRota = link || acordao?.linkConsulta ? undefined : acordao?.linkDaRota;
   const origemDaRota = " Link pedido à rota de link do JurisprudênciaIA: não veio na busca.";
 
+  if (info.inteiroTeor === "portal") return textoDoPortal(info.nome, acordao, link ?? linkDaRota, clienteDe(tribunal), memoria);
+
   if (info.inteiroTeor === "link") {
     // Sem link do PDF (comum no STF), o link oficial de consulta serve para o usuário abrir no navegador.
     const linkOficial = link ?? acordao?.linkConsulta ?? linkDaRota;
@@ -241,6 +245,89 @@ export async function obterInteiroTeor(
     });
   const salvo = await salvarComRecibo(pasta, nome, baixado.pdf, recibo);
   return { baixado: true, ...salvo, sha256, bytes: baixado.pdf.length, fonte: linkPdf };
+}
+
+/**
+ * TJTO (ADR-0021): o portal entrega o acórdão (ementa, relatório, voto e extrato de ata) em HTML, não em PDF. O texto,
+ * convertido pelo Garimpo, vai para a memória pelo id do acórdão, como o do Falcão; já guardado = nenhuma chamada.
+ */
+async function textoDoPortal(
+  nomeTribunal: string,
+  acordao: Acordao | undefined,
+  link: string | undefined,
+  cliente: Cliente,
+  memoria: Memoria | undefined,
+): Promise<ResultadoInteiroTeor> {
+  if (!link) {
+    return {
+      baixado: false,
+      explicacao: `O JurisprudênciaIA não trouxe link para este acórdão. ${caminhoSemLink(nomeTribunal, acordao)}`,
+    };
+  }
+  if (!acordao || !memoria) {
+    return {
+      baixado: false,
+      link,
+      explicacao:
+        "O texto do portal do tribunal fica na memória do Garimpo pelo id do acórdão: chame o obter_inteiro_teor com " +
+        `o id que veio na busca. ${PONTE}`,
+    };
+  }
+  const ler =
+    `Leia com o ler_inteiro_teor com o id ${acordao.id} (fica na memória do Garimpo por 24 h) e confira citações ` +
+    "com o conferir_citacao pelo mesmo id.";
+  if (!(await memoria.obterTexto(acordao.id))) {
+    memoria.lembrarTextos([{ id: acordao.id, ...(await baixarTextoTjto(cliente, link)) }]);
+  }
+  return {
+    baixado: false,
+    link,
+    explicacao:
+      `O portal do ${nomeTribunal} entrega o acórdão em HTML, não em PDF: o Garimpo o converteu em texto (texto do ` +
+      `portal do tribunal, sem recibo de origem; não é o PDF do tribunal). ${ler}`,
+  };
+}
+
+/**
+ * O documento do TJTO: viewFileDoc.php responde 302 para documento.php (Location escapado como HTML, "&amp;"); o
+ * Garimpo pede documento.php só com o uuid, o endereço da prova de 2026-10-11. Só https no portal do TJTO.
+ */
+async function baixarTextoTjto(cliente: Cliente, link: string): Promise<Omit<TextoIntegral, "id">> {
+  const oficial = (endereco: string, contexto: string) => {
+    const url = new URL(endereco);
+    if (url.protocol !== "https:" || url.host !== HOST_TJTO) {
+      throw new Error(`${contexto} fora do portal oficial esperado (só https em ${HOST_TJTO}): ${endereco}`);
+    }
+    return url;
+  };
+  let url = oficial(link, "Link do TJTO");
+  for (let saltos = 0; ; saltos++) {
+    const r = await cliente.requisitar(url.href, { redirect: "manual" });
+    if (r.status >= 300 && r.status < 400) {
+      await r.body?.cancel();
+      const destino = r.headers.get("location");
+      if (!destino || saltos >= MAX_REDIRECTS) {
+        throw new Error(`O TJTO redirecionou sem destino ou vezes demais (${url.href}).`);
+      }
+      url = oficial(new URL(destino.replace(/&amp;/g, "&"), url).href, "O TJTO redirecionou");
+      const uuid = url.searchParams.get("uuid");
+      if (uuid) url.search = new URLSearchParams({ uuid }).toString();
+      continue;
+    }
+    const tipo = r.headers.get("content-type") ?? "";
+    const bytes = await lerCorpo(r, "TJTO");
+    if (!/text\/html/i.test(tipo)) {
+      throw new Error(`O TJTO devolveu ${tipo || "conteúdo sem tipo"} no lugar da página do acórdão (${url.href}).`);
+    }
+    const html = new TextDecoder(/charset=["']?([\w-]+)/i.exec(tipo)?.[1] ?? "utf-8").decode(bytes);
+    const texto = htmlParaTexto(html);
+    if (!texto) throw new Error(`O TJTO devolveu uma página sem texto (${url.href}).`);
+    return {
+      texto,
+      indicioDeCorte: htmlComIndicioDeCorte(html),
+      ...(htmlComConteudoOculto(html) && { conteudoOculto: true }),
+    };
+  }
 }
 
 const SUFIXO_RECIBO = ".recibo.txt";

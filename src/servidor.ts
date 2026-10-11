@@ -29,11 +29,13 @@ import {
 import {
   AVISO_DE_CORTE,
   contarPaginas,
+  ehTextoDoPortal,
   type InteiroTeorParaConferir,
   LIMITE_CARACTERES_PARTE,
   lerInteiroTeor,
   lerParaConferir,
   lerTextoIntegral,
+  NATUREZA_DO_TEXTO_DO_PORTAL,
   NATUREZA_DO_TEXTO_INTEGRAL,
   NATUREZA_SEM_TEXTO_INTEGRAL,
   avisoSemTextoIntegral,
@@ -50,6 +52,7 @@ import { clienteDosPrecedentes, PrecedentesAoVivo, respostaDoStf, respostaDoStj 
 import {
   avisoDeLinkDoTjgo,
   ehDoFalcao,
+  INTEIRO_TEOR_PORTAL,
   INTEIRO_TEOR_TRT,
   paginaDeTribunais,
   QUALIFICADOS_TRT,
@@ -594,7 +597,8 @@ export function criarServidor(
         "Acórdão que veio da busca sem link nenhum: pede o link oficial, uma vez, à rota de link do JurisprudênciaIA " +
         "(exceto TST) e diz que ele veio de lá; sem link também ali, diz como achar o acórdão pelo número CNJ. " +
         "Baixa do STJ, TJMG, TJSP e TSE. TRT (Falcão): não há PDF a baixar; explica e aponta o ler_inteiro_teor pelo " +
-        "id. Para STF, TJGO e demais devolve o link e explica como obter no navegador " +
+        "id. TJTO: o portal entrega o acórdão em HTML; o Garimpo o traz como texto do portal do tribunal (sem PDF " +
+        "nem recibo) para a memória e aponta o ler_inteiro_teor e o conferir_citacao pelo id. Para STF, TJGO e demais devolve o link e explica como obter no navegador " +
         "(o Garimpo não contorna captcha nem proteção anti-robô) e como ler o PDF baixado: passar o caminho do " +
         "arquivo ao ler_inteiro_teor. Informe o id que veio na busca ou tribunal + link.",
       // Só grava arquivo novo, nunca sobrescreve: sem a marca, o MCP presume "destrutiva".
@@ -640,7 +644,8 @@ export function criarServidor(
         "chamada para a parte seguinte. TRT (Falcão): informe só o id que veio na busca, sem caminho: devolve o " +
         "texto integral do repositório oficial, convertido de HTML (não é PDF, sem recibo de origem), em partes por " +
         "tamanho (não são páginas de PDF), com cabeçalho de fonte, julgado em e juntado em; o texto fica na memória " +
-        "por 24 h desde a busca, e texto com indício de corte vem marcado como incompleto.",
+        "por 24 h desde a busca, e texto com indício de corte vem marcado como incompleto. TJTO, só com o id, depois " +
+        "do obter_inteiro_teor: o texto do portal do tribunal, do mesmo jeito.",
       annotations: { readOnlyHint: true, openWorldHint: false },
       inputSchema: {
         caminho: z
@@ -655,7 +660,7 @@ export function criarServidor(
         id: z
           .string()
           .optional()
-          .describe("TRT: id do acórdão (lê o texto integral do Falcão). PDF trazido, opcional: id do acórdão que ele seria"),
+          .describe("TRT ou TJTO: id do acórdão (lê o texto da memória). PDF trazido, opcional: id do acórdão que ele seria"),
         tribunal: tribunal.optional().describe("Opcional, PDF trazido: tribunal do acórdão que ele seria"),
         numero: z.string().optional().describe("Opcional, PDF trazido: número do processo do acórdão que ele seria"),
       },
@@ -664,10 +669,13 @@ export function criarServidor(
       try {
         conferirTribunais(vinculo.tribunal);
         if (caminho === undefined) {
-          if (vinculo.id && ehDoFalcao(vinculo.id.split(":")[0])) return json(await lerTextoIntegral(vinculo.id, parte, memoria));
+          if (vinculo.id && (ehDoFalcao(vinculo.id.split(":")[0]) || ehTextoDoPortal(vinculo.id))) {
+            return json(await lerTextoIntegral(vinculo.id, parte, memoria));
+          }
           throw new Error(
             "Informe o caminho do PDF (o campo arquivo do obter_inteiro_teor ou o de um PDF que você baixou). Sem " +
-              "caminho, só o id de um acórdão de TRT (Falcão), cujo texto integral fica na memória do Garimpo.",
+              "caminho, só o id de um acórdão de TRT (Falcão) ou do TJTO (depois do obter_inteiro_teor), cujo texto " +
+              "fica na memória do Garimpo.",
           );
         }
         return json(await lerInteiroTeor(caminho, parte, vinculo, memoria));
@@ -766,6 +774,7 @@ export function criarServidor(
         if (id !== undefined) {
           const a = (await memoria.obter(id))?.acordao;
           const doFalcao = ehDoFalcao(id.split(":")[0]);
+          const doPortal = ehTextoDoPortal(id);
           const conferida = a
             ? conferirNaEmenta(a.ementa, lida, doFalcao ? "Sem ementa no Falcão: não há ementa para conferir." : undefined)
             : naoVerificavel(`O acórdão ${id} não está na memória do Garimpo. Refaça a busca que o trouxe e confira de novo.`);
@@ -774,7 +783,7 @@ export function criarServidor(
               ? { aviso: AVISO_CITACAO_NA_EMENTA_CORTADA }
               : {};
           fontes.push({ fonte: "ementa", id, ...conferida, ...cortada });
-          if (doFalcao) {
+          if (doFalcao || doPortal) {
             const t = await memoria.obterTexto(id);
             const semTexto = t?.motivoSemTexto;
             const noTexto = semTexto
@@ -788,7 +797,9 @@ export function criarServidor(
                 : {};
             const avisos = [(corte as { aviso?: string }).aviso, t?.conteudoOculto ? AVISO_CONTEUDO_OCULTO : undefined].filter(Boolean);
             fontes.push({
-              fonte: "texto integral", id, origem: semTexto ? NATUREZA_SEM_TEXTO_INTEGRAL : NATUREZA_DO_TEXTO_INTEGRAL, ...noTexto,
+              fonte: "texto integral", id,
+              origem: semTexto ? NATUREZA_SEM_TEXTO_INTEGRAL : doPortal ? NATUREZA_DO_TEXTO_DO_PORTAL : NATUREZA_DO_TEXTO_INTEGRAL,
+              ...noTexto,
               ...(avisos.length > 0 && { aviso: avisos.join(" ") }),
             });
           }
@@ -987,7 +998,7 @@ export function criarServidor(
         "Lista os tribunais cobertos pelo Garimpo e, para cada um: a fonte (JurisprudênciaIA ou Falcão (CSJT), o " +
         "repositório oficial da Justiça do Trabalho, para os 24 TRTs), se tem busca, quais precedentes qualificados " +
         "o site devolve, o teto de resultados por busca e se o inteiro teor oficial é baixado, só linkado ou, nos " +
-        "TRTs, texto integral do repositório oficial (sem PDF). Detalhes dos limites do Falcão na página " +
+        "TRTs, texto integral do repositório oficial (sem PDF); no TJTO, texto do portal do tribunal. Detalhes dos limites do Falcão na página " +
         "garimpo://tribunais.",
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
       inputSchema: {},
@@ -1004,6 +1015,7 @@ export function criarServidor(
           inteiroTeor: t.inteiroTeor,
           ...(t.motivoLink ? { motivo: t.motivoLink } : {}),
           ...(t.inteiroTeor === "texto" ? { motivo: INTEIRO_TEOR_TRT } : {}),
+          ...(t.inteiroTeor === "portal" ? { motivo: INTEIRO_TEOR_PORTAL } : {}),
         })),
       ),
   );
