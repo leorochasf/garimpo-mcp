@@ -46,21 +46,35 @@ const EXPLICA_STF =
 const PESQUISA_TJGO = "https://projudi.tjgo.jus.br/ConsultaJurisprudencia";
 
 const EXPLICA_TJGO =
-  "O portal do TJGO (Projudi) exige resolver um reCAPTCHA na pesquisa e o download só vale dentro " +
-  "dessa sessão. O Garimpo não contorna captchas: pesquise pelo número CNJ no portal e baixe lá. " +
-  "O link que vem na busca é do Projudi e, aberto fora de uma sessão, costuma mostrar «Sem Permissão para o " +
-  "Usuário (nº 78)» em vez do acórdão.";
+  "O link do Projudi do TJGO não abre o acórdão fora da sessão de pesquisa do portal: o download só vale dentro " +
+  "dela, e o Garimpo não contorna a verificação anti-robô (Cloudflare). Há um caminho público, sem login: abra " +
+  `${PESQUISA_TJGO}, cole o número CNJ do processo no campo «Número do Processo», passe pela verificação ` +
+  "anti-robô no navegador e clique em Buscar. Fora da sessão, o link da busca costuma mostrar «Sem Permissão " +
+  "para o Usuário (nº 78)» em vez do acórdão.";
 
 /** Link de acórdão do Projudi do TJGO: não abre o acórdão fora de uma sessão do portal. */
 const LINK_PROJUDI_TJGO = /projudi\.tjgo\.jus\.br\/ConsultaJurisprudencia/i;
 
-/** Aviso fixo, uma vez por resposta (nunca por acórdão), quando algum link é do Projudi do TJGO. */
-export function avisoDeLinkDoTjgo(acordaos: ReadonlyArray<{ link?: string; linkConsulta?: string }>): string[] {
-  if (!acordaos.some((a) => LINK_PROJUDI_TJGO.test(a.link ?? a.linkConsulta ?? ""))) return [];
+/**
+ * Aviso fixo, uma vez por resposta (nunca por acórdão), quando algum link é do Projudi do TJGO. Com um só resultado
+ * do TJGO que tenha número CNJ, o número já vem escrito; com vários, manda usar o número de cada resultado.
+ */
+export function avisoDeLinkDoTjgo(
+  acordaos: ReadonlyArray<{ link?: string; linkConsulta?: string; numeroCnj?: string }>,
+): string[] {
+  const doProjudi = acordaos.filter((a) => LINK_PROJUDI_TJGO.test(a.link ?? a.linkConsulta ?? ""));
+  if (doProjudi.length === 0) return [];
+  const numeros = doProjudi.flatMap((a) => (a.numeroCnj ? [a.numeroCnj] : []));
+  const qual =
+    doProjudi.length === 1 && numeros.length === 1
+      ? `o número do processo deste resultado: ${numeros[0]}`
+      : "o número do processo de cada resultado do TJGO";
   return [
-    "Link do Projudi do TJGO: aberto fora de uma sessão do portal pode mostrar «Sem Permissão para o Usuário " +
-      "(nº 78)» e não abrir o acórdão. Para ver o acórdão, use a pesquisa de jurisprudência do TJGO " +
-      `(${PESQUISA_TJGO}, que pede verificação anti-robô) e procure pelo número do processo.`,
+    "Link do Projudi do TJGO: aberto fora da sessão de pesquisa do portal, não abre o acórdão e pode mostrar " +
+      "«Sem Permissão para o Usuário (nº 78)». Caminho público, sem login: abra " +
+      `${PESQUISA_TJGO}, cole no campo «Número do Processo» ${qual}, passe pela verificação anti-robô (Cloudflare) ` +
+      "no navegador, clique em Buscar e abra o resultado (procure pelo número; o Garimpo não garante que " +
+      "a busca por número encontre o acórdão).",
   ];
 }
 

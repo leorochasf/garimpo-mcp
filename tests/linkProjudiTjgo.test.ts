@@ -20,6 +20,37 @@ describe("link do Projudi do TJGO", () => {
     expect(avisos[0]).toContain("https://projudi.tjgo.jus.br/ConsultaJurisprudencia");
   });
 
+  it("traz o passo a passo público e o número CNJ do resultado já escrito", () => {
+    const cnj = "0000001-02.2024.8.09.0001";
+    const [aviso] = avisoDeLinkDoTjgo([{ link: LINK, numeroCnj: cnj }]);
+    expect(aviso).toContain("https://projudi.tjgo.jus.br/ConsultaJurisprudencia");
+    expect(aviso).toContain(cnj);
+    expect(aviso).toMatch(/sem login/);
+    expect(aviso).toMatch(/Número do Processo/);
+    expect(aviso).toMatch(/anti-robô \(Cloudflare\)/);
+    expect(aviso).toMatch(/procure pelo número/);
+    expect(aviso).not.toMatch(/reCAPTCHA|@|\?ProcessoNumero/);
+  });
+
+  it("com vários resultados do TJGO, não repete o aviso nem lista os números: manda usar o de cada resultado", () => {
+    const avisos = avisoDeLinkDoTjgo([
+      { link: LINK, numeroCnj: "0000001-02.2024.8.09.0001" },
+      { link: LINK.replace("999001", "999002"), numeroCnj: "0000003-04.2024.8.09.0002" },
+    ]);
+    expect(avisos).toHaveLength(1);
+    expect(avisos[0]).toMatch(/de cada resultado do TJGO/);
+    expect(avisos[0]).not.toContain("0000001-02.2024.8.09.0001");
+  });
+
+  it("o CNJ de resultado que não é do Projudi não entra no aviso", () => {
+    const [aviso] = avisoDeLinkDoTjgo([
+      { link: "https://exemplo.test/x", numeroCnj: "0000009-09.2024.8.26.0001" },
+      { link: LINK, numeroCnj: "0000001-02.2024.8.09.0001" },
+    ]);
+    expect(aviso).toContain("0000001-02.2024.8.09.0001");
+    expect(aviso).not.toContain("0000009-09");
+  });
+
   it("não avisa quando nenhum link é do Projudi", () => {
     expect(avisoDeLinkDoTjgo([{ link: "https://exemplo.test/x" }, { linkConsulta: "https://outro.test/y" }, {}])).toEqual([]);
   });
