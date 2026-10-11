@@ -556,7 +556,7 @@ export async function buscaAmpla(
   // quem entra na lista.
   const ordenar = (lista: typeof mostrados) =>
     p.ordem === "data" ? ordenarPorData(lista, (x) => x.acordao.dataJulgamento) : { itens: lista, semData: 0 };
-  return ajustarAoTeto(resultado, mostrados, ordenar, itemDe, tamanho, sobreviventes.length, acrescimos);
+  return ajustarAoTeto(resultado, mostrados, ordenar, itemDe, tamanho, sobreviventes.length, acrescimos, ({ acordao: a }) => a);
 }
 
 /** Motivo de uma busca que não deu resposta (nunca chamada para busca vazia, que deu resposta). */
@@ -590,6 +590,7 @@ function ajustarAoTeto<T>(
   tamanho: number,
   sobreviventes: number,
   acrescimos?: (r: ResultadoAmplo) => object,
+  paraAvisoDeLink: (x: T) => { link?: string; linkConsulta?: string; numeroCnj?: string } = () => ({}),
 ): ResultadoAmplo {
   const avisosBase = r.avisos;
   const listaBase = r.cabecalhoDeCobertura.listaCortada;
@@ -606,8 +607,9 @@ function ajustarAoTeto<T>(
               ? "Ordem por data: 1 acórdão sem data foi para o fim da lista."
               : `Ordem por data: ${porOrdem.semData} acórdãos sem data foram para o fim da lista.`,
           ];
-    // Decidido depois do corte: só avisa se algum acórdão do TJGO ficou na lista.
-    const linkTjgo = avisoDeLinkDoTjgo(itens);
+    // Decidido depois do corte: só avisa se algum acórdão do TJGO ficou na lista. Parte do acórdão de origem,
+    // porque o item da lista não leva o número CNJ.
+    const linkTjgo = avisoDeLinkDoTjgo(porOrdem.itens.map(paraAvisoDeLink));
     const porTribunal = r.cabecalhoDeCobertura.porTribunal.map((l, i) =>
       mostradosBase[i] === undefined ? l : { ...l, mostrados: itens.filter((x) => x.tribunal === l.tribunal).length },
     );

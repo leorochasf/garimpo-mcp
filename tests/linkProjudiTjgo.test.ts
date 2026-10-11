@@ -81,6 +81,31 @@ describe("link do Projudi do TJGO", () => {
     expect(r.avisos.filter((a) => /Sem Permissão/.test(a))).toHaveLength(1);
   });
 
+  it("busca ampla com um só resultado do TJGO que tem CNJ: o aviso traz o número", async () => {
+    const cnj = "0000001-11.2025.8.09.0001";
+    const cliente = new Cliente({
+      nome: "O site",
+      esperar: async () => {},
+      fetch: (async () =>
+        respostaJson({
+          results: [
+            {
+              id: "g1",
+              texto_ementa: "DANO MORAL COLETIVO. EXEMPLO FICTÍCIO.",
+              numero_processo: cnj,
+              numero_processo_cnj: cnj,
+              link_pdf: LINK,
+              rerank_score: 0.5,
+            },
+          ],
+        })) as unknown as typeof fetch,
+    });
+    const r = await buscaAmpla(cliente, { formulacoes: ["dano moral coletivo"], tribunais: ["tjgo"] });
+    const avisos = r.avisos.filter((a) => /Sem Permissão/.test(a));
+    expect(avisos).toHaveLength(1);
+    expect(avisos[0]).toContain(cnj);
+  });
+
   it("busca ampla: o aviso vale para o que sobra depois do corte por tamanho (sem TJGO sobrando, sem aviso)", async () => {
     const longo = "x".repeat(400);
     const site = (linkTjgo: string, scoreTjgo: number) =>
