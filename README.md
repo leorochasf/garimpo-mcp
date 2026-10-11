@@ -92,7 +92,13 @@ No Antigravity CLI (`agy`):
 agy mcp add garimpo -- npx -y garimpo-mcp
 ```
 
-Confira com `agy mcp list`. Reinicie o Claude (ou abra uma nova sessão do `agy`) e peça, por exemplo: *"Use o Garimpo para buscar no STJ acórdãos sobre responsabilidade civil do
+No Codex CLI (`codex`):
+
+```bash
+codex mcp add garimpo -- npx -y garimpo-mcp
+```
+
+Confira com `agy mcp list` ou `codex mcp list`. Reinicie o Claude (ou abra uma nova sessão do `agy` ou do `codex`) e peça, por exemplo: *"Use o Garimpo para buscar no STJ acórdãos sobre responsabilidade civil do
 Estado por omissão."* Claude Desktop, instalação pelo código-fonte e pasta dos PDFs: veja [Instalação](#instalação).
 
 ## Ferramentas
@@ -418,6 +424,35 @@ Configuração manual, opcional: em `%USERPROFILE%\.gemini\config\mcp_config.jso
   }
 }
 ```
+
+### Codex (CLI `codex`)
+
+Testado no Windows com `codex-cli` 0.161.0-alpha.1.
+
+```bash
+codex mcp add garimpo -- npx -y garimpo-mcp
+```
+
+Para conferir, rode `codex mcp list` (deve aparecer `garimpo` como `enabled`).
+
+Para definir a pasta dos PDFs (`GARIMPO_PASTA`), use `--env` antes do nome:
+
+```bash
+codex mcp add --env GARIMPO_PASTA=C:\caminho\dos\pdfs garimpo -- npx -y garimpo-mcp
+```
+
+Se o primeiro início estourar o tempo (o `npx` baixa o pacote na primeira vez), aumente o prazo em
+`~/.codex/config.toml`
+([código](https://github.com/openai/codex/blob/main/codex-rs/config/src/mcp_types.rs)):
+
+```toml
+[mcp_servers.garimpo]
+command = "npx"
+args = ["-y", "garimpo-mcp"]
+startup_timeout_sec = 60
+```
+
+O `codex` pede aprovação a cada ferramenta.
 
 ### Pelo código-fonte
 
