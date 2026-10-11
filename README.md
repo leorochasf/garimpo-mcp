@@ -1,6 +1,8 @@
 <div align="center">
 
-# ⛏️ Garimpo
+<img src="docs/imagens/gabinetinho.png" width="180" alt="Gabinetinho, mascote do ia.de.gabinete">
+
+# ⛏️ Garimpo-Jurídico
 
 **Pesquisa de jurisprudência que acha o acórdão, traz o texto do tribunal e confere a citação antes de ela ir para a peça.**
 
@@ -14,10 +16,10 @@ by [ia.de.gabinete](https://www.instagram.com/ia.de.gabinete/)
 </div>
 
 > [!IMPORTANT]
-> **Cliente não oficial.** O Garimpo não é afiliado ao JurisprudênciaIA, à JAI, ao CSJT nem a nenhuma outra fonte. A
+> **Cliente não oficial.** O Garimpo-Jurídico não é afiliado ao JurisprudênciaIA, à JAI, ao CSJT nem a nenhuma outra fonte. A
 > API usada não é documentada e pode mudar sem aviso. Licença MIT.
 
-Servidor MCP local (stdio) para pesquisar jurisprudência brasileira pela **busca direta** do
+O **Garimpo-Jurídico** (pacote npm `garimpo-mcp`, chamado de "Garimpo" daqui em diante) é um servidor MCP local (stdio) para pesquisar jurisprudência brasileira pela **busca direta** do
 [JurisprudênciaIA](https://www.jurisprudenciaia.com.br) e baixar o **inteiro teor oficial** dos tribunais. Os 24 TRTs
 vêm do **Falcão** (CSJT), o repositório oficial de jurisprudência da Justiça do Trabalho (Res. CSJT 401/2024), com o
 texto integral do acórdão.
@@ -41,6 +43,40 @@ tribunal e se o precedente ainda vale. O Garimpo cuida dessa parte.
 | 💻 **Tudo no seu computador** | Sem conta, sem cadastro, sem servidor do Garimpo. A memória de 24 h fica numa pasta local: na medição do projeto, repetir uma busca ampla passou de 3 chamadas e 2,6 s para nenhuma chamada e 31 ms ([B3](docs/banco-de-provas/b3-medicao.md)). |
 
 > O Garimpo encontra, baixa e confere. Não substitui a leitura do inteiro teor nem o juízo de quem assina a peça.
+
+## Abrangência
+
+<img src="docs/imagens/gabinetinho-lanterna.png" align="right" width="110" alt="Gabinetinho com a lanterna">
+
+**56 tribunais**, mais fontes de apoio. A tabela diz o que cada grupo oferece; o que é **só link** não é baixado pelo Garimpo.
+
+| Grupo | Tribunais | Busca | Precedentes qualificados | Inteiro teor |
+|---|---|---|---|---|
+| **Superiores** | STF | ✅ | repercussão geral, súmula vinculante, súmula | 🔗 só link (o portal usa desafio anti-robô; o Garimpo não contorna) |
+| | STJ | ✅ | tema repetitivo, súmula, IAC, PUIL | 📄 PDF baixado, com recibo |
+| | TSE | ✅ | não | 📄 PDF baixado, com recibo |
+| | TST | ✅ | súmula, IRR, OJ | 🔗 só link |
+| | STM | ✅ | não | 🔗 só link |
+| **Justiça Estadual** | TJMG, TJSP | ✅ | não | 📄 PDF baixado, com recibo |
+| | os outros 25 TJs | ✅ | não | 🔗 só link |
+| **Justiça do Trabalho** | TRT1 a TRT24, pelo Falcão (CSJT) | ✅ | ainda não | 📝 texto integral do repositório oficial (sem PDF, sem recibo) |
+
+<details>
+<summary>Os 27 TJs</summary>
+
+TJAC, TJAL, TJAM, TJAP, TJBA, TJCE, TJDFT, TJES, TJGO, TJMA, TJMG, TJMS, TJMT, TJPA, TJPB, TJPE, TJPI, TJPR, TJRJ,
+TJRN, TJRO, TJRR, TJRS, TJSC, TJSE, TJSP, TJTO. Em alguns (TJGO, TJRN, TJDFT, TJTO) o download automático foi
+testado e não está disponível; o Garimpo explica o motivo e leva ao link.
+
+</details>
+
+**Fontes de apoio:**
+
+- **DataJud** e **DJEN**, pelo número CNJ do processo: julgamentos registrados e comunicações (metadados, sem texto de
+  decisão). O DataJud não cobre o STF.
+- **Portais do STJ e do STF**, para consultar ao vivo a situação e a tese de temas e súmulas.
+
+A lista exata, com os limites de cada um, sai da ferramenta `listar_tribunais`.
 
 ## Comece em 1 minuto
 
