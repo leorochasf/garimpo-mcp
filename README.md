@@ -408,8 +408,9 @@ Para definir a pasta dos PDFs (`GARIMPO_PASTA`), as flags vêm **antes** do nome
 agy mcp add -e GARIMPO_PASTA=C:\caminho\dos\pdfs garimpo -- npx -y garimpo-mcp
 ```
 
-O `agy` pede autorização a cada ferramenta. Para liberar todas as do Garimpo, use `mcp(garimpo/*)` nas permissões
-([documentação](https://antigravity.google/docs/cli/permissions.md)).
+O `agy` pede autorização a cada ferramenta. Para liberar só as do Garimpo, veja
+[Sem o pedido de permissão a cada consulta](#sem-o-pedido-de-permissão-a-cada-consulta)
+([documentação](https://antigravity.google/docs/permissions?tab=cli)).
 
 Configuração manual, opcional: em `%USERPROFILE%\.gemini\config\mcp_config.json`
 ([documentação](https://antigravity.google/docs/cli/mcp.md)):
@@ -452,7 +453,28 @@ args = ["-y", "garimpo-mcp"]
 startup_timeout_sec = 60
 ```
 
-O `codex` pede aprovação a cada ferramenta.
+O `codex` pede aprovação a cada ferramenta. Para liberar só as do Garimpo, veja
+[Sem o pedido de permissão a cada consulta](#sem-o-pedido-de-permissão-a-cada-consulta).
+
+### Sem o pedido de permissão a cada consulta
+
+Por padrão, cada ferramenta do Garimpo pede autorização na primeira vez. Para liberar **só o Garimpo** de uma vez, sem
+desligar as permissões do resto, coloque a regra no arquivo do seu programa:
+
+| Programa | Arquivo | O que colocar |
+|---|---|---|
+| Antigravity CLI (`agy`) | `~/.gemini/antigravity-cli/settings.json` | `{ "permissions": { "allow": ["mcp(garimpo/*)"] } }` |
+| Claude Code | `~/.claude/settings.json` | `{ "permissions": { "allow": ["mcp__garimpo"] } }`. Pelo próprio Claude Code: comando `/permissions`, aba Allow, "Add a new rule", `mcp__garimpo` |
+| Codex CLI | `~/.codex/config.toml` | na seção `[mcp_servers.garimpo]`, a linha `default_tools_approval_mode = "approve"` |
+
+No Windows, `~` é a sua pasta de usuário (`%USERPROFILE%`). `garimpo` é o nome com que você cadastrou o servidor
+(o mesmo de `agy mcp list` e `codex mcp list`); se usou outro, troque. Se o arquivo já tiver a lista `allow`, apenas
+acrescente o item a ela.
+
+Não use os modos que desligam todas as permissões (`--dangerously-skip-permissions` e similares): eles liberam também
+comandos e escrita em arquivos, não só o Garimpo.
+
+Testado no Windows com `agy` 1.3.3, Claude Code 2.1.296 e `codex-cli` 0.161.0-alpha.1.
 
 ### Pelo código-fonte
 
