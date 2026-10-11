@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.0
+
+TJTO
+- O inteiro teor do TJTO agora vem como "texto do portal do tribunal": o Garimpo lê a página do acórdão no portal oficial e entrega o texto (sem PDF e sem recibo). O Garimpo se identifica como navegador só no portal do TJTO, por decisão do dono do projeto ([ADR-0021](docs/adr/0021-tjto-ua-de-navegador-e-texto-do-portal.md)).
+- Página de erro ou de verificação anti-robô não passa como acórdão. Se o portal recusar, o Garimpo para e avisa.
+
+TJGO
+- Aviso de que o link do Projudi não abre fora da sessão do tribunal, com o caminho público da pesquisa (ConsultaJurisprudencia) e o número CNJ do resultado, na busca, no `obter_ementa` e na `busca_ampla`.
+
+README
+- Nova seção para liberar só as ferramentas do Garimpo, sem pedido de permissão a cada consulta (Antigravity CLI, Claude Code e Codex).
+- Instalação no Antigravity CLI e no Codex CLI, nome Garimpo-Jurídico e tabela de abrangência atualizada (TJTO deixa de ser "só link").
 ## 0.4.0
 
 Freios e transparência
