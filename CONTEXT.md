@@ -111,6 +111,11 @@ O texto do acórdão que vem na resposta do Falcão (repositório oficial de jur
 _Evitar_: inteiro teor oficial (é o PDF), íntegra, PDF
 _Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-09 — sujeito a revisão do dono._
 
+**Texto do portal do tribunal**:
+A extensão do termo acima ao texto do acórdão que o **portal do próprio tribunal** entrega em HTML, não em PDF (hoje o TJTO, pelo `obter_inteiro_teor`; ADR-0021), convertido para texto pelo Garimpo pela mesma regra fixa. Como o do Falcão: não tem página do PDF, recibo de origem nem origem conferida; fica na memória por 24 h, é lido em partes e pode ser usado na conferência de citação pelo id, sempre com o rótulo do portal.
+_Evitar_: inteiro teor oficial (é o PDF), íntegra, PDF
+_Aceito pelo dono em 2026-10-10 (DQ-06: estender o termo existente, uma decisão só para todos os portais)._
+
 **HTTP comum**:
 O jeito de baixar o PDF do portal usado no B11: pedidos simples, com cookies que o próprio portal entrega na mesma sessão e leitura dos links escritos no HTML, só em https nos endereços oficiais, sem executar JavaScript, login nem captcha. É um recorte técnico, não uma proibição: outras fontes podem se apresentar como navegador quando a fonte exige (ex.: o Falcão), sempre dentro dos freios.
 _Evitar_: download direto, sem contorno (sozinho), scraping

@@ -58,15 +58,17 @@ tribunal e se o precedente ainda vale. O Garimpo cuida dessa parte.
 | | TST | ✅ | súmula, IRR, OJ | 🔗 só link |
 | | STM | ✅ | não | 🔗 só link |
 | **Justiça Estadual** | TJMG, TJSP | ✅ | não | 📄 PDF baixado, com recibo |
-| | os outros 25 TJs | ✅ | não | 🔗 só link |
+| | TJTO | ✅ | não | 📝 texto do portal do tribunal, trazido pelo `obter_inteiro_teor` (sem PDF, sem recibo) |
+| | os outros 24 TJs | ✅ | não | 🔗 só link |
 | **Justiça do Trabalho** | TRT1 a TRT24, pelo Falcão (CSJT) | ✅ | ainda não | 📝 texto integral do repositório oficial (sem PDF, sem recibo) |
 
 <details>
 <summary>Os 27 TJs</summary>
 
 TJAC, TJAL, TJAM, TJAP, TJBA, TJCE, TJDFT, TJES, TJGO, TJMA, TJMG, TJMS, TJMT, TJPA, TJPB, TJPE, TJPI, TJPR, TJRJ,
-TJRN, TJRO, TJRR, TJRS, TJSC, TJSE, TJSP, TJTO. Em alguns (TJGO, TJRN, TJDFT, TJTO) o download automático foi
-testado e não está disponível; o Garimpo explica o motivo e leva ao link.
+TJRN, TJRO, TJRR, TJRS, TJSC, TJSE, TJSP, TJTO. Em alguns (TJGO, TJRN, TJDFT) o download automático foi
+testado e não está disponível; o Garimpo explica o motivo e leva ao link. No TJTO, o portal entrega o acórdão em
+HTML: o `obter_inteiro_teor` o traz como texto, que se lê e confere pelo id (`ler_inteiro_teor`, `conferir_citacao`).
 
 </details>
 
@@ -525,8 +527,8 @@ civil do Estado por omissão."*
   palavras da formulação mais aderente aparecem juntas (sem nenhuma, o começo da ementa, sem o rótulo "Ementa:"),
   e 200 do texto de cada precedente qualificado; a ementa inteira sai por `obter_ementa`. A lista de
   precedentes qualificados só traz o que o site devolve: há teses com tema conhecido em que ela vem vazia.
-- **Inteiro teor:** STF (proteção anti-robô), TJGO (reCAPTCHA) e os demais tribunais não são baixados
-  automaticamente: o Garimpo devolve o link e explica como obter no navegador. Baixado o PDF, passe o caminho do
+- **Inteiro teor:** STF (proteção anti-robô), TJGO (reCAPTCHA) e os demais tribunais (exceto STJ, TJMG, TJSP,
+  TSE e, como texto do portal, TJTO) não são baixados automaticamente: o Garimpo devolve o link e explica como obter no navegador. Baixado o PDF, passe o caminho do
   arquivo ao `ler_inteiro_teor` para ler o texto (origem declarada, não conferida).
 - **TSE:** downloads seguidos esperam 10 s entre si, contados da última saída de qualquer janela do Garimpo (o
   portal recusa chamadas em sequência).
