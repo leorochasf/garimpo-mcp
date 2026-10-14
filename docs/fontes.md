@@ -122,6 +122,9 @@ de rede para esta fonte existe ainda**; esta entrada precede o gerador (ADR-0017
 - **Acesso:** `robots.txt` do portal com `Disallow: /api/` e `Crawl-Delay: 10`. O Garimpo usa só as páginas de ficha e
   os downloads, **uma chamada por vez, ≥ 10 s entre chamadas, nunca `/api/`**, pelo cliente único e com os freios da
   regra 3. Medição de 2026-10-13: 50 chamadas, todas 200, 0,6–14,9 s (mediana 1,8 s).
+  Links montados para `processo.stj.jus.br` servem exclusivamente à consulta manual: seu `robots.txt` veda o
+  acesso automatizado (D-18), inclusive seguir links ou baixar o inteiro teor por esse host. Uma via independente
+  em outro host exige regras e prova próprias, sem desvio da restrição.
 - **Periodicidade:** mensal, com defasagem de 1–2 meses; há regravações silenciosas de arquivos já publicados e mês
   ausente (Segunda Turma 06/2026). O sha256 de cada arquivo as detecta.
 - **O que o Garimpo guarda:** do campo `referenciasLegislativas`, os pares (lei, ano, artigo, parágrafo, inciso) e,

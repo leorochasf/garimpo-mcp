@@ -28,7 +28,9 @@ fotografia empacotada e datada, gerada pelo mantenedor, consultada sem rede.
   uma nova tentativa em 429/503, parada em recusa ou desafio anti-robô. Antes de substituir a fotografia anterior:
   validar a licença de cada conjunto, o hash de cada arquivo, meses ausentes, a identidade dos acórdãos (duplicados pelo
   `id` e também por registro + data + classe) e gravar o relatório de alterações. Link montado a partir de registro e
-  data é link para consulta, não prova de que o download é viável, e respeita o acesso ao STJ decidido em D-18.
+  data é link para consulta **manual**, não prova de que o download é viável. Conforme a verificação de D-18,
+  `processo.stj.jus.br` é vedado pelo `robots.txt`: nenhum link por esse host pode ser seguido ou baixado
+  automaticamente. Outro host não pode ser usado como desvio; uma via independente exige regras e prova próprias.
 - **Consulta sob demanda rejeitada**, pelo motivo acima.
 - **Aviso obrigatório em toda resposta que usa o índice** (texto literal):
 
