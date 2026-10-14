@@ -1,0 +1,76 @@
+name: Relatar um problema
+description: O Garimpo deu erro, travou ou se comportou de forma inesperada.
+title: "[problema] "
+labels: ["a-triar"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Antes de escrever, leia
+        **Não cole nesta página nenhum dado de processo**: nem número de processo, nem nome de parte, nem trecho
+        de decisão, de petição ou de caso concreto, nem caminho de pastas do seu computador, nem senha ou chave.
+        Esta página é pública. Descreva apenas a **versão**, a **ferramenta** e o **tipo de erro**.
+        Se o problema só aparece com um caso real, descreva o tipo de situação em termos gerais.
+  - type: checkboxes
+    id: confirmacao
+    attributes:
+      label: Confirmação
+      options:
+        - label: Não incluí número de processo, nome de parte, trecho de caso, caminho de pasta nem credencial.
+          required: true
+  - type: input
+    id: versao
+    attributes:
+      label: Versão do Garimpo
+      description: Aparece em `package.json` ou na saída de `npm ls garimpo-mcp`.
+      placeholder: "0.5.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: ferramenta
+    attributes:
+      label: Ferramenta do Garimpo em que ocorreu
+      options:
+        - Não sei dizer
+        - Pesquisa de jurisprudência
+        - Download de inteiro teor
+        - Leitura do inteiro teor
+        - Precedentes / art. 927
+        - Outra
+    validations:
+      required: true
+  - type: dropdown
+    id: tipo
+    attributes:
+      label: Tipo de erro
+      options:
+        - Mensagem de erro inesperado
+        - Serviço pausado ou recusa do site
+        - Resultado vazio quando deveria haver resultado
+        - Resultado claramente errado
+        - Lentidão ou travamento
+        - Outro
+    validations:
+      required: true
+  - type: dropdown
+    id: cliente
+    attributes:
+      label: Programa de IA que usa o Garimpo
+      options:
+        - Claude Desktop
+        - Claude Code
+        - Outro
+    validations:
+      required: true
+  - type: input
+    id: sistema
+    attributes:
+      label: Sistema operacional e versão do Node
+      placeholder: "Windows 11, Node 22.13"
+  - type: textarea
+    id: descricao
+    attributes:
+      label: O que aconteceu, em termos gerais
+      description: Sem dado de caso. Use exemplos genéricos ("busca por tese sobre prescrição", e não o caso real).
+    validations:
+      required: true

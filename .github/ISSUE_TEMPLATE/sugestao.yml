@@ -1,0 +1,27 @@
+name: Sugerir uma melhoria
+description: Ideia para o Garimpo ficar melhor.
+title: "[sugestão] "
+labels: ["a-triar"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Não cole nesta página dado de processo**: número de processo, nome de parte, trecho de decisão ou de caso
+        concreto, caminho de pastas do seu computador, senha ou chave. Esta página é pública. Use exemplos genéricos.
+  - type: checkboxes
+    id: confirmacao
+    attributes:
+      label: Confirmação
+      options:
+        - label: Não incluí número de processo, nome de parte, trecho de caso, caminho de pasta nem credencial.
+          required: true
+  - type: textarea
+    id: ideia
+    attributes:
+      label: O que você gostaria que o Garimpo fizesse
+    validations:
+      required: true
+  - type: textarea
+    id: motivo
+    attributes:
+      label: Por que isso ajudaria (em termos gerais)
