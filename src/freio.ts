@@ -180,7 +180,7 @@ export interface Orcamento {
 
 /**
  * Antes de sair: a chamada cabe na janela? `novo` é o estado a gravar se ela sair (janela nova quando a anterior
- * acabou ou quando o relógio voltou além de uma janela inteira); igual ao recebido quando ela não sai.
+ * acabou); igual ao recebido quando ela não sai. Recuar o relógio nunca restitui chamadas gastas.
  */
 export function decidirOrcamento(
   o: Orcamento | undefined,
@@ -189,8 +189,7 @@ export function decidirOrcamento(
 ): { ordem: OrdemDoFreio; novo: Orcamento } {
   const diario = config.diario;
   const degrau = diario ? 0 : Math.min(o?.degrau ?? 0, config.largurasMs.length - 1);
-  const maior = diario ? DIA_MS : Math.max(...config.largurasMs);
-  if (!o || agora >= o.fim || o.fim - agora > maior) {
+  if (!o || agora >= o.fim) {
     const fim = diario ? proximaMeiaNoiteDeBrasilia(agora) : agora + config.largurasMs[degrau];
     return {
       ordem: { tipo: "sai" },

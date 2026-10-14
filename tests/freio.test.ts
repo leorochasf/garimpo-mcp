@@ -381,6 +381,25 @@ describe("orçamento por janela, para fonte que não informa o restante", () => 
 const HORA_BR = (instante: string) => Date.parse(`${instante}-03:00`);
 const TETO_DE_TESTE = { jt: { chamadas: 3, largurasMs: [], diario: true as const } };
 
+describe("relógio recuado não devolve chamadas já gastas (I-04/I-05)", () => {
+  it.each(["janela", "dia"] as const)("mantém o contador e o fim do %s entre clientes", async (tipo) => {
+    const relogio = { agora: INICIO };
+    const f = fonteAceita();
+    const config = tipo === "dia" ? { chamadas: 2, largurasMs: [], diario: true as const } : ORCAMENTO.teste;
+    const extras = { orcamentoPorServico: { teste: config } };
+    await chamar(janela(relogio, f.fetchFalso, extras));
+    await chamar(janela(relogio, f.fetchFalso, extras));
+    const antes = await readFile(join(pasta, "protecao", "estado.json"), "utf8");
+    const fim = JSON.parse(antes).orcamentos.teste.fim;
+    relogio.agora -= 2 * 24 * 60 * MIN;
+    const erro = await erroDe(janela(relogio, f.fetchFalso, extras).requisitar(FONTE));
+    expect(erro).toBeInstanceOf(PausaPreventivaError);
+    expect((erro as PausaPreventivaError).ate).toBe(fim);
+    expect(f.chegadas).toHaveLength(2);
+    expect(await readFile(join(pasta, "protecao", "estado.json"), "utf8")).toBe(antes);
+  });
+});
+
 describe("teto diário do Falcão, por dia civil de Brasília", () => {
   it("no teto a chamada não sai até a meia-noite de Brasília, mesmo com restante informado alto, em todas as janelas", async () => {
     const relogio = { agora: HORA_BR("2026-10-09T14:00:00") };
