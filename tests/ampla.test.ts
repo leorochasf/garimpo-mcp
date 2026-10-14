@@ -1249,3 +1249,103 @@ describe("correções da revisão: junção entre formulações, teto de tamanho
     expect(pouca.cabecalhoDeCobertura.ressalvaDaGrafia).toMatch(/grafia/);
   });
 });
+
+describe("busca ampla: decisões em série (mesma ementa)", () => {
+  const EMENTA = "EMENTA FICTÍCIA. AGRAVO. DANO MORAL COLETIVO. Recurso inadmissível, pois não houve impugnação.";
+  const serie = (id: string, data: string | null, extra: Record<string, unknown> = {}) => ({
+    ...bruto(id, 0.5, EMENTA),
+    relator: "Fulano de Tal",
+    data_julgamento: data,
+    ...extra,
+  });
+  const site = (results: unknown[]) => siteFalso(() => respostaJson({ results }));
+  const pedido = { formulacoes: ["dano moral coletivo"], tribunais: ["stj"] };
+
+  it("agrupa a série numa linha: contagem, critério, intervalo de datas e todos os ids; a contagem de acórdãos não muda", async () => {
+    const { cliente } = site([
+      serie("s1", "2024-05-10T00:00:00.000Z"),
+      serie("s2", "2024-01-02T00:00:00.000Z"),
+      serie("s3", "2024-03-04T00:00:00.000Z"),
+      { ...bruto("unico", 0.5, "EMENTA FICTÍCIA. DANO MORAL COLETIVO. Outra."), relator: "Fulano de Tal" },
+    ]);
+    const r = await buscaAmpla(cliente, pedido);
+
+    expect(r.totalAcordaos).toBe(4);
+    expect(r.mostrados).toBe(4);
+    expect(r.cabecalhoDeCobertura.porTribunal[0].mostrados).toBe(4);
+    expect(r.acordaos).toHaveLength(2);
+    const grupo = r.acordaos.find((a) => a.mesmaEmenta)!;
+    expect(grupo.mesmaEmenta).toEqual({
+      criterio: "mesma ementa",
+      quantidade: 3,
+      periodo: "2024-01-02 a 2024-05-10",
+      ids: expect.arrayContaining(["stj:s2", "stj:s3"]),
+    });
+    expect([grupo.id, ...grupo.mesmaEmenta!.ids].sort()).toEqual(["stj:s1", "stj:s2", "stj:s3"]);
+    expect(r.avisos.join(" ")).toMatch(/mesma ementa/);
+    expect(r.avisos.join(" ")).toMatch(/Não significa mesma tese nem mesmo resultado/);
+  });
+
+  it("opção de desligar devolve a lista original, sem campo de grupo", async () => {
+    const { cliente } = site([serie("s1", "2024-05-10T00:00:00.000Z"), serie("s2", "2024-01-02T00:00:00.000Z")]);
+    const r = await buscaAmpla(cliente, { ...pedido, agrupar: false });
+    expect(r.acordaos.map((a) => a.id).sort()).toEqual(["stj:s1", "stj:s2"]);
+    expect(r.acordaos.some((a) => a.mesmaEmenta)).toBe(false);
+    expect(r.avisos.join(" ")).not.toMatch(/mesma ementa/);
+  });
+
+  it("negação, número ou relator diferente, ementa cortada ou relator ausente: não agrupa", async () => {
+    const { cliente } = site([
+      serie("s1", "2024-05-10T00:00:00.000Z"),
+      serie("neg2", "2024-05-10T00:00:00.000Z", { texto_ementa: EMENTA.replace("não houve", "houve") }),
+      serie("num3", "2024-05-10T00:00:00.000Z", { texto_ementa: `${EMENTA} Art. 2.` }),
+      serie("out4", "2024-05-10T00:00:00.000Z", { relator: "Beltrano" }),
+      serie("sem5", "2024-05-10T00:00:00.000Z", { relator: undefined }),
+      serie("sem6", "2024-05-10T00:00:00.000Z", { relator: undefined }),
+    ]);
+    const r = await buscaAmpla(cliente, pedido);
+    expect(r.acordaos).toHaveLength(6);
+    expect(r.acordaos.some((a) => a.mesmaEmenta)).toBe(false);
+  });
+
+  it("só espaços e quebras de linha diferentes: agrupa", async () => {
+    const { cliente } = site([
+      serie("s1", "2024-05-10T00:00:00.000Z"),
+      serie("s2", "2024-05-11T00:00:00.000Z", { texto_ementa: `  ${EMENTA.replace(/ /g, "  ")}\n` }),
+    ]);
+    const r = await buscaAmpla(cliente, pedido);
+    expect(r.acordaos).toHaveLength(1);
+    expect(r.acordaos[0].mesmaEmenta?.quantidade).toBe(2);
+  });
+
+  it("agrupa depois do filtro e do corte: o que o filtro tirou não entra e a lista cortada segue contando acórdãos", async () => {
+    const { cliente } = site([
+      serie("s1", "2024-05-10T00:00:00.000Z"),
+      serie("s2", "2024-05-11T00:00:00.000Z"),
+      serie("s3", "2024-05-12T00:00:00.000Z"),
+      { ...bruto("fora", 0.5, "EMENTA FICTÍCIA. DANO MORAL COLETIVO. Tema diverso."), relator: "Fulano de Tal" },
+    ]);
+    const filtrada = await buscaAmpla(cliente, { ...pedido, naoPodeConter: ["tema diverso"] });
+    expect(filtrada.totalAcordaos).toBe(4);
+    expect(filtrada.cabecalhoDeCobertura.porTribunal[0].excluidos).toBe(1);
+    expect(filtrada.acordaos).toHaveLength(1);
+    expect(filtrada.acordaos[0].mesmaEmenta?.quantidade).toBe(3);
+
+    // maximo 2: dos 2 escolhidos pela aderência, os dois são da série; "mostrando 2 de 4" fica como estava.
+    const cortada = await buscaAmpla(cliente, { ...pedido, maximo: 2 });
+    expect(cortada.mostrados).toBe(2);
+    expect(cortada.cabecalhoDeCobertura.listaCortada).toMatch(/^mostrando 2 de 4/);
+    expect(cortada.acordaos.reduce((n, a) => n + (a.mesmaEmenta?.quantidade ?? 1), 0)).toBe(2);
+  });
+
+  it("em ordem de data, o grupo fica onde está o primeiro da série", async () => {
+    const { cliente } = site([
+      serie("s1", "2024-05-10T00:00:00.000Z"),
+      { ...bruto("antigo", 0.5, "EMENTA FICTÍCIA. DANO MORAL COLETIVO. Outra."), data_julgamento: "2010-01-01T00:00:00.000Z" },
+      serie("s2", "2024-01-02T00:00:00.000Z"),
+    ]);
+    const r = await buscaAmpla(cliente, { ...pedido, ordem: "data" });
+    expect(r.acordaos.map((a) => a.id)).toEqual(["stj:antigo", "stj:s2"]);
+    expect(r.acordaos[1].mesmaEmenta?.ids).toEqual(["stj:s1"]);
+  });
+});
