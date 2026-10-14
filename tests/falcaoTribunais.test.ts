@@ -19,7 +19,7 @@ describe("os 24 TRTs em listar_tribunais e garimpo://tribunais", () => {
       });
     }
     expect(dado.find((t: { tribunal: string }) => t.tribunal === "tst")).toMatchObject({ fonte: "JurisprudênciaIA" });
-    expect(dado.find((t: { tribunal: string }) => t.tribunal === "stj")).toMatchObject({ fonte: "JurisprudênciaIA", inteiroTeor: "baixa" });
+    expect(dado.find((t: { tribunal: string }) => t.tribunal === "stj")).toMatchObject({ fonte: "JurisprudênciaIA", inteiroTeor: "link", motivo: expect.stringMatching(/robots\.txt/) });
     expect(falcao.pedidos).toHaveLength(0);
     expect(site.chamadas).toHaveLength(0);
   });

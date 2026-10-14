@@ -47,6 +47,10 @@ const EXPLICA_STF =
   "O portal do STF protege o download com um desafio anti-robô (AWS WAF) que exige JavaScript. " +
   "O Garimpo não contorna proteções.";
 
+const EXPLICA_STJ =
+  "O robots.txt de processo.stj.jus.br (host do inteiro teor), lido em 2026-10-13, veda o acesso automatizado ao host " +
+  "inteiro (User-agent: * com Disallow: /). O Garimpo respeita e não baixa o inteiro teor do STJ; abra o link no navegador.";
+
 /** Pesquisa pública de jurisprudência do TJGO (prova B11, docs/banco-de-provas/b11-prova-ao-vivo.md). */
 const PESQUISA_TJGO = "https://projudi.tjgo.jus.br/ConsultaJurisprudencia";
 
@@ -140,7 +144,8 @@ export const TRIBUNAIS: InfoTribunal[] = [
     fonte: "JurisprudênciaIA",
     qualificados: ["tema repetitivo", "súmula", "IAC", "PUIL"],
     tetoResultados: 100,
-    inteiroTeor: "baixa",
+    inteiroTeor: "link",
+    motivoLink: EXPLICA_STJ,
     extrasBusca: {
       sumulas_limit: 5,
       repetitivos_limit: 5,

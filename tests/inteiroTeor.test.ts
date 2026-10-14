@@ -15,107 +15,42 @@ const html = (texto: string, headers: Record<string, string> = {}) =>
   new Response(texto, { headers: { "content-type": "text/html", ...headers } });
 
 const LINK_STJ = "https://scon.stj.jus.br/SCON/GetInteiroTeorDoAcordao?num_registro=202000000001&dt_publicacao=10/12/2020";
-const MEDIADO =
-  "/processo/julgamento/eletronico/documento/mediado/?documento_tipo=integra&documento_sequencial=1&registro_numero=202000000001&peticao_numero=&publicacao_data=20201210";
-const PAGINA_STJ = `<a href="javascript:AbreDocumento('${MEDIADO}')">REsp (inteiro teor)</a>
-  <a href="javascript:AbreDocumento('/processo/revista/documento/mediado/?componente=ATC&sequencial=2')">CERTIDÃO</a>`;
-const PDF_STJ =
-  "https://processo.stj.jus.br/processo/julgamento/eletronico/documento/?documento_tipo=integra&documento_sequencial=1&registro_numero=202000000001&publicacao_data=20201210";
-const MEDIADO_HTML = `<html><iframe name='doc' src='${PDF_STJ.replace(/&/g, "&amp;")}'></iframe></html>`;
-
-/** Passo 3 do STJ: só devolve o PDF com o cookie da sessão; sem ele, o HTML de 28 bytes. */
-const passo3 = (_url: string, init: RequestInit) =>
-  new Headers(init.headers).get("Cookie")?.includes("JSESSIONID=abc") ? pdf() : html("<html><body></body></html>\n\n");
-
 let pasta: string;
 beforeEach(async () => {
   pasta = await mkdtemp(join(tmpdir(), "garimpo-teste-"));
 });
 afterEach(() => rm(pasta, { recursive: true, force: true, maxRetries: 10 }));
 
-describe("inteiro teor — STJ em 3 passos", () => {
-  it("com a sessão: segue página → mediado → iframe e salva um PDF oficial", async () => {
-    const { cliente, chamadas } = clienteFalso([
-      html(PAGINA_STJ, { "set-cookie": "JSESSIONID=abc; path=/processo" }),
-      html(MEDIADO_HTML),
-      passo3,
-    ]);
-    const r = await obterInteiroTeor({ tribunal: "stj", link: LINK_STJ, pasta }, () => cliente);
+describe("inteiro teor — STJ (D-18: o robots.txt de processo.stj.jus.br veda o host inteiro)", () => {
+  const links = [
+    LINK_STJ,
+    "https://processo.stj.jus.br/processo/revista/inteiroteor/?num_registro=202000000001&dt_publicacao=10/12/2020",
+    LINK_STJ.replace("scon.stj.jus.br", "www.stj.jus.br"),
+  ];
 
-    expect(r.baixado).toBe(true);
-    if (!r.baixado) return;
-    expect(r.arquivo.startsWith(pasta)).toBe(true);
-    expect((await readFile(r.arquivo)).subarray(0, 4).toString()).toBe("%PDF");
-    expect(chamadas.map((c) => c.url)).toEqual([
-      "https://processo.stj.jus.br/processo/revista/inteiroteor/?num_registro=202000000001&dt_publicacao=10/12/2020",
-      `https://processo.stj.jus.br${MEDIADO}`,
-      PDF_STJ,
-    ]);
-    expect(new Headers(chamadas[2].init.headers).get("Referer")).toBe(`https://processo.stj.jus.br${MEDIADO}`);
-  });
-
-  it("sem o cookie da sessão o passo 3 devolve HTML de 28 bytes: erro claro e nada salvo", async () => {
-    const { cliente } = clienteFalso([html(PAGINA_STJ), html(MEDIADO_HTML), passo3]);
-    await expect(obterInteiroTeor({ tribunal: "stj", link: LINK_STJ, pasta }, () => cliente)).rejects.toThrow(
-      /devolveu uma página \(28 bytes\) no lugar do PDF; nada foi salvo/,
-    );
+  it("devolve o link para conferência manual e a explicação, sem nenhuma chamada e sem salvar nada", async () => {
+    for (const link of links) {
+      const { cliente, chamadas } = clienteFalso([]);
+      const r = await obterInteiroTeor({ tribunal: "stj", link, pasta }, () => cliente);
+      expect(r).toMatchObject({ baixado: false, link });
+      if (!r.baixado) {
+        expect(r.explicacao).toMatch(/robots\.txt/);
+        expect(r.explicacao).toMatch(/PDF/);
+        expect(r.explicacao).toMatch(/trazido pelo usuário/);
+      }
+      expect(chamadas).toHaveLength(0);
+    }
     expect(await readdir(pasta)).toEqual([]);
   });
 
-  it("link de host parecido (falso-stj.jus.br) ou sem HTTPS é recusado antes de qualquer chamada", async () => {
-    for (const link of [
-      LINK_STJ.replace("scon.stj.jus.br", "falso-stj.jus.br"),
-      LINK_STJ.replace("https://", "http://"),
-    ]) {
-      const { cliente, chamadas } = clienteFalso([]);
-      await expect(obterInteiroTeor({ tribunal: "stj", link, pasta }, () => cliente)).rejects.toThrow(/fora do portal/);
-      expect(chamadas).toHaveLength(0);
+  it("nenhum caminho do Garimpo monta chamada a processo.stj.jus.br", async () => {
+    const { readdir: ler, readFile: lerArquivo } = await import("node:fs/promises");
+    const pastaSrc = new URL("../src/", import.meta.url);
+    for (const nome of (await ler(pastaSrc)).filter((n) => n.endsWith(".ts"))) {
+      const codigo = await lerArquivo(new URL(nome, pastaSrc), "utf8");
+      expect(codigo, nome).not.toMatch(/https?:\/\/processo\.stj\.jus\.br/);
+      expect(codigo, nome).not.toMatch(/\$\{[^}]*\}processo\.stj\.jus\.br/);
     }
-  });
-
-  it("passo 2 fora do STJ é recusado antes de sair (os cookies da sessão não vazam)", async () => {
-    const pagina = `<a href="javascript:AbreDocumento('https://falso-stj.jus.br/doc')">REsp</a>`;
-    const { cliente, chamadas } = clienteFalso([html(pagina, { "set-cookie": "JSESSIONID=abc; path=/" })]);
-    await expect(obterInteiroTeor({ tribunal: "stj", link: LINK_STJ, pasta }, () => cliente)).rejects.toThrow(
-      /fora do portal/,
-    );
-    expect(chamadas).toHaveLength(1);
-  });
-
-  it("iframe apontando para host parecido é recusado", async () => {
-    const mediado = `<iframe src='https://falso-stj.jus.br/pdf'></iframe>`;
-    const { cliente, chamadas } = clienteFalso([html(PAGINA_STJ), html(mediado)]);
-    await expect(obterInteiroTeor({ tribunal: "stj", link: LINK_STJ, pasta }, () => cliente)).rejects.toThrow(
-      /fora do portal/,
-    );
-    expect(chamadas).toHaveLength(2);
-  });
-
-  it("redirect é seguido passo a passo: dentro do STJ segue com a sessão; para fora, para sem chamar", async () => {
-    const redirect = (destino: string) => new Response(null, { status: 302, headers: { location: destino } });
-    const dentro = clienteFalso([
-      html(PAGINA_STJ, { "set-cookie": "JSESSIONID=abc; path=/processo" }),
-      html(MEDIADO_HTML),
-      redirect("/processo/pdf/final"),
-      passo3,
-    ]);
-    const r = await obterInteiroTeor({ tribunal: "stj", link: LINK_STJ, pasta }, () => dentro.cliente);
-    expect(r.baixado).toBe(true);
-    expect(dentro.chamadas[3].url).toBe("https://processo.stj.jus.br/processo/pdf/final");
-    expect(dentro.chamadas.every((c) => c.init.redirect === "manual")).toBe(true);
-
-    const fora = clienteFalso([html(PAGINA_STJ), html(MEDIADO_HTML), redirect("https://outro.test/pdf")]);
-    await expect(obterInteiroTeor({ tribunal: "stj", link: LINK_STJ, pasta }, () => fora.cliente)).rejects.toThrow(
-      /fora do portal/,
-    );
-    expect(fora.chamadas).toHaveLength(3);
-  });
-
-  it("página sem documento listado vira erro claro", async () => {
-    const { cliente } = clienteFalso([html("<html>nada</html>")]);
-    await expect(obterInteiroTeor({ tribunal: "stj", link: LINK_STJ, pasta }, () => cliente)).rejects.toThrow(
-      /não listou o inteiro teor/,
-    );
   });
 });
 
