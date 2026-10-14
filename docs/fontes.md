@@ -205,3 +205,27 @@ recibo.
 - **Não verificado:** o que a janela da cota mede além de «60 por minuto» (visto: `reset` em segundos); se `query` com
   palavra da ementa casa sempre (visto em 1 acórdão: «apelação»); a combinação `identificador` + `retornaInteiroTeor` numa
   só chamada ao vivo (cada uma vista em chamada separada); o frescor da base.
+
+## eSAJ do TJMS (PDF do acórdão)
+
+Usado por `obter_inteiro_teor` no TJMS (I-14 / G-21): o **PDF oficial** do acórdão pelo `getArquivo.do` do eSAJ, a mesma
+técnica do TJSP (`baixarEsaj`), com o host do tribunal. Só PDF reconhecido vira inteiro teor, com recibo (ADR-0005).
+
+- **robots.txt (lido em 2026-10-14, uma chamada por vez, UA do Garimpo, TLS válido):** `esaj.tjms.jus.br/robots.txt`
+  não existe: devolve a página do aplicativo (HTTP 200 `text/html`), nenhuma regra publicada. `www.tjms.jus.br/robots.txt`
+  redireciona (302) para `www5.tjms.jus.br/robots.txt`, o do site institucional (HTTP 200 `text/plain`): `User-agent: *`,
+  `Allow: /`, mais `Disallow` só de áreas internas (`/intranet*`, `/webfiles*`, `/webmail*`, `/guardian*`, etc.); nada
+  sobre `esaj` nem `cjsg`. A resposta 302 do `www` traz um link oculto (`/trap.html`) que o Garimpo **não** seguiu.
+- **Termos de uso:** **não encontrados.** A raiz do eSAJ do TJMS é um aplicativo de página única sem texto de termos, e
+  uma pesquisa pública não achou termos nem vedação a acesso automatizado do `esaj.tjms.jus.br` (a busca só trouxe termos de
+  outros tribunais, que não valem aqui). Sem vedação encontrada ≠ autorização: fica **não verificado**.
+- **Prova PV-05 (2026-10-14):** 1 busca no JurisprudênciaIA (TJMS, 3 resultados pedidos, 2 devolvidos) para obter um
+  link real; 2 GETs do mesmo `getArquivo.do?cdAcordao=…&cdForo=0` (o 2º só para gravar o PDF e conferir a identidade):
+  HTTP 200 `application/pdf;charset=UTF-8`, `%PDF-1.4`, 356 422 bytes, 9 páginas, sem redirect, sem cookie exigido, sem
+  429/503/403. Conferência: a 1ª página traz o mesmo número de processo do registro da busca (apelação cível, 2ª Câmara Cível) e a
+  data de criação do PDF (2026-04-27) é a da data de julgamento do registro. Nenhum PDF foi guardado no repositório.
+- **Freios:** serviço `tjms` no disjuntor (regra 3 do `CLAUDE.md`); 403 ou desafio = recusa final, sem recomeço
+  (G-21: o «recomeça após 4 s» do projeto de terceiros não foi copiado).
+- **Não verificado:** que o TJMS aceita o endereço sem sessão em qualquer acórdão (visto em 1); o frescor e o formato do
+  PDF dos demais; o limite de ritmo do portal (um projeto de terceiros cita 403 depois de ~50 downloads seguidos; o
+  Garimpo fica muito abaixo); os termos de uso.
