@@ -75,7 +75,13 @@ interface Janela {
 }
 
 /** Abre uma janela do Garimpo (processo real) na pasta de dados comum. */
-function abrirJanela(config: { url: string; chamadas: number; intervaloMs?: number; relogio?: string }): Janela {
+function abrirJanela(config: {
+  url: string;
+  chamadas: number;
+  intervaloMs?: number;
+  relogio?: string;
+  orcamento?: { chamadas: number; largurasMs: number[] };
+}): Janela {
   const processo = spawn(process.execPath, [VITE_NODE, JANELA], {
     env: { ...process.env, GARIMPO_DADOS: pasta, JANELA_TESTE: JSON.stringify(config) },
     stdio: ["pipe", "pipe", "pipe"],
@@ -150,6 +156,21 @@ describe("vagas compartilhadas entre janelas (processos reais)", () => {
     await new Promise((r) => presa.processo.once("exit", r));
     const [r] = await outra.resultado;
     expect(r.ok).toBe(true);
+    expect(estado.chegadas).toHaveLength(3);
+  }, 60_000);
+});
+
+describe("orçamento por janela compartilhado entre janelas (processos reais)", () => {
+  it("duas janelas somam no mesmo contador: o servidor recebe só o limite, e o resto pára antes de sair", async () => {
+    const { base, estado } = await subir();
+    const orcamento = { chamadas: 3, largurasMs: [10 * 60_000] };
+    const janelas = [1, 2].map(() => abrirJanela({ url: `${base}/x`, chamadas: 3, orcamento }));
+    await Promise.all(janelas.map((j) => j.pronta));
+    janelas.forEach((j) => j.vai());
+
+    const resultados = (await Promise.all(janelas.map((j) => j.resultado))).flat();
+    expect(resultados.filter((r) => r.ok)).toHaveLength(3);
+    expect(resultados.filter((r) => !r.ok && /limite de chamadas do próprio Garimpo/.test(r.erro ?? ""))).toHaveLength(3);
     expect(estado.chegadas).toHaveLength(3);
   }, 60_000);
 });

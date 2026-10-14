@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { Cliente, PausaPreventivaError, RecusaError } from "../src/cliente.js";
+import { Cliente, type OpcoesCliente, PausaPreventivaError, RecusaError } from "../src/cliente.js";
 import { CoordenacaoEmArquivo, RedeParadaError } from "../src/coordenacao.js";
 
 /**
@@ -47,8 +47,9 @@ function falcao() {
   return { chegadas, fila, fetchFalso, pendente };
 }
 
-function janela(relogio: { agora: number }, fetchFalso: typeof fetch) {
+function janela(relogio: { agora: number }, fetchFalso: typeof fetch, extras: Partial<OpcoesCliente> = {}) {
   return new Cliente({
+    ...extras,
     nome: "O Falcão",
     vagas: new CoordenacaoEmArquivo({ pasta, agora: () => relogio.agora }),
     agora: () => relogio.agora,
@@ -253,5 +254,125 @@ describe("freio preventivo do Falcão, entre janelas", () => {
     expect(e).toBeInstanceOf(RedeParadaError);
     expect(f.chegadas).toHaveLength(0);
     expect(await readFile(join(pasta, "protecao", "estado.json"), "utf8")).toBe(estado);
+  });
+});
+
+/** Fonte sem cabeçalho de restante (serviço "teste"): o limite por janela é do próprio Garimpo (G-05, DQ-25). */
+const FONTE = "https://teste.jus.br/api";
+const ORCAMENTO = { teste: { chamadas: 2, largurasMs: [10 * MIN, 20 * MIN, 30 * MIN] } };
+
+/** Fonte falsa que aceita tudo, ou responde na ordem a fila de respostas dada. */
+function fonteAceita(fila: Response[] = []) {
+  const chegadas: number[] = [];
+  const fetchFalso = (async () => {
+    chegadas.push(chegadas.length + 1);
+    return fila.shift() ?? new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
+  }) as typeof fetch;
+  return { chegadas, fetchFalso };
+}
+
+const chamar = async (c: Cliente) => (await c.requisitar(FONTE)).text();
+
+describe("orçamento por janela, para fonte que não informa o restante", () => {
+  it("no limite da janela a chamada não sai: pausa preventiva até o fim da janela, em todas as janelas do Garimpo", async () => {
+    const relogio = { agora: INICIO };
+    const f = fonteAceita();
+    const [a, b] = [janela(relogio, f.fetchFalso, { orcamentoPorServico: ORCAMENTO }), janela(relogio, f.fetchFalso, { orcamentoPorServico: ORCAMENTO })];
+    await chamar(a);
+    await chamar(b);
+    const e = await erroDe(a.requisitar(FONTE));
+    expect(e).toBeInstanceOf(PausaPreventivaError);
+    expect(e).not.toBeInstanceOf(RecusaError);
+    expect(e.message).toMatch(/limite de chamadas do próprio Garimpo/);
+    expect(e.message).toMatch(/a partir de 14:10/);
+    expect(f.chegadas).toHaveLength(2);
+  });
+
+  it("vencida a janela, as chamadas voltam sem chamada de prova: a pausa do orçamento não é recusa e não abre o disjuntor", async () => {
+    const relogio = { agora: INICIO };
+    const f = fonteAceita();
+    const a = janela(relogio, f.fetchFalso, { orcamentoPorServico: ORCAMENTO });
+    await chamar(a);
+    await chamar(a);
+    expect(await erroDe(a.requisitar(FONTE))).toBeInstanceOf(PausaPreventivaError);
+    relogio.agora = INICIO + 10 * MIN;
+    await chamar(a);
+    expect(f.chegadas).toHaveLength(3);
+  });
+
+  it("recusa da fonte alarga a janela um degrau (vale a partir da próxima janela)", async () => {
+    const relogio = { agora: INICIO };
+    const f = fonteAceita([new Response("", { status: 429, headers: { "retry-after": "1" } })]);
+    const a = janela(relogio, f.fetchFalso, { orcamentoPorServico: ORCAMENTO });
+    // O 429 e a nova tentativa gastam as duas chamadas da janela; a nova tentativa foi aceita.
+    await chamar(a);
+    relogio.agora = INICIO + 10 * MIN;
+    await chamar(a);
+    await chamar(a);
+    relogio.agora = INICIO + 29 * MIN;
+    expect(await erroDe(a.requisitar(FONTE))).toBeInstanceOf(PausaPreventivaError);
+    relogio.agora = INICIO + 30 * MIN;
+    await chamar(a);
+  });
+
+  it("20 chamadas aceitas seguidas afrouxam a janela um degrau, sem passar do primeiro", async () => {
+    const relogio = { agora: INICIO };
+    const f = fonteAceita([new Response("", { status: 429, headers: { "retry-after": "1" } })]);
+    const a = janela(relogio, f.fetchFalso, { orcamentoPorServico: ORCAMENTO });
+    await chamar(a); // 429 + nova tentativa aceita: janela de 20 min daqui em diante
+    relogio.agora = INICIO + 10 * MIN;
+    // 1 acerto veio da nova tentativa; faltam 19, duas por janela de 20 min.
+    for (let i = 0; i < 10; i++) {
+      await chamar(a);
+      await chamar(a);
+      relogio.agora += 20 * MIN;
+    }
+    // Janela de 10 min de novo: a terceira chamada pára e volta em 10 min.
+    const base = relogio.agora;
+    await chamar(a);
+    await chamar(a);
+    expect(await erroDe(a.requisitar(FONTE))).toBeInstanceOf(PausaPreventivaError);
+    relogio.agora = base + 10 * MIN;
+    await chamar(a);
+  });
+
+  it("serviço fora da tabela não tem orçamento", async () => {
+    const relogio = { agora: INICIO };
+    const f = fonteAceita();
+    const a = janela(relogio, f.fetchFalso, { orcamentoPorServico: ORCAMENTO });
+    for (let i = 0; i < 5; i++) await (await a.requisitar("https://outra.jus.br/api")).text();
+    expect(f.chegadas).toHaveLength(5);
+  });
+
+  it("orçamento ilegível no estado compartilhado = rede parada, sem apagar nada", async () => {
+    await mkdir(join(pasta, "protecao"), { recursive: true });
+    const estado = JSON.stringify({
+      formato: "garimpo-protecao",
+      versao: 2,
+      pausas: {},
+      disjuntores: {},
+      orcamentos: { teste: { fim: "amanhã" } },
+    });
+    await writeFile(join(pasta, "protecao", "estado.json"), estado);
+    const f = fonteAceita();
+    const e = await erroDe(janela({ agora: INICIO }, f.fetchFalso, { orcamentoPorServico: ORCAMENTO }).requisitar(FONTE));
+    expect(e).toBeInstanceOf(RedeParadaError);
+    expect(f.chegadas).toHaveLength(0);
+    expect(await readFile(join(pasta, "protecao", "estado.json"), "utf8")).toBe(estado);
+  });
+
+  it("o diagnostico_dos_freios explica a pausa do orçamento: limite do Garimpo, até quando, sem ser recusa", async () => {
+    const relogio = { agora: INICIO };
+    const f = fonteAceita();
+    const coordenacao = new CoordenacaoEmArquivo({ pasta, agora: () => relogio.agora });
+    const a = new Cliente({ nome: "A fonte", vagas: coordenacao, agora: () => relogio.agora, fetch: f.fetchFalso, orcamentoPorServico: ORCAMENTO });
+    await chamar(a);
+    await chamar(a);
+    const d = await coordenacao.diagnosticar();
+    const fonte = d.fontes?.find((x) => x.servico === "teste");
+    expect(fonte?.situacao).toBe("pausa preventiva");
+    expect(fonte?.ate).toMatch(/14:10/);
+    expect(fonte?.explicacao).toMatch(/Não é recusa/);
+    expect(fonte?.explicacao).toMatch(/limite próprio/);
   });
 });

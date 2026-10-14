@@ -12,6 +12,11 @@
  *   retoma; na reserva, ausente ou inválido = mais 15 min. Nenhuma sondagem automática: sem pedido, nada sai.
  * - Números iniciais (spec do B12); a prova do ticket 01 viu um balde de ~40 que recarga em segundos, sem janela
  *   comprovada: a pausa é folgada de propósito.
+ *
+ * Fonte que não informa o restante tem outro freio, o orçamento por janela (G-05, DQ-25): um limite próprio de
+ * chamadas por janela de tempo, somadas em todas as janelas do Garimpo. No limite, a chamada não sai até o fim da
+ * janela (pausa preventiva, sem abrir o disjuntor). Recusa da fonte alarga a janela um degrau da escada; 20
+ * chamadas aceitas afrouxam um degrau. Números por fonte: configuração do cliente, iniciais e sem prova.
  */
 
 import type { Chamada } from "./disjuntor.js";
@@ -35,7 +40,11 @@ export interface Freio {
 }
 
 /** O que o freio diz a uma chamada que quer sair. */
-export type OrdemDoFreio = { tipo: "sai" } | { tipo: "freio"; ate: number } | { tipo: "espera"; ms: number };
+export type OrdemDoFreio =
+  | { tipo: "sai" }
+  /** `por`: o limite próprio que parou a chamada; ausente = o restante informado pela fonte. */
+  | { tipo: "freio"; ate: number; por?: "janela" }
+  | { tipo: "espera"; ms: number };
 
 /** O que a resposta disse do restante: o número lido, `undefined` (ausente ou inválido) ou nenhuma resposta. */
 export type RestanteLido = number | undefined | "sem-resposta";
@@ -127,4 +136,63 @@ export function freioValido(f: unknown): f is Freio {
         Number.isInteger(x.liberacao.pid) &&
         typeof x.liberacao.id === "string"))
   );
+}
+
+/** Limite próprio de uma fonte: `chamadas` por janela, com a escada de larguras (a janela alarga a cada recusa). */
+export interface ConfigOrcamento {
+  chamadas: number;
+  largurasMs: readonly number[];
+}
+
+/** Chamadas aceitas seguidas que afrouxam a janela um degrau. */
+export const ACERTOS_PARA_AFROUXAR = 20;
+
+/** O orçamento de um serviço no estado compartilhado: a janela em curso e o degrau da escada. */
+export interface Orcamento {
+  /** Fim da janela em curso (ms no relógio comum). */
+  fim: number;
+  /** Chamadas já autorizadas nesta janela. */
+  usadas: number;
+  /** O limite da janela (para o diagnóstico). */
+  limite: number;
+  /** Degrau da escada de larguras; vale a partir da próxima janela. */
+  degrau: number;
+  /** Chamadas aceitas desde a última recusa ou desde o último afrouxamento. */
+  acertos: number;
+}
+
+/**
+ * Antes de sair: a chamada cabe na janela? `novo` é o estado a gravar se ela sair (janela nova quando a anterior
+ * acabou ou quando o relógio voltou além de uma janela inteira); igual ao recebido quando ela não sai.
+ */
+export function decidirOrcamento(
+  o: Orcamento | undefined,
+  config: ConfigOrcamento,
+  agora: number,
+): { ordem: OrdemDoFreio; novo: Orcamento } {
+  const degrau = Math.min(o?.degrau ?? 0, config.largurasMs.length - 1);
+  const largura = config.largurasMs[degrau];
+  if (!o || agora >= o.fim || o.fim - agora > Math.max(...config.largurasMs)) {
+    return {
+      ordem: { tipo: "sai" },
+      novo: { fim: agora + largura, usadas: 1, limite: config.chamadas, degrau, acertos: o?.acertos ?? 0 },
+    };
+  }
+  if (o.usadas >= config.chamadas) return { ordem: { tipo: "freio", ate: o.fim, por: "janela" }, novo: o };
+  return { ordem: { tipo: "sai" }, novo: { ...o, usadas: o.usadas + 1, limite: config.chamadas, degrau } };
+}
+
+/** Depois de uma chamada: recusa da fonte = janela um degrau mais larga; `ACERTOS_PARA_AFROUXAR` aceitas = um degrau menos. */
+export function anotarOrcamento(o: Orcamento | undefined, resultado: "aceita" | "recusa"): Orcamento | undefined {
+  if (!o) return undefined;
+  if (resultado === "recusa") return { ...o, degrau: o.degrau + 1, acertos: 0 };
+  if (o.acertos + 1 < ACERTOS_PARA_AFROUXAR) return { ...o, acertos: o.acertos + 1 };
+  return { ...o, degrau: Math.max(0, o.degrau - 1), acertos: 0 };
+}
+
+/** Confere o formato de um orçamento lido do estado compartilhado. */
+export function orcamentoValido(o: unknown): o is Orcamento {
+  const x = o as Orcamento;
+  const inteiro = (v: unknown) => Number.isInteger(v) && (v as number) >= 0;
+  return typeof x === "object" && x !== null && Number.isFinite(x.fim) && inteiro(x.usadas) && inteiro(x.limite) && inteiro(x.degrau) && inteiro(x.acertos);
 }

@@ -66,8 +66,8 @@ export type Ordem =
   | { tipo: "adiado"; ate: number }
   /** A pausa venceu, mas esta ferramenta já fez a sua chamada de prova. */
   | { tipo: "sem-prova" }
-  /** Pausa preventiva do freio (freio.ts): não é recusa. */
-  | { tipo: "freio"; ate: number };
+  /** Pausa preventiva do freio (freio.ts): não é recusa. `por`: o limite próprio do Garimpo que parou a chamada. */
+  | { tipo: "freio"; ate: number; por?: "janela" };
 
 export type Resultado =
   | { tipo: "aceita" }

@@ -41,7 +41,18 @@ import {
 } from "./disjuntor.js";
 import { htmlParaTexto } from "./html.js";
 import { dataEHora } from "./memoria.js";
-import { anotarRestante, decidirFreio, type Freio, lerRestante, type RestanteLido, temFreio } from "./freio.js";
+import {
+  anotarOrcamento,
+  anotarRestante,
+  type ConfigOrcamento,
+  decidirFreio,
+  decidirOrcamento,
+  type Freio,
+  lerRestante,
+  type Orcamento,
+  type RestanteLido,
+  temFreio,
+} from "./freio.js";
 
 export const VERSAO = "0.3.4";
 export const USER_AGENT = `Garimpo/${VERSAO} (cliente MCP local e nao oficial de pesquisa de jurisprudencia)`;
@@ -110,6 +121,17 @@ const IDENTIFICACAO_POR_HOST: Record<string, Record<string, string>> = {
 
 /** Intervalo mínimo por host que vale em todo cliente, somado ao das opções (ms). */
 const INTERVALO_POR_HOST: Record<string, number> = { [HOST_FALCAO]: 1_000 };
+
+/**
+ * Limite próprio de chamadas por janela de tempo, por serviço, para fonte que não informa quanto resta (G-05, DQ-25).
+ * Números iniciais conservadores e sem prova: o uso real ajusta. Serviço fora daqui não tem orçamento.
+ */
+const ORCAMENTO_DE_FONTE_SEM_RESTANTE: ConfigOrcamento = { chamadas: 30, largurasMs: [5 * 60_000, 10 * 60_000, 20 * 60_000, 30 * 60_000] };
+const ORCAMENTO_POR_SERVICO: Record<string, ConfigOrcamento> = {
+  "stf-precedentes": ORCAMENTO_DE_FONTE_SEM_RESTANTE,
+  "stj-precedentes": ORCAMENTO_DE_FONTE_SEM_RESTANTE,
+  tse: ORCAMENTO_DE_FONTE_SEM_RESTANTE,
+};
 
 /** O site ou o tribunal negou a chamada. Nunca é contornada. */
 export class RecusaError extends Error {
@@ -180,6 +202,7 @@ export class Vagas implements Coordenacao {
   private ultimaPorHost = new Map<string, number>();
   private disjuntores = new Map<string, Disjuntor>();
   private freios = new Map<string, Freio>();
+  private orcamentos = new Map<string, Orcamento>();
 
   constructor(private readonly max: number) {}
 
@@ -199,7 +222,12 @@ export class Vagas implements Coordenacao {
   async conferir(p: PedidoDeSaida, agora: () => number): Promise<Ordem> {
     const instante = agora();
     const ordem = decidirSaida(this.disjuntores.get(p.servico), p.chamada, instante, p.provaPermitida, () => false).ordem;
-    if (ordem.tipo !== "sai" || !temFreio(p.servico)) return ordem;
+    if (ordem.tipo !== "sai") return ordem;
+    if (p.orcamento) {
+      const doOrcamento = decidirOrcamento(this.orcamentos.get(p.servico), p.orcamento, instante).ordem;
+      if (doOrcamento.tipo !== "sai") return ordemDoFreio(doOrcamento, ordem);
+    }
+    if (!temFreio(p.servico)) return ordem;
     return ordemDoFreio(decidirFreio(this.freios.get(p.servico), p.chamada, instante, () => false).ordem, ordem);
   }
 
@@ -211,11 +239,18 @@ export class Vagas implements Coordenacao {
     const ultima = this.ultimaPorHost.get(p.host);
     const falta = ultima === undefined || p.intervaloMs <= 0 ? 0 : ultima + p.intervaloMs - instante;
     if (falta > 0) return { tipo: "espera", ms: falta, motivo: "host" };
+    let orcamento: Orcamento | undefined;
+    if (p.orcamento) {
+      const o = decidirOrcamento(this.orcamentos.get(p.servico), p.orcamento, instante);
+      if (o.ordem.tipo !== "sai") return ordemDoFreio(o.ordem, ordem);
+      orcamento = o.novo;
+    }
     if (temFreio(p.servico)) {
       const f = decidirFreio(this.freios.get(p.servico), p.chamada, instante, () => false);
       if (f.novo) this.freios.set(p.servico, f.novo);
       if (f.ordem.tipo !== "sai") return ordemDoFreio(f.ordem, ordem);
     }
+    if (orcamento) this.orcamentos.set(p.servico, orcamento);
     if (p.intervaloMs > 0) this.ultimaPorHost.set(p.host, instante);
     if (novo) this.disjuntores.set(p.servico, novo);
     return ordem;
@@ -224,6 +259,9 @@ export class Vagas implements Coordenacao {
   async anotar(servico: string, chamada: Chamada, saida: Saida, r: Resultado, agora: () => number) {
     const novo = aplicarResultado(this.disjuntores.get(servico), chamada, saida, r, agora(), servico);
     if (novo) this.disjuntores.set(servico, novo);
+    const orcamento = r.tipo === "aceita" ? "aceita" : r.tipo === "pede-espera" || r.tipo === "recusa-final" ? "recusa" : undefined;
+    const doOrcamento = orcamento && anotarOrcamento(this.orcamentos.get(servico), orcamento);
+    if (doOrcamento) this.orcamentos.set(servico, doOrcamento);
     return novo?.pausa && { ...novo.pausa, aberturas: novo.aberturas };
   }
 
@@ -255,6 +293,8 @@ export interface OpcoesCliente {
   adiaAcimaDoTeto?: boolean;
   /** Intervalo mínimo entre chamadas ao mesmo host (ms), por host. */
   intervaloMinimoPorHost?: Record<string, number>;
+  /** Limite próprio de chamadas por janela, por serviço, somado ao da tabela do Garimpo (a opção vence). Só testes trocam. */
+  orcamentoPorServico?: Record<string, ConfigOrcamento>;
   /** Prazo máximo de cada chamada, do envio ao fim da leitura do corpo (ms). */
   prazoMs?: number;
   fetch?: typeof fetch;
@@ -536,7 +576,8 @@ export class Cliente {
     for (;;) {
       if (sinal?.aborted) throw sinal.reason;
       const provaPermitida = !ferramenta.getStore()?.provaFeita;
-      const pedido: PedidoDeSaida = { host, intervaloMs, servico, chamada, provaPermitida };
+      const orcamento = this.orcamentoDe(servico);
+      const pedido: PedidoDeSaida = { host, intervaloMs, servico, chamada, provaPermitida, ...(orcamento && { orcamento }) };
       // Antes da vaga: serviço pausado falha na hora, mesmo com as vagas ocupadas por chamadas a outros serviços.
       let ordem = await this.vagas.conferir(pedido, this.agora);
       if (ordem.tipo === "sai") {
@@ -567,6 +608,16 @@ export class Cliente {
           `Esta chamada não foi feita: ${this.opcoes.nome} pediu para esperar até ${dataEHora(ordem.ate)}, para todas ` +
             "as janelas do Garimpo. Não é recusa: depois desse instante, a primeira chamada é a nova tentativa.",
           ordem.ate,
+        );
+      }
+      if (ordem.tipo === "freio" && ordem.por === "janela") {
+        throw new PausaPreventivaError(
+          `Esta chamada não foi feita: as chamadas ${ao(this.opcoes.nome)} estão em pausa preventiva em todas as ` +
+            "janelas do Garimpo. Ele não informa quantas chamadas restam; este é o limite de chamadas do próprio " +
+            "Garimpo por janela de tempo, que já foi usado, para não chegar à recusa. Não é recusa do serviço. Pode " +
+            `tentar a partir de ${horaDeRetorno(ordem.ate, this.agora())}.`,
+          ordem.ate,
+          this.pausaAte(ordem.ate).segundos,
         );
       }
       if (ordem.tipo === "freio") {
@@ -632,7 +683,14 @@ export class Cliente {
 
   /** Só a nova tentativa e a chamada de prova mudam o disjuntor ao terminar; a chamada comum não anota nada. */
   private async anotar(servico: string, chamada: Chamada, saida: Saida, r: Resultado): Promise<void> {
-    if (saida.papel !== "normal") await this.vagas.anotar(servico, chamada, saida, r, this.agora);
+    // A chamada normal aceita só interessa ao orçamento (acertos que afrouxam a janela); o disjuntor a ignora.
+    const doOrcamento = r.tipo === "aceita" && this.orcamentoDe(servico);
+    if (saida.papel !== "normal" || doOrcamento) await this.vagas.anotar(servico, chamada, saida, r, this.agora);
+  }
+
+  /** O limite próprio de chamadas por janela do serviço, se ele tiver um. */
+  private orcamentoDe(servico: string): ConfigOrcamento | undefined {
+    return this.opcoes.orcamentoPorServico?.[servico] ?? ORCAMENTO_POR_SERVICO[servico];
   }
 
   /**

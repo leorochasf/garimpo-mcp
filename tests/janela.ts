@@ -6,17 +6,21 @@
 import { readFileSync } from "node:fs";
 import { Cliente } from "../src/cliente.js";
 
-const { url, chamadas, intervaloMs, relogio } = JSON.parse(process.env.JANELA_TESTE ?? "{}") as {
+const { url, chamadas, intervaloMs, relogio, orcamento } = JSON.parse(process.env.JANELA_TESTE ?? "{}") as {
   url: string;
   chamadas: number;
   intervaloMs?: number;
   /** Arquivo com o relógio comum a todos os processos, que o teste avança; as esperas só cedem a vez. */
   relogio?: string;
+  /** Limite próprio de chamadas por janela (orçamento) para o serviço deste host. */
+  orcamento?: { chamadas: number; largurasMs: number[] };
 };
 const host = new URL(url).host;
 const cliente = new Cliente({
   nome: "O servidor de teste",
   intervaloMinimoPorHost: intervaloMs ? { [host]: intervaloMs } : undefined,
+  // O serviço de um host sem domínio de tribunal é o próprio host (com a porta).
+  ...(orcamento && { orcamentoPorServico: { [host]: orcamento } }),
   ...(relogio && {
     agora: () => {
       // O teste regrava o arquivo: uma leitura no meio da gravação volta vazia e é repetida.
