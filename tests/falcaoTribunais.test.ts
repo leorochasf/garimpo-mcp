@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { chamar, conectar, falcaoFalso, siteFalso } from "./apoioFalcao.js";
 
 describe("os 24 TRTs em listar_tribunais e garimpo://tribunais", () => {
-  it("listar_tribunais traz a fonte de cada tribunal; os 24 TRTs pelo Falcão, com teto 30, qualificados não pesquisados e texto integral", async () => {
+  it("listar_tribunais traz a fonte de cada tribunal; os 24 TRTs pelo Falcão, com teto 30, precedentes sob pedido e texto integral", async () => {
     const falcao = falcaoFalso();
     const site = siteFalso();
     const { mcp } = await conectar(site.cliente, falcao.cliente);
@@ -13,7 +13,7 @@ describe("os 24 TRTs em listar_tribunais e garimpo://tribunais", () => {
       expect(t).toMatchObject({
         busca: true,
         tetoResultados: 30,
-        qualificados: "qualificados não pesquisados no B12",
+        qualificados: 'coleção precedentes do Falcão, só na busca_direta com precedentes:true (até 10 itens; cobertura por TRT não verificada)',
         inteiroTeor: "texto",
         motivo: "texto integral do repositório oficial (sem PDF)",
       });
@@ -30,7 +30,7 @@ describe("os 24 TRTs em listar_tribunais e garimpo://tribunais", () => {
     const pagina = (contents[0] as { text: string }).text;
     expect(pagina).toContain("| Sigla | Tribunal | Fonte | Qualificados | Teto por busca | Inteiro teor |");
     expect(pagina).toContain(
-      "| TRT15 | TRT da 15ª Região | Falcão (CSJT) | qualificados não pesquisados no B12 | 30 | texto integral do repositório oficial (sem PDF) |",
+      '| TRT15 | TRT da 15ª Região | Falcão (CSJT) | coleção precedentes do Falcão, só na busca_direta com precedentes:true (até 10 itens; cobertura por TRT não verificada) | 30 | texto integral do repositório oficial (sem PDF) |',
     );
     expect(pagina).toMatch(/\| STJ \| Superior Tribunal de Justiça \| JurisprudênciaIA \|/);
     expect(pagina).toMatch(/no máximo 5 páginas do Falcão por chamada/);

@@ -19,6 +19,9 @@ afterEach(() => rm(pasta, { recursive: true, force: true }));
 
 const FALCAO = "https://jurisprudencia.jt.jus.br/jurisprudencia-nacional-backend/api/no-auth/pesquisa";
 const MIN = 60_000;
+// Dezenas de chamadas com coordenação real gravam estado, travas e vagas. O relógio falso elimina a pausa do
+// serviço, mas não esse trabalho de disco: sob carga, estes testes podem passar do prazo geral de 20 s.
+const PRAZO_MUITAS_CHAMADAS_MS = 60_000;
 /** 09/10/2026, 14:00, hora local: a pausa preventiva de 15 min termina às 14:15. */
 const INICIO = new Date(2026, 9, 9, 14, 0, 0).getTime();
 const tique = (ms = 2) => new Promise((r) => setTimeout(r, ms));
@@ -314,7 +317,7 @@ describe("escada limitada e acertos consecutivos (I-04/I-05)", () => {
     await chamar(a);
     const o = JSON.parse(await readFile(join(pasta, "protecao", "estado.json"), "utf8")).orcamentos.teste;
     expect(o).toMatchObject({ degrau: 1, acertos: 1 });
-  });
+  }, PRAZO_MUITAS_CHAMADAS_MS);
 });
 
 describe("orçamento por janela, para fonte que não informa o restante", () => {
@@ -414,7 +417,7 @@ describe("orçamento por janela, para fonte que não informa o restante", () => 
     expect(await erroDe(a.requisitar(FONTE))).toBeInstanceOf(PausaPreventivaError);
     relogio.agora = base + 10 * MIN;
     await chamar(a);
-  });
+  }, PRAZO_MUITAS_CHAMADAS_MS);
 
   it("serviço fora da tabela não tem orçamento", async () => {
     const relogio = { agora: INICIO };
@@ -539,7 +542,7 @@ describe("teto diário do Falcão, por dia civil de Brasília", () => {
     for (let i = 0; i < 50; i++) await ler(a);
     expect(await erroDe(a.requisitar(FALCAO))).toBeInstanceOf(PausaPreventivaError);
     expect(f.chegadas).toHaveLength(50);
-  }, 60_000);
+  }, PRAZO_MUITAS_CHAMADAS_MS);
 
   it("o diagnostico_dos_freios explica a pausa diária", async () => {
     const relogio = { agora: HORA_BR("2026-10-09T14:00:00") };

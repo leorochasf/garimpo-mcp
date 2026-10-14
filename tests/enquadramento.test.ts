@@ -340,3 +340,21 @@ describe("âmbito do precedente (ADR-0007, emenda do âmbito)", () => {
     expect(textos).not.toMatch(/persuasiv|vinculante|fora do rol|efeito/i);
   });
 });
+
+describe("IRDR na lista de precedentes de um TRT (I-26)", () => {
+  it("fica sem inciso, com o motivo, e com o âmbito do tribunal de origem, condicional", () => {
+    const e = enquadrarQualificado({ tribunal: "trt3", tipo: "IRDR", numero: "1", tese: "Tese fictícia." });
+    expect(e.inciso).toBe("não classificado");
+    expect(e.motivo).toMatch(/IRDR de TRT3.*ADR-0007/);
+    expect(e.ambito).toMatch(/^tribunal de origem \(se este incidente fixou a tese\): TRT3.*art\. 985, I/);
+    expect(e.ambito).not.toMatch(/persuasiv|vinculante|fora do rol|efeito/i);
+  });
+
+  it("IAC, súmula e OJ de TRT seguem sem inciso e sem âmbito", () => {
+    for (const tipo of ["IAC", "súmula", "OJ"]) {
+      const e = enquadrarQualificado({ tribunal: "trt3", tipo, numero: "1" });
+      expect(e.inciso).toBe("não classificado");
+      expect(e.ambito).toBeUndefined();
+    }
+  });
+});

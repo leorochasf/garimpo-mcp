@@ -45,6 +45,7 @@ import { ChaveDoDataJud, clienteDoDataJud, TERMO_DE_USO_DATAJUD } from "./dataju
 import { clienteDoDjen, FonteDjen } from "./djen.js";
 import { julgamentosDoProcesso } from "./julgamentos.js";
 import { avisoRecorridoDoAcordao } from "./recorrido.js";
+import { CHAMADO_LIGADO, comLinhaDeChamado, ERRO_DE_ORIGEM } from "./chamado.js";
 import { INSTRUCTIONS, roteiroDePesquisa } from "./roteiro.js";
 import { clienteDoFalcao } from "./falcao.js";
 import { clienteDosPrecedentes, PrecedentesAoVivo, respostaDoStf } from "./precedentesAoVivo.js";
@@ -131,6 +132,13 @@ const opcoesDosTrts = {
     .enum(["relevancia", "recentes"])
     .optional()
     .describe("Só TRTs: relevancia (padrão da fonte) ou recentes (data de juntada, do mais novo ao mais antigo)"),
+  precedentes: z
+    .boolean()
+    .optional()
+    .describe(
+      'Só TRTs: true acrescenta a lista de precedentes qualificados da coleção "precedentes" do Falcão (IRDR, IAC, ' +
+        "súmulas; 1 chamada a mais, até 10 itens, só pelo texto da busca). Padrão: só acórdãos",
+    ),
 };
 
 const renovar = z
@@ -179,8 +187,12 @@ function conferirDatas(datas: { de?: string; ate?: string }) {
 }
 
 /** Recusa, com frase que ensina a corrigir, as opções dos TRTs pedidas para outro tribunal (nunca ignoradas em silêncio). */
-function conferirOpcoesDosTrts(p: { tribunal: string; somenteEmentas?: boolean; ordenacao?: string }) {
-  const pedidas = [p.somenteEmentas !== undefined && "somenteEmentas", p.ordenacao !== undefined && "ordenacao"].filter(Boolean);
+function conferirOpcoesDosTrts(p: { tribunal: string; somenteEmentas?: boolean; ordenacao?: string; precedentes?: boolean }) {
+  const pedidas = [
+    p.somenteEmentas !== undefined && "somenteEmentas",
+    p.ordenacao !== undefined && "ordenacao",
+    p.precedentes !== undefined && "precedentes",
+  ].filter(Boolean);
   if (pedidas.length && !ehDoFalcao(p.tribunal)) {
     throw new Error(
       `${pedidas.join(" e ")} só ${pedidas.length > 1 ? "valem" : "vale"} nos TRTs (trt1 a trt24, pelo Falcão); ` +
@@ -300,9 +312,11 @@ function marcaDePausa(e: unknown): { estruturada: { liberadoEm: string } & Recor
 function erro(e: unknown) {
   const marca = marcaDePausa(e);
   const texto = { type: "text" as const, text: (e as Error).message };
-  return marca
+  const resposta = marca
     ? { content: [texto, { type: "text" as const, text: marca.texto }], structuredContent: marca.estruturada, isError: true }
     : { content: [texto], isError: true };
+  // A origem não vai na resposta: só deixa o registrar decidir se cabe a linha de chamado (G-81).
+  return Object.defineProperty(resposta, ERRO_DE_ORIGEM, { value: e });
 }
 
 /**
@@ -367,6 +381,8 @@ export interface OpcoesServidor {
   precedentesStf?: Cliente;
   /** Estado de proteção que o diagnostico_dos_freios lê (padrão: o de todos os clientes do processo). */
   coordenacao?: CoordenacaoEmArquivo;
+  /** Liga a linha de chamado nos erros inesperados (padrão: desligada até a publicação autorizada). */
+  chamado?: boolean;
 }
 
 export function criarServidor(
@@ -384,12 +400,14 @@ export function criarServidor(
     falcao = clienteDoFalcao(),
     precedentesStf = clienteDosPrecedentes(),
     coordenacao,
+    chamado = CHAMADO_LIGADO,
   }: OpcoesServidor = {},
 ): McpServer {
   const servidor = new McpServer({ name: "garimpo", version: VERSAO }, { instructions: INSTRUCTIONS });
   /** Registra a ferramenta com o nome dela anotado nas recusas que levar (o histórico do diagnostico_dos_freios). */
   const registrar = ((nome: string, config: never, fazer: (...a: unknown[]) => unknown) =>
-    servidor.registerTool(nome, config, ((...a: unknown[]) => naFerramenta(nome, () => fazer(...a))) as never)) as typeof servidor.registerTool;
+    servidor.registerTool(nome, config, ((...a: unknown[]) =>
+      naFerramenta(nome, async () => comLinhaDeChamado(await fazer(...a), nome, VERSAO, chamado))) as never)) as typeof servidor.registerTool;
   // GARIMPO_SEM_MEMORIA=1 desliga só a memória em disco (a janela guarda enquanto está aberta), nunca o freio.
   const memoria = new Memoria({
     dados: process.env.GARIMPO_SEM_MEMORIA === "1" ? undefined : (dados ?? pastaDeDados()),
@@ -433,14 +451,17 @@ export function criarServidor(
         "não prova enquadramento, vigência nem aplicabilidade. " +
         "Ementas são longas: prefira limite baixo aqui e busca_ampla para volume. " +
         "TRTs (trt1 a trt24) vêm do Falcão, o repositório oficial de jurisprudência da Justiça do Trabalho (Res. CSJT " +
-        "401/2024), só acórdãos: limite padrão 10, máximo 30; cada acórdão traz o rótulo da fonte, \"julgado em\" " +
+        "401/2024), por padrão só acórdãos: limite padrão 10, máximo 30; cada acórdão traz o rótulo da fonte, \"julgado em\" " +
         "(dataJulgamento) e \"juntado em\" (dataJuntada, que não é publicação), e \"sem ementa no Falcão\" quando ela " +
         "não veio; o cabecalhoDeCobertura separa o total informado pelo Falcão (\"10.000 ou mais\" no teto da contagem) " +
         "de quantos vieram e quantos são mostrados. O texto integral fica na memória por 24 h para ler_inteiro_teor e " +
         "conferir_citacao pelo id. Nos TRTs, somenteEmentas (pesquisa só nas ementas) e ordenacao (relevancia ou " +
         "recentes, pela data de juntada) estão disponíveis e os filtros de, ate, relator, orgao e classe também " +
         "(de e ate valem para a data de juntada, não a de julgamento; classe só por sigla; data inexistente ou intervalo " +
-        "invertido é erro que ensina) e precedentes qualificados não são pesquisados. " +
+        "invertido é erro que ensina). Precedentes qualificados dos TRTs só com precedentes:true: uma chamada a mais à " +
+        'coleção "precedentes" do Falcão (IRDR, IAC, súmulas), com o tipo e a situação que a fonte informa (ou "não ' +
+        'verificado"), sem inciso do art. 927 e sem afirmar vigência; sem a opção a lista vem vazia, por isso, não por ' +
+        "falta de precedente. " +
         `${SOBRE_A_TABELA_NAS_LISTAS} ` +
         `${SOBRE_A_BUSCA_GUARDADA} A busca guardada traz o campo buscaGuardada com essa data. ` +
         SOBRE_O_RECORRIDO,
