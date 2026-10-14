@@ -47,28 +47,27 @@ function palavras(texto: string): Palavra[] {
   }));
 }
 
-/** Palavra solta só vale com 4 letras ou mais; palavra de 3 letras ou menos solta casaria com quase tudo. */
-const TAMANHO_MINIMO = 4;
-
 /** O que o `naoPodeConter` de hoje aceita: palavra solta ou expressão de até 3 palavras seguidas. */
 export function regrasSimples(ementa: string): Set<string> {
-  const p = palavras(ementa).map((x) => x.texto);
+  const texto = normalizar(ementa);
+  const p = palavras(texto);
   const regras = new Set<string>();
   for (let i = 0; i < p.length; i++) {
-    if (p[i].length >= TAMANHO_MINIMO) regras.add(p[i]);
-    for (let n = 2; n <= 3 && i + n <= p.length; n++) regras.add(p.slice(i, i + n).join(" "));
+    regras.add(p[i].texto);
+    for (let n = 2; n <= 3 && i + n <= p.length; n++) {
+      // O filtro real preserva pontuação: "incentivo, fiscal" não casa com "incentivo fiscal".
+      regras.add(texto.slice(p[i].inicio, p[i + n - 1].fim));
+    }
   }
   return regras;
 }
 
-/** Pares de palavras (4 letras ou mais, diferentes) a até JANELA caracteres uma da outra, em qualquer ordem. */
+/** Pares de ocorrências de palavras a até JANELA caracteres uma da outra, em qualquer ordem. */
 export function regrasPerto(ementa: string): Set<string> {
   const p = palavras(ementa);
   const regras = new Set<string>();
   for (let i = 0; i < p.length; i++) {
-    if (p[i].texto.length < TAMANHO_MINIMO) continue;
     for (let j = i + 1; j < p.length && p[j].inicio - p[i].fim <= JANELA; j++) {
-      if (p[j].texto.length < TAMANHO_MINIMO || p[j].texto === p[i].texto) continue;
       regras.add(p[i].texto < p[j].texto ? `${p[i].texto}|${p[j].texto}` : `${p[j].texto}|${p[i].texto}`);
     }
   }
@@ -140,7 +139,7 @@ export function validacaoCruzada(lote: readonly Amostra[], minimo = MINIMO_NA_ES
   return total;
 }
 
-/** Limite superior otimista: escolhe e conta no lote inteiro (não é critério). */
+/** Diagnóstico otimista da melhor regra segura no lote inteiro (não limita a validação com duas regras). */
 export function teto(lote: readonly Amostra[], minimo = MINIMO_NA_ESCOLHA): Contagem {
   return contar(melhorRegra(lote, minimo), lote);
 }
@@ -217,6 +216,7 @@ export interface Relatorio {
     relevantes: number;
     irrelevantes: number;
     duvida: number;
+    conflitos: number;
     tesesMedidas: number;
     tesesSemIrrelevantesSuficientes: number;
   };
@@ -224,26 +224,38 @@ export interface Relatorio {
 
 /** Mede tudo: junta as rodadas sem repetir a mesma ementa na mesma tese, descarta dúvida e roda as duas formas. */
 export function medirTudo(marcadas: readonly Marcada[]): Relatorio {
-  const porTese = new Map<number, Map<string, { ementa: string; irrelevante: boolean }>>();
+  const porTese = new Map<number, Map<string, { ementa: string; marcas: Set<string> }>>();
   let duvida = 0;
   for (const m of marcadas) {
-    if (m.marca === "duvida") {
-      duvida++;
-      continue;
-    }
-    if (m.marca !== "relevante" && m.marca !== "irrelevante") continue;
+    if (!["relevante", "irrelevante", "duvida"].includes(m.marca)) continue;
     const chave = normalizar(m.ementa);
     const lote = porTese.get(m.tese) ?? new Map();
-    if (!lote.has(chave)) lote.set(chave, { ementa: m.ementa, irrelevante: m.marca === "irrelevante" });
+    const item = lote.get(chave) ?? { ementa: chave, marcas: new Set<string>() };
+    item.marcas.add(m.marca);
+    lote.set(chave, item);
     porTese.set(m.tese, lote);
   }
   const teses: ResultadoDaTese[] = [];
   const tetos: Relatorio["tetos"] = [];
   let relevantes = 0;
   let irrelevantes = 0;
+  let conflitos = 0;
   let tesesSemIrrelevantesSuficientes = 0;
   for (const tese of [...porTese.keys()].sort((a, b) => a - b)) {
-    const itens = [...porTese.get(tese)!.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([, v]) => v);
+    const itens = [...porTese.get(tese)!.entries()]
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .flatMap(([, { ementa, marcas }]) => {
+        // Marca definitiva prevalece sobre dúvida; definitivas contraditórias não viram gabarito por ordem de leitura.
+        if (marcas.has("relevante") && marcas.has("irrelevante")) {
+          conflitos++;
+          return [];
+        }
+        if (!marcas.has("relevante") && !marcas.has("irrelevante")) {
+          duvida++;
+          return [];
+        }
+        return [{ ementa, irrelevante: marcas.has("irrelevante") }];
+      });
     const nIrrelevantes = itens.filter((i) => i.irrelevante).length;
     irrelevantes += nIrrelevantes;
     relevantes += itens.length - nIrrelevantes;
@@ -265,6 +277,7 @@ export function medirTudo(marcadas: readonly Marcada[]): Relatorio {
       relevantes,
       irrelevantes,
       duvida,
+      conflitos,
       tesesMedidas: teses.length,
       tesesSemIrrelevantesSuficientes,
     },
@@ -275,7 +288,7 @@ export function medirTudo(marcadas: readonly Marcada[]): Relatorio {
 export function resumo(r: Relatorio): string {
   const l = (c: Contagem) => `${c.irrelevantesTirados} tirados / ${c.relevantesPerdidos} relevantes perdidos`;
   const linhas = [
-    `Ementas medidas: ${r.totais.ementas} (${r.totais.relevantes} relevantes, ${r.totais.irrelevantes} irrelevantes; ${r.totais.duvida} dúvidas fora da conta).`,
+    `Ementas medidas: ${r.totais.ementas} (${r.totais.relevantes} relevantes, ${r.totais.irrelevantes} irrelevantes; ${r.totais.duvida} dúvidas e ${r.totais.conflitos} conflitos fora da conta).`,
     `Teses com irrelevantes suficientes (${MINIMO_DE_IRRELEVANTES_NA_TESE}+): ${r.totais.tesesMedidas}; sem: ${r.totais.tesesSemIrrelevantesSuficientes}.`,
     "",
     "| Tese | Simples (validação) | Perto de (validação) | Teto simples | Teto perto de |",

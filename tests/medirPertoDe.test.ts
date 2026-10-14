@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { filtroLocal } from "../src/filtroLocal.js";
 import {
   decidir,
   melhorRegra,
+  medirTudo,
   regrasPerto,
   regrasSimples,
   teto,
@@ -16,7 +18,22 @@ describe("regras candidatas de uma ementa", () => {
     expect(r.has("incentivo fiscal")).toBe(true);
     expect(r.has("subsidio ao incentivo")).toBe(true);
     expect(r.has("subsidio ao incentivo fiscal")).toBe(false); // 4 palavras: fora
-    expect(r.has("ao")).toBe(false); // palavra curta solta não vira regra
+    expect(r.has("ao")).toBe(true); // o ticket não restringe o tamanho das palavras
+  });
+
+  it("preserva a pontuação entre palavras, como o filtro local real", () => {
+    const ementa = "Incentivo, fiscal; subsídio ao desenvolvimento";
+    const regras = regrasSimples(ementa);
+    expect(regras.has("incentivo fiscal")).toBe(false);
+    expect(regras.has("fiscal subsidio")).toBe(false);
+    expect(regras.has("incentivo, fiscal")).toBe(true);
+    expect(regras.has("subsidio ao desenvolvimento")).toBe(true);
+    for (const regra of regras) expect(filtroLocal({ naoPodeConter: [regra] })!(ementa)).toBe(false);
+  });
+
+  it("considera também pares com palavras curtas, sem esconder candidatos previstos no ticket", () => {
+    expect(regrasPerto("ato de incentivo").has("ato|incentivo")).toBe(true);
+    expect(regrasPerto("incentivo ao incentivo").has("incentivo|incentivo")).toBe(true);
   });
 
   it("a forma 'perto de' traz o par de palavras a até 60 caracteres, em qualquer ordem, e não o par distante", () => {
@@ -26,6 +43,22 @@ describe("regras candidatas de uma ementa", () => {
     expect(longe.has("incentivo|subsidio")).toBe(false);
     const nolimite = regrasPerto(`subsídio ${"x".repeat(58)} incentivo`); // 60 caracteres entre as palavras (2 espaços + 58)
     expect(nolimite.has("incentivo|subsidio")).toBe(true);
+  });
+});
+
+describe("junção das marcações", () => {
+  it("deduplica dúvidas e exclui definitivas conflitantes sem depender da ordem das rodadas", () => {
+    const marcadas = [
+      { tese: 1, ementa: "Subsídio fiscal", marca: "relevante" },
+      { tese: 1, ementa: "SUBSIDIO fiscal", marca: "irrelevante" },
+      { tese: 1, ementa: "Ato administrativo", marca: "duvida" },
+      { tese: 1, ementa: "Ato administrativo", marca: "duvida" },
+      { tese: 1, ementa: "Incentivo fiscal", marca: "duvida" },
+      { tese: 1, ementa: "Incentivo fiscal", marca: "relevante" },
+    ];
+    const resultado = medirTudo(marcadas);
+    expect(resultado.totais).toMatchObject({ ementas: 1, relevantes: 1, irrelevantes: 0, duvida: 1, conflitos: 1 });
+    expect(medirTudo([...marcadas].reverse())).toEqual(resultado);
   });
 });
 
