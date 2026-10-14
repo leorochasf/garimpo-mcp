@@ -11,7 +11,7 @@ import { reforcoDoStf, type TabelaDoStf } from "./tabelaDoStf.js";
 import { juntarEquivalentes } from "./equivalencia.js";
 import { nomesDoFiltro, ressalvaSePoucos } from "./grafia.js";
 import { FalhaNaMemoriaError, fotografiaDaBusca, type Memoria } from "./memoria.js";
-import { buscaNoFalcao, clienteDoFalcao, lerBuscaGuardadaNoFalcao } from "./falcao.js";
+import { buscaNoFalcao, clienteDoFalcao, lerBuscaGuardadaNoFalcao, type OrdenacaoNoFalcao } from "./falcao.js";
 import { avisoDeRecorridoAusente } from "./recorrido.js";
 import { avisoDeLinkDoTjgo, ehDoFalcao, infoTribunal, ROTULO_FALCAO } from "./tribunais.js";
 
@@ -95,6 +95,10 @@ export interface ResultadoBusca {
   tribunal: string;
   /** Só no Falcão: o rótulo da fonte. */
   fonte?: string;
+  /** Só no Falcão: a ordem em que a fonte devolveu a lista (a pedida; sem pedido, "relevancia"). */
+  ordenacao?: OrdenacaoNoFalcao;
+  /** Só no Falcão, e só quando pedido: a busca olhou apenas as ementas. */
+  somenteEmentas?: true;
   /** Cabeçalho de cobertura: se veio o número pedido (pode haver mais) ou menos (a base não tem mais). */
   cabecalhoDeCobertura?: string;
   acordaos: Acordao[];
@@ -120,6 +124,10 @@ export interface ParametrosBusca extends FiltrosBusca {
   tribunal: string;
   texto: string;
   limite?: number;
+  /** Só nos TRTs (Falcão): pesquisar apenas nas ementas. */
+  somenteEmentas?: boolean;
+  /** Só nos TRTs (Falcão): a ordem da lista; sem pedido, a relevância da fonte. */
+  ordenacao?: OrdenacaoNoFalcao;
 }
 
 /** Listas de precedentes qualificados que o site devolve, com o rótulo mostrado ao usuário. */

@@ -50,6 +50,17 @@ const PARAMETROS_DOS_FILTROS = {
   classe: "classeProcesso",
 } as const;
 
+/** Ordenação do Garimpo → valor do Falcão (verificado na prova PV-13, 2026-10-13); "relevancia" é a ordem padrão da fonte e não manda nada. */
+const ORDENACOES = { relevancia: undefined, recentes: "mais_recente" } as const;
+export type OrdenacaoNoFalcao = keyof typeof ORDENACOES;
+
+const AVISO_SOMENTE_EMENTAS =
+  "Busca só nas ementas (pesquisaSomenteNasEmentas): acórdãos sem ementa no Falcão não são pesquisados e não aparecem " +
+  "nesta lista, mesmo que o texto integral trate do assunto; repita sem somenteEmentas para pesquisar o texto integral.";
+const AVISO_RECENTES =
+  "Ordenação pedida: mais recentes primeiro, pela data de juntada, não por relevância; o que a fonte considera mais " +
+  "aderente ao texto pode estar mais abaixo ou nem entrar nas páginas recebidas.";
+
 const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
 /** Sigla de classe processual: uma palavra curta (ROT, AP, RORSum, AIRR). Nome por extenso não é sigla. */
 const SIGLA_DE_CLASSE = /^[A-Za-z][A-Za-z0-9]{0,9}$/;
@@ -91,6 +102,11 @@ export function conferirPedidoAoFalcao(p: ParametrosBusca, { limite = true } = {
         "corrija uma delas.",
     );
   }
+  if (p.ordenacao !== undefined && !(p.ordenacao in ORDENACOES)) {
+    throw new Error(
+      `A ordenacao no ${tribunal} (Falcão) aceita ${Object.keys(ORDENACOES).join(" ou ")}; recebeu "${p.ordenacao}".`,
+    );
+  }
   const classe = p.classe?.trim();
   if (classe && !SIGLA_DE_CLASSE.test(classe)) {
     throw new Error(
@@ -118,7 +134,9 @@ export function chaveNoFalcao(p: ParametrosBusca): string {
   const filtros = (Object.keys(PARAMETROS_DOS_FILTROS) as (keyof typeof PARAMETROS_DOS_FILTROS)[])
     .filter((f) => valorDoFiltro(p, f))
     .map((f) => [f, valorDoFiltro(p, f)]);
-  const chave = ["falcao", p.tribunal.toLowerCase(), p.texto, limite, ...(filtros.length ? [filtros] : [])];
+  // As opções entram só quando mudam o pedido: "relevancia" e somenteEmentas falso são o pedido sem a opção.
+  const opcoes = [...(p.somenteEmentas ? ["somenteEmentas"] : []), ...(ORDENACOES[p.ordenacao ?? "relevancia"] ? [p.ordenacao] : [])];
+  const chave = ["falcao", p.tribunal.toLowerCase(), p.texto, limite, ...(filtros.length ? [filtros] : []), ...(opcoes.length ? [opcoes] : [])];
   return createHash("sha256").update(JSON.stringify(chave)).digest("hex");
 }
 
@@ -155,6 +173,16 @@ export interface OpcoesFalcao {
   guardarAcordaos?: boolean;
 }
 
+/** A ordenação e o alcance pedidos, como o resultado os devolve (também o da busca guardada). */
+function marcasDasOpcoes(p: ParametrosBusca) {
+  return { ordenacao: p.ordenacao ?? "relevancia", ...(p.somenteEmentas && { somenteEmentas: true as const }) };
+}
+
+/** Avisos das opções pedidas; entram nos avisos da busca, que a busca guardada repete. */
+function avisosDasOpcoes(p: ParametrosBusca): string[] {
+  return [...(p.somenteEmentas ? [AVISO_SOMENTE_EMENTAS] : []), ...(p.ordenacao === "recentes" ? [AVISO_RECENTES] : [])];
+}
+
 /** A busca guardada no Falcão para estes parâmetros, sem chamada. */
 export async function lerBuscaGuardadaNoFalcao(
   memoria: Memoria,
@@ -172,6 +200,7 @@ export async function lerBuscaGuardadaNoFalcao(
         "chamada ao Falcão; para dado novo, repita com renovar",
       tribunal: p.tribunal.toLowerCase(),
       fonte: ROTULO_FALCAO,
+      ...marcasDasOpcoes(p),
       cabecalhoDeCobertura:
         coberturaNoFalcao(busca.totalNaFonte, busca.registrosDoSite, busca.acordaos.length, limite, nomesDoFiltro(p)) +
         (busca.possivelmenteIncompleta ? AVISO_CABECALHO_INCONSISTENTE : ""),
@@ -255,7 +284,7 @@ export async function buscaNoFalcao(
         "(a ementa repetida não é o acórdão) e a citação não pode ser conferida nele.",
     );
   }
-  avisos.push(AVISO_DATAS);
+  avisos.push(AVISO_DATAS, ...avisosDasOpcoes(p));
   const { acordaos: juntos } = juntarEquivalentes(
     acordaos.map((registro, posicao) => ({ registro, formulacoes: new Set<number>(), melhorPosicao: posicao })),
   );
@@ -284,6 +313,7 @@ export async function buscaNoFalcao(
   return {
     tribunal,
     fonte: ROTULO_FALCAO,
+    ...marcasDasOpcoes(p),
     cabecalhoDeCobertura:
       coberturaNoFalcao(total, recebidos.length, juntos.length, limite, nomesDoFiltro(p)) +
       (consistente ? "" : AVISO_CABECALHO_INCONSISTENTE),
@@ -326,6 +356,9 @@ async function pedirPagina(cliente: Cliente, tribunal: string, p: ParametrosBusc
     const valor = valorDoFiltro(p, filtro as keyof typeof PARAMETROS_DOS_FILTROS);
     if (valor) consulta.set(parametro, valor);
   }
+  if (p.somenteEmentas) consulta.set("pesquisaSomenteNasEmentas", "true");
+  const ordenacao = ORDENACOES[p.ordenacao ?? "relevancia"];
+  if (ordenacao) consulta.set("ordenacao", ordenacao);
   const resposta = await cliente.requisitar(`${PESQUISA_FALCAO}?${consulta}`);
   let json: unknown;
   try {
