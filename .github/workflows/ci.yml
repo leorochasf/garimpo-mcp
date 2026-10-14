@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Permissão mínima: só leitura do código. Nenhum segredo é usado.
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Testes ao vivo (rede real) ficam desligados: só rodam com GARIMPO_VIVO=1.
+      GARIMPO_VIVO: ""
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Instalar dependências
+        run: npm ci
+      - name: Tipos, testes e build sem acesso à rede externa
+        # Namespace novo: só loopback para os servidores locais da suíte.
+        # Volta ao usuário do runner antes de executar o código do repositório.
+        run: |
+          sudo env "PATH=$PATH" "HOME=$HOME" GARIMPO_VIVO= npm_config_offline=true \
+            unshare --net bash -e -c '
+              ip link set lo up
+              exec setpriv --reuid "$1" --regid "$2" --init-groups bash -e
+            ' -- "$(id -u)" "$(id -g)" <<'SEM_REDE'
+          npx tsc --noEmit
+          npx vitest run
+          npm run build
+          SEM_REDE
