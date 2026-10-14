@@ -36,4 +36,32 @@ para o computador do usuário e pesquisa lá, sem rede. Fonte e termos: `docs/fo
 - Três ferramentas novas: `baixar_anos_tcu`, `pesquisar_acordaos_tcu`, `ler_acordao_tcu`. Servem a ADR-0017 (fonte
   além do JurisprudênciaIA); a resposta rotula a origem como arquivo de dados abertos do TCU.
 - O disco do usuário fica com arquivos grandes em `<pasta de dados>/tcu/`; o aviso prévio é parte do contrato.
-- Formato real da lista de arquivos, link oficial por chave e tempo de varredura seguem a validar ao vivo.
+- Relatório, voto e sumário que o TCU classificou como sigilosos (o arquivo traz só o aviso do art. 108, § 1º, da Lei
+  8.443/1992) são reconhecidos: o acórdão continua listado com o texto `ACORDAO`, a resposta marca `partesSigilosas` e
+  `temRelatorioEVoto: false`, e a leitura diz "classificados como sigilosos pelo TCU" em vez de entregar o aviso como texto.
+- A pesquisa também avisa que o texto oficial cita nomes de pessoas e que o Garimpo não os retira (`avisoNomes`).
+
+## Validação ao vivo (2026-10-14)
+
+Uma linha de rede, `sites.tcu.gov.br`, pelo cliente único. Bateu com o desenho; o que mudou foi o que está acima
+(aviso de sigilo, aviso de nomes na pesquisa) e a fixture da lista, que agora segue o formato real.
+
+- **Lista de anos:** 200, 5.945 bytes, UTF-8; cabeçalho `"BASE"|"ANO"|"TAMANHO"|"ARQUIVO"`, coluna `BASE` antes do ano,
+  linhas fora de ordem, uma linha do resumo por IA com ano vazio e linhas de outras bases (Súmulas em KB). 35 anos
+  (1992–2026), 7.595,57 MB no total; `MB` é MiB.
+- **Download de 2025:** 413.563.594 bytes (= 394,40 MB da lista) em 17,0 s; RSS de pico ~90 MB. Renovação por pedido
+  condicional: 304, sem baixar de novo.
+- **Arquivo de 2025:** 18.588 registros (12.304 de relação, 6.284 comuns); 99 `INVALIDADO` e 11 sigilosos ficam de fora
+  (110 contados); `INTERESSADOS`/`ADVOGADO` nunca chegam à memória. 9 acórdãos oficializados com `SUMARIO`/`RELATORIO`
+  (e 4 com `VOTO`) substituídos pelo aviso de sigilo.
+- **Varredura:** 7,0 a 19,4 s por ano por pesquisa (arquivo de 2025, um processo por consulta); memória em fluxo (a
+  pesquisa termina igual com o heap travado em 128 MB).
+- **Não verificado:** o link oficial por chave (`pesquisa.apps.tcu.gov.br`, host não liberado) e a retomada por `Range`
+  + `If-Range` ao vivo.
+
+## Decisão de velocidade (1.0)
+
+Mantém-se a **varredura por arquivo**, sem índice local: com 10 anos baixados uma pesquisa levaria de 1 a 3 minutos.
+Para a 1.0 o custo é **dito, não escondido**: o aviso de baixar diz que cada ano baixado acrescenta cerca de 10 a 20 s a
+cada pesquisa e recomenda poucos anos; a pesquisa devolve `anosPercorridos` e `tempoSegundos`. O índice local fica para
+o ticket de cache forte e índice local (b19-velocidade), que recebe estes números como caso de uso.

@@ -316,7 +316,7 @@ TRF2 e TRF6 não constam da tabela de tribunais do Garimpo; não foram tratados.
 
 ## TCU (arquivos anuais de acórdãos, dados abertos)
 
-Usado por `baixar_anos_tcu`, `pesquisar_acordaos_tcu` e `ler_acordao_tcu` ([ADR-0024](adr/0024-tcu-arquivos-anuais-baixados-pelo-usuario.md)).
+Usado por `baixar_anos_tcu`, `pesquisar_acordaos_tcu` e `ler_acordao_tcu` ([ADR-0025](adr/0025-tcu-arquivos-anuais-baixados-pelo-usuario.md)).
 O usuário baixa os anos que escolher, direto do TCU; a pesquisa é local. Leituras de 2026-10-14 (relatório
 `TICKETS/b18-investigacoes/tcu-dados-abertos.md`, local):
 
@@ -328,7 +328,7 @@ O usuário baixa os anos que escolher, direto do TCU; a pesquisa é local. Leitu
 - **Dicionário:** `https://sites.tcu.gov.br/dados-abertos/jurisprudencia/dicionario-dados.html`. `SUMARIO` = "Resumo do
   conteúdo do Acórdão"; `RELATORIO` e `VOTO` só no tipo `ACÓRDÃO`; `INTERESSADOS` e `ADVOGADO` não são usados.
 - **robots.txt** de `sites.tcu.gov.br`: `User-agent: *` não veda `/dados-abertos/`; robôs de IA nomeados têm
-  `Disallow: /` (alerta no ADR-0024). O Garimpo não muda de User-Agent.
+  `Disallow: /` (alerta no ADR-0025). O Garimpo não muda de User-Agent.
 - **Termos:** `https://portal.tcu.gov.br/sobre-o-portal/termos-de-uso`: itens 2 a 4 (direitos reservados; uso comercial
   vedado sem permissão; republicação permitida citando fonte, título e autor). O conjunto não declara licença aberta:
   **nada do TCU vai no pacote**. Toda resposta cita "TCU, Acórdão N/AAAA – Colegiado, relator X; dados abertos do TCU,
