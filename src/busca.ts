@@ -344,7 +344,8 @@ export function conferirDadosDoAcordao(
   acordaoDoId?: Acordao,
 ): ConferenciaDoAcordao {
   const digitos = soDigitos(citado.numero);
-  const bate = (a: Acordao) => [a.numero, a.numeroCnj].some((n) => n !== undefined && soDigitos(n) === digitos);
+  const bate = (a: Acordao) => !a.semNumero && !!digitos && [a.numero, a.numeroCnj].some((n) => n !== undefined && soDigitos(n) === digitos);
+  if (acordaoDoId?.semNumero) return { estado: "não verificado", divergencias: [], naoConferidos: [] };
   const candidatos = acordaoDoId ? [acordaoDoId] : acordaos.filter(bate);
   const avaliar = (a: Acordao) => {
     const divergencias: Divergencia[] = [];
@@ -358,11 +359,13 @@ export function conferirDadosDoAcordao(
       const registro = a.orgao ? semForma(a.orgao) : "";
       const informado = semForma(citado.orgao);
       if (!registro) naoConferidos.push("orgao");
-      else if (!(registro.includes(informado) || informado.includes(registro))) divergencias.push({ campo: "orgao", informado: citado.orgao, noRegistro: a.orgao! });
+      else if (registro !== informado) divergencias.push({ campo: "orgao", informado: citado.orgao, noRegistro: a.orgao! });
     }
     return { a, divergencias, naoConferidos };
   };
-  const avaliados = candidatos.map(avaliar).sort((x, y) => x.divergencias.length - y.divergencias.length);
+  const avaliados = candidatos.map(avaliar).sort((x, y) =>
+    x.divergencias.length - y.divergencias.length || x.naoConferidos.length - y.naoConferidos.length,
+  );
   const melhor = avaliados[0];
   if (!melhor) return { estado: "não verificado", divergencias: [], naoConferidos: [] };
   const { a, divergencias, naoConferidos } = melhor;

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { describe, expect, it } from "vitest";
-import { Cliente, RecusaError } from "../src/cliente.js";
+import { Cliente } from "../src/cliente.js";
 import { criarServidor } from "../src/servidor.js";
 import { fixture, respostaJson } from "./apoio.js";
 
@@ -42,6 +42,35 @@ const stj = (fixture("stj-sem-classe.json") as { results: unknown[] }).results;
 const tjgo = (fixture("tjgo.json") as { results: unknown[] }).results;
 
 describe("conferir_acordao_citado", () => {
+  it("não toma o id do site por número de processo, nem na busca nem na memória", async () => {
+    const { site, chamadas } = siteQueConta([{ ...(stj[1] as object), numero_processo: null, numero_processo_cnj: null }]);
+    const mcp = await conectar(site);
+    const busca = await conferir(mcp, { tribunal: "stj", numero: "202" });
+    expect(busca.json.estado).toBe("não verificado");
+    const memoria = await conferir(mcp, { tribunal: "stj", numero: "202", id: "stj:202" });
+    expect(memoria.json.estado).toBe("não verificado");
+    expect(memoria.texto).toMatch(/não que ele não exista/);
+    expect(chamadas).toHaveLength(1);
+  });
+
+  it("não confirma órgãos por substring ou por texto vazio", async () => {
+    const mcp = await conectar(siteQueConta([{ ...(tjgo[0] as object), orgao_julgador: "11ª Câmara Cível" }]).site);
+    for (const orgao of ["1ª Câmara Cível", "Câmara Cível", "", "..."]) {
+      const r = await conferir(mcp, { tribunal: "tjgo", numero: "0000001-11.2025.8.09.0001", orgao });
+      expect(r.json.estado).toBe("dados em conflito");
+      expect(r.json.divergencias[0].campo).toBe("orgao");
+    }
+  });
+
+  it("prefere o registro que confere todos os campos ao que não traz um deles", async () => {
+    const incompleto = { ...(stj[1] as object), data_julgamento: null };
+    const completo = { ...(stj[1] as object), id: "203" };
+    const mcp = await conectar(siteQueConta([incompleto, completo]).site);
+    const r = await conferir(mcp, { tribunal: "stj", numero: "1.000.002/GO", data: "2020-12-05" });
+    expect(r.json.acordao.id).toBe("stj:203");
+    expect(r.json.naoConferidos).toEqual([]);
+  });
+
   it("confirma o acórdão que bate em tribunal, número e data, com 1 busca no site", async () => {
     const { site, chamadas } = siteQueConta(stj);
     const mcp = await conectar(site);

@@ -1078,18 +1078,19 @@ export function criarServidor(
         if (id !== undefined && id.split(":")[0].toLowerCase() !== sigla.toLowerCase()) {
           throw new Error(`O id ${id} não é do tribunal ${sigla}: informe o id que a busca devolveu para este acórdão.`);
         }
+        const aviso =
+          '"Não verificado" quer dizer só que o número não pôde ser conferido no registro: não que ele não exista. ' +
+          "Confira no portal do tribunal.";
         const guardado = id !== undefined ? await memoria.obter(id) : undefined;
         if (guardado) {
-          return comAvisoNaturezaJuridica({ ...conferirDadosDoAcordao(citado, [], guardado.acordao), consultaAoSite: false }, [sigla]);
+          return comAvisoNaturezaJuridica({ ...conferirDadosDoAcordao(citado, [], guardado.acordao), consultaAoSite: false, aviso }, [sigla]);
         }
         const r = await buscaDireta(site, { tribunal: sigla, texto: citado.numero, limite: 10 }, memoria, { renovar, tabela, tabelaStf });
         return comAvisoNaturezaJuridica(
           {
             ...conferirDadosDoAcordao(citado, r.acordaos),
             consultaAoSite: !r.buscaGuardada,
-            aviso:
-              "\"Não verificado\" quer dizer só que a busca por este número não trouxe o acórdão: não que ele não exista. " +
-              "Confira no portal do tribunal.",
+            aviso,
           },
           [sigla],
         );
