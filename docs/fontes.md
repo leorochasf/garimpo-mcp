@@ -70,7 +70,8 @@ de decisão e sem nome de parte.
 ## DJEN (comunicações processuais do CNJ)
 
 Usado por `julgamentos_do_processo` (desligável com `incluir_djen: false`): as **comunicações do processo** publicadas
-no Diário de Justiça Eletrônico Nacional — metadados e link, nunca o texto. São comunicações do processo, **não um
+no Diário de Justiça Eletrônico Nacional — metadados, link e, apenas quando os dois sinais conferirem, trecho saneado da ementa,
+rotulado como texto da intimação (melhor esforço); nunca o texto bruto. São comunicações do processo, **não um
 inventário de acórdãos**.
 
 - **Especificação:** OpenAPI oficial https://comunicaapi.pje.jus.br/swagger/djen.yml, versão 1.0.4 ("Última
@@ -90,7 +91,8 @@ inventário de acórdãos**.
   **uma página só**. Com mais de 100 comunicações, a resposta diz "lista cortada: o DJEN tem N comunicações, mostradas
   100".
 - **O que é mostrado, por comunicação:** data de disponibilização, tipo de comunicação, tipo de documento, órgão, classe
-  e link (só se for https). **Nunca** `texto`, `destinatarios`, `destinatarioadvogados`, nomes de advogado ou OAB —
+  e link (só se for https); trecho saneado apenas com o tipo exato `Acórdão`, uma ementa delimitada, número do
+  processo antes dela e sem sinal de transcrição ou ato coletivo (ADR-0019). **Nunca** `texto`, `destinatarios`, `destinatarioadvogados`, nomes de advogado ou OAB —
   nem na resposta nem na memória.
 - **Freios:** serviço `djen` no disjuntor, nas 2 vagas somadas; intervalo mínimo de 3 s entre chamadas ao mesmo host,
   para todas as janelas (20 por minuto); se `x-ratelimit-remaining` vier 2 ou menos, a próxima chamada ao DJEN espera
@@ -103,8 +105,14 @@ inventário de acórdãos**.
   a gravação deste ticket, respondeu **HTTP 503** em duas tentativas separadas por cerca de 15 min (em cada uma, a
   chamada e a única nova tentativa, 60 s depois), e o Garimpo parou, como manda a regra 3. Por isso a gravação do DJEN
   nos testes é sintética, montada com os campos da especificação, e não uma resposta real reduzida.
-- **O que o Garimpo guarda:** por até 24 h, só a lista reduzida acima (sem texto e sem nomes), com a fonte e o momento
+- **O que o Garimpo guarda:** por até 24 h, só a lista reduzida acima (sem texto bruto e sem nomes detectáveis), com a fonte e o momento
   da obtenção.
+
+- **I-31 / PV-12 (2026-10-14):** uma busca no JurisprudênciaIA e uma consulta ao DJEN, ambas HTTP 200; o processo
+  sorteado não trouxe comunicação `Acórdão`. O valor desse tipo e a presença da ementa na intimação seguem **não
+  verificados ao vivo**; caminho positivo provado só com textos fictícios. Nomes livres não têm garantia de
+  detecção: rótulo visível de melhor esforço. Teste opcional exclusivo: `GARIMPO_VIVO_DJEN=1` com
+  `GARIMPO_VIVO` desligado, somente `tests/vivoDjen.test.ts`. DataJud não participa desse teste.
 
 ## Espelhos de Acórdãos do STJ (Portal de Dados Abertos)
 

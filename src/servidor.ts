@@ -1010,10 +1010,12 @@ export function criarServidor(
         "Cada fonte vem com o seu estado (ok, vazia, erro, recusa, pausa, não consultada); \"o DataJud não devolveu este " +
         "processo\" não prova que ele não exista. " +
         "Com incluir_djen (padrão), também as comunicações do processo no DJEN (uma página, até 100): data de " +
-        "disponibilização, tipo de comunicação e de documento, órgão, classe e link; nunca o texto nem nome de parte ou " +
+        "disponibilização, tipo de comunicação e de documento, órgão, classe e link; nunca o texto bruto nem nome detectável de parte ou " +
         "advogado; em comunicação de acórdão, um trecho saneado da ementa só se o tipo e o texto confirmarem os dois que é " +
         "o próprio ato (rotulado como trecho do DJEN, melhor esforço), senão \"não verificado\"; são comunicações do " +
-        "processo, não um inventário de acórdãos. Se o DJEN pedir para esperar, vem o " +
+        "processo, não um inventário de acórdãos. O valor do tipo Acórdão e a presença da ementa na intimação seguem " +
+        "não verificados ao vivo: o caminho positivo foi testado só com textos fictícios. O saneamento de nomes livres " +
+        "não é garantia. Se o DJEN pedir para esperar, vem o " +
         "que as outras fontes trouxeram e o instante em que se pode tentar de novo (estado pausa). " +
         "Consulta repetida em 24 h volta da memória do Garimpo, sem nova chamada. Não busca por nome de parte. " +
         `Uso sob o termo de uso da API Pública do CNJ (${TERMO_DE_USO_DATAJUD}); as obrigações do termo são de quem ` +

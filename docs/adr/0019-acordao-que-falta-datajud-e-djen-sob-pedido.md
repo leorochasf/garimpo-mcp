@@ -42,8 +42,12 @@ divididas com o site, e comparar por data confundiria julgamentos.
   definida pelo usuário.
 - Nomes de serviço no disjuntor: `datajud` (API e wiki) e `djen` (API de comunicações), em vez de "cnj" e "pje".
 - A espera do DJEN depois de um 429 é exceção ao ADR-0009 (ver o adendo lá).
-- Nota (I-31 / G-47, 2026-10-14): o DJEN passa a mostrar, em comunicação de tipo acórdão, um trecho saneado da ementa, só
-  se dois sinais conferirem (o tipo de documento indica acórdão **e** o texto tem uma única ementa e nenhum número de
-  processo além do consultado); com um sinal ou dúvida, "não verificado". O trecho é de melhor esforço (nome de pessoa
-  em texto livre não é detectável), rotulado como trecho do DJEN, e é só ele que fica na memória. A consulta continua
-  só pelo número (DJEN por texto livre segue fora, DQ-18).
+- Nota (I-31 / G-47, 2026-10-14): trecho do DJEN só com tipo exato `Acórdão` e texto delimitado por uma única
+  `EMENTA` e uma única seção `ACÓRDÃO`, com o número consultado antes da ementa e nenhum outro processo. Tipo
+  diferente, seção repetida, transcrição, nome detectável ou limite ausente = "não verificado". Linhas com rótulos
+  de parte/advogado são retiradas; padrões fixos de dados pessoais são mascarados. O rótulo visível diz "texto da
+  intimação, não o acórdão oficial; saneamento de melhor esforço": nomes livres não têm garantia de detecção.
+  Só o trecho saneado fica na memória; trechos da versão anterior são recusados. A consulta continua só por número
+  (DJEN por texto livre segue fora, DQ-18). PV-12: uma busca no JurisprudênciaIA e uma consulta ao DJEN, ambas 200,
+  sem comunicação `Acórdão`; o valor desse tipo e a presença da ementa na intimação seguem **não verificados ao vivo**.
+  O caminho positivo está provado apenas com textos fictícios. DataJud pausado não foi consultado nessa prova.
