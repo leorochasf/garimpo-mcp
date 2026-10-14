@@ -100,7 +100,7 @@ simultâneas sem recusa. Um 503 isolado em ~400 chamadas. O teto real **não** f
 
 | Tribunal | `link_pdf` do site | Caminho que funcionou | Garimpo |
 |---|---|---|---|
-| **STJ** | `scon.stj.jus.br/SCON/GetInteiroTeorDoAcordao?...` → 403 (Cloudflare "managed"; nem navegador disfarçado passa) | Revista Eletrônica, com cookie de sessão, em 3 passos (abaixo) — PDF oficial, HTTP puro, <1 s | baixa |
+| **STJ** | `scon.stj.jus.br/SCON/GetInteiroTeorDoAcordao?...` → 403 (Cloudflare "managed"; nem navegador disfarçado passa) | Revista Eletrônica, com cookie de sessão, em 3 passos (abaixo) — PDF oficial, HTTP puro, <1 s. **Desligado em 2026-10-13 (D-18):** o `robots.txt` de `processo.stj.jus.br` veda o host inteiro (`docs/fontes.md`) | link + explicação (conferência manual) |
 | **STF** | `portal.stf.jus.br/jurisprudencia/obterInteiroTeor.asp?idDocumento=` → 202 (desafio AWS WAF, exige JavaScript) | só com navegador headless (redireciona para `redir.stf.jus.br/paginadorpub/...`, PDF) | link + explicação |
 | **TJGO** | `projudi.tjgo.jus.br/ConsultaJurisprudencia?PaginaAtual=239&Id_Arquivo=` → "Sem Permissão (nº 239)" | nenhum automático: a pesquisa exige a verificação anti-robô Cloudflare Turnstile e o download só vale na sessão dela (verificado em 2026-10-11: o portal abre o arquivo com `abrirArquivo`, um **POST** com o token da sessão; o `link_pdf` do site é um **GET** sem token, por isso cai em «Sem Permissão»). Caminho público, sem login: `projudi.tjgo.jus.br/ConsultaJurisprudencia`, campo «Número do Processo» (página lida em 2026-10-11) | link + explicação (aviso com o passo a passo e o CNJ) |
 | **TJMG** | `www5.tjmg.jus.br/jurisprudencia/relatorioEspelhoAcordao.do?inteiroTeor=true&...` | PDF direto | baixa |
@@ -111,7 +111,7 @@ simultâneas sem recusa. Um 503 isolado em ~400 chamadas. O teto real **não** f
 | **TJRN** | (rota de íntegra `GET /api/tribunais/tjrn/integra/{id}`) | Prova B11 (2026-10-09): inconclusivo — a busca do site no TJRN respondeu 504 após ~61 s; a rota de íntegra não foi chamada | link |
 | **TJTO** | `jurisprudencia.tjto.jus.br/viewFileDoc.php?uuid=...` | Prova B11 (2026-10-09): **HTTP 403** no `viewFileDoc.php` e, no mesmo dia, no `consulta.php` (User-Agent do Garimpo; disjuntor do TJTO aberto duas vezes). **Prova de 2026-10-11, com UA de navegador (ADR-0021), 2 GETs:** `viewFileDoc.php` → **302** para `documento.php?uuid=...&amp;options=...` (o `Location` vem escapado como HTML); `documento.php?uuid=...` → **200**, `text/html; charset=ISO-8859-1`, ~174 KB: o acórdão do eproc (acórdão com ementa, relatório e voto, extrato de ata), não PDF | texto do portal do tribunal (memória, por id) |
 
-**STJ em 3 passos** (mesma sessão de cookies; `num_registro` e `dt_publicacao` saem do `link_pdf`), conferido em 2026-10-07:
+**STJ em 3 passos** — *histórico; o Garimpo não faz mais estas chamadas (D-18)* (mesma sessão de cookies; `num_registro` e `dt_publicacao` saem do `link_pdf`), conferido em 2026-10-07:
 1. `GET https://processo.stj.jus.br/processo/revista/inteiroteor/?num_registro={reg}&dt_publicacao={DD/MM/AAAA}`
    — a página (ISO-8859-1) lista documentos em `AbreDocumento('...')`; o **1º** é o inteiro teor, os seguintes são
    peças (ementa/acórdão, relatório e voto, certidão). Há **dois formatos** de caminho:

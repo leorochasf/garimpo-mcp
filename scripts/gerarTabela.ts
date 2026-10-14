@@ -3,7 +3,8 @@
  * Abertos do STJ o conjunto "Precedentes qualificados" (página do conjunto, temas.csv e processos.csv) pelo cliente
  * único do Garimpo e grava a fotografia datada dos temas repetitivos e IAC em dados/.
  *
- * Rede: só as três URLs abaixo (nunca /api/, nunca processo.stj.jus.br, que o robots.txt proíbem), 10 s entre
+ * Rede: só as três URLs abaixo (nunca /api/, que o robots.txt do Portal de Dados Abertos proíbe; nunca processo.stj.jus.br, que o robots.txt do
+ * próprio processo.stj.jus.br veda por inteiro), 10 s entre
  * chamadas (Crawl-Delay do robots.txt), uma nova tentativa em 429/503 e parada em recusa, 403 ou desafio anti-robô
  * que o cliente reconhece (cf-mitigated, AWS WAF). Uma página de desafio desconhecida com HTTP 200 para o gerador
  * porque não traz a licença (página) nem o cabeçalho esperado (CSV).

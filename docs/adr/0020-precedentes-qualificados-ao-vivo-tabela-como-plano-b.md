@@ -49,3 +49,21 @@ outro tipo sem erro. Página sem o precedente pedido, ou sem os rótulos esperad
 - `consultar_precedente` deixa de ser só leitura local: usa rede (`openWorldHint` verdadeiro).
 - Mudança de layout dos portais leva ao plano B (nunca a dado inventado); o teste ao vivo atrás de `GARIMPO_VIVO=1`
   mostra quando isso acontecer.
+
+## Emenda de 2026-10-13 (D-18): o STJ sai da consulta ao vivo
+
+O `robots.txt` de `processo.stj.jus.br` (ver [`docs/fontes.md`](../fontes.md)) tem `User-agent: *` com `Disallow: /`
+e nenhuma exceção: o host inteiro é vedado a programas, inclusive a página de precedentes que este ADR usava. A regra
+3 do CLAUDE.md pesa mais que a preferência por dado do dia. Portanto, **no STJ** (tema repetitivo e IAC):
+
+- o `consultar_precedente` **não consulta mais o portal**: responde direto pela tabela empacotada (ADR-0015), sem
+  tentar o portal antes e sem sondá-lo depois; a resposta diz "tabela de <data>; consulta automática ao portal não
+  realizada por restrição de acesso", com a origem e o aviso de idade (mais de 90 dias). Nunca diz "o portal não
+  respondeu", pois ele não foi chamado. Número ausente: "não consta na tabela de <data>"; sem tabela carregada: erro
+  ("não verificado"), nunca dado inventado;
+- o serviço `stj-precedentes` (que segue só classificado em `src/disjuntor.ts`, sem uso), o limite de 1 chamada por pergunta
+  e a leitura da página do STJ deixam de existir;
+- o usuário confere a situação do dia no portal do STJ pelo navegador.
+
+**O STF não muda:** continua ao vivo, com a análise própria deste ADR, o UA de navegador e a tabela como plano B.
+Reabrir o STJ ao vivo exige nova leitura do `robots.txt` e decisão registrada: não há prazo para voltar sozinho.
