@@ -231,6 +231,22 @@ describe("freio preventivo do Falcão, entre janelas", () => {
     expect(f.chegadas).toHaveLength(2);
   });
 
+  it("TJDFT: o restante vem em x-ratelimit-remaining (cota de 60 por minuto); na reserva, pausa preventiva em todas as janelas", async () => {
+    const relogio = { agora: INICIO };
+    const f = falcao();
+    const [a, b] = [janela(relogio, f.fetchFalso), janela(relogio, f.fetchFalso)];
+    const TJDFT = "https://jurisdf.tjdft.jus.br/api/v1/pesquisa";
+    f.fila.push(
+      new Response("{}", { status: 200, headers: { "content-type": "application/json", "x-ratelimit-limit": "60", "x-ratelimit-remaining": "10" } }),
+    );
+    await (await a.requisitar(TJDFT, { method: "POST" })).text();
+
+    const e = await erroDe(b.requisitar(TJDFT, { method: "POST" }));
+    expect(e).toBeInstanceOf(PausaPreventivaError);
+    expect(e).not.toBeInstanceOf(RecusaError);
+    expect(f.chegadas).toHaveLength(1);
+  });
+
   it("o freio é só do Falcão: restante baixo em outra fonte não pausa nada", async () => {
     const relogio = { agora: INICIO };
     const respostas = [comRestante("0"), comRestante("0")];
