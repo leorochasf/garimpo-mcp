@@ -3,9 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buscaDireta } from "../src/busca.js";
-import { Cliente } from "../src/cliente.js";
+import { Cliente, RecusaError } from "../src/cliente.js";
 import { obterInteiroTeor, PAUSA_TSE_MS } from "../src/inteiroTeor.js";
 import { Memoria } from "../src/memoria.js";
+import { lerInteiroTeor, lerParaConferir } from "../src/leitura.js";
+import { conferirNoInteiroTeor, lerCitacao } from "../src/conferencia.js";
 import { clienteFalso, fixture, respostaJson } from "./apoio.js";
 import { pdfSintetico } from "./pdfSintetico.js";
 
@@ -383,7 +385,9 @@ describe("inteiro teor — TJMS pelo getArquivo.do do eSAJ (I-14)", () => {
   const LINK_TJMS = "https://esaj.tjms.jus.br/cjsg/getArquivo.do?cdAcordao=1&cdForo=0";
 
   it("1 GET ao portal do TJMS: PDF reconhecido vira inteiro teor, com recibo do TJMS", async () => {
-    const { cliente, chamadas } = clienteFalso([pdf()]);
+    const { cliente, chamadas } = clienteFalso([
+      new Response(pdfSintetico([["ACÓRDÃO FICTÍCIO DO TJMS"]]), { headers: { "content-type": "application/pdf" } }),
+    ]);
     const r = await obterInteiroTeor({ tribunal: "tjms", link: LINK_TJMS, pasta }, () => cliente);
 
     expect(r.baixado).toBe(true);
@@ -392,6 +396,7 @@ describe("inteiro teor — TJMS pelo getArquivo.do do eSAJ (I-14)", () => {
     const recibo = await readFile(r.recibo, "utf8");
     expect(recibo).toContain(`Link oficial final: ${LINK_TJMS}`);
     expect(recibo).toContain("Tribunal: TJMS");
+    expect((await lerInteiroTeor(r.arquivo)).cabecalho.paginasDoPdf).toContain("de 1");
   });
 
   it("página no lugar do PDF: link + motivo do TJMS, nada salvo", async () => {
@@ -425,15 +430,41 @@ describe("inteiro teor — TJMS pelo getArquivo.do do eSAJ (I-14)", () => {
     ).rejects.toThrow(/fora do portal oficial do TJSP/);
     expect(chamadas).toHaveLength(0);
   });
+
+  it.each([
+    new Response("Acesso negado", { status: 403 }),
+    html("<html><head><title>Just a moment...</title></head><body></body></html>"),
+  ])("recusa ou desafio para o TJMS sem nova tentativa e sem PDF; não pausa o TJSP", async (resposta) => {
+    const { cliente, chamadas, esperas } = clienteFalso([resposta, pdf()]);
+    await expect(obterInteiroTeor({ tribunal: "tjms", link: LINK_TJMS, pasta }, () => cliente)).rejects.toBeInstanceOf(RecusaError);
+    await expect(obterInteiroTeor({ tribunal: "tjms", link: LINK_TJMS, pasta }, () => cliente)).rejects.toBeInstanceOf(RecusaError);
+    expect(chamadas).toHaveLength(1);
+    expect(esperas).toEqual([]);
+    expect(await readdir(pasta)).toEqual([]);
+    expect((await obterInteiroTeor({ tribunal: "tjsp", link: LINK_TJMS.replace("tjms", "tjsp"), pasta }, () => cliente)).baixado).toBe(true);
+    expect(chamadas).toHaveLength(2);
+  });
+
+  it("PDF do TJMS sem texto extraível deixa a citação não verificável", async () => {
+    const { cliente } = clienteFalso([new Response(pdfSintetico([[]]))]);
+    const r = await obterInteiroTeor({ tribunal: "tjms", link: LINK_TJMS, pasta }, () => cliente);
+    expect(r.baixado).toBe(true);
+    if (!r.baixado) return;
+    const leitura = await lerParaConferir(r.arquivo);
+    expect(conferirNoInteiroTeor(leitura, lerCitacao("Esta passagem fictícia tem cinco palavras", { reticenciasComoCorte: false }))).toMatchObject({
+      veredito: "não verificável",
+    });
+  });
 });
 
-describe("inteiro teor — TJSP pelo fallback anônimo da verificação de login", () => {
+describe.each(["tjsp", "tjms"])("inteiro teor — %s pelo fallback anônimo da verificação de login", (tribunal) => {
+  const sigla = tribunal.toUpperCase();
   // Formato observado na prova do B11 (2026-10-09), com números fictícios.
-  const LINK_TJSP = "https://esaj.tjsp.jus.br/cjsg/getArquivo.do?cdAcordao=1&cdForo=0";
+  const LINK_TJSP = `https://esaj.${tribunal}.jus.br/cjsg/getArquivo.do?cdAcordao=1&cdForo=0`;
   const VERIFICA = "/cjsg/jsp/verificarLoginArquivo.jsp?cdAcordao=1&cdForo=0";
-  const ANONIMO = "https://esaj.tjsp.jus.br/cjsg/getArquivo.do?cdAcordao=1&cdForo=0&casChecked=true";
+  const ANONIMO = `${LINK_TJSP}&casChecked=true`;
   const paginaVerifica = (literal = "/cjsg/getArquivo.do?cdAcordao=1&cdForo=0&casChecked=true") => `<html><head>
-    <script src="https://esaj.tjsp.jus.br/sajcas/verificarLogin.js?script=1"></script>
+    <script src="https://esaj.${tribunal}.jus.br/sajcas/verificarLogin.js?script=1"></script>
     <script>
         if (window.sajcas && window.sajcas.usuarioLogadoNoCasServer) {
             var urlRetornoSistema = '/cjsg/getArquivo.do?cdAcordao=1&cdForo=0';
@@ -459,38 +490,38 @@ describe("inteiro teor — TJSP pelo fallback anônimo da verificação de login
       html(paginaVerifica()),
       pdfComSessao,
     ]);
-    const r = await obterInteiroTeor({ tribunal: "tjsp", link: LINK_TJSP, pasta }, () => cliente);
+    const r = await obterInteiroTeor({ tribunal, link: LINK_TJSP, pasta }, () => cliente);
 
     expect(r.baixado).toBe(true);
     if (!r.baixado) return;
-    expect(chamadas.map((c) => c.url)).toEqual([LINK_TJSP, `https://esaj.tjsp.jus.br${VERIFICA}`, ANONIMO]);
+    expect(chamadas.map((c) => c.url)).toEqual([LINK_TJSP, `https://esaj.${tribunal}.jus.br${VERIFICA}`, ANONIMO]);
     expect(chamadas.every((c) => c.init.redirect === "manual")).toBe(true);
     const recibo = await readFile(r.recibo, "utf8");
     expect(recibo).toContain(`Link oficial final: ${ANONIMO}`);
     expect(recibo).toContain(`Link que veio na busca: ${LINK_TJSP}`);
-    expect(recibo).toContain("Tribunal: TJSP");
+    expect(recibo).toContain(`Tribunal: ${sigla}`);
   });
 
-  it("endereço literal fora do portal do TJSP é recusado sem chamar, e os cookies da sessão não vazam", async () => {
+  it("endereço literal fora do portal é recusado sem chamar, e os cookies da sessão não vazam", async () => {
     const { cliente, chamadas } = clienteFalso([
       redirect(VERIFICA, { "set-cookie": "JSESSIONID=abc; Path=/cjsg" }),
       html(paginaVerifica("https://outro.test/getArquivo.do?casChecked=true")),
     ]);
-    await expect(obterInteiroTeor({ tribunal: "tjsp", link: LINK_TJSP, pasta }, () => cliente)).rejects.toThrow(
-      /fora do portal oficial do TJSP/,
+    await expect(obterInteiroTeor({ tribunal, link: LINK_TJSP, pasta }, () => cliente)).rejects.toThrow(
+      new RegExp(`fora do portal oficial do ${sigla}`),
     );
     expect(chamadas).toHaveLength(2);
     expect(await readdir(pasta)).toEqual([]);
   });
 
-  it("link ou redirect fora de https no portal do TJSP é recusado antes de sair", async () => {
-    for (const link of [LINK_TJSP.replace("https://", "http://"), LINK_TJSP.replace("esaj.tjsp.jus.br", "falso-tjsp.jus.br")]) {
+  it("link ou redirect fora de https no portal é recusado antes de sair", async () => {
+    for (const link of [LINK_TJSP.replace("https://", "http://"), LINK_TJSP.replace(`esaj.${tribunal}.jus.br`, `falso-${tribunal}.jus.br`)]) {
       const { cliente, chamadas } = clienteFalso([]);
-      await expect(obterInteiroTeor({ tribunal: "tjsp", link, pasta }, () => cliente)).rejects.toThrow(/fora do portal/);
+      await expect(obterInteiroTeor({ tribunal, link, pasta }, () => cliente)).rejects.toThrow(/fora do portal/);
       expect(chamadas).toHaveLength(0);
     }
     const fora = clienteFalso([redirect("https://outro.test/verificar")]);
-    await expect(obterInteiroTeor({ tribunal: "tjsp", link: LINK_TJSP, pasta }, () => fora.cliente)).rejects.toThrow(
+    await expect(obterInteiroTeor({ tribunal, link: LINK_TJSP, pasta }, () => fora.cliente)).rejects.toThrow(
       /fora do portal/,
     );
     expect(fora.chamadas).toHaveLength(1);
@@ -498,11 +529,11 @@ describe("inteiro teor — TJSP pelo fallback anônimo da verificação de login
 
   it("página sem PDF nem endereço do fallback anônimo: link + motivo observado, sem afirmar login nem JavaScript", async () => {
     const { cliente, chamadas } = clienteFalso([redirect(VERIFICA), html("<html><body>Documento indisponível</body></html>")]);
-    const r = await obterInteiroTeor({ tribunal: "tjsp", link: LINK_TJSP, pasta }, () => cliente);
+    const r = await obterInteiroTeor({ tribunal, link: LINK_TJSP, pasta }, () => cliente);
 
     expect(r).toMatchObject({ baixado: false, link: LINK_TJSP });
     if (r.baixado) return;
-    expect(r.explicacao).toMatch(/^O TJSP devolveu uma página \(\d+ bytes\) no lugar do PDF; nada foi salvo\./);
+    expect(r.explicacao).toMatch(new RegExp(`^O ${sigla} devolveu uma página`));
     expect(r.explicacao).not.toMatch(/login|JavaScript|captcha/i);
     expect(r.explicacao).toMatch(/abra o link no navegador, baixe o PDF e passe o caminho do arquivo ao ler_inteiro_teor/);
     expect(chamadas).toHaveLength(2);
@@ -511,7 +542,7 @@ describe("inteiro teor — TJSP pelo fallback anônimo da verificação de login
 
   it("o fallback anônimo também devolve página no lugar do PDF: link + motivo, e não segue mais nenhum endereço", async () => {
     const { cliente, chamadas } = clienteFalso([redirect(VERIFICA), html(paginaVerifica()), html(paginaVerifica())]);
-    const r = await obterInteiroTeor({ tribunal: "tjsp", link: LINK_TJSP, pasta }, () => cliente);
+    const r = await obterInteiroTeor({ tribunal, link: LINK_TJSP, pasta }, () => cliente);
 
     expect(r).toMatchObject({ baixado: false, link: LINK_TJSP });
     expect(chamadas).toHaveLength(3);
@@ -520,11 +551,11 @@ describe("inteiro teor — TJSP pelo fallback anônimo da verificação de login
   it("PDF já baixado é reconhecido pelo recibo, sem nenhuma chamada (ADR-0011)", async () => {
     const real = () => new Response(pdfSintetico([["ACÓRDÃO FICTÍCIO"]]), { headers: { "content-type": "application/pdf" } });
     const primeiro = clienteFalso([redirect(VERIFICA), html(paginaVerifica()), real]);
-    const a = await obterInteiroTeor({ tribunal: "tjsp", link: LINK_TJSP, pasta }, () => primeiro.cliente);
+    const a = await obterInteiroTeor({ tribunal, link: LINK_TJSP, pasta }, () => primeiro.cliente);
     expect(a.baixado).toBe(true);
 
     const segundo = clienteFalso([]);
-    const b = await obterInteiroTeor({ tribunal: "tjsp", link: LINK_TJSP, pasta }, () => segundo.cliente);
+    const b = await obterInteiroTeor({ tribunal, link: LINK_TJSP, pasta }, () => segundo.cliente);
     expect(b).toMatchObject({ baixado: true, jaEstavaNaPasta: expect.stringMatching(/^O PDF já estava na pasta de destino/) });
     expect(segundo.chamadas).toHaveLength(0);
   });
