@@ -27,9 +27,10 @@ describe("texto_de_lei no servidor MCP", () => {
     const mcp = await conectar(clienteFalso([]).cliente);
     const { tools } = await mcp.listTools();
 
-    expect(tools.at(-1)!.name).toBe("texto_de_lei");
-    expect(tools.at(-1)!.annotations).toMatchObject({ readOnlyHint: true, idempotentHint: true, openWorldHint: true });
-    expect(tools.at(-2)!.name).toBe("panorama_da_amostra");
+    const tl = tools.find((t) => t.name === "texto_de_lei")!;
+    expect(tl.annotations).toMatchObject({ readOnlyHint: true, idempotentHint: true, openWorldHint: true });
+    // as 3 do TCU entram depois dela, no fim
+    expect(tools.map((t) => t.name).slice(-5)).toEqual(["panorama_da_amostra", "texto_de_lei", "baixar_anos_tcu", "pesquisar_acordaos_tcu", "ler_acordao_tcu"]);
   });
 
   it("a descrição diz o que a ferramenta faz e o que não faz: texto literal, sem vigência, sem histórico próprio, sem artigo → precedente", async () => {
