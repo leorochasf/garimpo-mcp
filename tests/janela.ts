@@ -13,7 +13,7 @@ const { url, chamadas, intervaloMs, relogio, orcamento } = JSON.parse(process.en
   /** Arquivo com o relógio comum a todos os processos, que o teste avança; as esperas só cedem a vez. */
   relogio?: string;
   /** Limite próprio de chamadas por janela (orçamento) para o serviço deste host. */
-  orcamento?: { chamadas: number; largurasMs: number[] };
+  orcamento?: { chamadas: number; largurasMs: number[]; diario?: true };
 };
 const host = new URL(url).host;
 const cliente = new Cliente({

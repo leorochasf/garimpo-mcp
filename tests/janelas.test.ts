@@ -80,7 +80,7 @@ function abrirJanela(config: {
   chamadas: number;
   intervaloMs?: number;
   relogio?: string;
-  orcamento?: { chamadas: number; largurasMs: number[] };
+  orcamento?: { chamadas: number; largurasMs: number[]; diario?: true };
 }): Janela {
   const processo = spawn(process.execPath, [VITE_NODE, JANELA], {
     env: { ...process.env, GARIMPO_DADOS: pasta, JANELA_TESTE: JSON.stringify(config) },
@@ -171,6 +171,21 @@ describe("orçamento por janela compartilhado entre janelas (processos reais)", 
     const resultados = (await Promise.all(janelas.map((j) => j.resultado))).flat();
     expect(resultados.filter((r) => r.ok)).toHaveLength(3);
     expect(resultados.filter((r) => !r.ok && /limite de chamadas do próprio Garimpo/.test(r.erro ?? ""))).toHaveLength(3);
+    expect(estado.chegadas).toHaveLength(3);
+  }, 60_000);
+});
+
+describe("teto diário compartilhado entre janelas (processos reais)", () => {
+  it("duas janelas somam no mesmo contador do dia: o servidor recebe só o teto", async () => {
+    const { base, estado } = await subir();
+    const orcamento = { chamadas: 3, largurasMs: [], diario: true as const };
+    const janelas = [1, 2].map(() => abrirJanela({ url: `${base}/x`, chamadas: 3, orcamento }));
+    await Promise.all(janelas.map((j) => j.pronta));
+    janelas.forEach((j) => j.vai());
+
+    const resultados = (await Promise.all(janelas.map((j) => j.resultado))).flat();
+    expect(resultados.filter((r) => r.ok)).toHaveLength(3);
+    expect(resultados.filter((r) => !r.ok && /limite diário do próprio Garimpo/.test(r.erro ?? ""))).toHaveLength(3);
     expect(estado.chegadas).toHaveLength(3);
   }, 60_000);
 });

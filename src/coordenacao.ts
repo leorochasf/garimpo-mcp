@@ -883,7 +883,12 @@ function fonteDoOrcamento(servico: string, o: Orcamento): FonteNoDiagnostico {
     servico,
     situacao: "pausa preventiva",
     ate: diaEHora(o.fim),
-    explicacao:
+    explicacao: o.diario
+      ? `Não é recusa: além do restante que a fonte informa, o Garimpo usa um limite diário próprio (${o.limite} ` +
+        "chamadas por dia de Brasília, somadas em todas as janelas), porque o aviso de restante não garante que a fonte " +
+        `não bloqueie por horas. O limite de hoje foi usado: nenhuma chamada sai até ${diaEHora(o.fim)} (meia-noite de ` +
+        "Brasília)."
+      :
       `Não é recusa: esta fonte não informa quantas chamadas restam, e o Garimpo usa um limite próprio (${o.limite} ` +
       `chamadas por janela de tempo, somadas em todas as janelas) para não chegar à recusa. O limite desta janela foi ` +
       `usado: nenhuma chamada sai até ${diaEHora(o.fim)}. Cada recusa da fonte alarga a janela; chamadas aceitas ` +

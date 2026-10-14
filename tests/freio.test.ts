@@ -376,3 +376,62 @@ describe("orçamento por janela, para fonte que não informa o restante", () => 
     expect(fonte?.explicacao).toMatch(/limite próprio/);
   });
 });
+
+/** O Falcão (serviço "jt"): teto diário do próprio Garimpo, mesmo com o restante informado alto (G-01, DQ-01). */
+const HORA_BR = (instante: string) => Date.parse(`${instante}-03:00`);
+const TETO_DE_TESTE = { jt: { chamadas: 3, largurasMs: [], diario: true as const } };
+
+describe("teto diário do Falcão, por dia civil de Brasília", () => {
+  it("no teto a chamada não sai até a meia-noite de Brasília, mesmo com restante informado alto, em todas as janelas", async () => {
+    const relogio = { agora: HORA_BR("2026-10-09T14:00:00") };
+    const f = falcao();
+    const [a, b] = [janela(relogio, f.fetchFalso, { orcamentoPorServico: TETO_DE_TESTE }), janela(relogio, f.fetchFalso, { orcamentoPorServico: TETO_DE_TESTE })];
+    for (let i = 0; i < 3; i++) f.fila.push(comRestante("49"));
+    await ler(a);
+    await ler(b);
+    await ler(a);
+    const e = await erroDe(b.requisitar(FALCAO));
+    expect(e).toBeInstanceOf(PausaPreventivaError);
+    expect(e).not.toBeInstanceOf(RecusaError);
+    expect(e.message).toMatch(/limite diário do próprio Garimpo/);
+    expect((e as PausaPreventivaError).ate).toBe(HORA_BR("2026-10-10T00:00:00"));
+    expect(f.chegadas).toHaveLength(3);
+  });
+
+  it("zera na virada do dia em Brasília, sem chamada de prova (não é recusa), e conta de novo no dia seguinte", async () => {
+    const relogio = { agora: HORA_BR("2026-10-09T23:59:00") };
+    const f = falcao();
+    const a = janela(relogio, f.fetchFalso, { orcamentoPorServico: TETO_DE_TESTE });
+    for (let i = 0; i < 6; i++) f.fila.push(comRestante("49"));
+    for (let i = 0; i < 3; i++) await ler(a);
+    expect(await erroDe(a.requisitar(FALCAO))).toBeInstanceOf(PausaPreventivaError);
+    relogio.agora = HORA_BR("2026-10-10T00:00:00");
+    for (let i = 0; i < 3; i++) await ler(a);
+    const e = await erroDe(a.requisitar(FALCAO));
+    expect((e as PausaPreventivaError).ate).toBe(HORA_BR("2026-10-11T00:00:00"));
+    expect(f.chegadas).toHaveLength(6);
+  });
+
+  it("o teto padrão é de 50 chamadas por dia, e vale com o restante informado alto", async () => {
+    const relogio = { agora: HORA_BR("2026-10-09T08:00:00") };
+    const f = falcao();
+    const a = janela(relogio, f.fetchFalso);
+    for (let i = 0; i < 50; i++) f.fila.push(comRestante("49"));
+    for (let i = 0; i < 50; i++) await ler(a);
+    expect(await erroDe(a.requisitar(FALCAO))).toBeInstanceOf(PausaPreventivaError);
+    expect(f.chegadas).toHaveLength(50);
+  }, 60_000);
+
+  it("o diagnostico_dos_freios explica a pausa diária", async () => {
+    const relogio = { agora: HORA_BR("2026-10-09T14:00:00") };
+    const f = falcao();
+    const coordenacao = new CoordenacaoEmArquivo({ pasta, agora: () => relogio.agora });
+    const a = new Cliente({ nome: "O Falcão", vagas: coordenacao, agora: () => relogio.agora, esperar: async (ms) => { relogio.agora += ms; }, fetch: f.fetchFalso, orcamentoPorServico: TETO_DE_TESTE });
+    for (let i = 0; i < 3; i++) f.fila.push(comRestante("49"));
+    for (let i = 0; i < 3; i++) await ler(a);
+    const fonte = (await coordenacao.diagnosticar()).fontes?.find((x) => x.servico === "jt");
+    expect(fonte?.situacao).toBe("pausa preventiva");
+    expect(fonte?.explicacao).toMatch(/limite diário/);
+    expect(fonte?.explicacao).toMatch(/meia-noite de Brasília/);
+  });
+});

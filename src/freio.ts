@@ -17,6 +17,9 @@
  * chamadas por janela de tempo, somadas em todas as janelas do Garimpo. No limite, a chamada não sai até o fim da
  * janela (pausa preventiva, sem abrir o disjuntor). Recusa da fonte alarga a janela um degrau da escada; 20
  * chamadas aceitas afrouxam um degrau. Números por fonte: configuração do cliente, iniciais e sem prova.
+ *
+ * No Falcão a janela é o dia civil de Brasília (G-01, DQ-01): o aviso de restante não prevê o bloqueio de horas, então
+ * o Garimpo também conta as próprias chamadas por dia e, no teto, pára até a meia-noite, mesmo com restante alto.
  */
 
 import type { Chamada } from "./disjuntor.js";
@@ -43,7 +46,7 @@ export interface Freio {
 export type OrdemDoFreio =
   | { tipo: "sai" }
   /** `por`: o limite próprio que parou a chamada; ausente = o restante informado pela fonte. */
-  | { tipo: "freio"; ate: number; por?: "janela" }
+  | { tipo: "freio"; ate: number; por?: "janela" | "dia" }
   | { tipo: "espera"; ms: number };
 
 /** O que a resposta disse do restante: o número lido, `undefined` (ausente ou inválido) ou nenhuma resposta. */
@@ -142,6 +145,18 @@ export function freioValido(f: unknown): f is Freio {
 export interface ConfigOrcamento {
   chamadas: number;
   largurasMs: readonly number[];
+  /** A janela é o dia civil de Brasília (zera à meia-noite) e não tem escada: `largurasMs` fica vazio. */
+  diario?: true;
+}
+
+const HORA_MS = 60 * 60_000;
+const DIA_MS = 24 * HORA_MS;
+/** Brasília é UTC-3 o ano todo (sem horário de verão desde 2019). */
+const BRASILIA_MS = 3 * HORA_MS;
+
+/** A próxima meia-noite de Brasília depois de `agora` (ms). */
+function proximaMeiaNoiteDeBrasilia(agora: number): number {
+  return (Math.floor((agora - BRASILIA_MS) / DIA_MS) + 1) * DIA_MS + BRASILIA_MS;
 }
 
 /** Chamadas aceitas seguidas que afrouxam a janela um degrau. */
@@ -155,6 +170,8 @@ export interface Orcamento {
   usadas: number;
   /** O limite da janela (para o diagnóstico). */
   limite: number;
+  /** A janela é o dia de Brasília (para o diagnóstico). */
+  diario?: true;
   /** Degrau da escada de larguras; vale a partir da próxima janela. */
   degrau: number;
   /** Chamadas aceitas desde a última recusa ou desde o último afrouxamento. */
@@ -170,15 +187,17 @@ export function decidirOrcamento(
   config: ConfigOrcamento,
   agora: number,
 ): { ordem: OrdemDoFreio; novo: Orcamento } {
-  const degrau = Math.min(o?.degrau ?? 0, config.largurasMs.length - 1);
-  const largura = config.largurasMs[degrau];
-  if (!o || agora >= o.fim || o.fim - agora > Math.max(...config.largurasMs)) {
+  const diario = config.diario;
+  const degrau = diario ? 0 : Math.min(o?.degrau ?? 0, config.largurasMs.length - 1);
+  const maior = diario ? DIA_MS : Math.max(...config.largurasMs);
+  if (!o || agora >= o.fim || o.fim - agora > maior) {
+    const fim = diario ? proximaMeiaNoiteDeBrasilia(agora) : agora + config.largurasMs[degrau];
     return {
       ordem: { tipo: "sai" },
-      novo: { fim: agora + largura, usadas: 1, limite: config.chamadas, degrau, acertos: o?.acertos ?? 0 },
+      novo: { fim, usadas: 1, limite: config.chamadas, ...(diario && { diario }), degrau, acertos: o?.acertos ?? 0 },
     };
   }
-  if (o.usadas >= config.chamadas) return { ordem: { tipo: "freio", ate: o.fim, por: "janela" }, novo: o };
+  if (o.usadas >= config.chamadas) return { ordem: { tipo: "freio", ate: o.fim, por: diario ? "dia" : "janela" }, novo: o };
   return { ordem: { tipo: "sai" }, novo: { ...o, usadas: o.usadas + 1, limite: config.chamadas, degrau } };
 }
 
@@ -194,5 +213,14 @@ export function anotarOrcamento(o: Orcamento | undefined, resultado: "aceita" | 
 export function orcamentoValido(o: unknown): o is Orcamento {
   const x = o as Orcamento;
   const inteiro = (v: unknown) => Number.isInteger(v) && (v as number) >= 0;
-  return typeof x === "object" && x !== null && Number.isFinite(x.fim) && inteiro(x.usadas) && inteiro(x.limite) && inteiro(x.degrau) && inteiro(x.acertos);
+  return (
+    typeof x === "object" &&
+    x !== null &&
+    Number.isFinite(x.fim) &&
+    inteiro(x.usadas) &&
+    inteiro(x.limite) &&
+    inteiro(x.degrau) &&
+    inteiro(x.acertos) &&
+    (x.diario === undefined || x.diario === true)
+  );
 }

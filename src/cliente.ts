@@ -127,7 +127,10 @@ const INTERVALO_POR_HOST: Record<string, number> = { [HOST_FALCAO]: 1_000 };
  * Números iniciais conservadores e sem prova: o uso real ajusta. Serviço fora daqui não tem orçamento.
  */
 const ORCAMENTO_DE_FONTE_SEM_RESTANTE: ConfigOrcamento = { chamadas: 30, largurasMs: [5 * 60_000, 10 * 60_000, 20 * 60_000, 30 * 60_000] };
+/** Falcão (serviço "jt"): teto diário do Garimpo, por dia civil de Brasília (G-01, DQ-01); número inicial conservador, sem prova. */
+const TETO_DIARIO_DO_FALCAO = 50;
 const ORCAMENTO_POR_SERVICO: Record<string, ConfigOrcamento> = {
+  jt: { chamadas: TETO_DIARIO_DO_FALCAO, largurasMs: [], diario: true },
   "stf-precedentes": ORCAMENTO_DE_FONTE_SEM_RESTANTE,
   "stj-precedentes": ORCAMENTO_DE_FONTE_SEM_RESTANTE,
   tse: ORCAMENTO_DE_FONTE_SEM_RESTANTE,
@@ -608,6 +611,16 @@ export class Cliente {
           `Esta chamada não foi feita: ${this.opcoes.nome} pediu para esperar até ${dataEHora(ordem.ate)}, para todas ` +
             "as janelas do Garimpo. Não é recusa: depois desse instante, a primeira chamada é a nova tentativa.",
           ordem.ate,
+        );
+      }
+      if (ordem.tipo === "freio" && ordem.por === "dia") {
+        throw new PausaPreventivaError(
+          `Esta chamada não foi feita: as chamadas ${ao(this.opcoes.nome)} estão em pausa preventiva em todas as ` +
+            "janelas do Garimpo. Este é o limite diário do próprio Garimpo, que já foi usado: mesmo quando o serviço " +
+            "informa que ainda há saldo, passar do limite pode bloquear o IP por horas. Não é recusa do serviço. O " +
+            `dia recomeça à meia-noite de Brasília; pode tentar a partir de ${horaDeRetorno(ordem.ate, this.agora())}.`,
+          ordem.ate,
+          this.pausaAte(ordem.ate).segundos,
         );
       }
       if (ordem.tipo === "freio" && ordem.por === "janela") {
