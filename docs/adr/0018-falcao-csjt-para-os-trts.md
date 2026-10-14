@@ -32,3 +32,14 @@ Motivo: os TRTs não estão na base do JurisprudênciaIA, e o Falcão é a fonte
   Falcão; agrupador "trt" na busca ampla; paginação além de 200 (exige login).
 - O freio preventivo reduz o risco de bloqueio, sem garanti-lo: outros usos do mesmo IP não são vistos pelo Garimpo.
 - O termo "HTTP comum" (ADR-0016) fica como recorte técnico do B11, não como proibição geral.
+
+## Adendo (B16, 2026-10-13): teto diário próprio do Garimpo
+
+_Aceito pelo dono em 2026-10-10 (DQ-01); número inicial do executor da lane L1 — sujeito a revisão do dono._
+
+O restante informado pelo Falcão não prevê o bloqueio de horas (outro projeto viu o serviço bloquear com 49 ainda
+informados). Por isso, além do freio pelo restante, o Garimpo conta as **próprias** chamadas ao Falcão por dia civil de
+Brasília (UTC-3; zera à meia-noite) e, no teto, pausa até a meia-noite em todas as janelas, mesmo com saldo alto. É a
+mesma máquina do orçamento por janela da ADR-0009, com o dia no lugar da janela em minutos e sem escada. Pausa
+preventiva, não recusa. Teto inicial: **50 chamadas por dia**, conservador e **sem prova** (não se provoca o 429 para
+medir); o número mora em `TETO_DIARIO_DO_FALCAO` (`src/cliente.ts`) e deve ser ajustado com o uso real.

@@ -89,3 +89,5 @@ usuário como texto externo limpo (sem HTML, endereços, e-mails, números longo
 - Cabeçalho `x-rate-limit-remaining` só nas respostas da API (não nas páginas e arquivos do site). Comportamento
   medido na prova ao vivo: ver [`banco-de-provas/b12-prova-ao-vivo.md`](banco-de-provas/b12-prova-ao-vivo.md).
 - 429 (bloqueio por horas, segundo o juscraper, MIT) **não** foi provocado nem observado.
+- Por isso o Garimpo tem também um teto diário próprio (50 chamadas por dia de Brasília, todas as janelas somadas,
+  mesmo com restante informado alto; ADR-0018, adendo B16). O número é conservador e **não** foi medido.

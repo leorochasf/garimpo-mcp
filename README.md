@@ -536,8 +536,13 @@ civil do Estado por omissão."*
   TRTs pelo Falcão. Não há TRFs, TCU nem tribunais de contas.
 - **Falcão (TRTs):** sem login, no máximo 200 documentos por busca na fonte; o Garimpo para antes do limite de pedidos
   do Falcão (**freio preventivo**: pausa de 15 min em todas as janelas, com a hora para tentar de novo), porque passar
-  dele bloqueia o IP por horas. O freio reduz esse risco, sem garanti-lo: outros usos do mesmo IP não são vistos pelo
-  Garimpo.
+  dele bloqueia o IP por horas. Além disso, o Garimpo tem um **teto diário próprio** de 50 chamadas ao Falcão por dia
+  de Brasília, somadas em todas as janelas: no teto, pára até a meia-noite mesmo que o Falcão diga que ainda há saldo
+  (número inicial conservador, sem prova). Os freios reduzem esse risco, sem garanti-lo: outros usos do mesmo IP não
+  são vistos pelo Garimpo.
+- **Fontes que não informam o restante** (precedentes do STF e do STJ, TSE): limite próprio de 30 chamadas por janela
+  de 5 min, somado em todas as janelas; cada recusa alarga a janela e 20 chamadas aceitas seguidas a afrouxam. No
+  limite a chamada não sai até o fim da janela (não é recusa); o `diagnostico_dos_freios` explica.
 
 ## Histórico de versões
 
