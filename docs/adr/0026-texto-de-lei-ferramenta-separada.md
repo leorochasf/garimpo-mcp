@@ -25,6 +25,8 @@ obtenção original**.
 
 - Lista curta de diplomas, por sigla; só entra diploma cuja resposta foi vista ao vivo (hoje: CPC/2015, CC/2002 e CF/88; CDC não provado, ver nota abaixo). Diploma ou
   dispositivo que o Garimpo não entende vira erro que ensina, sem chamada.
+- A identidade da norma deve corresponder à URN pedida; a URL do dispositivo deve apontar para a mesma identificação
+  em HTTPS no normas.leg.br. Redirecionamento é recusado sem nova chamada, pois o destino não foi provado.
 - Dispositivo sem texto na fonte: "não verificado". Dois dispositivos com a mesma identificação: "identificação
   necessária", o Garimpo não escolhe.
 - O texto vem como a fonte entrega. As redações vêm todas (`versoesNaFonte`), mesmo quando há só uma, da mais antiga para a

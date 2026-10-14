@@ -264,13 +264,13 @@ describe("texto_de_lei — diploma e dispositivo pedidos", () => {
 describe("texto_de_lei — memória, formato e freios", () => {
   it("a consulta repetida volta da memória com a data da primeira obtenção, sem nova chamada", async () => {
     const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "legislacao-"));
-    const memoria = new Memoria({ dados });
     let relogio = AGORA;
-    const { cliente, chamadas } = clienteFalso([respostaJson(CPC)]);
+    const memoria = new Memoria({ dados, agora: () => relogio });
+    const { cliente, chamadas } = clienteFalso([respostaJson(CPC), respostaJson(CPC)]);
     const fontes = { cliente, memoria, agora: () => relogio };
 
     const primeira = await textoDeLei({ diploma: "CPC", dispositivo: "art. 85, § 2º" }, fontes);
-    relogio = new Date(2026, 9, 16, 9, 0).getTime();
+    relogio = new Date(2026, 9, 15, 9, 0).getTime();
     const segunda = await textoDeLei({ diploma: "CPC", dispositivo: "Art. 85, §2º" }, fontes);
 
     expect(chamadas).toHaveLength(1);
@@ -279,6 +279,11 @@ describe("texto_de_lei — memória, formato e freios", () => {
     expect(segunda.aviso).toBe("texto conforme a página oficial em 14/10/2026; o Garimpo não afirma vigência");
     if (segunda.resultado !== "encontrado") throw new Error("esperava encontrado");
     expect(segunda.partes[0].texto).toMatch(/^Os honorários serão fixados/);
+    relogio = AGORA + 24 * 60 * 60 * 1_000 + 1;
+    const terceira = await textoDeLei({ diploma: "CPC", dispositivo: "art. 85, § 2º" }, fontes);
+    expect(chamadas).toHaveLength(2);
+    expect(terceira.dataDeObtencao).toBe("15/10/2026");
+    expect(terceira.obtido).toBe("consultado no normas.leg.br em 15/10/2026");
   });
 
   it("resposta que não é JSON da norma: erro de formato, nunca texto inventado", async () => {
@@ -291,6 +296,34 @@ describe("texto_de_lei — memória, formato e freios", () => {
     const { r } = await consultar("CPC", "art. 85", { urn: "urn:lex:br:federal:lei:2015-03-16;13105" });
 
     expect(r.resultado).toBe("não verificado");
+  });
+
+
+  it("não atribui ao CPC o texto devolvido de outro diploma", async () => {
+    const outraNorma = structuredClone(CPC) as Record<string, unknown>;
+    outraNorma.legislationIdentifier = "urn:lex:br:federal:lei:2002-01-10;10406";
+    await expect(consultar("CPC", "art. 85", outraNorma)).rejects.toBeInstanceOf(FormatoInesperadoError);
+  });
+
+  it.each([undefined, "https://exemplo.invalid/?urn=outro", "https://normas.leg.br/?urn=outro"])(
+    "recusa URL ausente ou que não comprova o dispositivo: %s", async (url) => {
+      const resposta = structuredClone(CPC);
+      const mudar = (n: unknown): void => {
+        if (!n || typeof n !== "object") return;
+        const o = n as Record<string, unknown>;
+        if (o.legislationIdentifier === "urn:lex:br:federal:lei:2015-03-16;13105!art85") o["@id"] = url;
+        Object.values(o).forEach(mudar);
+      };
+      mudar(resposta);
+      await expect(consultar("CPC", "art. 85", resposta)).rejects.toBeInstanceOf(FormatoInesperadoError);
+    },
+  );
+
+  it("não segue redirecionamento para destino não verificado", async () => {
+    const { cliente, chamadas } = clienteFalso([new Response(null, { status: 302, headers: { location: "https://exemplo.invalid" } })]);
+    await expect(textoDeLei({ diploma: "CPC", dispositivo: "art. 85" }, { cliente })).rejects.toBeInstanceOf(FormatoInesperadoError);
+    expect(chamadas).toHaveLength(1);
+    expect(chamadas[0].init?.redirect).toBe("manual");
   });
 
   it("é o serviço normas.leg.br nos freios, 1 s entre chamadas ao host", async () => {

@@ -204,13 +204,13 @@ const baseDoId = (n: Bruto): string | undefined => {
 };
 
 /** Nós da árvore cujo dispositivo (sem o sufixo de quem o acrescentou) é a chave pedida. */
-function nosComChave(raiz: unknown, chave: string): Bruto[] {
+function nosComChave(raiz: unknown, chave: string, urn: string): Bruto[] {
   const achados: Bruto[] = [];
   const andar = (n: unknown) => {
     if (Array.isArray(n)) return n.forEach(andar);
     const o = objeto(n);
     if (!o) return;
-    if (baseDoId(o) === chave && !texto(o.legislationIdentifier)!.includes("@")) achados.push(o);
+    if (baseDoId(o) === chave && texto(o.legislationIdentifier)?.startsWith(`${urn}!`)) achados.push(o);
     andar(o.hasPart);
   };
   andar(raiz);
@@ -297,11 +297,23 @@ function partesDe(raiz: Bruto): Parte[] {
   return partes;
 }
 
+/** A URL devolvida deve identificar o mesmo dispositivo no host oficial. */
+function urlOficialDoNo(n: Bruto): string {
+  const endereco = texto(n["@id"]);
+  try {
+    const url = new URL(endereco ?? "");
+    if (url.origin === `https://${HOST}` && !url.username && !url.password &&
+        url.pathname === "/" && url.searchParams.get("urn") === texto(n.legislationIdentifier)) return endereco!;
+  } catch { /* Ausência ou URL inválida: sem fonte verificável. */ }
+  throw new FormatoInesperadoError("O normas.leg.br não trouxe a URL oficial correspondente ao dispositivo. Confira no site oficial.");
+}
+
 const urlDaFonte = (diploma: Diploma) => `https://${HOST}/api/public/normas?urn=${diploma.urn}&&tipo_documento=maior-detalhe`;
 
 function consultarNaResposta(diploma: Diploma, nomeDaNorma: string, pedido: Pedido, corpo: Bruto): Consulta {
   const base = { diploma: { sigla: diploma.sigla, nome: nomeDaNorma }, dispositivo: citar(pedido.chave), urlDaConsulta: urlDaFonte(diploma) };
-  const nos = nosComChave(corpo.hasPart, pedido.chave);
+  const nos = nosComChave(corpo.hasPart, pedido.chave, diploma.urn);
+  const urls = nos.map(urlOficialDoNo);
   if (nos.length === 0) {
     return { resultado: "não verificado", ...base, motivo: "A fonte não traz este dispositivo; confira o número no texto oficial." };
   }
@@ -310,19 +322,19 @@ function consultarNaResposta(diploma: Diploma, nomeDaNorma: string, pedido: Pedi
       resultado: "identificação necessária",
       ...base,
       motivo: "Mais de um dispositivo da fonte tem esta identificação; informe qual deles.",
-      candidatos: nos.map((n) => ({ dispositivo: citar(texto(n.legislationIdentifier)!.split("!")[1]), urlOficial: texto(n["@id"]) ?? "" })),
+      candidatos: nos.map((n, i) => ({ dispositivo: citar(texto(n.legislationIdentifier)!.split("!")[1]), urlOficial: urls[i] })),
     };
   }
   const no = nos[0];
   const partes = partesDe(no);
-  const urlOficial = texto(no["@id"]);
+  const urlOficial = urls[0];
   if (!partes.some((p) => p.texto || p.versoesNaFonte?.some((v) => v.texto))) {
     return { resultado: "não verificado", ...base, ...(urlOficial && { urlOficial }), motivo: "A fonte não traz texto para este dispositivo." };
   }
   return {
     resultado: "encontrado",
     ...base,
-    urlOficial: urlOficial ?? "",
+    urlOficial,
     partes,
     versaoDaFonte: {
       ...(texto(corpo.dateModified) && { modificadaEm: texto(corpo.dateModified) }),
@@ -350,13 +362,17 @@ export async function textoDeLei(
 ): Promise<RespostaTextoDeLei> {
   const diploma = acharDiploma(pedidoDoDiploma);
   const pedido = lerDispositivo(dispositivo);
-  const chave = createHash("sha256").update(JSON.stringify(["legislacao", diploma.urn, pedido.chave])).digest("hex");
+  const chave = createHash("sha256").update(JSON.stringify(["legislacao-v2", diploma.urn, pedido.chave])).digest("hex");
 
   const guardada = await memoria?.obterConsulta(chave, "legislacao", ehConsulta);
   if (guardada) {
     return completar(guardada.dado as Consulta, guardada.obtidoEm, `consulta guardada: fotografia da consulta feita no normas.leg.br em ${dia(guardada.obtidoEm)}, devolvida pela memória do Garimpo sem nova chamada`);
   }
-  const resposta = await cliente.requisitar(urlDaFonte(diploma), { headers: { Accept: "application/json" } });
+  const resposta = await cliente.requisitar(urlDaFonte(diploma), { headers: { Accept: "application/json" }, redirect: "manual" });
+  if (resposta.status >= 300 && resposta.status < 400) {
+    await resposta.body?.cancel();
+    throw new FormatoInesperadoError("O normas.leg.br redirecionou a consulta; o destino não foi verificado. Confira no site oficial.");
+  }
   let corpo: Bruto | undefined;
   try {
     corpo = objeto(JSON.parse(await resposta.text()));
@@ -364,6 +380,9 @@ export async function textoDeLei(
     corpo = undefined;
   }
   if (!corpo) throw new FormatoInesperadoError("O normas.leg.br devolveu uma resposta que não é o texto da norma. Tente mais tarde ou confira no site oficial.");
+  if (corpo.hasPart && texto(corpo.legislationIdentifier) !== diploma.urn) {
+    throw new FormatoInesperadoError("O normas.leg.br devolveu uma norma diferente do diploma pedido ou sem identificação. Confira no site oficial.");
+  }
   const nomeDaNorma = texto(corpo.headline) ?? texto(corpo.name) ?? diploma.sigla;
   const consulta = consultarNaResposta(diploma, nomeDaNorma, pedido, corpo);
   const obtidoEm = agora();
