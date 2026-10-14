@@ -211,6 +211,16 @@ recibo.
 Usados por `obter_inteiro_teor` no TJRR e no TJPI (I-16 / G-23, prova PV-06 de 2026-10-14). Cada tribunal é uma fonte
 própria; a aprovação de um host não vale para outro.
 
+Leitura de regras registrada na execução de 2026-10-14 (PV-06; revisão posterior sem rede):
+- TJRR: https://jurisprudencia.tjrr.jus.br/robots.txt — 404, portanto sem trecho de regras a citar.
+- TJPI: https://jurisprudencia.tjpi.jus.br/robots.txt — 200 `text/plain`, 99 bytes; trecho registrado:
+  `# See https://www.robotstxt.org/robotstxt.html`, sem diretivas de proibição.
+- TJPA: https://jurisprudencia.tjpa.jus.br/robots.txt — 200 `text/html`, casca da aplicação, sem regras publicadas.
+  A execução registra leitura da política de privacidade, sem trecho sobre robôs, mas não preserva seu endereço
+  nem trecho literal; esse detalhe documental fica **não verificado**. O TJPA não foi integrado.
+- Termos próprios do TJRR e do TJPI: não encontrados na execução; não há trecho de termo a citar.
+  Sem vedação encontrada não equivale a autorização. Os termos permanecem **não verificados**.
+
 - **TJRR (`jurisprudencia.tjrr.jus.br`): PDF.** O link da busca (`/inteiroTeor.xhtml?id=<n>`) é uma página JSF com o PDF
   embutido numa sessão; o Garimpo pede direto `GET /pdf?id=<n>` (`application/pdf`, `attachment`), sem cookie, e guarda o
   PDF com recibo como nos demais. `robots.txt`: HTTP 404 (nenhuma regra publicada). Termos de uso do portal: **não
@@ -219,7 +229,9 @@ própria; a aprovação de um host não vale para outro.
 - **TJPI (`jurisprudencia.tjpi.jus.br`): texto em HTML.** `GET /jurisprudences/<n>/public` (o link de consulta da busca)
   devolve a página do acórdão já com a ementa e o texto do acórdão no HTML; o Garimpo guarda esse texto na memória pelo
   id (rótulo «texto do portal do tribunal», sem PDF nem recibo; mesma natureza do TJTO e do TJDFT). Só vale a página com
-  as seções «Ementa» e «Acórdão» e, quando a busca trouxe o número CNJ, o mesmo processo na coluna «Detalhes». `robots.txt`:
+  as seções «Ementa» e «Acórdão», pelo menos 200 caracteres de texto na seção «Acórdão», o delimitador da coluna
+  «Detalhes» e, quando a busca trouxe o número CNJ, o mesmo processo nessa coluna. Redirecionamentos não são seguidos:
+  outra rota fica não verificada, sem texto guardado. `robots.txt`:
   só uma linha de comentário (nada vedado). Termos de uso: **não encontrados**. Prova: 1 GET (2 na sessão, a segunda para
   guardar a página), 200 `text/html`, 78 KB, texto de ~35 mil caracteres, processo conferido.
 - **TJPA (`jurisprudencia.tjpa.jus.br`): não integrado.** O portal é uma aplicação de página única (`/#/documento/<id>`);
@@ -228,7 +240,9 @@ própria; a aprovação de um host não vale para outro.
   tentativa. O tribunal segue como «só link».
 - **Freios:** pelo cliente único (UA honesto, no máximo 2 chamadas simultâneas, uma nova tentativa em 429/503).
 - **Não verificado:** estabilidade das rotas `/pdf?id=` e `/jurisprudences/<n>/public`; se acórdãos antigos têm PDF; o
-  frescor; se o TJPI mantém o texto integral em todos os acórdãos (visto em 1).
+  frescor; se o TJPI mantém o texto integral em todos os acórdãos (visto em 1). A prova registra coincidência do
+  número do processo nos dois tribunais, mas não a conferência da data de julgamento no documento: **não verificada**.
+
 ## eSAJ do TJMS (PDF do acórdão)
 
 Usado por `obter_inteiro_teor` no TJMS (I-14 / G-21): o **PDF oficial** do acórdão pelo `getArquivo.do` do eSAJ, a mesma
