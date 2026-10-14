@@ -291,7 +291,11 @@ async function textoDoPortal(
       return {
         baixado: false,
         link,
-        explicacao: doTjdft
+        explicacao: acordao.tribunal === "tjpi"
+          ? `O portal do ${nomeTribunal} não entregou uma página com texto verificável deste acórdão ` +
+            "(formato ou processo divergente, seção Acórdão sem texto ou redirecionamento): texto não verificado, " +
+            "nada foi guardado. Abra o link no navegador para conferir o documento."
+          : doTjdft
           ? `A API do ${nomeTribunal} não devolveu o registro deste acórdão (identificador e uuid do link): texto não ` +
             "verificado, nada foi guardado. Abra o link no navegador para conferir o documento."
           : `O portal do ${nomeTribunal} respondeu, mas com uma página que não é a página do acórdão (aviso ou erro do ` +

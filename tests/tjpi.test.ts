@@ -65,7 +65,7 @@ describe("inteiro teor — TJPI (I-16 / G-23): o texto do acórdão vem na pági
     const memoria = memoriaComAcordao({ numeroCnj: "0000002-22.2020.8.18.0001" });
     const { cliente } = clienteFalso([pagina()]);
     const r = await obterInteiroTeor({ id: "tjpi:77" }, () => cliente, memoria);
-    expect(r.baixado ? "" : r.explicacao).toMatch(/não é a página do acórdão/);
+    expect(r.baixado ? "" : r.explicacao).toMatch(/texto não verificado/);
     expect(await memoria.obterTexto("tjpi:77")).toBeUndefined();
   });
 
@@ -73,7 +73,52 @@ describe("inteiro teor — TJPI (I-16 / G-23): o texto do acórdão vem na pági
     const memoria = memoriaComAcordao();
     const { cliente } = clienteFalso([pagina("<html><body><h1>Registro não encontrado</h1></body></html>")]);
     const r = await obterInteiroTeor({ id: "tjpi:77" }, () => cliente, memoria);
-    expect(r.baixado ? "" : r.explicacao).toMatch(/não é a página do acórdão/);
+    expect(r.baixado ? "" : r.explicacao).toMatch(/texto não verificado/);
+    expect(await memoria.obterTexto("tjpi:77")).toBeUndefined();
+  });
+
+  it("ementa longa sem texto na seção Acórdão não vira texto integral", async () => {
+    const html = PAGINA.replace(/(<h4>\s*Acórdão\s*<\/h4>)[\s\S]*?(<div class="col-md-3">)/, "$1</div></div></div>$2");
+    const memoria = memoriaComAcordao();
+    const { cliente } = clienteFalso([pagina(html)]);
+    const r = await obterInteiroTeor({ id: "tjpi:77" }, () => cliente, memoria);
+    expect(await memoria.obterTexto("tjpi:77")).toBeUndefined();
+    expect(r.baixado ? "" : r.explicacao).toMatch(/não verificado/i);
+  });
+
+  it.each([
+    "https://outro.test/jurisprudences/4426913/public",
+    "http://jurisprudencia.tjpi.jus.br/jurisprudences/4426913/public",
+    "/jurisprudences/999/public",
+  ])("redirecionamento para %s não é seguido nem guarda texto", async (destino) => {
+    const memoria = memoriaComAcordao();
+    const { cliente, chamadas } = clienteFalso([new Response(null, { status: 302, headers: { location: destino } })]);
+    const r = await obterInteiroTeor({ id: "tjpi:77" }, () => cliente, memoria);
+    expect(chamadas).toHaveLength(1);
+    expect(chamadas[0].init.redirect).toBe("manual");
+    expect(await memoria.obterTexto("tjpi:77")).toBeUndefined();
+    expect(r.baixado ? "" : r.explicacao).toMatch(/não verificado/i);
+  });
+
+  it("sem a coluna que delimita o documento: não guarda menu como texto", async () => {
+    const memoria = memoriaComAcordao();
+    const { cliente } = clienteFalso([pagina(PAGINA.replace('class="col-md-3"', 'class="outra-coluna"'))]);
+    await obterInteiroTeor({ id: "tjpi:77" }, () => cliente, memoria);
+    expect(await memoria.obterTexto("tjpi:77")).toBeUndefined();
+  });
+
+  it("sem content-type HTML: não guarda texto", async () => {
+    const memoria = memoriaComAcordao();
+    const { cliente } = clienteFalso([new Response(PAGINA, { headers: { "content-type": "application/json" } })]);
+    await obterInteiroTeor({ id: "tjpi:77" }, () => cliente, memoria);
+    expect(await memoria.obterTexto("tjpi:77")).toBeUndefined();
+  });
+
+  it("403: para na primeira chamada, nada guardado", async () => {
+    const memoria = memoriaComAcordao();
+    const { cliente, chamadas } = clienteFalso([new Response("Acesso negado", { status: 403 })]);
+    await expect(obterInteiroTeor({ id: "tjpi:77" }, () => cliente, memoria)).rejects.toThrow(/bloqueou|recusou/);
+    expect(chamadas).toHaveLength(1);
     expect(await memoria.obterTexto("tjpi:77")).toBeUndefined();
   });
 

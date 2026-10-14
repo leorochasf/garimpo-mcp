@@ -30,9 +30,14 @@ function lerLink(link: string): URL {
  */
 function trechoDoAcordao(html: string): string | undefined {
   const ementa = html.search(/<h4[^>]*>\s*Ementa\s*<\/h4>/i);
-  if (ementa < 0 || !/<h4[^>]*>\s*Acórdão\s*<\/h4>/i.test(html.slice(ementa))) return undefined;
+  if (ementa < 0) return undefined;
   const fim = html.indexOf('<div class="col-md-3">', ementa);
-  return html.slice(ementa, fim < 0 ? undefined : fim);
+  if (fim < 0) return undefined;
+  const trecho = html.slice(ementa, fim);
+  const titulo = /<h4[^>]*>\s*Acórdão\s*<\/h4>/i.exec(trecho);
+  // A ementa não pode cumprir o mínimo pelo acórdão: título presente com corpo vazio não é texto integral.
+  if (!titulo || htmlParaTexto(trecho.slice(titulo.index + titulo[0].length)).length < MINIMO_TEXTO) return undefined;
+  return trecho;
 }
 
 /** Número do processo da coluna «Detalhes» da página. */
@@ -50,7 +55,12 @@ export async function textoDoTjpi(
   acordao: { numeroCnj?: string },
 ): Promise<Omit<TextoIntegral, "id"> | undefined> {
   const url = lerLink(link);
-  const r = await cliente.requisitar(url.href, { headers: { accept: "text/html" } });
+  const r = await cliente.requisitar(url.href, { headers: { accept: "text/html" }, redirect: "manual" });
+  // A prova é da página direta, um GET. Outra rota não foi verificada e não é seguida, mesmo no mesmo host.
+  if (r.status >= 300 && r.status < 400) {
+    await r.body?.cancel();
+    return undefined;
+  }
   const tipo = r.headers.get("content-type") ?? "";
   const bytes = new Uint8Array(await r.arrayBuffer());
   if (!/text\/html/i.test(tipo) || bytes.length > LIMITE_BYTES) return undefined;

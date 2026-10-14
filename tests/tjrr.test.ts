@@ -39,6 +39,31 @@ describe("inteiro teor — TJRR (I-16 / G-23): um GET por documento, no endereç
     expect(await readdir(pasta)).toEqual([]);
   });
 
+  it("content-type PDF com corpo HTML não passa pelo reconhecimento do PDF", async () => {
+    const { cliente } = clienteFalso([new Response("<html>Erro</html>", { headers: { "content-type": "application/pdf" } })]);
+    await expect(obterInteiroTeor({ tribunal: "tjrr", link: LINK, pasta }, () => cliente)).rejects.toThrow(/no lugar do PDF/);
+    expect(await readdir(pasta)).toEqual([]);
+  });
+
+  it.each(["https://outro.test/pdf?id=12345", "http://jurisprudencia.tjrr.jus.br/pdf?id=12345"])(
+    "redirect para %s é barrado antes da segunda chamada", async (destino) => {
+      const { cliente, chamadas } = clienteFalso([new Response(null, { status: 302, headers: { location: destino } })]);
+      await expect(obterInteiroTeor({ tribunal: "tjrr", link: LINK, pasta }, () => cliente)).rejects.toThrow(/fora do portal oficial/);
+      expect(chamadas).toHaveLength(1);
+      expect(await readdir(pasta)).toEqual([]);
+    },
+  );
+
+  it("TJPA continua só link sem nenhuma chamada ao portal", async () => {
+    const { cliente, chamadas } = clienteFalso([]);
+    expect(infoTribunal("tjpa")?.inteiroTeor).toBe("link");
+    const link = "https://jurisprudencia.tjpa.jus.br/#/documento/12345";
+    const r = await obterInteiroTeor({ tribunal: "tjpa", link, pasta }, () => cliente);
+    expect(r).toMatchObject({ baixado: false, link });
+    expect(chamadas).toHaveLength(0);
+    expect(await readdir(pasta)).toEqual([]);
+  });
+
   it.each([
     "https://outro.test/inteiroTeor.xhtml?id=12345",
     "http://jurisprudencia.tjrr.jus.br/inteiroTeor.xhtml?id=12345",
