@@ -465,6 +465,26 @@ describe("relógio recuado não devolve chamadas já gastas (I-04/I-05)", () => 
 });
 
 describe("teto diário do Falcão, por dia civil de Brasília", () => {
+  it.each(["dia", "restante"] as const)("o freio por %s bloqueia sem consumir o outro nem abrir o disjuntor", async (por) => {
+    const relogio = { agora: HORA_BR("2026-10-09T14:00:00") };
+    const f = falcao();
+    const config = { jt: { chamadas: por === "dia" ? 1 : 3, largurasMs: [], diario: true as const } };
+    const a = janela(relogio, f.fetchFalso, { orcamentoPorServico: config });
+    f.fila.push(comRestante(por === "dia" ? "49" : "10"));
+    await ler(a);
+    const caminho = join(pasta, "protecao", "estado.json");
+    if (por === "dia") {
+      const estado = JSON.parse(await readFile(caminho, "utf8"));
+      estado.freios.jt.pausaAte = relogio.agora - 1;
+      await writeFile(caminho, JSON.stringify(estado));
+    }
+    const antes = await readFile(caminho, "utf8");
+    expect(await erroDe(janela(relogio, f.fetchFalso, { orcamentoPorServico: config }).requisitar(FALCAO))).toBeInstanceOf(PausaPreventivaError);
+    expect(await readFile(caminho, "utf8")).toBe(antes);
+    expect(JSON.parse(antes).disjuntores).toEqual({});
+    expect(f.chegadas).toHaveLength(1);
+  });
+
   it("no teto a chamada não sai até a meia-noite de Brasília, mesmo com restante informado alto, em todas as janelas", async () => {
     const relogio = { agora: HORA_BR("2026-10-09T14:00:00") };
     const f = falcao();

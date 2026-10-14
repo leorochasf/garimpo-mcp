@@ -696,7 +696,7 @@ export class Cliente {
 
   /** Só tentativa/prova mudam o disjuntor; aceitação e erro normais também atualizam a sequência do orçamento. */
   private async anotar(servico: string, chamada: Chamada, saida: Saida, r: Resultado): Promise<void> {
-    // A chamada normal aceita só interessa ao orçamento (acertos que afrouxam a janela); o disjuntor a ignora.
+    // Aceitação/erro normais só interessam à sequência do orçamento; o disjuntor os ignora.
     const doOrcamento = (r.tipo === "aceita" || r.tipo === "erro") && this.orcamentoDe(servico);
     if (saida.papel !== "normal" || doOrcamento) await this.vagas.anotar(servico, chamada, saida, r, this.agora);
   }

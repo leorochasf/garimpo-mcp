@@ -287,6 +287,9 @@ compartilhada (vagas, pausa do TSE e pausas por recusa): com uma delas aberta, o
 pausa pode ser ignorada. A proteção também não alcança outras pessoas, máquinas
 ou programas que usem o mesmo IP.
 
+O estado com os limites próprios usa o formato de proteção versão 3: janelas que só entendem a versão 2 param a
+rede e pedem atualização. Os contadores não zeram se o relógio recuar; aguardam o fim da janela ou do dia guardado.
+
 ### Pausa depois de uma recusa
 
 A pausa é **por serviço**: uma recusa do TSE não pausa o JurisprudênciaIA nem os outros tribunais. Ela dura 1 min
