@@ -277,6 +277,30 @@ técnica do TJSP (`baixarEsaj`), com o host do tribunal. Só PDF reconhecido vir
   PDF dos demais; o limite de ritmo do portal (um projeto de terceiros cita 403 depois de ~50 downloads seguidos; o
   Garimpo fica muito abaixo); os termos de uso.
 
+## Exportação de repercussão geral do STF (script do mantenedor, I-33 / D-11)
+
+- **Rota:** `https://portal.stf.jus.br/jurisprudenciaRepercussao/exportarDados.asp?` (o botão "Exportar Dados" de
+  `todostemas.asp`). Usada só pelo modo `--baixar` do script do mantenedor, uma chamada por geração; não faz parte do pacote
+  nem do servidor MCP.
+- **robots.txt (lido em 2026-10-14, uma chamada, cliente único):** `https://portal.stf.jus.br/robots.txt` → 200,
+  `text/plain`, `Last-Modified: Wed, 06 Apr 2022 18:04:14 GMT`. Trecho literal: `User-agent: *` / `Disallow: /processos`
+  (e `User-agent: AhrefsBot` / `Disallow: /`). `/jurisprudenciaRepercussao/` não é alcançado.
+- **Termos de uso:** não encontrados. A página-mãe `https://portal.stf.jus.br/repercussaogeral/` (200, 95.885 bytes, lida
+  em 2026-10-14) não traz link nem texto de termos, licença, direitos ou privacidade. **Não verificado**; o fundamento
+  continua o do ADR-0015 (Lei 9.610/98, art. 8º, IV).
+- **Prova PV-16 (2026-10-14, 12:51 UTC):** 1 GET, UA de navegador (ADR-0020), `redirect: manual`, TLS válido: HTTP 200,
+  `Content-Type: application / vnd.ms-excel; Charset=UTF-8`, 4.053.415 bytes, sha256
+  `0cf56414955e2f708a9f478f715d6cacc254f697cedc8e826c387cd157732fce`. Sem login, desafio nem captcha. É a exportação
+  válida: tabela HTML com o cabeçalho esperado (15 colunas), 1.492 temas (1 a 1.492), os mesmos 1.492 da tabela empacotada
+  (gerada de uma exportação de 2026-10-10): nenhum tema a menos, nenhum a mais; 5 mudaram (situação nos temas 1486, 1488 e
+  1489; título nos 1490 e 1492). Esse dado **não** regerou a tabela empacotada.
+- **Descartes:** nenhum. O gerador não descarta tema: o tema sem título (1491) entra na tabela sem o campo e é listado
+  no relatório de mudanças ("repercussão geral sem título"). Cada geração registra URL, data da obtenção, sha256 e essa lista.
+- **Falha:** HTTP diferente de 200, redirecionamento, 429/503 depois da única nova tentativa, cabeçalho diferente, tema
+  repetido, tabela ausente ou tema que some (trava de G-56) param antes de gravar: a tabela anterior continua e a via
+  manual (arquivo salvo no navegador) segue valendo. Uma falha nunca atualiza `geradaEm` nem `conferidaEm`.
+
+
 ## Motivo do «só link» com prova própria (I-23 / G-24, DQ-24b)
 
 O texto de `motivoLink` (src/tribunais.ts) só diz o motivo real onde o Garimpo tem prova própria, com a data; os demais
