@@ -11,9 +11,10 @@ import { reforcoDoStf, type TabelaDoStf } from "./tabelaDoStf.js";
 import { juntarEquivalentes } from "./equivalencia.js";
 import { nomesDoFiltro, ressalvaSePoucos } from "./grafia.js";
 import { FalhaNaMemoriaError, fotografiaDaBusca, type Memoria } from "./memoria.js";
-import { buscaNoFalcao, clienteDoFalcao, lerBuscaGuardadaNoFalcao, type OrdenacaoNoFalcao } from "./falcao.js";
+import { buscaDecisoesNoFalcao, buscaNoFalcao, clienteDoFalcao, lerBuscaGuardadaNoFalcao, type OrdenacaoNoFalcao } from "./falcao.js";
 import { avisoDeRecorridoAusente } from "./recorrido.js";
-import { avisoDeLinkDoTjgo, ehDoFalcao, infoTribunal, ROTULO_FALCAO } from "./tribunais.js";
+import { buscaNoTrf4, clienteDoTrf4, lerBuscaGuardadaNoTrf4 } from "./trf4.js";
+import { avisoDeLinkDoTjgo, ehDoFalcao, ehDoTrf4, infoTribunal, ROTULO_FALCAO } from "./tribunais.js";
 
 export const SITE = "https://www.jurisprudenciaia.com.br";
 
@@ -93,6 +94,27 @@ export interface Qualificado {
   enquadramento927: Enquadramento927;
 }
 
+/** Coleções do Falcão que não são de acórdãos, pedidas pela opção `decisoes`. */
+export type ColecaoDeDecisoes = "monocraticas" | "sentencas";
+
+/** Decisão monocrática ou sentença do Falcão: só metadados, nunca o texto. Não é acórdão nem precedente do art. 927. */
+export interface DecisaoDoFalcao {
+  /** "tribunal:coleção:id", só para conferir; o Garimpo não tem rota para ler o texto dessas decisões. */
+  id: string;
+  tipo: "decisão monocrática" | "sentença";
+  tribunal: string;
+  numero: string;
+  numeroCnj?: string;
+  classe?: string;
+  orgao?: string;
+  redator?: string;
+  dataJulgamento?: string;
+  dataJuntada?: string;
+  origem?: string;
+  /** Sempre: o que a decisão não é. */
+  natureza: string;
+}
+
 export interface ResultadoBusca {
   /** Só na busca guardada: veio da memória, como fotografia da busca feita no site na data e hora ditas aqui. */
   buscaGuardada?: string;
@@ -109,6 +131,10 @@ export interface ResultadoBusca {
   qualificados: Qualificado[];
   /** Vai junto da lista de precedentes qualificados: o rótulo da lista é do site, não do art. 927. */
   ressalvaQualificados: string;
+  /** Só com a opção `decisoes` (Falcão): as decisões monocráticas ou sentenças, em vez de acórdãos. */
+  decisoes?: DecisaoDoFalcao[];
+  /** Só com a opção `decisoes`: o que essas decisões não são e o que a lista não traz. */
+  ressalvaDecisoes?: string;
   avisos: string[];
 }
 
@@ -134,6 +160,8 @@ export interface ParametrosBusca extends FiltrosBusca {
   ordenacao?: OrdenacaoNoFalcao;
   /** Só nos TRTs (Falcão): também a coleção `precedentes` do mesmo TRT (1 chamada a mais). */
   precedentes?: boolean;
+  /** Só nos TRTs (Falcão): em vez de acórdãos, a 1ª página de decisões monocráticas ou de sentenças (só metadados). */
+  decisoes?: ColecaoDeDecisoes;
 }
 
 /** Listas de precedentes qualificados que o site devolve, com o rótulo mostrado ao usuário. */
@@ -164,6 +192,8 @@ export interface OpcoesBuscaDireta {
   tabelaStf?: TabelaDoStf;
   /** Cliente do Falcão, para os TRTs (padrão: um novo, com os mesmos freios compartilhados). */
   falcao?: Cliente;
+  /** Cliente do e-Proc do TRF4 (padrão: um novo, com os mesmos freios compartilhados). */
+  eproc?: Cliente;
 }
 
 /** O pedido ao site: tudo o que afeta a resposta, na mesma ordem sempre (a chave da busca guardada sai daqui). */
@@ -199,6 +229,7 @@ export async function lerBuscaGuardada(
   { tabela, tabelaStf }: Pick<OpcoesBuscaDireta, "tabela" | "tabelaStf"> = {},
 ): Promise<{ resultado: ResultadoBusca; obtidoEm: number } | undefined> {
   if (ehDoFalcao(p.tribunal)) return lerBuscaGuardadaNoFalcao(memoria, p);
+  if (ehDoTrf4(p.tribunal)) return lerBuscaGuardadaNoTrf4(memoria, p);
   const { tribunal, chave, cobertura } = pedido(p);
   const guardada = await memoria.obterBusca(chave);
   // Sem as teses do site (gravada antes delas), o enquadramento não pode ser refeito com as tabelas desta janela: vale como ausente.
@@ -245,10 +276,14 @@ export async function buscaDiretaSemMarca(
   cliente: Cliente,
   p: ParametrosBusca,
   memoria?: Memoria,
-  { renovar = false, guardarAcordaos = true, tabela, tabelaStf, falcao }: OpcoesBuscaDireta = {},
+  { renovar = false, guardarAcordaos = true, tabela, tabelaStf, falcao, eproc }: OpcoesBuscaDireta = {},
 ): Promise<ResultadoBusca> {
   if (ehDoFalcao(p.tribunal)) {
+    if (p.decisoes) return buscaDecisoesNoFalcao(falcao ?? clienteDoFalcao(), p);
     return buscaNoFalcao(falcao ?? clienteDoFalcao(), p, memoria, { renovar, guardarAcordaos });
+  }
+  if (ehDoTrf4(p.tribunal)) {
+    return buscaNoTrf4(eproc ?? clienteDoTrf4(), p, memoria, { renovar, guardarAcordaos });
   }
   const { tribunal, corpo, chave, cobertura } = pedido(p);
   // Falha ao ler a memória vira busca normal no site, com aviso; sem rede permitida, o erro da rede, como sempre.

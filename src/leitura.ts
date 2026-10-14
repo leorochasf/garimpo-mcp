@@ -161,7 +161,13 @@ export const ROTULO_PORTAL_TJDFT = "API pública de jurisprudência do TJDFT (ju
 export const NATUREZA_DO_TEXTO_DO_PORTAL_TJDFT =
   "texto do portal do tribunal (TJDFT), obtido pela API pública do tribunal: não é PDF e não tem recibo de origem";
 
-/** O tribunal do id entrega o texto do portal do tribunal (TJTO, TJDFT), não o do Falcão. */
+/** O texto do TRF4, trazido pelo e-Proc (ADR-0024): a fonte e o que ele é. O HTML vem assinado; o Garimpo não verifica a assinatura. */
+export const ROTULO_PORTAL_TRF4 = "e-Proc do TRF4 — módulo de jurisprudência do tribunal (eproc-jur.trf4.jus.br)";
+export const NATUREZA_DO_TEXTO_DO_PORTAL_TRF4 =
+  "texto do portal do tribunal (TRF4), convertido de HTML pelo Garimpo: não é PDF, não tem recibo de origem e a " +
+  "assinatura eletrônica do documento não é verificada pelo Garimpo";
+
+/** O tribunal do id entrega o texto do portal do tribunal (TJTO, TJDFT, TJPI, TRF4), não o do Falcão. */
 export function ehTextoDoPortal(id: string): boolean {
   return infoTribunal(id.split(":")[0])?.inteiroTeor === "portal";
 }
@@ -172,8 +178,10 @@ export const NATUREZA_SEM_TEXTO_INTEGRAL = "sem texto integral: o Falcão não m
 /** O que o texto guardado na memória é: sem texto integral, texto do portal do tribunal (TJTO) ou texto do Falcão. */
 export function naturezaDoTexto(semTexto: boolean, doPortal: boolean, id = ""): string {
   if (semTexto && doPortal && id.startsWith("tjdft:")) return "sem texto integral: texto do TJDFT não verificado";
+  if (semTexto && doPortal && id.startsWith("trf4:")) return "sem texto integral: texto do TRF4 não verificado";
   if (semTexto) return NATUREZA_SEM_TEXTO_INTEGRAL;
   if (doPortal && id.startsWith("tjdft:")) return NATUREZA_DO_TEXTO_DO_PORTAL_TJDFT;
+  if (doPortal && id.startsWith("trf4:")) return NATUREZA_DO_TEXTO_DO_PORTAL_TRF4;
   return doPortal ? NATUREZA_DO_TEXTO_DO_PORTAL : NATUREZA_DO_TEXTO_INTEGRAL;
 }
 
@@ -232,7 +240,9 @@ export async function lerTextoIntegral(id: string, parte = 1, memoria?: Memoria)
       julgadoEm: a?.dataJulgamento ?? NAO_INFORMADO,
       juntadoEm: a?.dataJuntada ?? NAO_INFORMADO,
       id,
-      fonte: doPortal ? (id.startsWith("tjdft:") ? ROTULO_PORTAL_TJDFT : ROTULO_PORTAL_TJTO) : ROTULO_FALCAO,
+      fonte: doPortal
+        ? (id.startsWith("tjdft:") ? ROTULO_PORTAL_TJDFT : id.startsWith("trf4:") ? ROTULO_PORTAL_TRF4 : ROTULO_PORTAL_TJTO)
+        : ROTULO_FALCAO,
       natureza: naturezaDoTexto(Boolean(semTexto), doPortal, id),
       partes,
       ...(semTexto
