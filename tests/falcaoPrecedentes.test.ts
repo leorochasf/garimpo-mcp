@@ -82,6 +82,16 @@ describe("normalizarPrecedentesDoFalcao: cada tipo como a fonte rotula", () => {
     expect(descartados).toBe(1);
     expect(qualificados.some((q) => q.numero === "905")).toBe(false);
   });
+
+  it("preserva OJ quando esse for o rótulo informado, sem supor inciso nem âmbito", () => {
+    // Caso sintético: o rótulo real de OJ de TRT ainda não foi observado ao vivo.
+    const { qualificados } = normalizarPrecedentesDoFalcao("trt3", [{
+      tribunal: "TRT3", tipo: "OJ", numero: "999", conteudoDecisao: "Enunciado fictício.",
+    }]);
+    expect(qualificados[0]).toMatchObject({ tipo: "OJ", texto: "Enunciado fictício." });
+    expect(qualificados[0].enquadramento927.inciso).toBe("não classificado");
+    expect(qualificados[0].enquadramento927.ambito).toBeUndefined();
+  });
 });
 
 describe("busca_direta nos TRTs com precedentes", () => {
@@ -144,6 +154,23 @@ describe("busca_direta nos TRTs com precedentes", () => {
     expect(r.dado.avisos.join(" ")).toMatch(/precedentes do Falcão não vieram/);
     await chamar(mcp, "busca_direta", { tribunal: "trt3", texto: "verba x", precedentes: true });
     expect(falcao.pedidos).toHaveLength(4);
+  });
+
+  it("recusa na coleção preserva os acórdãos e pausa a fonte sem nova tentativa", async () => {
+    const falcao = falcaoFalso((url) =>
+      url.searchParams.get("colecao") === "precedentes"
+        ? new Response("Recusa fictícia", { status: 403 })
+        : pagina(PESQUISA.documentos),
+    );
+    const { mcp } = await conectar(siteFalso().cliente, falcao.cliente);
+    const r = await chamar(mcp, "busca_direta", { tribunal: "trt3", texto: "verba x", precedentes: true });
+    expect(r.isError).toBe(false);
+    expect(r.dado.acordaos.length).toBeGreaterThan(0);
+    expect(r.dado.qualificados).toEqual([]);
+    expect(r.dado.avisos.join(" ")).toMatch(/precedentes do Falcão não vieram/);
+    const repetida = await chamar(mcp, "busca_direta", { tribunal: "trt3", texto: "verba x", precedentes: true });
+    expect(repetida.isError).toBe(true);
+    expect(falcao.pedidos).toHaveLength(2);
   });
 });
 

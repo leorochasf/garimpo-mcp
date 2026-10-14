@@ -14,7 +14,8 @@ export type InteiroTeorModo = "baixa" | "link" | "texto" | "portal";
 export type Fonte = "JurisprudênciaIA" | "Falcão (CSJT)";
 
 /** O que a tabela diz dos TRTs: precedentes qualificados e inteiro teor. */
-export const QUALIFICADOS_TRT = "qualificados não pesquisados no B12";
+export const QUALIFICADOS_TRT =
+  "coleção precedentes do Falcão, só na busca_direta com precedentes:true (até 10 itens; cobertura por TRT não verificada)";
 export const INTEIRO_TEOR_TRT = "texto integral do repositório oficial (sem PDF)";
 /** O que a tabela diz do TJTO (ADR-0021). */
 export const INTEIRO_TEOR_PORTAL = "texto do portal do tribunal, trazido pelo obter_inteiro_teor (sem PDF)";
