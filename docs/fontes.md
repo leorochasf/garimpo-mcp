@@ -313,3 +313,31 @@ seguem «ainda não testou». Provas registradas em 14/10/2026 (STJ em 13/10/202
 - **STF:** `redir.stf.jus.br` respondeu 202 de WAF à leitura do `robots.txt`.
 
 TRF2 e TRF6 não constam da tabela de tribunais do Garimpo; não foram tratados.
+
+## Falcão: decisões monocráticas e sentenças dos TRTs (I-29 / G-38)
+
+- **Rota:** a mesma do Falcão, `GET /jurisprudencia-nacional-backend/api/no-auth/pesquisa` com `colecao=decisoesmonocraticas`
+  ou `colecao=sentencas` (nomes de coleção conhecidos pela literatura e confirmados ao vivo). Termos de uso e regras de
+  acesso: [`fonte-falcao.md`](fonte-falcao.md). Só na `busca_direta` de um TRT, pela opção `decisoes`
+  (`monocraticas` ou `sentencas`); sem a opção nada muda.
+- **Prova PV-I29 (2026-10-14, 2 chamadas, pelo Cliente do Falcão, TRT2, texto genérico, página 0, `size=10`):** as duas HTTP 200,
+  `x-rate-limit-remaining: 39`, `quantidadeTotal` 10000 nas duas, 10 documentos cada, sem 429. Campos observados:
+  - **monocráticas** (373.806 bytes): `idDocumento`, `numeroProcesso`, `siglaClasseProcesso`, `classeProcesso`,
+    `orgaoJulgador`, `idOrgaoJulgador`, `nomeRedator`, `tipoDocumento` ("Decisão"), `origemDocumento` (nos 10:
+    `DECISAO_MONOCRATICA_2GRAU`), `tribunal`, `dataJuntada` (`dd/mm/aaaa`; **sem** `dataJulgamento`), `conteudoDocumento`
+    (HTML com CSS), `textoDocumentoAnonim`, `highlight*`, `prioridades`, `score`. Sem `ementa` nem `relator`.
+  - **sentenças** (931.907 bytes): `idSentenca`, `numeroProcesso`, `classeProcessual` (sigla), `classeProcessualPorExtenso`,
+    `orgaoJulgador` (código numérico), `orgaoJulgadorPorExtenso` (vara), `nomeRelator` (vazio), `nomeRedator`,
+    `tipoDocumento` ("Sentença"), `tribunal`, `dataJulgamento`, `dataJuntada`, `faseProcessual`, `textoSentenca`,
+    `highlightSentenca`, `highlightSentencaAnonimizado`, `prioridades`, `score`.
+- **O que o Garimpo devolve:** só metadados da 1ª página (até 10): tipo, id `tribunal:coleção:id`, número (CNJ com a sigla
+  da classe), classe, órgão, redator, `dataJuntada` e, na sentença, `dataJulgamento`. **Nunca o texto**: o campo "anonimizado"
+  da sentença trazia nome de parte na prova (o nome da pessoa jurídica aparecia no começo do texto), então não é seguro
+  como trecho. A decisão monocrática e a sentença não são acórdão (julgamento colegiado) nem precedente do art. 927 do CPC:
+  não recebem `enquadramento927` e a resposta diz isso em `ressalvaDecisoes` e em cada item (`natureza`).
+- **Freios:** uma chamada por busca, a mesma de qualquer busca do Falcão (UA de navegador, 1 s, freio preventivo, teto
+  diário de 50). Sem busca guardada: repetir chama o Falcão de novo. Os filtros (`de`, `ate`, `relator`, `orgao`, `classe`),
+  `somenteEmentas`, `ordenacao` e `precedentes` **não foram verificados** nessas coleções e são recusados com a opção.
+- **Não verificado:** cobertura por TRT; frescor; outros TRTs além do TRT2 (o TST não tem sentenças); a coleção
+  `recursorevista`; se o texto dessas decisões vem anonimizado de fato; rota de leitura do texto por id.
+
