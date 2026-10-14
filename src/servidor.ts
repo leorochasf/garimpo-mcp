@@ -8,7 +8,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { Cliente, PausaPreventivaError, RecusaError, VERSAO } from "./cliente.js";
 import { buscaDireta, conferirDadosDoAcordao, ementaAparentementeIncompleta } from "./busca.js";
-import { buscaAmpla, type ResultadoAmplo } from "./ampla.js";
+import { buscaAmpla, expandirAgrupadorTrt, type ResultadoAmplo } from "./ampla.js";
 import {
   type CoordenacaoEmArquivo,
   coordenacaoPadrao,
@@ -541,7 +541,8 @@ export function criarServidor(
         "formulação × TRT, com teto de 5 páginas do Falcão por chamada, usadas primeiro na 1ª formulação de cada TRT " +
         "pedido, na ordem dada, depois nas seguintes; o que não couber (ou parar na pausa preventiva) sai no " +
         "cabecalhoDeCobertura como foraDoTeto ou pausaPreventiva, nunca como busca vazia, e repetir a mesma chamada " +
-        "executa as que faltam. Com TRT, cada acórdão traz a fonte (rótulos em fontes) e o aviso cita as duas fontes; " +
+        "executa as que faltam. O valor \"trt\" em tribunais vale por trt1 a trt24 (conta como 1 dos 5), sem ampliar o teto: " +
+        "cobre os TRTs em lotes de 5 páginas por chamada, e o cabecalhoDeCobertura traz agrupadorTrt com o custo. Com TRT, cada acórdão traz a fonte (rótulos em fontes) e o aviso cita as duas fontes; " +
         "os filtros de, ate, relator, orgao e classe valem também com TRT (de e ate = data de juntada nos TRTs, " +
         "julgamento nas demais fontes; classe só por sigla). " +
         `${SOBRE_O_RECORRIDO}`,
@@ -584,12 +585,12 @@ export function criarServidor(
     },
     async ({ deveConter, naoPodeConter, ...args }) => {
       try {
-        conferirTribunais(...args.tribunais);
+        conferirTribunais(...expandirAgrupadorTrt(args.tribunais));
         conferirDatas(args);
         args.formulacoes = args.formulacoes.map(conferirFormulacao);
         const filtrosLocais = lerFiltrosLocais({ deveConter, naoPodeConter });
         // Tabelas e aviso de natureza jurídica entram na resposta final: a busca mede o teto com eles.
-        const acrescimos = (r: ResultadoAmplo) => ({ ...comATabela(r.qualificados, { curta: true }), avisoNaturezaJuridica: avisoDasFontes(args.tribunais) });
+        const acrescimos = (r: ResultadoAmplo) => ({ ...comATabela(r.qualificados, { curta: true }), avisoNaturezaJuridica: avisoDasFontes(expandirAgrupadorTrt(args.tribunais)) });
         const r = await buscaAmpla(site, { ...args, ...filtrosLocais }, memoria, { tabela, tabelaStf, falcao, acrescimos });
         return json({ ...r, ...acrescimos(r) });
       } catch (e) {
