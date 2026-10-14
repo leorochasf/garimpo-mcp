@@ -304,6 +304,78 @@ export async function buscaDiretaSemMarca(
   };
 }
 
+/** O que a citação diz do acórdão: o número e, se houver, a data de julgamento e o órgão. */
+export interface DadosCitados {
+  numero: string;
+  /** AAAA-MM-DD. */
+  data?: string;
+  orgao?: string;
+}
+
+export interface Divergencia {
+  campo: "numero" | "data" | "orgao";
+  informado: string;
+  noRegistro: string;
+}
+
+export interface ConferenciaDoAcordao {
+  estado: "confirmado" | "dados em conflito" | "não verificado";
+  /** O registro achado, nos dados que a conferência compara (sem a ementa). */
+  acordao?: Pick<Acordao, "id" | "tribunal" | "numero" | "numeroCnj" | "orgao" | "dataJulgamento" | "relator" | "link" | "linkConsulta">;
+  divergencias: Divergencia[];
+  /** Dado citado que o registro não trouxe: não dá para confirmar nem para contradizer. */
+  naoConferidos: ("data" | "orgao")[];
+  /** Só quando há mais de um acórdão com o mesmo número (recurso e embargos): os outros, para a pessoa escolher. */
+  outrosComOMesmoNumero?: Pick<Acordao, "id" | "orgao" | "dataJulgamento">[];
+}
+
+/** Só os dígitos: "REsp 1.000.002/GO" e "1000002" são o mesmo número. */
+const soDigitos = (s: string) => s.replace(/\D/g, "");
+/** Minúsculas, sem acento e sem pontuação: "1ª Câmara Cível" ≈ "1a camara civel". */
+const semForma = (s: string) => s.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+/**
+ * Compara o que foi citado com os acórdãos de uma busca pelo número. Não achar o número é "não verificado", nunca
+ * "inexistente" (ADR-0001). Com `acordaoDoId` (o acórdão que o id aponta, já na memória), o número também é comparado.
+ */
+export function conferirDadosDoAcordao(
+  citado: DadosCitados,
+  acordaos: readonly Acordao[],
+  acordaoDoId?: Acordao,
+): ConferenciaDoAcordao {
+  const digitos = soDigitos(citado.numero);
+  const bate = (a: Acordao) => [a.numero, a.numeroCnj].some((n) => n !== undefined && soDigitos(n) === digitos);
+  const candidatos = acordaoDoId ? [acordaoDoId] : acordaos.filter(bate);
+  const avaliar = (a: Acordao) => {
+    const divergencias: Divergencia[] = [];
+    const naoConferidos: ("data" | "orgao")[] = [];
+    if (acordaoDoId && !bate(a)) divergencias.push({ campo: "numero", informado: citado.numero, noRegistro: a.numeroCnj ?? a.numero });
+    if (citado.data !== undefined) {
+      if (!a.dataJulgamento) naoConferidos.push("data");
+      else if (a.dataJulgamento.slice(0, 10) !== citado.data) divergencias.push({ campo: "data", informado: citado.data, noRegistro: a.dataJulgamento.slice(0, 10) });
+    }
+    if (citado.orgao !== undefined) {
+      const registro = a.orgao ? semForma(a.orgao) : "";
+      const informado = semForma(citado.orgao);
+      if (!registro) naoConferidos.push("orgao");
+      else if (!(registro.includes(informado) || informado.includes(registro))) divergencias.push({ campo: "orgao", informado: citado.orgao, noRegistro: a.orgao! });
+    }
+    return { a, divergencias, naoConferidos };
+  };
+  const avaliados = candidatos.map(avaliar).sort((x, y) => x.divergencias.length - y.divergencias.length);
+  const melhor = avaliados[0];
+  if (!melhor) return { estado: "não verificado", divergencias: [], naoConferidos: [] };
+  const { a, divergencias, naoConferidos } = melhor;
+  const outros = avaliados.slice(1).map(({ a: o }) => ({ id: o.id, orgao: o.orgao, dataJulgamento: o.dataJulgamento }));
+  return {
+    estado: divergencias.length ? "dados em conflito" : "confirmado",
+    acordao: limpar({ id: a.id, tribunal: a.tribunal, numero: a.numero, numeroCnj: a.numeroCnj, orgao: a.orgao, dataJulgamento: a.dataJulgamento, relator: a.relator, link: a.link, linkConsulta: a.linkConsulta }),
+    divergencias,
+    naoConferidos,
+    ...(outros.length && { outrosComOMesmoNumero: outros.map(limpar) }),
+  };
+}
+
 /** Calculado a cada resposta, nunca guardado: a busca guardada devolvida não o repete. */
 function avisoDoRecorrido(acordaos: Acordao[]): string[] {
   const aviso = avisoDeRecorridoAusente(acordaos);
