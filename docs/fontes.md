@@ -340,4 +340,3 @@ TRF2 e TRF6 não constam da tabela de tribunais do Garimpo; não foram tratados.
   `somenteEmentas`, `ordenacao` e `precedentes` **não foram verificados** nessas coleções e são recusados com a opção.
 - **Não verificado:** cobertura por TRT; frescor; outros TRTs além do TRT2 (o TST não tem sentenças); a coleção
   `recursorevista`; se o texto dessas decisões vem anonimizado de fato; rota de leitura do texto por id.
-

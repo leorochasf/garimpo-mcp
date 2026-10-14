@@ -126,4 +126,3 @@ licença; lido como referência, nada copiado) afirma que, varridos os 18 pedaç
 endereços `no-auth` são `/pesquisa`, `/pesquisa/filtros` e `/autocompletar`, sem endereço por documento; o PDF do manual
 pode ser montado no navegador ou exigir login. **Não verificado pelo Garimpo.** Sem rota pública conhecida, o texto do
 Falcão continua "texto integral do repositório oficial", sem PDF.
-
