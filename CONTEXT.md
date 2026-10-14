@@ -82,7 +82,7 @@ Lista mostrada com menos acórdãos do que a busca achou (com filtro local, do q
 _Evitar_: lista completa (quando cortada), resultado parcial (é o caso de recusa)
 
 **Mesma ementa (série)**:
-Acórdãos distintos do mesmo tribunal, órgão e relator cuja ementa inteira é idêntica, a menos de espaços e quebras de linha. A lista da busca ampla os mostra numa linha só (`mesmaEmenta`), com todos os ids acessíveis, por padrão (`agrupar: false` devolve a lista como era). É critério de apresentação: não afirma mesma tese nem mesmo resultado, e ementa ausente ou cortada deixa o acórdão sozinho (ADR-0023).
+Acórdãos distintos do mesmo tribunal, órgão e relator cuja ementa inteira é idêntica, a menos de espaços e quebras de linha. Por padrão, a lista da busca ampla os mostra numa linha só (`mesmaEmenta`), com todos os ids acessíveis, depois dos filtros, da ordem e do corte. Não muda os acórdãos selecionados nem as contagens; se o agrupamento ultrapassar o teto da resposta, mantém a lista individual (`agrupar: false` também). Não afirma mesma tese nem mesmo resultado; ementa ausente ou cortada, ou tribunal, órgão ou relator sem valor, deixa o acórdão sozinho (ADR-0023).
 _Evitar_: duplicado (o duplicado é o **mesmo** acórdão repetido na base do site, juntado como registro equivalente), mesma tese, mesma decisão
 _Proposta do executor do I-46 (b17-09), aplicada em 2026-10-13 — sujeita a revisão do dono._
 
@@ -199,7 +199,7 @@ _Evitar_: bloqueio, rate limit, disjuntor (é outra coisa)
 _Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-09; segunda origem proposta pelo executor da lane L1 (b16-l1), aplicada em 2026-10-13 — sujeito a revisão do dono._
 
 **Orçamento por janela**:
-O limite próprio de chamadas que o Garimpo se impõe a uma fonte que não informa quanto resta: um número de chamadas por janela de tempo, somadas em todas as janelas. No limite, a chamada não sai até o fim da janela (freio preventivo). Recusa da fonte alarga a janela um degrau de uma escada; 20 chamadas aceitas seguidas a afrouxam um degrau. Números iniciais, sem prova (ADR-0009, adendo do B16).
+O limite próprio de chamadas que o Garimpo se impõe por fonte: um número de chamadas por janela de tempo, somadas em todas as janelas do Garimpo. No limite, a chamada não sai até o fim da janela (freio preventivo). Nas fontes que não informam quanto resta, recusa alarga a janela um degrau de uma escada e 20 chamadas aceitas seguidas a afrouxam um degrau, sempre a partir da próxima janela. No Falcão, é o teto diário, sem escada. Números iniciais, sem prova (ADR-0009, adendo do B16).
 _Evitar_: rate limit, cota (a cota é da fonte), disjuntor
 _Proposta do executor da lane L1 (b16-l1), aplicada em 2026-10-13 — sujeita a revisão do dono._
 
@@ -246,7 +246,7 @@ _Evitar_: autoria, citação de terceiro
 _Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
 
 **Conferência do acórdão citado**:
-A comparação do tribunal, do número e, se citados, da data de julgamento e do órgão de um acórdão com o registro da base do JurisprudênciaIA (memória ou uma busca direta pelo número). Responde `confirmado`, `dados em conflito` (com cada divergência) ou `não verificado`; este último só diz que a busca não trouxe o número, nunca que o acórdão não existe, e dado citado que o registro não traz fica à parte. Não vale para os TRTs. Não é a conferência de citação, que compara o texto citado, e não autentica nada: o acórdão se confere no portal do tribunal antes de citar.
+A comparação do tribunal, do número e, se citados, da data de julgamento e do órgão de um acórdão com o registro da base do JurisprudênciaIA (memória ou uma busca direta pelo número). Responde `confirmado`, `dados em conflito` (com cada divergência) ou `não verificado`; este último só diz que o número não pôde ser conferido (não veio na busca ou falta no registro guardado), nunca que o acórdão não existe, e dado citado que o registro não traz fica à parte. Não vale para os TRTs. Não é a conferência de citação, que compara o texto citado, e não autentica nada: o acórdão se confere no portal do tribunal antes de citar.
 _Evitar_: validação, autenticação, verificação de existência
 _Proposta do executor da lane L3 (b16-l3), aplicada em 2026-10-13 — sujeita a revisão do dono._
 
