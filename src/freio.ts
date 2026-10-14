@@ -174,6 +174,8 @@ export interface Orcamento {
   diario?: true;
   /** Degrau da escada de larguras; vale a partir da próxima janela. */
   degrau: number;
+  /** Último degrau da escada configurada: recusas saturam aqui. */
+  ultimoDegrau: number;
   /** Chamadas aceitas desde a última recusa ou desde o último afrouxamento. */
   acertos: number;
 }
@@ -188,22 +190,24 @@ export function decidirOrcamento(
   agora: number,
 ): { ordem: OrdemDoFreio; novo: Orcamento } {
   const diario = config.diario;
-  const degrau = diario ? 0 : Math.min(o?.degrau ?? 0, config.largurasMs.length - 1);
+  const ultimoDegrau = diario ? 0 : config.largurasMs.length - 1;
+  const degrau = Math.min(o?.degrau ?? 0, ultimoDegrau);
   if (!o || agora >= o.fim) {
     const fim = diario ? proximaMeiaNoiteDeBrasilia(agora) : agora + config.largurasMs[degrau];
     return {
       ordem: { tipo: "sai" },
-      novo: { fim, usadas: 1, limite: config.chamadas, ...(diario && { diario }), degrau, acertos: o?.acertos ?? 0 },
+      novo: { fim, usadas: 1, limite: config.chamadas, ...(diario && { diario }), degrau, ultimoDegrau, acertos: diario ? 0 : o?.acertos ?? 0 },
     };
   }
   if (o.usadas >= config.chamadas) return { ordem: { tipo: "freio", ate: o.fim, por: diario ? "dia" : "janela" }, novo: o };
-  return { ordem: { tipo: "sai" }, novo: { ...o, usadas: o.usadas + 1, limite: config.chamadas, degrau } };
+  return { ordem: { tipo: "sai" }, novo: { ...o, usadas: o.usadas + 1, limite: config.chamadas, degrau, ultimoDegrau } };
 }
 
 /** Depois de uma chamada: recusa da fonte = janela um degrau mais larga; `ACERTOS_PARA_AFROUXAR` aceitas = um degrau menos. */
-export function anotarOrcamento(o: Orcamento | undefined, resultado: "aceita" | "recusa"): Orcamento | undefined {
-  if (!o) return undefined;
-  if (resultado === "recusa") return { ...o, degrau: o.degrau + 1, acertos: 0 };
+export function anotarOrcamento(o: Orcamento | undefined, resultado: "aceita" | "recusa" | "erro"): Orcamento | undefined {
+  if (!o || o.diario) return o;
+  if (resultado === "erro") return { ...o, acertos: 0 };
+  if (resultado === "recusa") return { ...o, degrau: Math.min(o.degrau + 1, o.ultimoDegrau), acertos: 0 };
   if (o.acertos + 1 < ACERTOS_PARA_AFROUXAR) return { ...o, acertos: o.acertos + 1 };
   return { ...o, degrau: Math.max(0, o.degrau - 1), acertos: 0 };
 }
@@ -219,6 +223,7 @@ export function orcamentoValido(o: unknown): o is Orcamento {
     inteiro(x.usadas) &&
     inteiro(x.limite) &&
     inteiro(x.degrau) &&
+    inteiro(x.ultimoDegrau) &&
     inteiro(x.acertos) &&
     (x.diario === undefined || x.diario === true)
   );

@@ -262,7 +262,7 @@ export class Vagas implements Coordenacao {
   async anotar(servico: string, chamada: Chamada, saida: Saida, r: Resultado, agora: () => number) {
     const novo = aplicarResultado(this.disjuntores.get(servico), chamada, saida, r, agora(), servico);
     if (novo) this.disjuntores.set(servico, novo);
-    const orcamento = r.tipo === "aceita" ? "aceita" : r.tipo === "pede-espera" || r.tipo === "recusa-final" ? "recusa" : undefined;
+    const orcamento = r.tipo === "aceita" || r.tipo === "erro" ? r.tipo : r.tipo === "pede-espera" || r.tipo === "recusa-final" ? "recusa" : undefined;
     const doOrcamento = orcamento && anotarOrcamento(this.orcamentos.get(servico), orcamento);
     if (doOrcamento) this.orcamentos.set(servico, doOrcamento);
     return novo?.pausa && { ...novo.pausa, aberturas: novo.aberturas };
@@ -694,10 +694,10 @@ export class Cliente {
     return { ate, segundos: Math.max(1, Math.ceil((ate - this.agora()) / 1000)) };
   }
 
-  /** Só a nova tentativa e a chamada de prova mudam o disjuntor ao terminar; a chamada comum não anota nada. */
+  /** Só tentativa/prova mudam o disjuntor; aceitação e erro normais também atualizam a sequência do orçamento. */
   private async anotar(servico: string, chamada: Chamada, saida: Saida, r: Resultado): Promise<void> {
     // A chamada normal aceita só interessa ao orçamento (acertos que afrouxam a janela); o disjuntor a ignora.
-    const doOrcamento = r.tipo === "aceita" && this.orcamentoDe(servico);
+    const doOrcamento = (r.tipo === "aceita" || r.tipo === "erro") && this.orcamentoDe(servico);
     if (saida.papel !== "normal" || doOrcamento) await this.vagas.anotar(servico, chamada, saida, r, this.agora);
   }
 

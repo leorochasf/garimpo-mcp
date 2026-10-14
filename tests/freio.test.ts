@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Cliente, type OpcoesCliente, PausaPreventivaError, RecusaError } from "../src/cliente.js";
 import { CoordenacaoEmArquivo, RedeParadaError } from "../src/coordenacao.js";
+import { anotarOrcamento, decidirOrcamento } from "../src/freio.js";
 
 /**
  * O freio preventivo do Falcão visto pelo cliente: duas janelas (dois clientes) com a coordenação real na MESMA
@@ -273,7 +274,45 @@ function fonteAceita(fila: Response[] = []) {
 
 const chamar = async (c: Cliente) => (await c.requisitar(FONTE)).text();
 
+describe("escada limitada e acertos consecutivos (I-04/I-05)", () => {
+  it("recusas no último degrau saturam; 20 acertos bastam para descer um degrau", () => {
+    let o = decidirOrcamento(undefined, ORCAMENTO.teste, INICIO).novo;
+    for (let i = 0; i < 8; i++) o = anotarOrcamento(o, "recusa")!;
+    for (let i = 0; i < 20; i++) o = anotarOrcamento(o, "aceita")!;
+    expect(o.degrau).toBe(1);
+  });
+
+  it("o teto diário não acumula degraus nem acertos", () => {
+    const config = { chamadas: 3, largurasMs: [], diario: true as const };
+    const o = decidirOrcamento(undefined, config, INICIO).novo;
+    expect(anotarOrcamento(o, "recusa")).toEqual(o);
+    expect(anotarOrcamento(o, "aceita")).toEqual(o);
+  });
+
+  it("uma resposta com erro interrompe os 20 acertos seguidos", async () => {
+    const relogio = { agora: INICIO };
+    const f = fonteAceita([new Response("", { status: 429 }), ...Array.from({ length: 19 }, () => new Response("{}")), new Response("", { status: 500 })]);
+    const a = janela(relogio, f.fetchFalso, { orcamentoPorServico: { teste: { chamadas: 50, largurasMs: ORCAMENTO.teste.largurasMs } } });
+    for (let i = 0; i < 19; i++) await chamar(a);
+    expect(await erroDe(a.requisitar(FONTE))).toMatchObject({ status: 500 });
+    await chamar(a);
+    const o = JSON.parse(await readFile(join(pasta, "protecao", "estado.json"), "utf8")).orcamentos.teste;
+    expect(o).toMatchObject({ degrau: 1, acertos: 1 });
+  });
+});
+
 describe("orçamento por janela, para fonte que não informa o restante", () => {
+  it("migra a versão 2 preservando os freios e grava versão que clientes antigos recusam (I-04/I-05)", async () => {
+    await mkdir(join(pasta, "protecao"), { recursive: true });
+    await writeFile(join(pasta, "protecao", "estado.json"), JSON.stringify({
+      formato: "garimpo-protecao", versao: 2, pausas: {}, disjuntores: {}, freios: { jt: { restante: 10, pausaAte: INICIO + MIN } },
+    }));
+    await chamar(janela({ agora: INICIO }, fonteAceita().fetchFalso, { orcamentoPorServico: ORCAMENTO }));
+    const estado = JSON.parse(await readFile(join(pasta, "protecao", "estado.json"), "utf8"));
+    expect(estado.versao).toBeGreaterThan(2);
+    expect(estado.freios.jt).toEqual({ restante: 10, pausaAte: INICIO + MIN });
+    expect(estado.orcamentos.teste.usadas).toBe(1);
+  });
   it("no limite da janela a chamada não sai: pausa preventiva até o fim da janela, em todas as janelas do Garimpo", async () => {
     const relogio = { agora: INICIO };
     const f = fonteAceita();

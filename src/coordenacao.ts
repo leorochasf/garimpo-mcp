@@ -451,8 +451,8 @@ export class CoordenacaoEmArquivo implements Coordenacao {
       const novo = aplicarResultado(atual, chamada, saida, r, agora(), servico);
       const orcamento = estado.orcamentos?.[servico];
       const novoOrcamento =
-        r.tipo === "aceita"
-          ? anotarOrcamento(orcamento, "aceita")
+        r.tipo === "aceita" || r.tipo === "erro"
+          ? anotarOrcamento(orcamento, r.tipo)
           : r.tipo === "pede-espera" || r.tipo === "recusa-final"
             ? anotarOrcamento(orcamento, "recusa")
             : orcamento;
