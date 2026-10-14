@@ -22,6 +22,7 @@ import { ART_927_CONFERIDO_EM } from "./enquadramento.js";
 import { conferirPedidoAoFalcao } from "./falcao.js";
 import { avisoDeLinkDoTjgo, ehDoFalcao, infoTribunal, ROTULO_FALCAO } from "./tribunais.js";
 import { juntarEquivalentes, type Ocorrencia } from "./equivalencia.js";
+import { agruparEmSerie, CRITERIO_DA_SERIE } from "./emSerie.js";
 import { filtroLocal, type FiltrosLocais } from "./filtroLocal.js";
 import { diaEHora, FalhaNaMemoriaError, type Memoria } from "./memoria.js";
 import { ordenarPorAderencia, ordenarPorData, trecho } from "./pontuacao.js";
@@ -46,6 +47,11 @@ export interface ParametrosAmpla extends FiltrosBusca, FiltrosLocais {
    * julgamento mais antigo ao mais recente; o corte pelo máximo continua pela aderência.
    */
   ordem?: "aderencia" | "data";
+  /**
+   * Agrupa, na lista mostrada, os acórdãos do mesmo tribunal, órgão e relator com a mesma ementa inteira (padrão: sim).
+   * Só muda a apresentação: com `false`, a lista sai como antes.
+   */
+  agrupar?: boolean;
 }
 
 export interface ItemAmplo {
@@ -61,6 +67,19 @@ export interface ItemAmplo {
   faltam?: CampoAusente[];
   /** Só quando a busca inclui TRT: a fonte do acórdão ("Falcão (CSJT)" ou "JurisprudênciaIA"); o rótulo vem em fontes. */
   fonte?: string;
+  /** Só no primeiro de uma série: os demais com a mesma ementa inteira, todos acessíveis pelo id. */
+  mesmaEmenta?: SerieDeMesmaEmenta;
+}
+
+/** Os outros acórdãos de uma série. Diz só o critério; não afirma mesma tese nem mesmo resultado. */
+export interface SerieDeMesmaEmenta {
+  criterio: typeof CRITERIO_DA_SERIE;
+  /** Acórdãos da série, contando o do próprio item. */
+  quantidade: number;
+  /** Menor e maior data de julgamento da série (dos que têm data). */
+  periodo?: string;
+  /** Ids dos demais acórdãos da série (o do próprio item é o `id` dele); servem para obter_ementa e inteiro teor. */
+  ids: string[];
 }
 
 /** Por que uma busca não deu resposta: vocabulário fechado, uma palavra, derivado do tipo de erro do cliente. */
@@ -556,7 +575,19 @@ export async function buscaAmpla(
   // quem entra na lista.
   const ordenar = (lista: typeof mostrados) =>
     p.ordem === "data" ? ordenarPorData(lista, (x) => x.acordao.dataJulgamento) : { itens: lista, semData: 0 };
-  return ajustarAoTeto(resultado, mostrados, ordenar, itemDe, tamanho, sobreviventes.length, acrescimos, ({ acordao: a }) => a);
+  const agrupar = p.agrupar !== false;
+  return ajustarAoTeto(resultado, mostrados, ordenar, itemDe, tamanho, sobreviventes.length, acrescimos, ({ acordao: a }) => a, agrupar);
+}
+
+function serieDe<T>(principal: T, outros: T[], paraAcordao: (x: T) => Acordao): SerieDeMesmaEmenta {
+  const todos = [principal, ...outros].map(paraAcordao);
+  const datas = todos.flatMap((a) => (a.dataJulgamento ? [a.dataJulgamento.slice(0, 10)] : [])).sort();
+  return {
+    criterio: CRITERIO_DA_SERIE,
+    quantidade: todos.length,
+    ...(datas.length && { periodo: datas[0] === datas[datas.length - 1] ? datas[0] : `${datas[0]} a ${datas[datas.length - 1]}` }),
+    ids: todos.slice(1).map((a) => a.id),
+  };
 }
 
 /** Motivo de uma busca que não deu resposta (nunca chamada para busca vazia, que deu resposta). */
@@ -589,16 +620,27 @@ function ajustarAoTeto<T>(
   itemDe: (x: T, tamanho: number) => ItemAmplo,
   tamanho: number,
   sobreviventes: number,
-  acrescimos?: (r: ResultadoAmplo) => object,
-  paraAvisoDeLink: (x: T) => { link?: string; linkConsulta?: string; numeroCnj?: string } = () => ({}),
+  acrescimos: ((r: ResultadoAmplo) => object) | undefined,
+  paraAcordao: (x: T) => Acordao,
+  agrupar = false,
 ): ResultadoAmplo {
   const avisosBase = r.avisos;
   const listaBase = r.cabecalhoDeCobertura.listaCortada;
   const mostradosBase = r.cabecalhoDeCobertura.porTribunal.map((l) => l.mostrados);
-  const montar = (tam: number, n: number, medindo = false): ResultadoAmplo => {
+  const montar = (tam: number, n: number, medindo = false, agruparLista = agrupar): ResultadoAmplo => {
     // O corte pega os n de maior aderência; só então a ordem de apresentação (data) se aplica aos que ficam.
     const porOrdem = ordenar(apresentados.slice(0, n));
-    const itens = porOrdem.itens.map((x) => itemDe(x, tam));
+    // Séries de mesma ementa só depois do corte e da ordem: o grupo fica onde está o primeiro dele.
+    const grupos = agruparLista
+      ? agruparEmSerie(porOrdem.itens.map((x) => ({ x, ...paraAcordao(x) }))).map((g) => ({
+          principal: g.principal.x,
+          outros: g.outros.map((o) => o.x),
+        }))
+      : porOrdem.itens.map((x) => ({ principal: x, outros: [] as T[] }));
+    const itens = grupos.map((g) => {
+      const item = itemDe(g.principal, tam);
+      return g.outros.length ? { ...item, mesmaEmenta: serieDe(g.principal, g.outros, paraAcordao) } : item;
+    });
     const semData =
       medindo || porOrdem.semData === 0
         ? []
@@ -609,10 +651,22 @@ function ajustarAoTeto<T>(
           ];
     // Decidido depois do corte: só avisa se algum acórdão do TJGO ficou na lista. Parte do acórdão de origem,
     // porque o item da lista não leva o número CNJ.
-    const linkTjgo = avisoDeLinkDoTjgo(porOrdem.itens.map(paraAvisoDeLink));
+    const linkTjgo = avisoDeLinkDoTjgo(porOrdem.itens.map(paraAcordao));
+    // Conta acórdãos, não linhas: os agrupados continuam mostrados.
     const porTribunal = r.cabecalhoDeCobertura.porTribunal.map((l, i) =>
-      mostradosBase[i] === undefined ? l : { ...l, mostrados: itens.filter((x) => x.tribunal === l.tribunal).length },
+      mostradosBase[i] === undefined
+        ? l
+        : { ...l, mostrados: porOrdem.itens.filter((x) => paraAcordao(x).tribunal === l.tribunal).length },
     );
+    const emSerie = grupos.filter((g) => g.outros.length);
+    const avisoDaSerie = emSerie.length
+      ? [
+          `Agrupados por ${CRITERIO_DA_SERIE} (texto idêntico, mesmo tribunal, órgão e relator): ${emSerie.length} ` +
+            `${emSerie.length === 1 ? "grupo reúne" : "grupos reúnem"} ${emSerie.reduce((n, g) => n + 1 + g.outros.length, 0)} ` +
+            "acórdãos; os ids dos demais vêm em mesmaEmenta. Não significa mesma tese nem mesmo resultado; " +
+            "agrupar=false lista cada acórdão.",
+        ]
+      : [];
     const cortada = n < apresentados.length;
     const listaCortada = cortada
       ? `mostrando ${n} de ${sobreviventes}; resposta limitada a cerca de ${TETO_DA_RESPOSTA / 1000} mil caracteres; ` +
@@ -623,7 +677,7 @@ function ajustarAoTeto<T>(
       mostrados: n,
       acordaos: itens,
       cabecalhoDeCobertura: { ...r.cabecalhoDeCobertura, porTribunal, ...(listaCortada && { listaCortada }) },
-      avisos: tam < tamanho ? [...avisosBase, ...semData, ...linkTjgo, `Trechos encurtados para ${tam} caracteres para a resposta caber em ${TETO_DA_RESPOSTA / 1000} mil caracteres.`] : [...avisosBase, ...semData, ...linkTjgo],
+      avisos: tam < tamanho ? [...avisosBase, ...semData, ...linkTjgo, ...avisoDaSerie, `Trechos encurtados para ${tam} caracteres para a resposta caber em ${TETO_DA_RESPOSTA / 1000} mil caracteres.`] : [...avisosBase, ...semData, ...linkTjgo, ...avisoDaSerie],
     };
   };
   // Mede o texto final: os campos que o servidor acrescenta (tabelas, aviso de natureza jurídica) contam.
@@ -633,12 +687,20 @@ function ajustarAoTeto<T>(
     `Ordem por data: ${apresentados.length} acórdãos sem data foram para o fim da lista.`,
   ).length + 1;
   const cabe = (tam: number, n: number) => {
-    const x = montar(tam, n, true);
+    const x = montar(tam, n, true, false);
     return JSON.stringify({ ...x, ...acrescimos?.(x) }).length + reservaDoAviso <= TETO_DA_RESPOSTA;
   };
-  if (cabe(tamanho, apresentados.length)) return montar(tamanho, apresentados.length);
+  // O agrupamento não participa da seleção nem do corte pelo teto. Se os campos da série fizerem a resposta
+  // crescer além do teto (grupos pequenos), preserva-se a lista individual, sem tirar nenhum acórdão.
+  const finalizar = (tam: number, n: number) => {
+    const x = montar(tam, n);
+    return JSON.stringify({ ...x, ...acrescimos?.(x) }).length + reservaDoAviso <= TETO_DA_RESPOSTA
+      ? x
+      : montar(tam, n, false, false);
+  };
+  if (cabe(tamanho, apresentados.length)) return finalizar(tamanho, apresentados.length);
   for (const tam of [80, 60, TRECHO_MINIMO].filter((t) => t < tamanho)) {
-    if (cabe(tam, apresentados.length)) return montar(tam, apresentados.length);
+    if (cabe(tam, apresentados.length)) return finalizar(tam, apresentados.length);
   }
   const tam = Math.min(tamanho, TRECHO_MINIMO);
   let [baixo, alto] = [0, apresentados.length - 1];
@@ -647,5 +709,5 @@ function ajustarAoTeto<T>(
     if (cabe(tam, meio)) baixo = meio;
     else alto = meio - 1;
   }
-  return montar(tam, baixo);
+  return finalizar(tam, baixo);
 }
