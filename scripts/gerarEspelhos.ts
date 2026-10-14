@@ -585,7 +585,8 @@ export async function gerarEGravar(cliente: Cliente, opcoes: OpcoesDaGeracao = {
   const { cache = CACHE_PADRAO, destino = DESTINO_PADRAO, revisado = false, agora = Date.now } = opcoes;
   const { fichas, arquivos } = await baixarConjuntos(cliente, cache, opcoes);
   const construtor = new ConstrutorDoIndice();
-  for (const a of arquivos) {
+  // Deduplicação entre conjuntos também precisa receber a fotografia mais recente por último.
+  for (const a of [...arquivos].sort((a, b) => a.nome.localeCompare(b.nome) || a.orgao.localeCompare(b.orgao))) {
     for (const { origem, registros } of registrosDoArquivo(a)) construtor.adicionar(registros, origem);
     opcoes.registrar?.(`leu    ${a.orgao}/${a.nome}`);
   }

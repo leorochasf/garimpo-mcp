@@ -513,6 +513,18 @@ describe("baixarConjuntos", () => {
 const jsonDe = (...registros: Record<string, unknown>[]) => Buffer.from(JSON.stringify(registros));
 
 describe("gerarEGravar", () => {
+  it("a versão mais recente vence também quando as cópias vêm de órgãos diferentes", async () => {
+    const dados = {
+      "corte-especial": { "20220731.json": jsonDe(reg({ ministroRelator: "VERSAO NOVA" })) },
+      "primeira-secao": { "20220531.json": jsonDe(reg({ ministroRelator: "VERSAO ANTIGA" })) },
+    };
+    const ix = await gerarEGravar(portal(dados).cliente, {
+      cache: novoCache(), destino: join(novoCache(), "indice.json"), orgaos: DOIS,
+    });
+    expect(ix.acordaos).toHaveLength(1);
+    expect(ix.acordaos[0][5]).toBe("VERSAO NOVA");
+  });
+
   it("recusa índice acima de 3 MB gzip antes de gravar qualquer arquivo no destino", async () => {
     // Ruído determinístico e pouco compressível; nenhum RNG ou acesso à rede.
     const ruido = Buffer.alloc(4_000_000);
