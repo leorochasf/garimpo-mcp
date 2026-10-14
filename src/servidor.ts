@@ -139,6 +139,14 @@ const opcoesDosTrts = {
       'Só TRTs: true acrescenta a lista de precedentes qualificados da coleção "precedentes" do Falcão (IRDR, IAC, ' +
         "súmulas; 1 chamada a mais, até 10 itens, só pelo texto da busca). Padrão: só acórdãos",
     ),
+  decisoes: z
+    .enum(["monocraticas", "sentencas"])
+    .optional()
+    .describe(
+      "Só TRTs: monocraticas ou sentencas traz, em vez de acórdãos, a 1ª página (até 10) da coleção do Falcão, só " +
+        "metadados e sem texto; não são acórdãos nem precedentes do art. 927; não combina com filtros nem com as outras " +
+        "opções. Padrão: só acórdãos",
+    ),
 };
 
 const renovar = z
@@ -187,11 +195,12 @@ function conferirDatas(datas: { de?: string; ate?: string }) {
 }
 
 /** Recusa, com frase que ensina a corrigir, as opções dos TRTs pedidas para outro tribunal (nunca ignoradas em silêncio). */
-function conferirOpcoesDosTrts(p: { tribunal: string; somenteEmentas?: boolean; ordenacao?: string; precedentes?: boolean }) {
+function conferirOpcoesDosTrts(p: { tribunal: string; somenteEmentas?: boolean; ordenacao?: string; precedentes?: boolean; decisoes?: string }) {
   const pedidas = [
     p.somenteEmentas !== undefined && "somenteEmentas",
     p.ordenacao !== undefined && "ordenacao",
     p.precedentes !== undefined && "precedentes",
+    p.decisoes !== undefined && "decisoes",
   ].filter(Boolean);
   if (pedidas.length && !ehDoFalcao(p.tribunal)) {
     throw new Error(
