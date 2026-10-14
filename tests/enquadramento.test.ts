@@ -264,3 +264,79 @@ describe("teste-trava do texto do art. 927 usado pela regra", () => {
     expect(ART_927_CONFERIDO_EM).toBe("2026-10-08");
   });
 });
+
+describe("âmbito do precedente (ADR-0007, emenda do âmbito)", () => {
+  const NACIONAL = /^nacional: .*CF, art\. 92, § 2º/;
+
+  it.each([
+    ["ADI do STF", () => enquadrarAcordao(acordao({ siglaClasse: "ADI" })), /STF/],
+    ["ADC do STF", () => enquadrarAcordao(acordao({ siglaClasse: "ADC" })), /STF/],
+    ["súmula vinculante", () => enquadrarQualificado({ tribunal: "stf", tipo: "súmula vinculante", numero: "1" }), /STF/],
+    [
+      "tema repetitivo do STJ com tese",
+      () => enquadrarQualificado({ tribunal: "stj", tipo: "tema repetitivo", numero: "1", tese: "Tese de exemplo." }),
+      /STJ/,
+    ],
+    ["IAC do STJ com tese", () => enquadrarQualificado({ tribunal: "stj", tipo: "IAC", numero: "1", tese: "Tese de exemplo." }), /STJ/],
+  ])("%s classificado → âmbito nacional, com a base da CF e o órgão", (_nome, enquadrar, orgao) => {
+    const e = enquadrar();
+    expect(e.inciso).not.toBe("não classificado");
+    expect(e.ambito).toMatch(NACIONAL);
+    expect(e.ambito).toMatch(orgao);
+  });
+
+  it("IRDR de tribunal estadual → âmbito do tribunal de origem, condicional, com o CPC art. 985, I; o inciso segue não classificado", () => {
+    const e = enquadrarAcordao(acordao({ tribunal: "tjgo", siglaClasse: "IRDR" }));
+    expect(e.inciso).toBe("não classificado");
+    expect(e.ambito).toMatch(/^tribunal de origem \(se este acórdão fixou a tese\): .*TJGO/);
+    expect(e.ambito).toContain("CPC, art. 985, I");
+    expect(e.ambito).toContain("juizados especiais do respectivo Estado ou região");
+  });
+
+  it("IRDR reconhecido pelo nome da classe por extenso também recebe o âmbito do tribunal de origem", () => {
+    const e = enquadrarAcordao(
+      acordao({ tribunal: "trf1", classe: "INCIDENTE DE RESOLUÇÃO DE DEMANDAS REPETITIVAS" }),
+    );
+    expect(e.ambito).toMatch(/^tribunal de origem/);
+  });
+
+  it.each([
+    { siglaClasse: "IRDR", classe: "Apelação Cível" },
+    { siglaClasse: "IAC", classe: "Incidente de resolução de demandas repetitivas" },
+    { siglaClasse: "REsp", classe: "Incidente de resolução de demandas repetitivas" },
+    { siglaClasse: "ADI", classe: "Incidente de resolução de demandas repetitivas" },
+  ])("classe contraditória $siglaClasse / $classe → sem âmbito", (dados) => {
+    const e = enquadrarAcordao(acordao({ tribunal: "tjgo", ...dados }));
+    expect(e.inciso).toBe("não classificado");
+    expect(e).not.toHaveProperty("ambito");
+  });
+
+  it.each(["", "   "])("IRDR sem tribunal identificado (%j) → sem âmbito", (tribunal) => {
+    const e = enquadrarAcordao(acordao({ tribunal, siglaClasse: "IRDR" }));
+    expect(e.inciso).toBe("não classificado");
+    expect(e).not.toHaveProperty("ambito");
+  });
+
+  it.each([
+    ["classe ausente", () => enquadrarAcordao(acordao({}))],
+    ["REsp", () => enquadrarAcordao(acordao({ tribunal: "stj", siglaClasse: "REsp" }))],
+    ["ADPF", () => enquadrarAcordao(acordao({ siglaClasse: "ADPF" }))],
+    ["IAC de tribunal estadual (dispositivo não verificado)", () => enquadrarAcordao(acordao({ tribunal: "tjgo", siglaClasse: "IAC" }))],
+    ["IRDR em tribunal superior", () => enquadrarAcordao(acordao({ tribunal: "stj", siglaClasse: "IRDR" }))],
+    ["tema do STJ sem tese", () => enquadrarQualificado({ tribunal: "stj", tipo: "tema repetitivo", numero: "1" })],
+    ["repercussão geral", () => enquadrarQualificado({ tribunal: "stf", tipo: "repercussão geral", numero: "1" })],
+    ["súmula do STF", () => enquadrarQualificado({ tribunal: "stf", tipo: "súmula", numero: "1" })],
+    ["súmula vinculante fora do STF (dados contraditórios)", () => enquadrarQualificado({ tribunal: "stj", tipo: "súmula vinculante", numero: "1" })],
+  ])("%s → sem âmbito (dado ausente nunca vira âmbito)", (_nome, enquadrar) => {
+    expect(enquadrar().ambito).toBeUndefined();
+  });
+
+  it("o âmbito nunca usa o vocabulário proibido no glossário", () => {
+    const textos = [
+      enquadrarAcordao(acordao({ siglaClasse: "ADI" })).ambito,
+      enquadrarQualificado({ tribunal: "stf", tipo: "súmula vinculante", numero: "1" }).ambito,
+      enquadrarAcordao(acordao({ tribunal: "tjgo", siglaClasse: "IRDR" })).ambito,
+    ].join(" ");
+    expect(textos).not.toMatch(/persuasiv|vinculante|fora do rol|efeito/i);
+  });
+});

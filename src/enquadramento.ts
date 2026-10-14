@@ -50,6 +50,8 @@ export interface Enquadramento927 {
   avisoSituacao?: string;
   /** Por que não foi classificado (só quando não classificado). */
   motivo?: string;
+  /** Alcance de jurisdição do órgão que decidiu, por tribunal e classe (ADR-0007, emenda do âmbito). Ausente sem regra. */
+  ambito?: string;
   /** Notas informativas, que nunca mudam o inciso. */
   notas: string[];
   textoLegalConferidoEm: string;
@@ -104,7 +106,38 @@ export function enquadrarQualificado(q: QualificadoParaEnquadrar, reforco?: Refo
     q.tipo,
     doReforco,
   ).completo;
-  return doReforco ? { ...completo, notas: notasDoReforco(q, doReforco) } : completo;
+  const comAmbito = comAmbitoNacional(completo, q.tribunal);
+  return doReforco ? { ...comAmbito, notas: notasDoReforco(q, doReforco) } : comAmbito;
+}
+
+/**
+ * Âmbito (ADR-0007, emenda do âmbito): só o alcance de jurisdição do órgão que decidiu, por regra fixa de tribunal e
+ * classe. Decisão positiva do STF ou do STJ → nacional (CF, art. 92, § 2º); IRDR de outro tribunal → tribunal de origem,
+ * condicional (CPC, art. 985, I). Dado ausente nunca vira âmbito.
+ */
+function comAmbitoNacional(e: Enquadramento927, tribunal: string): Enquadramento927 {
+  if (e.inciso === "não classificado" || !["stf", "stj"].includes(tribunal)) return e;
+  return {
+    ...e,
+    ambito:
+      `nacional: o ${tribunal.toUpperCase()} tem jurisdição em todo o território nacional (CF, art. 92, § 2º: "O ` +
+      'Supremo Tribunal Federal e os Tribunais Superiores têm jurisdição em todo o território nacional."); é o âmbito ' +
+      "do órgão que decidiu, não a vigência nem a aplicação ao caso",
+  };
+}
+
+function ambitoDoIrdr(a: AcordaoParaEnquadrar): string | undefined {
+  if (!a.tribunal.trim()) return undefined;
+  if (incidenteDaClasse(a) !== "IRDR" || ["stf", "stj"].includes(a.tribunal)) return undefined;
+  // A sigla e o nome por extenso, quando presentes, precisam identificar o mesmo incidente.
+  if (a.siglaClasse && a.siglaClasse !== "IRDR") return undefined;
+  if (a.classe && siglaPelaClasse(a.classe) !== "IRDR") return undefined;
+  return (
+    `tribunal de origem (se este acórdão fixou a tese): ${a.tribunal.toUpperCase()}, na área de jurisdição do ` +
+    'respectivo tribunal (CPC, art. 985, I: "a todos os processos individuais ou coletivos que versem sobre idêntica ' +
+    "questão de direito e que tramitem na área de jurisdição do respectivo tribunal, inclusive àqueles que tramitem " +
+    'nos juizados especiais do respectivo Estado ou região;"); não confirmado que este acórdão fixou a tese'
+  );
 }
 
 /**
@@ -347,7 +380,9 @@ export function enquadrarAcordao(
   a: AcordaoParaEnquadrar,
   contexto: { paradigmas?: readonly ParadigmaDoSite[] } = {},
 ): Enquadramento927 {
-  return { ...regraDoAcordao(a), notas: notasDoAcordao(a, contexto.paradigmas ?? []) };
+  const regra = comAmbitoNacional(regraDoAcordao(a), a.tribunal);
+  const ambito = regra.ambito ?? ambitoDoIrdr(a);
+  return { ...regra, ...(ambito ? { ambito } : {}), notas: notasDoAcordao(a, contexto.paradigmas ?? []) };
 }
 
 function regraDoAcordao(a: AcordaoParaEnquadrar): Enquadramento927 {
