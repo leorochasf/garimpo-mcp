@@ -167,3 +167,41 @@ de rede para esta fonte existe ainda**; esta entrada precede o gerador (ADR-0017
 - **Duas restrições diferentes, em hosts diferentes:** o `/api/` vem do robots do Portal de Dados Abertos
   (`dadosabertos.web.stj.jus.br`), que o gerador da tabela já respeita; o "nunca processo.stj.jus.br" vem do robots do
   próprio `processo.stj.jus.br`. O robots de `www.stj.jus.br` vale só para `www` e não se aplica a `processo`.
+
+## API pública de pesquisa do TJDFT (texto do acórdão)
+
+Usada por `obter_inteiro_teor` no TJDFT (I-13 / G-17): o **texto** do acórdão, pelo identificador e uuid do link do
+JurisprudênciaIA. Rótulo: «texto do portal do tribunal»; nunca «inteiro teor oficial» (que é o PDF). Não há PDF nem
+recibo.
+
+- **Documentação oficial:** página «Webservice ou API» —
+  https://www.tjdft.jus.br/transparencia/tecnologia-da-informacao-e-comunicacao/dados-abertos/webservice-ou-api — e o
+  PDF «Documentação da API Pública de Consulta à Jurisprudência do TJDFT» —
+  https://www.tjdft.jus.br/transparencia/tecnologia-da-informacao-e-comunicacao/dados-abertos/documentos/documentacao_api_seti_transparencia.pdf
+  (ambos lidos em 2026-10-14). Literais: a API existe «para oferecer um ponto de acesso estruturado e padronizado aos
+  acórdãos e decisões disponíveis para consulta pública»; `POST https://jurisdf.tjdft.jus.br/api/v1/pesquisa`, corpo
+  JSON com `query`, `pagina` (a partir de 0) e `tamanho` obrigatórios e `termosAcessorios` opcional (lista de
+  `campo`/`valor`); «Os únicos campos permitidos são»: `base`, `subbase`, `origem`, `uuid`, `identificador`,
+  `identificadorOrdenacao`, `processo`, `nomeRelator`, `nomeRevisor`, `nomeRelatorDesignado`,
+  `descricaoOrgaoJulgador`, `dataJulgamento`, `dataPublicacao`, `descricaoClasseCnj`. A resposta traz `hits`,
+  `agregacoes`, `paginacao` e `registros` (com `uuid`, `identificador`, `processo`, `nomeRelator`, `inteiroTeor`,
+  `possuiInteiroTeor`…). A documentação não fala de cota, de `retornaInteiroTeor` nem de segredo de justiça.
+- **Termos:** a página da API não traz condições de uso nem limite de chamadas; define, em geral, sistemas «em formatos
+  abertos, estruturados e legíveis por máquina» como os que «permitam a leitura sem limitações legais de uso dos
+  arquivos por programas de terceiros». Termo de uso do sítio do TJDFT (lido em 2026-10-14): a reprodução do conteúdo
+  público «é permitida, total ou parcialmente, desde que citada a fonte e mantida a integridade das informações»; não
+  se usam «tecnologias que comprometam a disponibilidade dos serviços oferecidos». O `robots.txt` do host não existe
+  (devolve a página do aplicativo, HTTP 200 `text/html`): nenhuma regra publicada.
+- **Como o Garimpo chega ao acórdão:** do link `https://jurisdf.tjdft.jus.br/acordaos/<identificador>/inteiro-teor/<uuid>`
+  tira o `identificador` e pede `POST` com `termosAcessorios: [{campo: "identificador", valor}]`, `retornaInteiroTeor:
+  true` (observado na primeira prova do ticket 02, fora da documentação) e `query` com uma palavra da ementa (a API exige o termo). O
+  registro só vale se o `uuid` for o do link e, quando a busca trouxe o número CNJ, o `processo` for o mesmo; senão, texto
+  **não verificado** e nada é guardado. `segredoJustica` verdadeiro ou `possuiInteiroTeor` falso = sem texto. Busca por
+  `uuid` ou pelo número CNJ no `query` não devolveu o registro (primeira prova do ticket 02 e prova de 2026-10-14).
+- **Freios:** serviço `tjdft` no disjuntor (regra 3 do `CLAUDE.md`); freio preventivo pelo restante que a API informa em
+  cada resposta (`x-ratelimit-limit: 60`, `x-ratelimit-remaining`, `x-ratelimit-reset` em segundos), o mesmo desenho do
+  Falcão (`src/freio.ts`): na reserva, pausa em todas as janelas. UA honesto do Garimpo, aceito sem desafio nem login.
+- **O que o Garimpo guarda:** por até 24 h, na memória, só o texto do acórdão pelo id; nunca a resposta bruta.
+- **Não verificado:** o que a janela da cota mede além de «60 por minuto» (visto: `reset` em segundos); se `query` com
+  palavra da ementa casa sempre (visto em 1 acórdão: «apelação»); a combinação `identificador` + `retornaInteiroTeor` numa
+  só chamada ao vivo (cada uma vista em chamada separada); o frescor da base.
