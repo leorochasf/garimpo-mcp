@@ -23,7 +23,7 @@ obtenção original**.
 
 ## Regras da ferramenta (condição de D-12)
 
-- Lista curta de diplomas, por sigla; só entra diploma cuja resposta foi vista ao vivo (hoje: CPC/2015). Diploma ou
+- Lista curta de diplomas, por sigla; só entra diploma cuja resposta foi vista ao vivo (hoje: CPC/2015, CC/2002 e CF/88; CDC não provado, ver nota abaixo). Diploma ou
   dispositivo que o Garimpo não entende vira erro que ensina, sem chamada.
 - Dispositivo sem texto na fonte: "não verificado". Dois dispositivos com a mesma identificação: "identificação
   necessária", o Garimpo não escolhe.
@@ -46,3 +46,11 @@ obtenção original**.
 - Nova ferramenta no fim do `tools/list`; descrição do projeto e README refletem a extensão. Glossário: termo proposto no
   ticket, a incluir pelo dono/piloto.
 - Acrescentar um diploma exige uma prova ao vivo curta dele (`GARIMPO_VIVO=1`) e uma linha na tabela de diplomas.
+
+## Nota de 2026-10-14: CC e CF entram, CDC não
+
+Com a mesma rota e a URN do **documento inteiro** (uma chamada por diploma, 200), o Código Civil (Lei 10.406/2002, 5,3 MB,
+`dateModified` 2024-06-28) e a Constituição (4,7 MB, `dateModified` 2026-05-05) trouxeram o texto literal e as marcas da
+fonte (CC art. 186 com nota da ADI 7.055; art. 229 revogado; CF art. 5º, caput) e entraram na lista (siglas `CC`, `CF`).
+O CDC (Lei 8.078/1990) respondeu 200, mas só com metadados (8 KB, sem `hasPart`, sem texto): **não provado, fora da
+lista**, com a resposta honesta de diploma desconhecido. Planalto continua descartado.

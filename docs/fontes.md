@@ -341,5 +341,17 @@ Usada por `texto_de_lei`: o texto literal de um dispositivo de lei, sem afirmar 
   dois é usado.
 - **Freios:** serviço `normas.leg.br` no disjuntor (o host), 1 s entre chamadas, 2 vagas somadas, 429/503 pela regra
   geral. **Guarda:** por 24 h na memória, só o dispositivo reduzido, com a data da obtenção original.
-- **Não verificado:** diplomas além do CPC (cada um pede uma prova ao vivo curta e uma linha na tabela); atualidade da
-  compilação (a fonte informa `dateModified`; o CPC mostra 2025-03-13).
+- **Ampliação (2026-10-14, I-43/D-12), uma chamada por diploma, URN do documento inteiro, 200 application/json, cliente
+  único com freios e UA honesto:**
+  `.../normas?urn=urn:lex:br:federal:lei:2002-01-10;10406&&tipo_documento=maior-detalhe` (CC, 5,3 MB, `dateModified`
+  2024-06-28): provados art. 186 (redação original com `NotInForce` 2002-01-10/2024-05-21 e redações da ADI 7.055 com a
+  nota "Foi conferida interpretação conforme a Constituição ao caput dos arts. 186 e 927...") e art. 229 (`Repeal_Version`
+  "(Revogado)" pela Lei 13.105/2015);
+  `.../normas?urn=urn:lex:br:federal:constituicao:1988-10-05;1988&&tipo_documento=maior-detalhe` (CF, 4,7 MB,
+  `dateModified` 2026-05-05): provado art. 5º, caput, literal. Siglas: `CC`, `CF`.
+  `.../normas?urn=urn:lex:br:federal:lei:1990-09-11;8078&&tipo_documento=maior-detalhe` (CDC): 200 com 8 KB, só
+  metadados (sem `hasPart` nem texto) — **não provado, fora da lista**; com o teto de 3 chamadas não houve nova
+  tentativa. Alguns textos trazem marcação da fonte embutida (ex.: `<span ... xlink:href=...>Constituição</span>` em CF
+  art. 5º, I), repassada como veio.
+- **Não verificado:** CDC e demais diplomas (cada um pede uma prova ao vivo curta e uma linha na tabela); atualidade da
+  compilação (a fonte informa `dateModified`; CPC 2025-03-13, CC 2024-06-28, CF 2026-05-05).
