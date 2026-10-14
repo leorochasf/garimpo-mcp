@@ -330,7 +330,7 @@ TRF2 e TRF6 não constam da tabela de tribunais do Garimpo; não foram tratados.
     `orgaoJulgador` (código numérico), `orgaoJulgadorPorExtenso` (vara), `nomeRelator` (vazio), `nomeRedator`,
     `tipoDocumento` ("Sentença"), `tribunal`, `dataJulgamento`, `dataJuntada`, `faseProcessual`, `textoSentenca`,
     `highlightSentenca`, `highlightSentencaAnonimizado`, `prioridades`, `score`.
-- **O que o Garimpo devolve:** só metadados da 1ª página (até 10): tipo, id `tribunal:coleção:id`, número (CNJ com a sigla
+- **O que o Garimpo devolve:** só metadados da 1ª página (até 10, respeitando o `limite` pedido): tipo, id `tribunal:coleção:id`, número (CNJ com a sigla
   da classe), classe, órgão, redator, `dataJuntada` e, na sentença, `dataJulgamento`. **Nunca o texto**: o campo "anonimizado"
   da sentença trazia nome de parte na prova (o nome da pessoa jurídica aparecia no começo do texto), então não é seguro
   como trecho. A decisão monocrática e a sentença não são acórdão (julgamento colegiado) nem precedente do art. 927 do CPC:

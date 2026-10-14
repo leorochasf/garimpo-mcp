@@ -72,17 +72,51 @@ describe("busca_direta com decisoes: monocráticas e sentenças do Falcão", () 
     });
   });
 
+  it("respeita limite menor que a página e informa o corte, sem gastar outra chamada", async () => {
+    const falcao = falcaoDasColecoes();
+    const { mcp } = await conectar(siteFalso().cliente, falcao.cliente);
+    const r = await chamar(mcp, "busca_direta", { tribunal: "trt2", texto: TEXTO, decisoes: "monocraticas", limite: 1 });
+    expect(r.isError).toBe(false);
+    expect(r.dado.decisoes).toHaveLength(1);
+    expect(r.dado.cabecalhoDeCobertura).toMatch(/recebeu 4 e mostra 1/);
+    expect(r.dado.cabecalhoDeCobertura).toMatch(/limite pedido/);
+    expect(falcao.pedidos).toHaveLength(1);
+  });
+
   it("o texto da decisão e os campos anonimizados nunca saem na lista; a natureza diz que não é acórdão nem precedente do art. 927", async () => {
     const { mcp } = await conectar(siteFalso().cliente, falcaoDasColecoes().cliente);
     for (const decisoes of ["monocraticas", "sentencas"]) {
       const r = await chamar(mcp, "busca_direta", { tribunal: "trt2", texto: TEXTO, decisoes });
-      expect(r.texto).not.toMatch(/CORPO-SECRETO|Fulano de Tal|Empresa Fictícia/);
+      expect(r.texto).not.toMatch(/CORPO-SECRETO|DADO-DE-PARTE-OMITIDO/);
       expect(r.dado.ressalvaDecisoes).toMatch(/não são acórdãos/);
       expect(r.dado.ressalvaDecisoes).toMatch(/art\. 927/);
       expect(r.dado.ressalvaDecisoes).toMatch(/texto.*não é devolvido/);
       expect(r.dado.cabecalhoDeCobertura).toMatch(/Falcão informou 10\.000 ou mais/);
-      for (const d of r.dado.decisoes) expect(d.natureza).toMatch(/não é acórdão.*não é precedente do art\. 927/);
+      for (const d of r.dado.decisoes) {
+        expect(d.natureza).toMatch(/não é acórdão.*não é precedente do art\. 927/);
+        expect(d).not.toHaveProperty("enquadramento927");
+      }
     }
+  });
+
+  it("repetir decisões não usa busca guardada e o freio da fonte também impede acórdãos", async () => {
+    let chamadas = 0;
+    const falcao = falcaoFalso(() => pagina(DECISOES.monocraticas.documentos, 10000, String(11 - chamadas++)));
+    const { mcp } = await conectar(siteFalso().cliente, falcao.cliente);
+    const pedido = { tribunal: "trt2", texto: TEXTO, decisoes: "monocraticas" };
+    for (let i = 0; i < 2; i++) {
+      const r = await chamar(mcp, "busca_direta", pedido);
+      expect(r.isError).toBe(false);
+      expect(r.dado.buscaGuardada).toBeUndefined();
+    }
+    expect(falcao.pedidos).toHaveLength(2);
+    // Saldo local na reserva: nenhuma coleção pode gastar outra chamada.
+    for (const args of [pedido, { tribunal: "trt2", texto: TEXTO }]) {
+      const r = await chamar(mcp, "busca_direta", args);
+      expect(r.isError).toBe(true);
+      expect(r.texto).toMatch(/pausa preventiva/i);
+    }
+    expect(falcao.pedidos).toHaveLength(2);
   });
 
   it("sem a opção o comportamento é o de antes: coleção acordaos e nenhuma lista decisoes", async () => {
@@ -101,7 +135,7 @@ describe("busca_direta com decisoes: monocráticas e sentenças do Falcão", () 
     const base = { texto: TEXTO, decisoes: "monocraticas" };
     const casos: [Record<string, unknown>, RegExp][] = [
       [{ tribunal: "stj" }, /só vale nos TRTs/],
-      [{ tribunal: "trt2", relator: "Fulano" }, /decisoes.*não aceita.*relator/],
+      [{ tribunal: "trt2", relator: "Redator Fictício" }, /decisoes.*não aceita.*relator/],
       [{ tribunal: "trt2", de: "2024-01-01" }, /decisoes.*não aceita.*de/],
       [{ tribunal: "trt2", precedentes: true }, /decisoes.*não aceita.*precedentes/],
       [{ tribunal: "trt2", somenteEmentas: true }, /decisoes.*não aceita.*somenteEmentas/],

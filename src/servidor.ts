@@ -470,7 +470,9 @@ export function criarServidor(
         "invertido é erro que ensina). Precedentes qualificados dos TRTs só com precedentes:true: uma chamada a mais à " +
         'coleção "precedentes" do Falcão (IRDR, IAC, súmulas), com o tipo e a situação que a fonte informa (ou "não ' +
         'verificado"), sem inciso do art. 927 e sem afirmar vigência; sem a opção a lista vem vazia, por isso, não por ' +
-        "falta de precedente. " +
+        "falta de precedente. Com decisoes:monocraticas ou decisoes:sentencas, devolve só metadados em lista própria, " +
+        "sem texto, sem enquadramento927 e sem busca guardada (uma chamada por pedido); limite padrão e máximo 10, " +
+        "sem filtros nem as outras opções dos TRTs. " +
         `${SOBRE_A_TABELA_NAS_LISTAS} ` +
         `${SOBRE_A_BUSCA_GUARDADA} A busca guardada traz o campo buscaGuardada com essa data. ` +
         SOBRE_O_RECORRIDO,
@@ -478,7 +480,7 @@ export function criarServidor(
       inputSchema: {
         tribunal,
         texto: z.string().min(2).describe("Texto da busca (palavras da tese, dispositivo legal, instituto)"),
-        limite: z.number().int().min(1).max(100).optional().describe("Máximo de acórdãos (1 a 100; padrão 10)"),
+        limite: z.number().int().min(1).max(100).optional().describe("Máximo de acórdãos (1 a 100; padrão 10); com decisoes, máximo de decisões (1 a 10; padrão 10)"),
         ...filtros,
         ...opcoesDosTrts,
         renovar,

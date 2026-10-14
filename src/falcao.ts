@@ -441,6 +441,7 @@ export async function buscaDecisoesNoFalcao(cliente: Cliente, p: ParametrosBusca
     );
   }
   const total = typeof json.quantidadeTotal === "number" && Number.isFinite(json.quantidadeTotal) ? json.quantidadeTotal : undefined;
+  const mostradas = decisoes.slice(0, p.limite ?? POR_PAGINA);
   const nome = `${tipo === "sentença" ? "sentenças" : "decisões monocráticas"}`;
   const informado =
     total === undefined
@@ -457,11 +458,11 @@ export async function buscaDecisoesNoFalcao(cliente: Cliente, p: ParametrosBusca
   return {
     tribunal,
     fonte: ROTULO_FALCAO,
-    cabecalhoDeCobertura: `${informado}; o Garimpo recebeu ${json.documentos.length} e mostra ${decisoes.length} (só a 1ª página); pode haver mais.`,
+    cabecalhoDeCobertura: `${informado}; o Garimpo recebeu ${json.documentos.length} e mostra ${mostradas.length} (só a 1ª página); pode haver mais.${mostradas.length < decisoes.length ? " Lista cortada pelo limite pedido." : ""}`,
     acordaos: [],
     qualificados: [],
     ressalvaQualificados: RESSALVA_FALCAO,
-    decisoes,
+    decisoes: mostradas,
     ressalvaDecisoes: RESSALVA_DECISOES_FALCAO,
     avisos,
   };
