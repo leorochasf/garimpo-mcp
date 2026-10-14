@@ -26,9 +26,16 @@ jobs:
           cache: npm
       - name: Instalar dependências
         run: npm ci
-      - name: Tipos
-        run: npx tsc --noEmit
-      - name: Testes (sem rede, sobre respostas gravadas)
-        run: npx vitest run
-      - name: Build
-        run: npm run build
+      - name: Tipos, testes e build sem acesso à rede externa
+        # Namespace novo: só loopback para os servidores locais da suíte.
+        # Volta ao usuário do runner antes de executar o código do repositório.
+        run: |
+          sudo env "PATH=$PATH" "HOME=$HOME" GARIMPO_VIVO= npm_config_offline=true \
+            unshare --net bash -e -c '
+              ip link set lo up
+              exec setpriv --reuid "$1" --regid "$2" --init-groups bash -e
+            ' -- "$(id -u)" "$(id -g)" <<'SEM_REDE'
+          npx tsc --noEmit
+          npx vitest run
+          npm run build
+          SEM_REDE
