@@ -13,7 +13,12 @@ beforeAll(() => {
 });
 // Os testes que gravam centenas de acórdãos no disco ou rodam o disjuntor entre janelas levam de 2 a 6 s com a máquina
 // carregada: o prazo padrão de 5 s derrubava um deles ao acaso.
-vi.setConfig({ testTimeout: 20_000 });
+// O tempo desses testes é trabalho de disco, não espera: o relógio já é falso e nenhum deles dorme. Cada chamada do
+// cliente faz cerca de 47 operações de arquivo (estado, trava, vaga), medidas com 20 chamadas seguidas: ~1 s sozinho,
+// mas com 3 suítes ao mesmo tempo (como nas várias janelas de trabalho) os testes de 20 a 50 chamadas seguidas de
+// freio.test.ts passavam de 20 s e estouravam o prazo, cada vez um diferente (o de 50 chegou a 38 s). 60 s cobre isso
+// com folga; um teste travado de verdade continua falhando, só um pouco depois.
+vi.setConfig({ testTimeout: 60_000 });
 // Cada teste começa com o estado de proteção zerado: o disjuntor aberto por uma recusa num teste não vale no
 // seguinte.
 afterEach(() => rmSync(join(pasta, "protecao", "estado.json"), { force: true }));
