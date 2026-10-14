@@ -313,3 +313,33 @@ seguem «ainda não testou». Provas registradas em 14/10/2026 (STJ em 13/10/202
 - **STF:** `redir.stf.jus.br` respondeu 202 de WAF à leitura do `robots.txt`.
 
 TRF2 e TRF6 não constam da tabela de tribunais do Garimpo; não foram tratados.
+
+## Legislação: `normas.leg.br` (D-12 / I-43, ADR-0026)
+
+Usada por `texto_de_lei`: o texto literal de um dispositivo de lei, sem afirmar vigência.
+
+- **Verificado em:** 2026-10-14 (13:09–13:14 UTC), UA honesto do Garimpo, uma chamada por vez.
+- **`https://normas.leg.br/robots.txt`:** 200 `text/plain`, 25 bytes: `User-agent: *` / `Allow: /`.
+- **Licença e termos:** a resposta da norma declara `license` e `sdLicense` = https://creativecommons.org/licenses/by/4.0/
+  (CC BY 4.0: citar a fonte). A política de uso do portal do Senado
+  (https://www12.senado.leg.br/institucional/documentos/politica-de-uso-do-portal-do-senado-federal, lida em 2026-10-14;
+  `www12.senado.leg.br/robots.txt`: `User-agent: *` / `Disallow:` vazio) diz, literal: "Todo o conteúdo deste Portal é de
+  propriedade autoral do Senado Federal, mas pode ser utilizado pelos usuários, desde que seja citada a fonte e para fins
+  lícitos." e "O cidadão só tem o direito de acessar o conteúdo que é disponibilizado ao público em geral no Portal."
+- **Rota:** `GET https://normas.leg.br/api/public/normas?urn=urn:lex:br:federal:lei:2015-03-16;13105&&tipo_documento=maior-detalhe`
+  (a forma que o site monta; não é API documentada). 200 `application/json`, 4,1 MB para o CPC. Pedir um dispositivo
+  pela URN (`...!art186`) devolve só `{"urn": ...}` — por isso a consulta é sempre da norma inteira.
+- **Formato (JSON-LD):** raiz com `headline`, `dateModified` (CPC: 2025-03-13), `sdDatePublished` (2026-04-08) e `hasPart`
+  aninhado; cada dispositivo tem `legislationIdentifier` (`...!art85_par2_inc1`) e `workExample` (um objeto ou uma lista
+  de redações com `legislationDate`, `legislationType` — Original_Version, Text_Change_Version, Insertion_Version,
+  Repeal_Version, Court_Decision_Version —, `text`, `legislationConsolidates`, `publisherNote`, `temporalCoverage` e
+  `legislationLegalForce`, ex. `NotInForce`). Revogado: a redação com `Repeal_Version` traz o texto "(Revogado)" e a
+  redação anterior fica na lista. O Garimpo mostra essas marcas **como a fonte as dá**, sem concluir vigência.
+- **Provado ao vivo (PV-20):** CPC art. 85 (caput, §§, incisos), art. 12 (alterado), art. 945 (revogado), art. 85 § 19
+  (decisão judicial anotada). Provas sem sucesso, registradas: `www.planalto.gov.br/robots.txt` → conexão derrubada
+  (reset) ao UA honesto; `legis.senado.leg.br/robots.txt` → 403 "Request forbidden by administrative rules". Nenhum dos
+  dois é usado.
+- **Freios:** serviço `normas.leg.br` no disjuntor (o host), 1 s entre chamadas, 2 vagas somadas, 429/503 pela regra
+  geral. **Guarda:** por 24 h na memória, só o dispositivo reduzido, com a data da obtenção original.
+- **Não verificado:** diplomas além do CPC (cada um pede uma prova ao vivo curta e uma linha na tabela); atualidade da
+  compilação (a fonte informa `dateModified`; o CPC mostra 2025-03-13).
