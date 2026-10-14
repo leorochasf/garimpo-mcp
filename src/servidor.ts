@@ -45,6 +45,7 @@ import { ChaveDoDataJud, clienteDoDataJud, TERMO_DE_USO_DATAJUD } from "./dataju
 import { clienteDoDjen, FonteDjen } from "./djen.js";
 import { julgamentosDoProcesso } from "./julgamentos.js";
 import { avisoRecorridoDoAcordao } from "./recorrido.js";
+import { clienteDaLegislacao, diplomasSuportados, textoDeLei } from "./legislacao.js";
 import { CHAMADO_LIGADO, comLinhaDeChamado, ERRO_DE_ORIGEM } from "./chamado.js";
 import { INSTRUCTIONS, roteiroDePesquisa } from "./roteiro.js";
 import { clienteDoFalcao } from "./falcao.js";
@@ -388,6 +389,8 @@ export interface OpcoesServidor {
   falcao?: Cliente;
   /** Cliente do portal do STF, consultado ao vivo pelo consultar_precedente (ADR-0020). */
   precedentesStf?: Cliente;
+  /** Cliente do normas.leg.br, de onde o texto_de_lei lê o texto oficial (ADR-0026). */
+  legislacao?: Cliente;
   /** Estado de proteção que o diagnostico_dos_freios lê (padrão: o de todos os clientes do processo). */
   coordenacao?: CoordenacaoEmArquivo;
   /** Liga a linha de chamado nos erros inesperados (padrão: desligada até a publicação autorizada). */
@@ -408,6 +411,7 @@ export function criarServidor(
     djen = clienteDoDjen(),
     falcao = clienteDoFalcao(),
     precedentesStf = clienteDosPrecedentes(),
+    legislacao = clienteDaLegislacao(),
     coordenacao,
     chamado = CHAMADO_LIGADO,
   }: OpcoesServidor = {},
@@ -1202,6 +1206,39 @@ export function criarServidor(
           },
           [...new Set(guardados.flatMap((g) => (g.guardado ? [g.guardado.acordao.tribunal] : [])))],
         );
+      } catch (e) {
+        return erro(e);
+      }
+    },
+  );
+
+  registrar(
+    "texto_de_lei",
+    {
+      title: "Texto de lei",
+      description:
+        "Texto literal de UM dispositivo de lei (artigo, parágrafo, inciso ou alínea) como a página oficial " +
+        "normas.leg.br (Congresso Nacional e Senado Federal) o mostra, com a URL oficial, a data de obtenção e o aviso " +
+        "fixo \"texto conforme a página oficial em <data>; o Garimpo não afirma vigência\". Ferramenta separada da " +
+        "jurisprudência: não faz busca, não resume e não liga artigo a precedente. Informe o diploma pela sigla " +
+        `(hoje: ${diplomasSuportados()}; outra sigla é recusada com a lista) e o dispositivo por escrito (ex.: "art. 85", ` +
+        "\"art. 85, § 2º, inciso I\", \"art. 9º, parágrafo único\", \"art. 699-A\"). Dispositivo sem texto na fonte " +
+        "volta como \"não verificado\"; dois dispositivos com a mesma identificação, como \"identificação necessária\" " +
+        "(o Garimpo não escolhe). As redações vêm todas (versoesNaFonte), mesmo quando há só uma, da mais antiga para " +
+        "a mais recente, com as marcas que a fonte põe (tipo da versão, lei alteradora, nota, período, força marcada); " +
+        "o Garimpo não conclui qual redação vale, não reconstitui alteração e não afirma vigência: confira na página " +
+        "oficial antes de citar. Uso conforme a licença CC BY 4.0 que a fonte declara (citar a fonte). A norma inteira " +
+        "pesa mais de 4 MB: cada consulta é uma chamada, 1 s entre chamadas; a repetida volta da memória do Garimpo " +
+        "(24 h), com a data da obtenção original.",
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
+      inputSchema: {
+        diploma: z.string().describe("Sigla do diploma (CPC, CC ou CF)"),
+        dispositivo: z.string().describe('O dispositivo, por escrito (ex.: "art. 85, § 2º, inciso I")'),
+      },
+    },
+    async (args) => {
+      try {
+        return json(await textoDeLei(args, { cliente: legislacao, memoria, agora }));
       } catch (e) {
         return erro(e);
       }

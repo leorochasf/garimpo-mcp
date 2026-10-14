@@ -1,0 +1,3168 @@
+{
+ "legislationPassedBy": {
+  "@type": "GovernmentOrganization",
+  "@id": "https://pt.wikipedia.org/wiki/Assembleia_constituinte"
+ },
+ "@type": "Legislation",
+ "sdPublisher": {
+  "@type": "GovernmentOrganization",
+  "@id": "https://www.congressonacional.leg.br/"
+ },
+ "legislationJurisdiction": {
+  "@type": "AdministrativeArea",
+  "name": "Governo Federal do Brasil (União)",
+  "@id": "https://www.wikidata.org/wiki/Q5440531"
+ },
+ "legislationDate": "1988-10-05",
+ "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988",
+ "headline": "Constituição da República Federativa do Brasil",
+ "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988",
+ "inLanguage": "pt",
+ "alternateName": "CON-1988-10-05",
+ "dateModified": "2026-05-05",
+ "sdDatePublished": "2026-09-09",
+ "sdLicense": "https://creativecommons.org/licenses/by/4.0/",
+ "spatialCoverage": {
+  "address": {
+   "addressCountry": "BR",
+   "@type": "PostalAddress"
+  },
+  "@type": "Country",
+  "name": "Brasil",
+  "@id": "https://servicodados.ibge.gov.br/api/v1/localidades/paises/76",
+  "url": "https://pt.wikipedia.org/wiki/Brasil"
+ },
+ "encoding": [
+  {
+   "@type": "LegislationObject",
+   "inLanguage": "pt",
+   "version": "Original",
+   "encodesCreativeWork": {
+    "@type": "Legislation",
+    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05~texto;pt"
+   },
+   "datePublished": "1988-10-05",
+   "license": "https://creativecommons.org/licenses/by/4.0/",
+   "contentUrl": "https://normas.leg.br/api/binario/d9c9c09c-ee80-42c9-a327-20fd195213c7/texto",
+   "additionalType": "PublicacaoOriginal",
+   "isBasedOn": {
+    "contentUrl": null,
+    "@type": "LegislationObject",
+    "name": "Publicação Original [Constituição da República Federativa do Brasil]  [Diário Oficial da União  de 05/10/1988] (p. 1, col. 1)",
+    "legislationLegalVersion": "OfficialLegalValue",
+    "isPartOf": {
+     "@type": "PublicationVolume",
+     "name": "Diário Oficial da União - Edição de 1988-10-05"
+    },
+    "version": "Original"
+   },
+   "name": "Publicação Original [Constituição da República Federativa do Brasil]  [Diário Oficial da União  de 05/10/1988] (p. 1, col. 1)",
+   "publisher": {
+    "@type": "GovernmentOrganization",
+    "@id": "https://www.congressonacional.leg.br/"
+   },
+   "legislationLegalValue": "UnofficialLegalValue",
+   "encodingFormat": "http://www.iana.org/assignments/media-types/text/html",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05~texto;pt$text-html"
+  },
+  {
+   "license": "https://creativecommons.org/licenses/by/4.0/",
+   "contentUrl": "https://normas.leg.br/api/binario/8524fdb6-b103-4866-927a-9856c584e734/texto",
+   "additionalType": "CompilacaoMonoVigente",
+   "@type": "LegislationObject",
+   "name": "Compilação Monovigente [Constituição da República Federativa do Brasil] ",
+   "inLanguage": "pt",
+   "publisher": {
+    "@type": "GovernmentOrganization",
+    "@id": "https://www.congressonacional.leg.br/"
+   },
+   "legislationLegalValue": "UnofficialLegalValue",
+   "encodingFormat": "http://www.iana.org/assignments/media-types/text/html",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@2026-05-05~texto;pt$text-html",
+   "version": "Current",
+   "encodesCreativeWork": {
+    "@type": "Legislation",
+    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@2026-05-05~texto;pt"
+   }
+  },
+  {
+   "license": "https://creativecommons.org/licenses/by/4.0/",
+   "contentUrl": "https://normas.leg.br/api/binario/e4a41982-7e50-4627-a65c-0d1b6eea7a69/texto",
+   "additionalType": "CompilacaoMonoVigenteTraduzida",
+   "@type": "LegislationObject",
+   "name": "Compilação Monovigente Traduzida [Inglês]  [Constituição da República Federativa do Brasil] ",
+   "inLanguage": "en",
+   "publisher": {
+    "@type": "GovernmentOrganization",
+    "@id": "https://www.congressonacional.leg.br/"
+   },
+   "legislationLegalValue": "UnofficialLegalValue",
+   "encodingFormat": "http://www.iana.org/assignments/media-types/text/html",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@2026-05-05~texto;en$text-html",
+   "version": "Current",
+   "encodesCreativeWork": {
+    "@type": "Legislation",
+    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@2026-05-05~texto;en"
+   }
+  },
+  {
+   "license": "https://creativecommons.org/licenses/by/4.0/",
+   "contentUrl": "https://normas.leg.br/api/binario/12ed5922-54f0-4fb9-bc81-b16413063436/texto",
+   "additionalType": "CompilacaoMonoVigenteTraduzida",
+   "@type": "LegislationObject",
+   "name": "Compilação Monovigente Traduzida [Francês]  [Constituição da República Federativa do Brasil] ",
+   "inLanguage": "fr",
+   "publisher": {
+    "@type": "GovernmentOrganization",
+    "@id": "https://www.congressonacional.leg.br/"
+   },
+   "legislationLegalValue": "UnofficialLegalValue",
+   "encodingFormat": "http://www.iana.org/assignments/media-types/text/html",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@2026-05-05~texto;fr$text-html",
+   "version": "Current",
+   "encodesCreativeWork": {
+    "@type": "Legislation",
+    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@2026-05-05~texto;fr"
+   }
+  }
+ ],
+ "@context": {
+  "@vocab": "http://schema.org/",
+  "lexsdo-br": "https://normas.leg.br/sdo/"
+ },
+ "datePublished": "1988-10-05",
+ "license": "https://creativecommons.org/licenses/by/4.0/",
+ "name": "Constituição da República Federativa do Brasil",
+ "publisher": {
+  "@type": "GovernmentOrganization",
+  "@id": "https://www.in.gov.br/"
+ },
+ "legislationType": {
+  "@type": "CategoryCode",
+  "@id": "https://normas.leg.br/tipo-de-norma/?urn=urn:lex:br:federal:tipo.norma:constituicao"
+ },
+ "sameAs": [
+  "http://www.lexml.gov.br/urn/urn:lex:br:federal:constituicao:1988-10-05;1988",
+  "http://legis.senado.leg.br/legislacao/DetalhaSigen.action?id=579494"
+ ],
+ "hasPart": [
+  {
+   "workExample": {
+    "legislationDate": "1988-10-05",
+    "@type": "Legislation",
+    "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!",
+    "legislationType": "Original_Version",
+    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!"
+   },
+   "hasPart": [
+    {
+     "workExample": {
+      "legislationDate": "1988-10-05",
+      "@type": "Legislation",
+      "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!articulacao",
+      "legislationType": "Original_Version",
+      "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!articulacao"
+     },
+     "hasPart": [
+      {
+       "workExample": {
+        "legislationDate": "1988-10-05",
+        "@type": "Legislation",
+        "name": "TÍTULO II",
+        "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!tit2",
+        "legislationType": "Original_Version",
+        "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!tit2",
+        "text": "Dos Direitos e Garantias Fundamentais"
+       },
+       "hasPart": [
+        {
+         "workExample": {
+          "legislationDate": "1988-10-05",
+          "@type": "Legislation",
+          "name": "CAPÍTULO I",
+          "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!tit2_cap1",
+          "legislationType": "Original_Version",
+          "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!tit2_cap1",
+          "text": "Dos Direitos e Deveres Individuais e Coletivos"
+         },
+         "hasPart": [
+          {
+           "workExample": {
+            "legislationDate": "1988-10-05",
+            "@type": "Legislation",
+            "name": "Art. 5º",
+            "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5",
+            "legislationType": "Original_Version",
+            "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5"
+           },
+           "hasPart": [
+            {
+             "workExample": {
+              "legislationDate": "1988-10-05",
+              "@type": "Legislation",
+              "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt",
+              "legislationType": "Original_Version",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt",
+              "text": "Todos são iguais perante a lei, sem distinção de qualquer natureza, garantindo-se aos brasileiros e aos estrangeiros residentes no País a inviolabilidade do direito à vida, à liberdade, à igualdade, à segurança e à propriedade, nos termos seguintes:"
+             },
+             "hasPart": [
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "I –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc1",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc1",
+                "text": "homens e mulheres são iguais em direitos e obrigações, nos termos desta <span xmlns=\"http://www.lexml.gov.br/1.0\" xlink:href=\"urn:lex:br:federal:constituicao:1988-10-05;1988\">Constituição</span> ;"
+               },
+               "citation": {
+                "@type": "Legislation",
+                "name": "Constituição",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc1",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc1"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "II –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc2",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc2",
+                "text": "ninguém será obrigado a fazer ou deixar de fazer alguma coisa senão em virtude de lei;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc2",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc2"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "III –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc3",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc3",
+                "text": "ninguém será submetido a tortura nem a tratamento desumano ou degradante;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc3",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc3"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "IV –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc4",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc4",
+                "text": "é livre a manifestação do pensamento, sendo vedado o anonimato;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc4",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc4"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "V –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc5",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc5",
+                "text": "é assegurado o direito de resposta, proporcional ao agravo, além da indenização por dano material, moral ou à imagem;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc5",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc5"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "VI –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc6",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc6",
+                "text": "é inviolável a liberdade de consciência e de crença, sendo assegurado o livre exercício dos cultos religiosos e garantida, na forma da lei, a proteção aos locais de culto e a suas liturgias;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc6",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc6"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "VII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc7",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc7",
+                "text": "é assegurada, nos termos da lei, a prestação de assistência religiosa nas entidades civis e militares de internação coletiva;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc7",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc7"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "VIII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc8",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc8",
+                "text": "ninguém será privado de direitos por motivo de crença religiosa ou de convicção filosófica ou política, salvo se as invocar para eximir-se de obrigação legal a todos imposta e recusar-se a cumprir prestação alternativa, fixada em lei;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc8",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc8"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "IX –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc9",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc9",
+                "text": "é livre a expressão da atividade intelectual, artística, científica e de comunicação, independentemente de censura ou licença;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc9",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc9",
+               "@reverse": {
+                "legislationForeseesChanges": {
+                 "@type": "Legislation",
+                 "name": "Proposta de Emenda à Constituição nº 452/2018 [CD]",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2018;452"
+                }
+               }
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "X –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc10",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc10",
+                "text": "são invioláveis a intimidade, a vida privada, a honra e a imagem das pessoas, assegurado o direito a indenização pelo dano material ou moral decorrente de sua violação;"
+               },
+               "@type": "Legislation",
+               "mentions": {
+                "@type": "Legislation",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2020-09-23;14063"
+               },
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc10",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc10",
+               "@reverse": {
+                "legislationForeseesChanges": {
+                 "@type": "Legislation",
+                 "name": "Proposta de Emenda à Constituição nº 44/2025 - Iniciadora",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:senado.federal:proposta.emenda.constitucional;pec:2025;44"
+                }
+               }
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XI –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc11",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc11",
+                "text": "a casa é asilo inviolável do indivíduo, ninguém nela podendo penetrar sem consentimento do morador, salvo em caso de flagrante delito ou desastre, ou para prestar socorro, ou, durante o dia, por determinação judicial;"
+               },
+               "@type": "Legislation",
+               "mentions": {
+                "@type": "Legislation",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105"
+               },
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc11",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc11"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc12",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc12",
+                "text": "é inviolável o sigilo da correspondência e das comunicações telegráficas, de dados e das comunicações telefônicas, salvo, no último caso, por ordem judicial, nas hipóteses e na forma que a lei estabelecer para fins de investigação criminal ou instrução processual penal;"
+               },
+               "@type": "Legislation",
+               "mentions": {
+                "@type": "Legislation",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2020-09-23;14063"
+               },
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc12",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc12",
+               "@reverse": {
+                "legislationApplies": {
+                 "@type": "Legislation",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1996-07-24;9296"
+                }
+               }
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XIII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc13",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc13",
+                "text": "é livre o exercício de qualquer trabalho, ofício ou profissão, atendidas as qualificações profissionais que a lei estabelecer;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc13",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc13"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XIV –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc14",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc14",
+                "text": "é assegurado a todos o acesso à informação e resguardado o sigilo da fonte, quando necessário ao exercício profissional;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc14",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc14"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XV –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc15",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc15",
+                "text": "é livre a locomoção no território nacional em tempo de paz, podendo qualquer pessoa, nos termos da lei, nele entrar, permanecer ou dele sair com seus bens;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc15",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc15"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XVI –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc16",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc16",
+                "text": "todos podem reunir-se pacificamente, sem armas, em locais abertos ao público, independentemente de autorização, desde que não frustrem outra reunião anteriormente convocada para o mesmo local, sendo apenas exigido prévio aviso à autoridade competente;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc16",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc16"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XVII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc17",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc17",
+                "text": "é plena a liberdade de associação para fins lícitos, vedada a de caráter paramilitar;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc17",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc17"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XVIII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc18",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc18",
+                "text": "a criação de associações e, na forma da lei, a de cooperativas independem de autorização, sendo vedada a interferência estatal em seu funcionamento;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc18",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc18"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XIX –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc19",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc19",
+                "text": "as associações só poderão ser compulsoriamente dissolvidas ou ter suas atividades suspensas por decisão judicial, exigindo-se, no primeiro caso, o trânsito em julgado;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc19",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc19"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XX –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc20",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc20",
+                "text": "ninguém poderá ser compelido a associar-se ou a permanecer associado;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc20",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc20"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XXI –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc21",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc21",
+                "text": "as entidades associativas, quando expressamente autorizadas, têm legitimidade para representar seus filiados judicial ou extrajudicialmente;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc21",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc21"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XXII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc22",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc22",
+                "text": "é garantido o direito de propriedade;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc22",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc22"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XXIII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc23",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc23",
+                "text": "a propriedade atenderá a sua função social;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc23",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc23"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XXIV –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc24",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc24",
+                "text": "a lei estabelecerá o procedimento para desapropriação por necessidade ou utilidade pública, ou por interesse social, mediante justa e prévia indenização em dinheiro, ressalvados os casos previstos nesta <span xmlns=\"http://www.lexml.gov.br/1.0\" xlink:href=\"urn:lex:br:federal:constituicao:1988-10-05;1988\">Constituição</span> ;"
+               },
+               "citation": {
+                "@type": "Legislation",
+                "name": "Constituição",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc24",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc24"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XXV –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc25",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc25",
+                "text": "no caso de iminente perigo público, a autoridade competente poderá usar de propriedade particular, assegurada ao proprietário indenização ulterior, se houver dano;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc25",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc25"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XXVI –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc26",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc26",
+                "text": "a pequena propriedade rural, assim definida em lei, desde que trabalhada pela família, não será objeto de penhora para pagamento de débitos decorrentes de sua atividade produtiva, dispondo a lei sobre os meios de financiar o seu desenvolvimento;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc26",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc26"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XXVII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc27",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc27",
+                "text": "aos autores pertence o direito exclusivo de utilização, publicação ou reprodução de suas obras, transmissível aos herdeiros pelo tempo que a lei fixar;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc27",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc27"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XXVIII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc28",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc28",
+                "text": "são assegurados, nos termos da lei:"
+               },
+               "hasPart": [
+                {
+                 "workExample": {
+                  "legislationDate": "1988-10-05",
+                  "@type": "Legislation",
+                  "name": "a)",
+                  "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc28_ali1",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc28_ali1",
+                  "text": "a proteção às participações individuais em obras coletivas e à reprodução da imagem e voz humanas, inclusive nas atividades desportivas;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc28_ali1",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:alinea"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc28_ali1"
+                },
+                {
+                 "workExample": {
+                  "legislationDate": "1988-10-05",
+                  "@type": "Legislation",
+                  "name": "b)",
+                  "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc28_ali2",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc28_ali2",
+                  "text": "o direito de fiscalização do aproveitamento econômico das obras que criarem ou de que participarem aos criadores, aos intérpretes e às respectivas representações sindicais e associativas;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc28_ali2",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:alinea"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc28_ali2"
+                }
+               ],
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc28",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc28"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XXIX –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc29",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc29",
+                "text": "a lei assegurará aos autores de inventos industriais privilégio temporário para sua utilização, bem como proteção às criações industriais, à propriedade das marcas, aos nomes de empresas e a outros signos distintivos, tendo em vista o interesse social e o desenvolvimento tecnológico e econômico do País;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc29",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc29"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XXX –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc30",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc30",
+                "text": "é garantido o direito de herança;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc30",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc30"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XXXI –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc31",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc31",
+                "text": "a sucessão de bens de estrangeiros situados no País será regulada pela lei brasileira em benefício do cônjuge ou dos filhos brasileiros, sempre que não lhes seja mais favorável a lei pessoal do de cujus;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc31",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc31"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XXXII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc32",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc32",
+                "text": "o Estado promoverá, na forma da lei, a defesa do consumidor;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc32",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc32",
+               "@reverse": {
+                "legislationApplies": {
+                 "@type": "Legislation",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1990-09-11;8078"
+                }
+               }
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XXXIII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc33",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc33",
+                "text": "todos têm direito a receber dos órgãos públicos informações de seu interesse particular, ou de interesse coletivo ou geral, que serão prestadas no prazo da lei, sob pena de responsabilidade, ressalvadas aquelas cujo sigilo seja imprescindível à segurança da sociedade e do Estado;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc33",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc33",
+               "@reverse": {
+                "legislationApplies": [
+                 {
+                  "@type": "Legislation",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2011-11-18;12527"
+                 },
+                 {
+                  "@type": "Legislation",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2005-05-05;11111"
+                 }
+                ]
+               }
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XXXIV –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc34",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc34",
+                "text": "são a todos assegurados, independentemente do pagamento de taxas:"
+               },
+               "hasPart": [
+                {
+                 "workExample": {
+                  "legislationDate": "1988-10-05",
+                  "@type": "Legislation",
+                  "name": "a)",
+                  "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc34_ali1",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc34_ali1",
+                  "text": "o direito de petição aos poderes públicos em defesa de direitos ou contra ilegalidade ou abuso de poder;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc34_ali1",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:alinea"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc34_ali1"
+                },
+                {
+                 "workExample": {
+                  "legislationDate": "1988-10-05",
+                  "@type": "Legislation",
+                  "name": "b)",
+                  "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc34_ali2",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc34_ali2",
+                  "text": "a obtenção de certidões em repartições públicas, para defesa de direitos e esclarecimento de situações de interesse pessoal;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc34_ali2",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:alinea"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc34_ali2"
+                }
+               ],
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc34",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc34"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XXXV –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc35",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc35",
+                "text": "a lei não excluirá da apreciação do Poder Judiciário lesão ou ameaça a direito;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc35",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc35"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XXXVI –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc36",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc36",
+                "text": "a lei não prejudicará o direito adquirido, o ato jurídico perfeito e a coisa julgada;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc36",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc36",
+               "@reverse": {
+                "legislationForeseesChanges": {
+                 "@type": "Legislation",
+                 "name": "Proposta de Emenda à Constituição nº 1/2023 - Iniciadora",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:senado.federal:proposta.emenda.constitucional;pec:2023;1"
+                }
+               }
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XXXVII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc37",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc37",
+                "text": "não haverá juízo ou tribunal de exceção;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc37",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc37"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XXXVIII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc38",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc38",
+                "text": "é reconhecida a instituição do júri, com a organização que lhe der a lei, assegurados:"
+               },
+               "hasPart": [
+                {
+                 "workExample": {
+                  "legislationDate": "1988-10-05",
+                  "@type": "Legislation",
+                  "name": "a)",
+                  "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc38_ali1",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc38_ali1",
+                  "text": "a plenitude de defesa;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc38_ali1",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:alinea"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc38_ali1"
+                },
+                {
+                 "workExample": {
+                  "legislationDate": "1988-10-05",
+                  "@type": "Legislation",
+                  "name": "b)",
+                  "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc38_ali2",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc38_ali2",
+                  "text": "o sigilo das votações;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc38_ali2",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:alinea"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc38_ali2"
+                },
+                {
+                 "workExample": {
+                  "legislationDate": "1988-10-05",
+                  "@type": "Legislation",
+                  "name": "c)",
+                  "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc38_ali3",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc38_ali3",
+                  "text": "a soberania dos veredictos;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc38_ali3",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:alinea"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc38_ali3"
+                },
+                {
+                 "workExample": {
+                  "legislationDate": "1988-10-05",
+                  "@type": "Legislation",
+                  "name": "d)",
+                  "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc38_ali4",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc38_ali4",
+                  "text": "a competência para o julgamento dos crimes dolosos contra a vida;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc38_ali4",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:alinea"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc38_ali4",
+                 "@reverse": {
+                  "legislationForeseesChanges": {
+                   "@type": "Legislation",
+                   "name": "Proposta de Emenda à Constituição nº 53/2024 - Iniciadora",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:senado.federal:proposta.emenda.constitucional;pec:2024;53"
+                  }
+                 }
+                }
+               ],
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc38",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc38",
+               "@reverse": {
+                "legislationForeseesChanges": {
+                 "@type": "Legislation",
+                 "name": "Proposta de Emenda à Constituição nº 53/2024 - Iniciadora",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:senado.federal:proposta.emenda.constitucional;pec:2024;53"
+                }
+               }
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XXXIX –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc39",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc39",
+                "text": "não há crime sem lei anterior que o defina, nem pena sem prévia cominação legal;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc39",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc39"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XL –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc40",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc40",
+                "text": "a lei penal não retroagirá, salvo para beneficiar o réu;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc40",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc40"
+              },
+              {
+               "workExample": [
+                {
+                 "temporalCoverage": "1988-10-05/2019-06-12",
+                 "legislationDate": "1988-10-05",
+                 "@type": "Legislation",
+                 "legislationLegalForce": "NotInForce",
+                 "name": "XLI –",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc41",
+                 "legislationType": "Original_Version",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc41",
+                 "text": "a lei punirá qualquer discriminação atentatória dos direitos e liberdades fundamentais;",
+                 "@reverse": {
+                  "legislationCourtDecision": {
+                   "@type": "Legislation",
+                   "name": "Acórdão da Ação Direta de Inconstitucionalidade por Omissão nº 26 de 13/06/2019",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:supremo.tribunal.federal:acordao;ado:2019-06-13;26"
+                  }
+                 }
+                },
+                {
+                 "additionalType": [
+                  "Court_Decision",
+                  "Declaração de Inconstitucionalidade por Omissão",
+                  "Inconstitucionalidade por Omissão de"
+                 ],
+                 "legislationConsolidates": {
+                  "@type": "Legislation",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:supremo.tribunal.federal:acordao;ado:2019-06-13;26"
+                 },
+                 "legislationDate": "2019-06-13",
+                 "@type": "Legislation",
+                 "name": "XLI –",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@2019-06-13!art5_cpt_inc41",
+                 "legislationType": "Court_Decision_Version",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@2019-06-13!art5_cpt_inc41",
+                 "text": "a lei punirá qualquer discriminação atentatória dos direitos e liberdades fundamentais;",
+                 "publisherNote": "Foi declarada, pelo Supremo Tribunal Federal, a existência de omissão normativa inconstitucional do Poder Legislativo da União, ao reconhecer o estado de mora inconstitucional do Congresso Nacional na implementação da prestação legislativa destinada a cumprir o mandado de incriminação a que se referem os incisos XLI e XLII do art. 5º da Constituição, para efeito de proteção penal aos integrantes do grupo LGBT."
+                }
+               ],
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc41",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc41"
+              },
+              {
+               "workExample": [
+                {
+                 "temporalCoverage": "1988-10-05/2019-06-12",
+                 "legislationDate": "1988-10-05",
+                 "@type": "Legislation",
+                 "legislationLegalForce": "NotInForce",
+                 "name": "XLII –",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc42",
+                 "legislationType": "Original_Version",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc42",
+                 "text": "a prática do racismo constitui crime inafiançável e imprescritível, sujeito à pena de reclusão, nos termos da lei;",
+                 "@reverse": {
+                  "legislationCourtDecision": {
+                   "@type": "Legislation",
+                   "name": "Acórdão da Ação Direta de Inconstitucionalidade por Omissão nº 26 de 13/06/2019",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:supremo.tribunal.federal:acordao;ado:2019-06-13;26"
+                  }
+                 }
+                },
+                {
+                 "additionalType": [
+                  "Court_Decision",
+                  "Declaração de Inconstitucionalidade por Omissão",
+                  "Inconstitucionalidade por Omissão de"
+                 ],
+                 "legislationConsolidates": {
+                  "@type": "Legislation",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:supremo.tribunal.federal:acordao;ado:2019-06-13;26"
+                 },
+                 "legislationDate": "2019-06-13",
+                 "@type": "Legislation",
+                 "name": "XLII –",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@2019-06-13!art5_cpt_inc42",
+                 "legislationType": "Court_Decision_Version",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@2019-06-13!art5_cpt_inc42",
+                 "text": "a prática do racismo constitui crime inafiançável e imprescritível, sujeito à pena de reclusão, nos termos da lei;",
+                 "publisherNote": "Foi declarada, pelo Supremo Tribunal Federal, a existência de omissão normativa inconstitucional do Poder Legislativo da União, ao reconhecer o estado de mora inconstitucional do Congresso Nacional na implementação da prestação legislativa destinada a cumprir o mandado de incriminação a que se referem os incisos XLI e XLII do art. 5º da Constituição, para efeito de proteção penal aos integrantes do grupo LGBT."
+                }
+               ],
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc42",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc42",
+               "@reverse": {
+                "legislationForeseesChanges": [
+                 {
+                  "@type": "Legislation",
+                  "name": "Proposta de Emenda à Constituição nº 353/2017 [CD]",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2017;353"
+                 },
+                 {
+                  "@type": "Legislation",
+                  "name": "Proposta de Emenda à Constituição nº 320/2017 [CD]",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2017;320"
+                 },
+                 {
+                  "@type": "Legislation",
+                  "name": "Proposta de Emenda à Constituição nº 342/2017 [CD]",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2017;342"
+                 },
+                 {
+                  "@type": "Legislation",
+                  "name": "Proposta de Emenda à Constituição nº 75/2019 [CD]",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2019;75"
+                 },
+                 {
+                  "@type": "Legislation",
+                  "name": "Proposta de Emenda à Constituição nº 60/2023 - Iniciadora",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:senado.federal:proposta.emenda.constitucional;pec:2023;60"
+                 }
+                ],
+                "legislationApplies": {
+                 "@type": "Legislation",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1989-01-05;7716"
+                }
+               }
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XLIII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc43",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc43",
+                "text": "a lei considerará crimes inafiançáveis e insuscetíveis de graça ou anistia a prática da tortura, o tráfico ilícito de entorpecentes e drogas afins, o terrorismo e os definidos como crimes hediondos, por eles respondendo os mandantes, os executores e os que, podendo evitá-los, se omitirem;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc43",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc43",
+               "@reverse": {
+                "legislationForeseesChanges": [
+                 {
+                  "@type": "Legislation",
+                  "name": "Proposta de Emenda à Constituição nº 364/2009 [CD]",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2009;364"
+                 },
+                 {
+                  "@type": "Legislation",
+                  "name": "Proposta de Emenda à Constituição nº 28/2015 [CD]",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2015;28"
+                 }
+                ],
+                "legislationApplies": [
+                 {
+                  "@type": "Legislation",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1997-04-07;9455"
+                 },
+                 {
+                  "@type": "Legislation",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1990-07-25;8072"
+                 },
+                 {
+                  "@type": "Legislation",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2016-03-16;13260"
+                 }
+                ]
+               }
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XLIV –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc44",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc44",
+                "text": "constitui crime inafiançável e imprescritível a ação de grupos armados, civis ou militares, contra a ordem constitucional e o Estado democrático;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc44",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc44"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XLV –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc45",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc45",
+                "text": "nenhuma pena passará da pessoa do condenado, podendo a obrigação de reparar o dano e a decretação do perdimento de bens ser, nos termos da lei, estendidas aos sucessores e contra eles executadas, até o limite do valor do patrimônio transferido;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc45",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc45"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XLVI –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc46",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc46",
+                "text": "a lei regulará a individualização da pena e adotará, entre outras, as seguintes:"
+               },
+               "hasPart": [
+                {
+                 "workExample": {
+                  "legislationDate": "1988-10-05",
+                  "@type": "Legislation",
+                  "name": "a)",
+                  "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc46_ali1",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc46_ali1",
+                  "text": "privação ou restrição da liberdade;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc46_ali1",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:alinea"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc46_ali1"
+                },
+                {
+                 "workExample": {
+                  "legislationDate": "1988-10-05",
+                  "@type": "Legislation",
+                  "name": "b)",
+                  "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc46_ali2",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc46_ali2",
+                  "text": "perda de bens;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc46_ali2",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:alinea"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc46_ali2"
+                },
+                {
+                 "workExample": {
+                  "legislationDate": "1988-10-05",
+                  "@type": "Legislation",
+                  "name": "c)",
+                  "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc46_ali3",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc46_ali3",
+                  "text": "multa;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc46_ali3",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:alinea"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc46_ali3"
+                },
+                {
+                 "workExample": {
+                  "legislationDate": "1988-10-05",
+                  "@type": "Legislation",
+                  "name": "d)",
+                  "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc46_ali4",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc46_ali4",
+                  "text": "prestação social alternativa;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc46_ali4",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:alinea"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc46_ali4"
+                },
+                {
+                 "workExample": {
+                  "legislationDate": "1988-10-05",
+                  "@type": "Legislation",
+                  "name": "e)",
+                  "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc46_ali5",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc46_ali5",
+                  "text": "suspensão ou interdição de direitos;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc46_ali5",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:alinea"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc46_ali5"
+                }
+               ],
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc46",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc46"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XLVII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc47",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc47",
+                "text": "não haverá penas:"
+               },
+               "hasPart": [
+                {
+                 "workExample": {
+                  "legislationDate": "1988-10-05",
+                  "@type": "Legislation",
+                  "name": "a)",
+                  "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc47_ali1",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc47_ali1",
+                  "text": "de morte, salvo em caso de guerra declarada, nos termos do <span xmlns:lx=\"http://www.lexml.gov.br/1.0\" xlink:href=\"urn:lex:br:federal:constituicao:1988-10-05;1988!art84_cpt_inc19\">art. 84, XIX</span>;"
+                 },
+                 "citation": {
+                  "@type": "Legislation",
+                  "name": "art. 84, XIX",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art84_cpt_inc19"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc47_ali1",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:alinea"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc47_ali1"
+                },
+                {
+                 "workExample": {
+                  "legislationDate": "1988-10-05",
+                  "@type": "Legislation",
+                  "name": "b)",
+                  "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc47_ali2",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc47_ali2",
+                  "text": "de caráter perpétuo;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc47_ali2",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:alinea"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc47_ali2"
+                },
+                {
+                 "workExample": {
+                  "legislationDate": "1988-10-05",
+                  "@type": "Legislation",
+                  "name": "c)",
+                  "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc47_ali3",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc47_ali3",
+                  "text": "de trabalhos forçados;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc47_ali3",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:alinea"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc47_ali3"
+                },
+                {
+                 "workExample": {
+                  "legislationDate": "1988-10-05",
+                  "@type": "Legislation",
+                  "name": "d)",
+                  "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc47_ali4",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc47_ali4",
+                  "text": "de banimento;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc47_ali4",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:alinea"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc47_ali4"
+                },
+                {
+                 "workExample": {
+                  "legislationDate": "1988-10-05",
+                  "@type": "Legislation",
+                  "name": "e)",
+                  "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc47_ali5",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc47_ali5",
+                  "text": "cruéis;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc47_ali5",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:alinea"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc47_ali5"
+                }
+               ],
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc47",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc47"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XLVIII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc48",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc48",
+                "text": "a pena será cumprida em estabelecimentos distintos, de acordo com a natureza do delito, a idade e o sexo do apenado;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc48",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc48"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "XLIX –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc49",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc49",
+                "text": "é assegurado aos presos o respeito à integridade física e moral;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc49",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc49"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "L –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc50",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc50",
+                "text": "às presidiárias serão asseguradas condições para que possam permanecer com seus filhos durante o período de amamentação;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc50",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc50"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "LI –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc51",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc51",
+                "text": "nenhum brasileiro será extraditado, salvo o naturalizado, em caso de crime comum, praticado antes da naturalização, ou de comprovado envolvimento em tráfico ilícito de entorpecentes e drogas afins, na forma da lei;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc51",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc51"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "LII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc52",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc52",
+                "text": "não será concedida extradição de estrangeiro por crime político ou de opinião;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc52",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc52"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "LIII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc53",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc53",
+                "text": "ninguém será processado nem sentenciado senão pela autoridade competente;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc53",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc53"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "LIV –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc54",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc54",
+                "text": "ninguém será privado da liberdade ou de seus bens sem o devido processo legal;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc54",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc54"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "LV –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc55",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc55",
+                "text": "aos litigantes, em processo judicial ou administrativo, e aos acusados em geral são assegurados o contraditório e a ampla defesa, com os meios e recursos a ela inerentes;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc55",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc55"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "LVI –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc56",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc56",
+                "text": "são inadmissíveis, no processo, as provas obtidas por meios ilícitos;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc56",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc56"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "LVII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc57",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc57",
+                "text": "ninguém será considerado culpado até o trânsito em julgado de sentença penal condenatória;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc57",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc57"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "LVIII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc58",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc58",
+                "text": "o civilmente identificado não será submetido a identificação criminal, salvo nas hipóteses previstas em lei;"
+               },
+               "@type": "Legislation",
+               "mentions": [
+                {
+                 "@type": "Legislation",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2000-12-07;10054"
+                },
+                {
+                 "@type": "Legislation",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2009-10-01;12037"
+                }
+               ],
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc58",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc58",
+               "@reverse": {
+                "legislationApplies": {
+                 "@type": "Legislation",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2009-10-01;12037"
+                }
+               }
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "LIX –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc59",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc59",
+                "text": "será admitida ação privada nos crimes de ação pública, se esta não for intentada no prazo legal;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc59",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc59"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "LX –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc60",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc60",
+                "text": "a lei só poderá restringir a publicidade dos atos processuais quando a defesa da intimidade ou o interesse social o exigirem;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc60",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc60"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "LXI –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc61",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc61",
+                "text": "ninguém será preso senão em flagrante delito ou por ordem escrita e fundamentada de autoridade judiciária competente, salvo nos casos de transgressão militar ou crime propriamente militar, definidos em lei;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc61",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc61"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "LXII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc62",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc62",
+                "text": "a prisão de qualquer pessoa e o local onde se encontre serão comunicados imediatamente ao juiz competente e à família do preso ou à pessoa por ele indicada;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc62",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc62"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "LXIII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc63",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc63",
+                "text": "o preso será informado de seus direitos, entre os quais o de permanecer calado, sendo-lhe assegurada a assistência da família e de advogado;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc63",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc63"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "LXIV –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc64",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc64",
+                "text": "o preso tem direito à identificação dos responsáveis por sua prisão ou por seu interrogatório policial;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc64",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc64"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "LXV –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc65",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc65",
+                "text": "a prisão ilegal será imediatamente relaxada pela autoridade judiciária;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc65",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc65"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "LXVI –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc66",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc66",
+                "text": "ninguém será levado à prisão ou nela mantido quando a lei admitir a liberdade provisória, com ou sem fiança;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc66",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc66"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "LXVII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc67",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc67",
+                "text": "não haverá prisão civil por dívida, salvo a do responsável pelo inadimplemento voluntário e inescusável de obrigação alimentícia e a do depositário infiel;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc67",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc67"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "LXVIII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc68",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc68",
+                "text": "conceder-se-á habeas corpus sempre que alguém sofrer ou se achar ameaçado de sofrer violência ou coação em sua liberdade de locomoção, por ilegalidade ou abuso de poder;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc68",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc68"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "LXIX –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc69",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc69",
+                "text": "conceder-se-á mandado de segurança para proteger direito líquido e certo, não amparado por habeas corpus ou habeas data, quando o responsável pela ilegalidade ou abuso de poder for autoridade pública ou agente de pessoa jurídica no exercício de atribuições do poder público;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc69",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc69"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "LXX –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc70",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc70",
+                "text": "o mandado de segurança coletivo pode ser impetrado por:"
+               },
+               "hasPart": [
+                {
+                 "workExample": {
+                  "legislationDate": "1988-10-05",
+                  "@type": "Legislation",
+                  "name": "a)",
+                  "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc70_ali1",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc70_ali1",
+                  "text": "partido político com representação no Congresso Nacional;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc70_ali1",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:alinea"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc70_ali1",
+                 "@reverse": {
+                  "legislationForeseesChanges": [
+                   {
+                    "@type": "Legislation",
+                    "name": "Proposta de Emenda à Constituição nº 451/2009 [CD]",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2009;451"
+                   },
+                   {
+                    "@type": "Legislation",
+                    "name": "Proposta de Emenda à Constituição nº 456/2010 [CD]",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2010;456"
+                   }
+                  ]
+                 }
+                },
+                {
+                 "workExample": {
+                  "legislationDate": "1988-10-05",
+                  "@type": "Legislation",
+                  "name": "b)",
+                  "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc70_ali2",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc70_ali2",
+                  "text": "organização sindical, entidade de classe ou associação legalmente constituída e em funcionamento há pelo menos um ano, em defesa dos interesses de seus membros ou associados;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc70_ali2",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:alinea"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc70_ali2"
+                }
+               ],
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc70",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc70"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "LXXI –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc71",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc71",
+                "text": "conceder-se-á mandado de injunção sempre que a falta de norma regulamentadora torne inviável o exercício dos direitos e liberdades constitucionais e das prerrogativas inerentes à nacionalidade, à soberania e à cidadania;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc71",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc71",
+               "@reverse": {
+                "legislationForeseesChanges": {
+                 "@type": "Legislation",
+                 "name": "Proposta de Emenda à Constituição nº 20/2015 [CD]",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2015;20"
+                },
+                "legislationApplies": {
+                 "@type": "Legislation",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2016-06-23;13300"
+                }
+               }
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "LXXII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc72",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc72",
+                "text": "conceder-se-á habeas data:"
+               },
+               "hasPart": [
+                {
+                 "workExample": {
+                  "legislationDate": "1988-10-05",
+                  "@type": "Legislation",
+                  "name": "a)",
+                  "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc72_ali1",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc72_ali1",
+                  "text": "para assegurar o conhecimento de informações relativas à pessoa do impetrante, constantes de registros ou bancos de dados de entidades governamentais ou de caráter público;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc72_ali1",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:alinea"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc72_ali1"
+                },
+                {
+                 "workExample": {
+                  "legislationDate": "1988-10-05",
+                  "@type": "Legislation",
+                  "name": "b)",
+                  "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc72_ali2",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc72_ali2",
+                  "text": "para a retificação de dados, quando não se prefira fazê-lo por processo sigiloso, judicial ou administrativo;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc72_ali2",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:alinea"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc72_ali2"
+                }
+               ],
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc72",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc72",
+               "@reverse": {
+                "legislationApplies": {
+                 "@type": "Legislation",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1997-11-12;9507"
+                }
+               }
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "LXXIII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc73",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc73",
+                "text": "qualquer cidadão é parte legítima para propor ação popular que vise a anular ato lesivo ao patrimônio público ou de entidade de que o Estado participe, à moralidade administrativa, ao meio ambiente e ao patrimônio histórico e cultural, ficando o autor, salvo comprovada má-fé, isento de custas judiciais e do ônus da sucumbência;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc73",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc73"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "LXXIV –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc74",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc74",
+                "text": "o Estado prestará assistência jurídica integral e gratuita aos que comprovarem insuficiência de recursos;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc74",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc74"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "LXXV –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc75",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc75",
+                "text": "o Estado indenizará o condenado por erro judiciário, assim como o que ficar preso além do tempo fixado na sentença;"
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc75",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc75"
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "LXXVI –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc76",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc76",
+                "text": "são gratuitos para os reconhecidamente pobres, na forma da lei:"
+               },
+               "hasPart": [
+                {
+                 "workExample": {
+                  "legislationDate": "1988-10-05",
+                  "@type": "Legislation",
+                  "name": "a)",
+                  "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc76_ali1",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc76_ali1",
+                  "text": "o registro civil de nascimento;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc76_ali1",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:alinea"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc76_ali1"
+                },
+                {
+                 "workExample": {
+                  "legislationDate": "1988-10-05",
+                  "@type": "Legislation",
+                  "name": "b)",
+                  "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc76_ali2",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc76_ali2",
+                  "text": "a certidão de óbito;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc76_ali2",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:alinea"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc76_ali2"
+                }
+               ],
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc76",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc76",
+               "@reverse": {
+                "legislationApplies": [
+                 {
+                  "@type": "Legislation",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1989-10-18;7844"
+                 },
+                 {
+                  "@type": "Legislation",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1997-12-10;9534"
+                 }
+                ]
+               }
+              },
+              {
+               "workExample": {
+                "legislationDate": "1988-10-05",
+                "@type": "Legislation",
+                "name": "LXXVII –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc77",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_cpt_inc77",
+                "text": "são gratuitas as ações de habeas corpus e habeas data, e, na forma da lei, os atos necessários ao exercício da cidadania."
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc77",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc77",
+               "@reverse": {
+                "legislationApplies": {
+                 "@type": "Legislation",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1996-02-12;9265"
+                }
+               }
+              },
+              {
+               "workExample": [
+                {
+                 "additionalType": "Insertion",
+                 "temporalCoverage": "2004-12-08/2022-02-09",
+                 "legislationConsolidates": {
+                  "@type": "Legislation",
+                  "name": "Emenda Constitucional nº 45 de 08/12/2004",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:emenda.constitucional:2004-12-08;45@2004-12-08!art1_cpt_alt1_art5_cpt_inc78"
+                 },
+                 "legislationDate": "2004-12-08",
+                 "@type": "Legislation",
+                 "legislationLegalForce": "NotInForce",
+                 "name": "LXXVIII –",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@2004-12-08!art5_cpt_inc78,emc-45-2004-12-08",
+                 "legislationType": "Insertion_Version",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@2004-12-08!art5_cpt_inc78,emc-45-2004-12-08",
+                 "text": "a todos, no âmbito judicial e administrativo, são assegurados a razoável duração do processo e os meios que garantam a celeridade de sua tramitação.",
+                 "@reverse": {
+                  "legislationCorrects": {
+                   "@type": "Legislation",
+                   "name": "Emenda Constitucional nº 115 de 10/02/2022",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:emenda.constitucional:2022-02-10;115@2022-02-10!art1_cpt_alt1_art5_cpt_inc78"
+                  }
+                 }
+                },
+                {
+                 "additionalType": "Text_Indirect_Change",
+                 "legislationConsolidates": {
+                  "@type": "Legislation",
+                  "name": "Emenda Constitucional nº 115 de 10/02/2022",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:emenda.constitucional:2022-02-10;115@2022-02-10!art1_cpt_alt1_art5_cpt_inc78"
+                 },
+                 "legislationDate": "2022-02-10",
+                 "@type": "Legislation",
+                 "name": "LXXVIII –",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@2022-02-10!art5_cpt_inc78,emc-45-2004-12-08",
+                 "legislationType": "Text_Indirect_Change_Version",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@2022-02-10!art5_cpt_inc78,emc-45-2004-12-08",
+                 "text": "a todos, no âmbito judicial e administrativo, são assegurados a razoável duração do processo e os meios que garantam a celeridade de sua tramitação;"
+                }
+               ],
+               "legislationDate": "2004-12-08",
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc78,emc-45-2004-12-08",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc78,emc-45-2004-12-08"
+              },
+              {
+               "workExample": {
+                "additionalType": "Insertion",
+                "legislationConsolidates": {
+                 "@type": "Legislation",
+                 "name": "Emenda Constitucional nº 115 de 10/02/2022",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:emenda.constitucional:2022-02-10;115@2022-02-10!art1_cpt_alt1_art5_cpt_inc79"
+                },
+                "legislationDate": "2022-02-10",
+                "@type": "Legislation",
+                "name": "LXXIX –",
+                "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@2022-02-10!art5_cpt_inc79,emc-115-2022-02-10",
+                "legislationType": "Insertion_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@2022-02-10!art5_cpt_inc79,emc-115-2022-02-10",
+                "text": "é assegurado, nos termos da lei, o direito à proteção dos dados pessoais, inclusive nos meios digitais."
+               },
+               "legislationDate": "2022-02-10",
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc79,emc-115-2022-02-10",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt_inc79,emc-115-2022-02-10"
+              }
+             ],
+             "@type": "Legislation",
+             "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt",
+             "legislationType": {
+              "@type": "CategoryCode",
+              "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:caput"
+             },
+             "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_cpt",
+             "@reverse": {
+              "legislationForeseesChanges": [
+               {
+                "@type": "Legislation",
+                "name": "Proposta de Emenda à Constituição nº 136/2019 - Iniciadora",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:senado.federal:proposta.emenda.constitucional;pec:2019;136"
+               },
+               {
+                "@type": "Legislation",
+                "name": "Proposta de Emenda à Constituição nº 35/2020 - Iniciadora",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:senado.federal:proposta.emenda.constitucional;pec:2020;35"
+               },
+               {
+                "@type": "Legislation",
+                "name": "Proposta de Emenda à Constituição nº 364/2009 [CD]",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2009;364"
+               },
+               {
+                "@type": "Legislation",
+                "name": "Proposta de Emenda à Constituição nº 430/2018 [CD]",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2018;430"
+               },
+               {
+                "@type": "Legislation",
+                "name": "Proposta de Emenda à Constituição nº 245/2016 [CD]",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2016;245"
+               },
+               {
+                "@type": "Legislation",
+                "name": "Proposta de Emenda à Constituição nº 100/2019 [CD]",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2019;100"
+               },
+               {
+                "@type": "Legislation",
+                "name": "Proposta de Emenda à Constituição nº 333/2017 [CD]",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2017;333"
+               },
+               {
+                "@type": "Legislation",
+                "name": "Proposta de Emenda à Constituição nº 86/2015 [CD]",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2015;86"
+               },
+               {
+                "@type": "Legislation",
+                "name": "Proposta de Emenda à Constituição nº 164/2012 [CD]",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2012;164"
+               },
+               {
+                "@type": "Legislation",
+                "name": "Proposta de Emenda à Constituição nº 185/2015 [CD]",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2015;185"
+               },
+               {
+                "@type": "Legislation",
+                "name": "Proposta de Emenda à Constituição nº 7/2021 - Iniciadora",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:senado.federal:proposta.emenda.constitucional;pec:2021;7"
+               },
+               {
+                "@type": "Legislation",
+                "name": "Proposta de Emenda à Constituição nº 6/2021 [CD]",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2021;6"
+               },
+               {
+                "@type": "Legislation",
+                "name": "Proposta de Emenda à Constituição nº 33/2021 [CD]",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2021;33"
+               },
+               {
+                "@type": "Legislation",
+                "name": "Proposta de Emenda à Constituição nº 37/2021 [CD]",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2021;37"
+               },
+               {
+                "@type": "Legislation",
+                "name": "Proposta de Emenda à Constituição nº 47/2021 [CD]",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2021;47"
+               },
+               {
+                "@type": "Legislation",
+                "name": "Proposta de Emenda à Constituição nº 15/2023 - Iniciadora",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:senado.federal:proposta.emenda.constitucional;pec:2023;15"
+               },
+               {
+                "@type": "Legislation",
+                "name": "Proposta de Emenda à Constituição nº 29/2023 - Iniciadora",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:senado.federal:proposta.emenda.constitucional;pec:2023;29"
+               },
+               {
+                "@type": "Legislation",
+                "name": "Proposta de Emenda à Constituição nº 34/2023 [CD]",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2023;34"
+               },
+               {
+                "@type": "Legislation",
+                "name": "Proposta de Emenda à Constituição nº 49/2023 - Iniciadora",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:senado.federal:proposta.emenda.constitucional;pec:2023;49"
+               },
+               {
+                "@type": "Legislation",
+                "name": "Proposta de Emenda à Constituição nº 54/2023 - Iniciadora",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:senado.federal:proposta.emenda.constitucional;pec:2023;54"
+               },
+               {
+                "@type": "Legislation",
+                "name": "Proposta de Emenda à Constituição nº 46/2024 - Iniciadora",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:senado.federal:proposta.emenda.constitucional;pec:2024;46"
+               },
+               {
+                "@type": "Legislation",
+                "name": "Proposta de Emenda à Constituição nº 41/2025 - Iniciadora",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:senado.federal:proposta.emenda.constitucional;pec:2025;41"
+               },
+               {
+                "@type": "Legislation",
+                "name": "Proposta de Emenda à Constituição nº 18/2025 - Revisora",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:senado.federal:proposta.emenda.constitucional;pec:2025;18"
+               }
+              ]
+             }
+            },
+            {
+             "workExample": {
+              "legislationDate": "1988-10-05",
+              "@type": "Legislation",
+              "name": "§ 1º",
+              "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_par1",
+              "legislationType": "Original_Version",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_par1",
+              "text": "As normas definidoras dos direitos e garantias fundamentais têm aplicação imediata."
+             },
+             "@type": "Legislation",
+             "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_par1",
+             "legislationType": {
+              "@type": "CategoryCode",
+              "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+             },
+             "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_par1"
+            },
+            {
+             "workExample": {
+              "legislationDate": "1988-10-05",
+              "@type": "Legislation",
+              "name": "§ 2º",
+              "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_par2",
+              "legislationType": "Original_Version",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art5_par2",
+              "text": "Os direitos e garantias expressos nesta <span xmlns=\"http://www.lexml.gov.br/1.0\" xlink:href=\"urn:lex:br:federal:constituicao:1988-10-05;1988\">Constituição</span> não excluem outros decorrentes do regime e dos princípios por ela adotados, ou dos tratados internacionais em que a República Federativa do Brasil seja parte."
+             },
+             "citation": {
+              "@type": "Legislation",
+              "name": "Constituição",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988"
+             },
+             "@type": "Legislation",
+             "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_par2",
+             "legislationType": {
+              "@type": "CategoryCode",
+              "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+             },
+             "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_par2"
+            },
+            {
+             "workExample": {
+              "additionalType": "Insertion",
+              "legislationConsolidates": {
+               "@type": "Legislation",
+               "name": "Emenda Constitucional nº 45 de 08/12/2004",
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:emenda.constitucional:2004-12-08;45@2004-12-08!art1_cpt_alt1_art5_par3"
+              },
+              "legislationDate": "2004-12-08",
+              "@type": "Legislation",
+              "name": "§ 3º",
+              "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@2004-12-08!art5_par3,emc-45-2004-12-08",
+              "legislationType": "Insertion_Version",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@2004-12-08!art5_par3,emc-45-2004-12-08",
+              "text": "Os tratados e convenções internacionais sobre direitos humanos que forem aprovados, em cada Casa do Congresso Nacional, em dois turnos, por três quintos dos votos dos respectivos membros, serão equivalentes às emendas constitucionais."
+             },
+             "legislationDate": "2004-12-08",
+             "@type": "Legislation",
+             "mentions": [
+              {
+               "@type": "Legislation",
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.legislativo:2015-11-25;261"
+              },
+              {
+               "@type": "Legislation",
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.legislativo:2008-07-09;186"
+              },
+              {
+               "@type": "Legislation",
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:2018-10-08;9522"
+              },
+              {
+               "@type": "Legislation",
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:2009-08-25;6949"
+              },
+              {
+               "@type": "Legislation",
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.legislativo:2021-02-18;1"
+              }
+             ],
+             "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_par3,emc-45-2004-12-08",
+             "legislationType": {
+              "@type": "CategoryCode",
+              "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+             },
+             "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_par3,emc-45-2004-12-08",
+             "@reverse": {
+              "legislationForeseesChanges": [
+               {
+                "@type": "Legislation",
+                "name": "Proposta de Emenda à Constituição nº 451/2009 [CD]",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2009;451"
+               },
+               {
+                "@type": "Legislation",
+                "name": "Proposta de Emenda à Constituição nº 437/2018 [CD]",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2018;437"
+               }
+              ]
+             }
+            },
+            {
+             "workExample": {
+              "additionalType": "Insertion",
+              "legislationConsolidates": {
+               "@type": "Legislation",
+               "name": "Emenda Constitucional nº 45 de 08/12/2004",
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:emenda.constitucional:2004-12-08;45@2004-12-08!art1_cpt_alt1_art5_par4"
+              },
+              "legislationDate": "2004-12-08",
+              "@type": "Legislation",
+              "name": "§ 4º",
+              "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@2004-12-08!art5_par4,emc-45-2004-12-08",
+              "legislationType": "Insertion_Version",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@2004-12-08!art5_par4,emc-45-2004-12-08",
+              "text": "O Brasil se submete à jurisdição de Tribunal Penal Internacional a cuja criação tenha manifestado adesão."
+             },
+             "legislationDate": "2004-12-08",
+             "@type": "Legislation",
+             "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5_par4,emc-45-2004-12-08",
+             "legislationType": {
+              "@type": "CategoryCode",
+              "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+             },
+             "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5_par4,emc-45-2004-12-08"
+            }
+           ],
+           "@type": "Legislation",
+           "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art5",
+           "legislationType": {
+            "@type": "CategoryCode",
+            "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:artigo"
+           },
+           "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art5",
+           "@reverse": {
+            "legislationForeseesChanges": [
+             {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 35/2020 - Iniciadora",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:senado.federal:proposta.emenda.constitucional;pec:2020;35"
+             },
+             {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 430/2018 [CD]",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2018;430"
+             },
+             {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 451/2009 [CD]",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2009;451"
+             },
+             {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 368/2017 [CD]",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2017;368"
+             },
+             {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 100/2019 [CD]",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2019;100"
+             },
+             {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 333/2017 [CD]",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2017;333"
+             },
+             {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 86/2015 [CD]",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2015;86"
+             },
+             {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 72/2015 [CD]",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2015;72"
+             },
+             {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 185/2015 [CD]",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2015;185"
+             },
+             {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 7/2021 - Iniciadora",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:senado.federal:proposta.emenda.constitucional;pec:2021;7"
+             },
+             {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 6/2021 [CD]",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2021;6"
+             },
+             {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 37/2021 [CD]",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2021;37"
+             },
+             {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 47/2021 [CD]",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2021;47"
+             },
+             {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 1/2023 - Iniciadora",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:senado.federal:proposta.emenda.constitucional;pec:2023;1"
+             },
+             {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 29/2023 - Iniciadora",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:senado.federal:proposta.emenda.constitucional;pec:2023;29"
+             },
+             {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 34/2023 [CD]",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2023;34"
+             },
+             {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 54/2023 - Iniciadora",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:senado.federal:proposta.emenda.constitucional;pec:2023;54"
+             },
+             {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 46/2024 - Iniciadora",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:senado.federal:proposta.emenda.constitucional;pec:2024;46"
+             },
+             {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 41/2025 - Iniciadora",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:senado.federal:proposta.emenda.constitucional;pec:2025;41"
+             },
+             {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 44/2025 - Iniciadora",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:senado.federal:proposta.emenda.constitucional;pec:2025;44"
+             }
+            ]
+           }
+          }
+         ],
+         "@type": "Legislation",
+         "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!tit2_cap1",
+         "legislationType": {
+          "@type": "CategoryCode",
+          "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:capitulo"
+         },
+         "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!tit2_cap1"
+        },
+        {
+         "workExample": {
+          "legislationDate": "1988-10-05",
+          "@type": "Legislation",
+          "name": "CAPÍTULO IV",
+          "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!tit2_cap4",
+          "legislationType": "Original_Version",
+          "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!tit2_cap4",
+          "text": "Dos Direitos Políticos"
+         },
+         "hasPart": [
+          {
+           "workExample": [
+            {
+             "temporalCoverage": "1988-10-05/2020-07-01",
+             "legislationDate": "1988-10-05",
+             "@type": "Legislation",
+             "legislationLegalForce": "NotInForce",
+             "name": "Art. 16.",
+             "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art16",
+             "legislationType": "Original_Version",
+             "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art16",
+             "@reverse": {
+              "legislationAmends": {
+               "@type": "Legislation",
+               "name": "Emenda Constitucional nº 107 de 02/07/2020",
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:emenda.constitucional:2020-07-02;107@2020-07-02!art2_cpt_alt1_art16"
+              }
+             }
+            },
+            {
+             "additionalType": "Applicability_Suppression",
+             "legislationConsolidates": {
+              "@type": "Legislation",
+              "name": "Emenda Constitucional nº 107 de 02/07/2020",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:emenda.constitucional:2020-07-02;107@2020-07-02!art2_cpt_alt1_art16"
+             },
+             "legislationDate": "2020-07-02",
+             "@type": "Legislation",
+             "name": "Art. 16.",
+             "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@2020-07-02!art16",
+             "legislationType": "Applicability_Suppression_Version",
+             "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@2020-07-02!art16"
+            }
+           ],
+           "hasPart": {
+            "workExample": [
+             {
+              "temporalCoverage": "1988-10-05/1993-09-13",
+              "legislationDate": "1988-10-05",
+              "@type": "Legislation",
+              "legislationLegalForce": "NotInForce",
+              "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art16_cpt",
+              "legislationType": "Original_Version",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art16_cpt",
+              "text": "A lei que alterar o processo eleitoral só entrará em vigor um ano após sua promulgação.",
+              "@reverse": {
+               "legislationAmends": {
+                "@type": "Legislation",
+                "name": "Emenda Constitucional nº 4 de 14/09/1993",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:emenda.constitucional:1993-09-14;4@1993-09-14!art1u_cpt_alt1_art16_cpt"
+               }
+              }
+             },
+             {
+              "additionalType": "Text_Change",
+              "legislationConsolidates": {
+               "@type": "Legislation",
+               "name": "Emenda Constitucional nº 4 de 14/09/1993",
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:emenda.constitucional:1993-09-14;4@1993-09-14!art1u_cpt_alt1_art16_cpt"
+              },
+              "legislationDate": "1993-09-14",
+              "@type": "Legislation",
+              "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1993-09-14!art16_cpt",
+              "legislationType": "Text_Change_Version",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1993-09-14!art16_cpt",
+              "text": "A lei que alterar o processo eleitoral entrará em vigor na data de sua publicação, não se aplicando à eleição que ocorra até um ano da data de sua vigência."
+             }
+            ],
+            "@type": "Legislation",
+            "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art16_cpt",
+            "legislationType": {
+             "@type": "CategoryCode",
+             "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:caput"
+            },
+            "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art16_cpt",
+            "@reverse": {
+             "legislationForeseesChanges": {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 466/2005 [CD]",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2005;466"
+             }
+            }
+           },
+           "@type": "Legislation",
+           "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art16",
+           "legislationType": {
+            "@type": "CategoryCode",
+            "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:artigo"
+           },
+           "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art16",
+           "@reverse": {
+            "legislationForeseesChanges": [
+             {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 16/2015",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:senado.federal:proposta.emenda.constitucional;pec:2015;16"
+             },
+             {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 34/2016",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:senado.federal:proposta.emenda.constitucional;pec:2016;34"
+             },
+             {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 250/2016 [CD]",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2016;250"
+             },
+             {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 466/2005 [CD]",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2005;466"
+             },
+             {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 431/2018 [CD]",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2018;431"
+             },
+             {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 229/2008 [CD]",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2008;229"
+             },
+             {
+              "@type": "Legislation",
+              "name": "Proposta de Emenda à Constituição nº 446/2005 [CD]",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:camara.deputados:proposta.emenda.constitucional;pec:2005;446"
+             }
+            ]
+           }
+          }
+         ],
+         "@type": "Legislation",
+         "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!tit2_cap4",
+         "legislationType": {
+          "@type": "CategoryCode",
+          "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:capitulo"
+         },
+         "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!tit2_cap4"
+        }
+       ],
+       "@type": "Legislation",
+       "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!tit2",
+       "legislationType": {
+        "@type": "CategoryCode",
+        "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:titulo"
+       },
+       "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!tit2"
+      },
+      {
+       "workExample": {
+        "legislationDate": "1988-10-05",
+        "@type": "Legislation",
+        "name": "TÍTULO IV",
+        "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!tit4",
+        "legislationType": "Original_Version",
+        "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!tit4",
+        "text": "Da Organização dos Poderes"
+       },
+       "hasPart": [
+        {
+         "workExample": {
+          "legislationDate": "1988-10-05",
+          "@type": "Legislation",
+          "name": "CAPÍTULO III",
+          "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!tit4_cap3",
+          "legislationType": "Original_Version",
+          "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!tit4_cap3",
+          "text": "Do Poder Judiciário"
+         },
+         "hasPart": [
+          {
+           "workExample": [
+            {
+             "temporalCoverage": "1988-10-05/2016-07-11",
+             "legislationDate": "1988-10-05",
+             "@type": "Legislation",
+             "legislationLegalForce": "NotInForce",
+             "name": "Seção V",
+             "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!tit4_cap3_sec5",
+             "legislationType": "Original_Version",
+             "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!tit4_cap3_sec5",
+             "text": "Dos Tribunais e Juízes do Trabalho",
+             "@reverse": {
+              "legislationAmends": {
+               "@type": "Legislation",
+               "name": "Emenda Constitucional nº 92 de 12/07/2016",
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:emenda.constitucional:2016-07-12;92@2016-07-12!art1_cpt_alt1_tit4_cap3_sec5"
+              }
+             }
+            },
+            {
+             "additionalType": "Text_Change",
+             "legislationConsolidates": {
+              "@type": "Legislation",
+              "name": "Emenda Constitucional nº 92 de 12/07/2016",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:emenda.constitucional:2016-07-12;92@2016-07-12!art1_cpt_alt1_tit4_cap3_sec5"
+             },
+             "legislationDate": "2016-07-12",
+             "@type": "Legislation",
+             "name": "Seção V",
+             "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@2016-07-12!tit4_cap3_sec5",
+             "legislationType": "Text_Change_Version",
+             "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@2016-07-12!tit4_cap3_sec5",
+             "text": "Do Tribunal Superior do Trabalho, dos Tribunais Regionais do Trabalho e dos Juízes do Trabalho"
+            }
+           ],
+           "hasPart": [
+            {
+             "workExample": [
+              {
+               "temporalCoverage": "1988-10-05/1999-12-08",
+               "legislationDate": "1988-10-05",
+               "@type": "Legislation",
+               "legislationLegalForce": "NotInForce",
+               "name": "Art. 117.",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art117",
+               "legislationType": "Original_Version",
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art117",
+               "@reverse": {
+                "legislationRepeals": {
+                 "@type": "Legislation",
+                 "name": "Emenda Constitucional nº 24 de 09/12/1999",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:emenda.constitucional:1999-12-09;24@1999-12-09!art4_cpt_alt1_art117"
+                }
+               }
+              },
+              {
+               "additionalType": "Repeal",
+               "legislationConsolidates": {
+                "@type": "Legislation",
+                "name": "Emenda Constitucional nº 24 de 09/12/1999",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:emenda.constitucional:1999-12-09;24@1999-12-09!art4_cpt_alt1_art117"
+               },
+               "legislationDate": "1999-12-09",
+               "@type": "Legislation",
+               "name": "Art. 117.",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1999-12-09!art117",
+               "legislationType": "Repeal_Version",
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1999-12-09!art117"
+              }
+             ],
+             "temporalCoverage": "1988-10-05/1999-12-09",
+             "hasPart": [
+              {
+               "workExample": [
+                {
+                 "temporalCoverage": "1988-10-05/1999-12-08",
+                 "legislationDate": "1988-10-05",
+                 "@type": "Legislation",
+                 "legislationLegalForce": "NotInForce",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art117_cpt",
+                 "legislationType": "Original_Version",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art117_cpt",
+                 "text": "O mandato dos representantes classistas, em todas as instâncias, é de três anos.",
+                 "@reverse": {
+                  "legislationRepeals": {
+                   "@type": "Legislation",
+                   "name": "Emenda Constitucional nº 24 de 09/12/1999",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:emenda.constitucional:1999-12-09;24@1999-12-09!art4_cpt_alt1_art117_cpt"
+                  }
+                 }
+                },
+                {
+                 "additionalType": "Repeal",
+                 "legislationConsolidates": {
+                  "@type": "Legislation",
+                  "name": "Emenda Constitucional nº 24 de 09/12/1999",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:emenda.constitucional:1999-12-09;24@1999-12-09!art4_cpt_alt1_art117_cpt"
+                 },
+                 "legislationDate": "1999-12-09",
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1999-12-09!art117_cpt",
+                 "legislationType": "Repeal_Version",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1999-12-09!art117_cpt",
+                 "text": "(Revogado)"
+                }
+               ],
+               "temporalCoverage": "1988-10-05/1999-12-09",
+               "@type": "Legislation",
+               "legislationLegalForce": "NotInForce",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art117_cpt",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:caput"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art117_cpt"
+              },
+              {
+               "workExample": [
+                {
+                 "temporalCoverage": "1988-10-05/1999-12-08",
+                 "legislationDate": "1988-10-05",
+                 "@type": "Legislation",
+                 "legislationLegalForce": "NotInForce",
+                 "name": "Parágrafo único.",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art117_par1u",
+                 "legislationType": "Original_Version",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1988-10-05!art117_par1u",
+                 "text": "Os representantes classistas terão suplentes.",
+                 "@reverse": {
+                  "legislationRepeals": {
+                   "@type": "Legislation",
+                   "name": "Emenda Constitucional nº 24 de 09/12/1999",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:emenda.constitucional:1999-12-09;24@1999-12-09!art4_cpt_alt1_art117_par1u"
+                  }
+                 }
+                },
+                {
+                 "additionalType": "Repeal",
+                 "legislationConsolidates": {
+                  "@type": "Legislation",
+                  "name": "Emenda Constitucional nº 24 de 09/12/1999",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:emenda.constitucional:1999-12-09;24@1999-12-09!art4_cpt_alt1_art117_par1u"
+                 },
+                 "legislationDate": "1999-12-09",
+                 "@type": "Legislation",
+                 "name": "Parágrafo único.",
+                 "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988@1999-12-09!art117_par1u",
+                 "legislationType": "Repeal_Version",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988@1999-12-09!art117_par1u",
+                 "text": "(Revogado)"
+                }
+               ],
+               "temporalCoverage": "1988-10-05/1999-12-09",
+               "@type": "Legislation",
+               "legislationLegalForce": "NotInForce",
+               "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art117_par1u",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art117_par1u"
+              }
+             ],
+             "@type": "Legislation",
+             "legislationLegalForce": "NotInForce",
+             "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!art117",
+             "legislationType": {
+              "@type": "CategoryCode",
+              "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:artigo"
+             },
+             "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!art117"
+            }
+           ],
+           "@type": "Legislation",
+           "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!tit4_cap3_sec5",
+           "legislationType": {
+            "@type": "CategoryCode",
+            "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:secao"
+           },
+           "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!tit4_cap3_sec5"
+          }
+         ],
+         "@type": "Legislation",
+         "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!tit4_cap3",
+         "legislationType": {
+          "@type": "CategoryCode",
+          "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:capitulo"
+         },
+         "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!tit4_cap3"
+        }
+       ],
+       "@type": "Legislation",
+       "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!tit4",
+       "legislationType": {
+        "@type": "CategoryCode",
+        "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:titulo"
+       },
+       "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!tit4"
+      }
+     ],
+     "@type": "Legislation",
+     "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!articulacao",
+     "legislationType": {
+      "@type": "CategoryCode",
+      "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:articulacao"
+     },
+     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!articulacao"
+    }
+   ],
+   "@type": "Legislation",
+   "legislationIdentifier": "urn:lex:br:federal:constituicao:1988-10-05;1988!",
+   "legislationType": {
+    "@type": "CategoryCode",
+    "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:componente.autonomo.articulado"
+   },
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:constituicao:1988-10-05;1988!"
+  }
+ ]
+}
