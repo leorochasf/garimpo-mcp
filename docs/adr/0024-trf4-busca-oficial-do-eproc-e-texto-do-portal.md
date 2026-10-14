@@ -63,9 +63,11 @@ continua sendo a fonte dos demais tribunais; o TRF4 não está na base dele para
   verificado e, se existir, é outra decisão.
 - **Sem texto = «não verificado».** Página que não for o acórdão (sem a assinatura, curta demais, outro processo,
   redirecionamento, não HTML) não é guardada; nenhuma ementa é reconstruída nem o texto de outro acórdão é entregue.
-- **Filtros e opções da busca direta:** de/ate, relator, órgão, classe, somenteEmentas, ordenação e precedentes **não** são
-  mandados ao e-Proc (a montagem no formulário não foi verificada): pedir um deles dá erro que ensina, nunca é ignorado
-  em silêncio. Limite acima de 10 vale 10, com aviso no cabeçalho de cobertura.
+- **Filtros e opções da busca direta:** de/ate, relator, órgão e classe não são mandados ao e-Proc (a montagem dos
+  filtros não foi testada ao vivo): pedir filtro preenchido dá erro que ensina. `somenteEmentas:true`,
+  `precedentes:true` e `ordenacao` diferente de `relevancia` também são recusados. Os valores neutros `false` e
+  `relevancia` mantêm a busca padrão nas ementas, na ordem do portal, sem afirmar relevância. Limite acima de 10
+  vale 10, com aviso no cabeçalho de cobertura.
 - **Lista conferida com recorte saneado:** a fixture reproduz os cards `resultadoItem#resultado<ID>` da resposta real,
   em ISO-8859-1. O leitor isola cada card, lê `resLabel`/`resValue` e vincula o `id_jurisprudencia` ao id do próprio
   card. EMENTA e RELATOR/RELATORA são campos separados; não incorpora a DECISÃO duplicada nem o modal de citação.
