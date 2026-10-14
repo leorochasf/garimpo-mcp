@@ -1,27 +1,54 @@
 name: Sugerir uma melhoria
-description: Ideia para o Garimpo ficar melhor.
+description: Indique uma limitação técnica para melhorar o Garimpo, sem dados de caso.
 title: "[sugestão] "
 labels: ["a-triar"]
 body:
   - type: markdown
     attributes:
       value: |
-        **Não cole nesta página dado de processo**: número de processo, nome de parte, trecho de decisão ou de caso
-        concreto, caminho de pastas do seu computador, senha ou chave. Esta página é pública. Use exemplos genéricos.
+        ## Antes de escrever, leia
+        **Não cole nesta página nenhum dado de processo**: nem número de processo, nem nome de parte, nem trecho
+        de decisão, de petição ou de caso concreto, nem caminho local do seu computador, nem senha ou chave.
+        Esta página é pública. Descreva apenas a **versão**, a **ferramenta** e o **tipo de erro**.
+        Use também um título genérico, sem informação de caso concreto.
   - type: checkboxes
     id: confirmacao
     attributes:
       label: Confirmação
       options:
-        - label: Não incluí número de processo, nome de parte, trecho de caso, caminho de pasta nem credencial.
+        - label: Não incluí número de processo, nome de parte, trecho de caso, caminho local nem credencial.
           required: true
-  - type: textarea
-    id: ideia
+  - type: input
+    id: versao
     attributes:
-      label: O que você gostaria que o Garimpo fizesse
+      label: Versão do Garimpo
+      description: Informe somente a versão; não cole a saída de comandos nem caminhos locais.
+      placeholder: "0.5.0"
     validations:
       required: true
-  - type: textarea
-    id: motivo
+  - type: dropdown
+    id: ferramenta
     attributes:
-      label: Por que isso ajudaria (em termos gerais)
+      label: Ferramenta do Garimpo em que ocorreu
+      options:
+        - Não sei dizer
+        - Pesquisa de jurisprudência
+        - Download de inteiro teor
+        - Leitura do inteiro teor
+        - Precedentes / art. 927
+        - Outra
+    validations:
+      required: true
+  - type: dropdown
+    id: tipo
+    attributes:
+      label: Tipo de erro
+      options:
+        - Mensagem de erro inesperado
+        - Serviço pausado ou recusa do site
+        - Resultado vazio quando deveria haver resultado
+        - Resultado claramente errado
+        - Lentidão ou travamento
+        - Outro
+    validations:
+      required: true
