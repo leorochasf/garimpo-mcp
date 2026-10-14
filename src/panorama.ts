@@ -29,13 +29,17 @@ function contar(contagem: Record<string, number>, chave: string) {
 }
 
 export function panorama(acordaos: readonly Acordao[]): Panorama {
-  const porTribunal: Record<string, number> = {};
-  const porAno: Record<string, number> = {};
-  const orgaos: Record<string, Record<string, number>> = {};
+  const porTribunal: Record<string, number> = Object.create(null);
+  const porAno: Record<string, number> = Object.create(null);
+  const orgaos: Record<string, Record<string, number>> = Object.create(null);
+  const contados = new Set<string>();
   for (const a of acordaos) {
+    // A memória aceita os ids de todas as cópias, mas devolve o mesmo id do registro juntado.
+    if (contados.has(a.id)) continue;
+    contados.add(a.id);
     contar(porTribunal, a.tribunal);
     contar(porAno, a.dataJulgamento?.slice(0, 4) || SEM_DATA);
-    contar((orgaos[a.tribunal] ??= {}), a.orgao || SEM_ORGAO);
+    contar((orgaos[a.tribunal] ??= Object.create(null)), a.orgao || SEM_ORGAO);
   }
   const porOrgao: Panorama["porOrgao"] = {};
   for (const [tribunal, contagem] of Object.entries(orgaos)) {
@@ -46,5 +50,5 @@ export function panorama(acordaos: readonly Acordao[]): Panorama {
       ...(outros && { outros }),
     };
   }
-  return { total: acordaos.length, porTribunal, porAno, porOrgao };
+  return { total: contados.size, porTribunal, porAno, porOrgao };
 }

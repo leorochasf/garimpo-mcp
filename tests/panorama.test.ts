@@ -46,6 +46,52 @@ const registro = (id: string, data: string | null, orgao: string | null) => ({
 });
 
 describe("panorama_da_amostra", () => {
+  it("conta uma vez o acórdão guardado sob ids equivalentes", async () => {
+    const original = registro("1", "2021-01-02T00:00:00.000Z", "Terceira Turma");
+    const { site, chamadas } = siteDosTribunais({ stj: [original, { ...original, id: "2" }] });
+    const mcp = await conectar(site);
+    await chamar(mcp, "busca_direta", { tribunal: "stj", texto: "tema de exemplo" });
+    const r = await chamar(mcp, "panorama_da_amostra", { ids: ["stj:1", "stj:2"] });
+    expect(r.json.total).toBe(1);
+    expect(r.json.porOrgao).toEqual({ stj: { "Terceira Turma": 1 } });
+    expect(chamadas).toHaveLength(1);
+  });
+
+  it("conta nomes de órgão que coincidem com propriedades de Object", async () => {
+    const { site } = siteDosTribunais({ stj: [
+      registro("1", null, "constructor"),
+      registro("2", null, "__proto__"),
+      registro("3", null, "toString"),
+    ] });
+    const mcp = await conectar(site);
+    await chamar(mcp, "busca_direta", { tribunal: "stj", texto: "tema de exemplo" });
+    const r = await chamar(mcp, "panorama_da_amostra", { ids: ["stj:1", "stj:2", "stj:3"] });
+    expect(r.json.porOrgao.stj).toEqual(JSON.parse('{"constructor":1,"__proto__":1,"toString":1}'));
+  });
+
+  it("fica abaixo de 25 mil caracteres com 200 ids de cinco tribunais, sem consultar a rede", async () => {
+    const tribunais = ["stj", "tjgo", "tjsp", "tjmg", "tjto"];
+    const porTribunal = Object.fromEntries(tribunais.map((t) => [t, Array.from({ length: 40 }, (_, i) =>
+      registro(String(i + 1), "2023-01-01T00:00:00.000Z", `Câmara de exemplo ${i % 30}`),
+    )]));
+    const { site, chamadas } = siteDosTribunais(porTribunal);
+    const mcp = await conectar(site);
+    for (const tribunal of tribunais) {
+      await chamar(mcp, "busca_direta", { tribunal, texto: "tema de exemplo", limite: 100 });
+    }
+    const ids = tribunais.flatMap((t) => Array.from({ length: 40 }, (_, i) => `${t}:${i + 1}`));
+    const r = await chamar(mcp, "panorama_da_amostra", { ids });
+    expect(r.json.total).toBe(200);
+    expect(r.json.porTribunal).toEqual({ stj: 40, tjgo: 40, tjsp: 40, tjmg: 40, tjto: 40 });
+    expect(r.json.porAno).toEqual({ "2023": 200 });
+    for (const tribunal of tribunais) {
+      expect(Object.keys(r.json.porOrgao[tribunal])).toHaveLength(21);
+      expect(r.json.porOrgao[tribunal].outros).toBe(10);
+    }
+    expect(r.texto.length).toBeLessThan(25_000);
+    expect(chamadas).toHaveLength(5);
+  });
+
   it("conta por tribunal, ano e órgão os acórdãos que a busca trouxe, sem chamar o site, e avisa que é amostra", async () => {
     const { site, chamadas } = siteDosTribunais({
       stj: [
