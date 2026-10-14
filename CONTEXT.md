@@ -81,6 +81,11 @@ _Evitar_: busca vazia, falha silenciosa
 Lista mostrada com menos acórdãos do que a busca achou (com filtro local, do que passaram pelo filtro), por causa do máximo pedido.
 _Evitar_: lista completa (quando cortada), resultado parcial (é o caso de recusa)
 
+**Mesma ementa (série)**:
+Acórdãos distintos do mesmo tribunal, órgão e relator cuja ementa inteira é idêntica, a menos de espaços e quebras de linha. A lista da busca ampla os mostra numa linha só (`mesmaEmenta`), com todos os ids acessíveis, por padrão (`agrupar: false` devolve a lista como era). É critério de apresentação: não afirma mesma tese nem mesmo resultado, e ementa ausente ou cortada deixa o acórdão sozinho (ADR-0023).
+_Evitar_: duplicado (o duplicado é o **mesmo** acórdão repetido na base do site, juntado como registro equivalente), mesma tese, mesma decisão
+_Proposta do executor do I-46 (b17-09), aplicada em 2026-10-13 — sujeita a revisão do dono._
+
 **Aviso de natureza jurídica**:
 A linha fixa, em toda resposta com jurisprudência, que lembra que o resultado deve ser conferido na fonte oficial do tribunal antes de citar (vale também para o acórdão que veio sem link). Para o JurisprudênciaIA, diz que a base não é oficial; para o Falcão, diz que a fonte é o repositório oficial da Justiça do Trabalho, consultado por cliente não oficial. Com fontes diferentes na mesma resposta, cita as fontes usadas, sem estender a oficialidade de uma à outra.
 _Evitar_: disclaimer, ressalva
@@ -95,6 +100,11 @@ _Ressalva sobre o rótulo decidida pelo GPT Sol (gpt-6.1-sol, medium), delegado 
 O inciso do art. 927 do CPC em que um precedente se encaixa por regra fixa, com a base legal literal e a evidência tirada dos dados; ou "não classificado", com o motivo. Descreve o tipo identificado, não a vigência nem a aplicação ao caso concreto, e nunca é deduzido da falta de dados.
 _Evitar_: força, peso, nível, vinculante (sozinho), persuasivo, fora do rol (para acórdão)
 _Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
+**Âmbito**:
+O alcance de jurisdição do órgão que decidiu, dado por regra fixa de tribunal e classe e informado no enquadramento: "nacional" para precedente do STF ou do STJ já enquadrado (CF, art. 92, § 2º) e "tribunal de origem", condicional a este acórdão ter fixado a tese, para acórdão de IRDR de tribunal estadual ou regional (CPC, art. 985, I). Descreve onde o órgão tem jurisdição, não a vigência do precedente nem sua aplicação ao caso concreto, e nunca é deduzido da falta de dados nem do nome do órgão.
+_Evitar_: persuasivo, força, peso, nível, vinculante (sozinho), alcance (para o efeito da decisão)
+_Proposta do executor da lane L2 (b16-l2), aplicada em 2026-10-13 — sujeita a revisão do dono (ADR-0007, emenda do âmbito)._
 
 **Roteiro de pesquisa**:
 O passo a passo que o Garimpo oferece para pesquisar uma tese com as suas ferramentas: formular, buscar, separar pelo enquadramento no art. 927, ler ementas e inteiro teor, conferir antes de citar. Orienta quem pesquisa; nunca afirma jurisprudência.
@@ -184,9 +194,19 @@ _Evitar_: bloqueio, ban
 _Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
 
 **Freio preventivo**:
-A parada de uma fonte antes de ela recusar, quando a própria fonte informa que restam poucas chamadas (no Falcão, o cabeçalho de restante chegou à reserva). Pausa a fonte em todas as janelas por um prazo fixo; vencido o prazo, o próximo pedido do usuário deixa sair uma só chamada, que confere o restante: acima da reserva, as chamadas voltam; senão, nova pausa igual. Não é recusa: não abre o disjuntor nem dobra a pausa, e nunca sonda sozinho.
+A parada de uma fonte antes de ela recusar. Tem duas origens: (1) a própria fonte informa que restam poucas chamadas (no Falcão, o cabeçalho de restante chegou à reserva); (2) o limite **próprio** do Garimpo — o orçamento por janela, ou o teto diário no Falcão — foi usado em todas as janelas somadas. Pausa a fonte em todas as janelas. Na origem (1), por um prazo fixo; vencido o prazo, o próximo pedido do usuário deixa sair uma só chamada, que confere o restante: acima da reserva, as chamadas voltam; senão, nova pausa igual. Na origem (2), a pausa acaba sozinha no fim da janela ou do dia. Não é recusa: não abre o disjuntor nem dobra a pausa, e nunca sonda sozinho.
 _Evitar_: bloqueio, rate limit, disjuntor (é outra coisa)
-_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-09 — sujeito a revisão do dono._
+_Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-09; segunda origem proposta pelo executor da lane L1 (b16-l1), aplicada em 2026-10-13 — sujeito a revisão do dono._
+
+**Orçamento por janela**:
+O limite próprio de chamadas que o Garimpo se impõe a uma fonte que não informa quanto resta: um número de chamadas por janela de tempo, somadas em todas as janelas. No limite, a chamada não sai até o fim da janela (freio preventivo). Recusa da fonte alarga a janela um degrau de uma escada; 20 chamadas aceitas seguidas a afrouxam um degrau. Números iniciais, sem prova (ADR-0009, adendo do B16).
+_Evitar_: rate limit, cota (a cota é da fonte), disjuntor
+_Proposta do executor da lane L1 (b16-l1), aplicada em 2026-10-13 — sujeita a revisão do dono._
+
+**Teto diário**:
+O orçamento por janela do Falcão, cuja janela é o dia civil de Brasília (zera à meia-noite) e sem escada: 50 chamadas por dia, somadas em todas as janelas, mesmo que o Falcão informe saldo. Número inicial conservador e sem prova (ADR-0018, adendo do B16).
+_Evitar_: cota diária (a cota, se existe, é da fonte e não foi observada), limite do Falcão
+_Proposta do executor da lane L1 (b16-l1), aplicada em 2026-10-13 — sujeita a revisão do dono._
 
 **Chamada de prova**:
 A única chamada, um pedido real, que sai a um serviço quando a pausa do disjuntor vence. Não tem nova tentativa: aceita, as chamadas voltam; recusada, a pausa recomeça dobrada; erro sem recusa deixa o serviço aguardando outra prova.
@@ -225,6 +245,11 @@ Indício, na fonte, de que a passagem pode não ser do tribunal: aspas em volta 
 _Evitar_: autoria, citação de terceiro
 _Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
 
+**Conferência do acórdão citado**:
+A comparação do tribunal, do número e, se citados, da data de julgamento e do órgão de um acórdão com o registro da base do JurisprudênciaIA (memória ou uma busca direta pelo número). Responde `confirmado`, `dados em conflito` (com cada divergência) ou `não verificado`; este último só diz que a busca não trouxe o número, nunca que o acórdão não existe, e dado citado que o registro não traz fica à parte. Não vale para os TRTs. Não é a conferência de citação, que compara o texto citado, e não autentica nada: o acórdão se confere no portal do tribunal antes de citar.
+_Evitar_: validação, autenticação, verificação de existência
+_Proposta do executor da lane L3 (b16-l3), aplicada em 2026-10-13 — sujeita a revisão do dono._
+
 ## Filtros locais e referências a precedente
 
 **Filtro local**:
@@ -256,6 +281,11 @@ _Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 �
 A lista, na busca ampla, das referências a precedente mais frequentes entre os acórdãos achados (antes dos filtros locais e do corte), com quantos acórdãos fazem cada uma. Frequência não é relevância.
 _Evitar_: mapa de citações, ranking de precedentes
 _Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-08 — sujeito a revisão do dono._
+
+**Panorama da amostra**:
+A contagem, por tribunal, ano de julgamento e órgão julgador, dos acórdãos que uma busca já trouxe e que estão na memória do Garimpo. Não chama fonte nenhuma e sempre diz que é amostra da busca, não estatística do tribunal.
+_Evitar_: estatística, estimativa, total de julgados
+_Proposta do executor da lane L3 (b16-l3), aplicada em 2026-10-13 — sujeita a revisão do dono._
 
 ## Tabela de precedentes
 
