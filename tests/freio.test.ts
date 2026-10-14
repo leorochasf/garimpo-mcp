@@ -302,6 +302,31 @@ describe("escada limitada e acertos consecutivos (I-04/I-05)", () => {
 });
 
 describe("orçamento por janela, para fonte que não informa o restante", () => {
+  it.each([
+    ["mapa como lista", (e: any) => { e.orcamentos = []; }],
+    ["mapa ausente na versão 3", (e: any) => { delete e.orcamentos; }],
+    ["limite zero", (e: any) => { e.orcamentos.teste.limite = 0; }],
+    ["contador inseguro", (e: any) => { e.orcamentos.teste.usadas = 1e20; }],
+    ["contador acima do limite", (e: any) => { e.orcamentos.teste.usadas = 3; }],
+    ["instante fora do calendário", (e: any) => { e.orcamentos.teste.fim = 9e15; }],
+    ["degrau fora da escada", (e: any) => { e.orcamentos.teste.degrau = 3; }],
+    ["sequência impossível de acertos", (e: any) => { e.orcamentos.teste.acertos = 20; }],
+    ["dia que não termina à meia-noite", (e: any) => { e.orcamentos.teste.diario = true; }],
+  ])("estado corrompido (%s) para todos os serviços sem alterar o arquivo (I-04/I-05)", async (_, corromper) => {
+    const f = fonteAceita();
+    const relogio = { agora: INICIO };
+    await chamar(janela(relogio, f.fetchFalso, { orcamentoPorServico: ORCAMENTO }));
+    const caminho = join(pasta, "protecao", "estado.json");
+    const estado = JSON.parse(await readFile(caminho, "utf8"));
+    corromper(estado);
+    const texto = JSON.stringify(estado);
+    await writeFile(caminho, texto);
+    expect(await erroDe(janela(relogio, f.fetchFalso).requisitar("https://outra.jus.br/api"))).toBeInstanceOf(RedeParadaError);
+    expect((await new CoordenacaoEmArquivo({ pasta }).diagnosticar()).redeParada).toBe(true);
+    expect(f.chegadas).toHaveLength(1);
+    expect(await readFile(caminho, "utf8")).toBe(texto);
+  });
+
   it("migra a versão 2 preservando os freios e grava versão que clientes antigos recusam (I-04/I-05)", async () => {
     await mkdir(join(pasta, "protecao"), { recursive: true });
     await writeFile(join(pasta, "protecao", "estado.json"), JSON.stringify({

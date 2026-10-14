@@ -215,16 +215,24 @@ export function anotarOrcamento(o: Orcamento | undefined, resultado: "aceita" | 
 /** Confere o formato de um orçamento lido do estado compartilhado. */
 export function orcamentoValido(o: unknown): o is Orcamento {
   const x = o as Orcamento;
-  const inteiro = (v: unknown) => Number.isInteger(v) && (v as number) >= 0;
+  const inteiro = (v: unknown) => Number.isSafeInteger(v) && (v as number) >= 0;
   return (
     typeof x === "object" &&
     x !== null &&
-    Number.isFinite(x.fim) &&
+    !Array.isArray(x) &&
+    Number.isSafeInteger(x.fim) &&
+    Math.abs(x.fim) <= 8.64e15 &&
     inteiro(x.usadas) &&
+    x.usadas > 0 &&
     inteiro(x.limite) &&
+    x.limite > 0 &&
+    x.usadas <= x.limite &&
     inteiro(x.degrau) &&
     inteiro(x.ultimoDegrau) &&
+    x.degrau <= x.ultimoDegrau &&
     inteiro(x.acertos) &&
-    (x.diario === undefined || x.diario === true)
+    x.acertos < ACERTOS_PARA_AFROUXAR &&
+    (x.diario === undefined ||
+      (x.diario === true && x.degrau === 0 && x.ultimoDegrau === 0 && x.acertos === 0 && (x.fim - BRASILIA_MS) % DIA_MS === 0))
   );
 }

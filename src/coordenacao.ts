@@ -660,7 +660,7 @@ export class CoordenacaoEmArquivo implements Coordenacao {
       Object.values(disjuntores).every(disjuntorValido) &&
       (freios === undefined || (typeof freios === "object" && freios !== null && Object.values(freios).every(freioValido))) &&
       ((orcamentos === undefined && versao < 3) ||
-        (typeof orcamentos === "object" && orcamentos !== null && Object.values(orcamentos).every(orcamentoValido)));
+        (typeof orcamentos === "object" && orcamentos !== null && !Array.isArray(orcamentos) && Object.values(orcamentos).every(orcamentoValido)));
     if (!valido) throw ilegivel(this.estado);
     // O histórico só serve ao diagnóstico: linha que esta versão não entende é descartada, nunca para a rede.
     const lido = { ...estado, versao: VERSAO_ESTADO, pausas, disjuntores, orcamentos: orcamentos ?? {} } as Estado;
