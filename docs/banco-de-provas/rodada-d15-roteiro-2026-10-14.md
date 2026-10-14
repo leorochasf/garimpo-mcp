@@ -83,16 +83,19 @@ Leitura, com a amostra declarada (5 teses, 1 tribunal cada, 1 busca por formula�
 - **G-68 (léxico)** não teve chamada: nenhuma entrada foi medida; nada passa por esta rodada.
 - As diferenças de precisão vêm de poucos julgados (ver o aviso 3); nada aqui afirma melhora jurídica.
 
-### Texto recomendado (não aplicado; o roteiro segue intocado)
+### Texto adotado no ramo (D-15 / G-66, forma fraca)
 
 Só a forma fraca da G-66 tem apoio. Em `src/roteiro.ts`, passo 1 do `pesquisar_tese`, depois de
-"…efeito pretendido + situação de fato)." e antes de "Não invente…", acrescentar:
+"…efeito pretendido + situação de fato)." e antes de "Não invente…", foi acrescentada a única frase nova:
 
 > Inclua formulações que descrevam o assunto ou o fato (o instituto e a situação), e não só a conclusão que se quer ver
 > confirmada.
 
-Nada para G-67 e G-68. A mudança, se aprovada, segue o que a D-15 pede: junto do ADR-0014, com o teste de padrões e leitura
-humana do texto inteiro.
+Nada para G-67 e G-68. A mudança está junto da emenda ao ADR-0014 e dos testes de padrões, da frase literal e de
+igualdade do roteiro inteiro com uma cópia independente em `tests/fixtures/roteiro-d15-aprovado.txt`.
+O texto integral está separado para leitura humana em `TICKETS/b20-onda-2/15-roteiro-texto-integral.md`; esse preparo
+não comprova que o dono já o leu. A união de assunto e conclusão não teve precisão medida como busca ampla: a frase
+orienta variar a formulação, sem afirmar que a combinação passou por essa medição nem prometer ganho jurídico.
 
 ## 4. O que esta rodada **não** prova
 

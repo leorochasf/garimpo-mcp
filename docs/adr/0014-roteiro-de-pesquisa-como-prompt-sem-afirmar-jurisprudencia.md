@@ -57,6 +57,7 @@ conclusão que se quer ver confirmada.", entre a lista de exemplos e o "Não inv
 aplicada: a frase acrescenta, não proíbe nada (a forma forte, "nunca pela conclusão", não passou). Base: a união das
 formulações de assunto e de conclusão achou mais relevantes que qualquer uma sozinha em 6 de 10 pares. Amostra
 declarada: 5 teses, 1 tribunal cada, gabarito provisório; a rodada não prova precisão nem melhora jurídica. Nenhuma
-outra alteração do texto congelado; as `instructions` não mudam. Teste de substring exata da frase e dos padrões de
-afirmação de jurisprudência atualizados/passando; texto integral para leitura humana em
+outra alteração do texto congelado; as `instructions` não mudam. Além da substring exata da frase e dos padrões de
+afirmação de jurisprudência, o teste compara o roteiro inteiro com a cópia independente congelada em
+`tests/fixtures/roteiro-d15-aprovado.txt`; texto integral para leitura humana em
 `TICKETS/b20-onda-2/15-roteiro-texto-integral.md`.

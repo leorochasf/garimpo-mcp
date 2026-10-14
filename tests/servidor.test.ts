@@ -2297,6 +2297,15 @@ describe("roteiro de pesquisa (prompt pesquisar_tese e instructions do servidor)
     expect(texto.indexOf(FRASE_DE_PRIVACIDADE)).toBeLessThan(texto.indexOf("2. Rode a busca_ampla"));
   });
 
+  it("D-15: o roteiro inteiro corresponde ao texto congelado separado para leitura humana", async () => {
+    const mcp = await conectar(siteFalso([]));
+    // Cópia independente do texto integral da D-15; não deriva de src/roteiro.ts durante o teste.
+    const aprovado = (await readFile(new URL("./fixtures/roteiro-d15-aprovado.txt", import.meta.url), "utf8")).trimEnd();
+    const texto = await roteiro(mcp, { tese: "{tese}" });
+
+    expect(texto).toBe(aprovado);
+  });
+
   it("a frase da D-15 (G-66, forma fraca) aparece literal no passo 1, entre a lista de exemplos e o \"Não invente\"", async () => {
     const mcp = await conectar(siteFalso([]));
     const texto = await roteiro(mcp, { tese: "instituto jurídico X" });
