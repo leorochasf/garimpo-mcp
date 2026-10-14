@@ -26,8 +26,8 @@ import type { Chamada } from "./disjuntor.js";
 
 export const RESERVA_DO_FREIO = 10;
 export const PAUSA_PREVENTIVA_MS = 15 * 60_000;
-/** Cabeçalho do restante que o Falcão informa em cada resposta da API. */
-export const CABECALHO_DO_RESTANTE = "x-rate-limit-remaining";
+/** Cabeçalhos do restante: o Falcão informa `x-rate-limit-remaining`; a API do TJDFT, `x-ratelimit-remaining` (60 por minuto). */
+export const CABECALHOS_DO_RESTANTE = ["x-rate-limit-remaining", "x-ratelimit-remaining"];
 /** Intervalo com que quem espera a chamada de liberação de outra janela confere o estado. */
 const CONFERENCIA_MS = 250;
 
@@ -52,14 +52,14 @@ export type OrdemDoFreio =
 /** O que a resposta disse do restante: o número lido, `undefined` (ausente ou inválido) ou nenhuma resposta. */
 export type RestanteLido = number | undefined | "sem-resposta";
 
-/** Serviços com freio preventivo: só o Falcão (serviço "jt" do disjuntor). */
+/** Serviços com freio preventivo: o Falcão (serviço "jt" do disjuntor) e a API do TJDFT ("tjdft"). */
 export function temFreio(servico: string): boolean {
-  return servico === "jt";
+  return servico === "jt" || servico === "tjdft";
 }
 
 /** O restante de uma resposta: inteiro de 0 para cima; qualquer outra coisa = undefined. */
 export function lerRestante(headers: Headers): number | undefined {
-  const valor = headers.get(CABECALHO_DO_RESTANTE)?.trim();
+  const valor = CABECALHOS_DO_RESTANTE.map((nome) => headers.get(nome)).find((v) => v !== null)?.trim();
   return valor && /^\d+$/.test(valor) ? Number(valor) : undefined;
 }
 

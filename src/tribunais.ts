@@ -104,9 +104,6 @@ const EXPLICA_TJRN =
 const EXPLICA_TST =
   `${INCONCLUSIVO_B11} O link do PDF veio como endereço encurtado da Justiça do Trabalho, fora do portal do TST.`;
 
-const EXPLICA_TJDFT =
-  `${INCONCLUSIVO_B11} O portal devolveu uma página de aplicação no lugar do PDF, sem link para o PDF.`;
-
 function tj(sigla: string, nome: string): InfoTribunal {
   return {
     sigla,
@@ -187,7 +184,7 @@ export const TRIBUNAIS: InfoTribunal[] = [
   { ...tj("tjap", "TJ do Amapá") },
   { ...tj("tjba", "TJ da Bahia") },
   { ...tj("tjce", "TJ do Ceará") },
-  { ...tj("tjdft", "TJ do Distrito Federal e Territórios"), motivoLink: EXPLICA_TJDFT },
+  { ...tj("tjdft", "TJ do Distrito Federal e Territórios"), inteiroTeor: "portal", motivoLink: undefined },
   { ...tj("tjes", "TJ do Espírito Santo") },
   { ...tj("tjgo", "TJ de Goiás"), motivoLink: EXPLICA_TJGO },
   { ...tj("tjma", "TJ do Maranhão") },

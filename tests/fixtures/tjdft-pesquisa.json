@@ -1,0 +1,39 @@
+{
+ "hits": { "value": 1 },
+ "agregacoes": {
+  "relator": [{ "nome": "RELATOR FICTÍCIO", "total": 1 }],
+  "relatorDesignado": [],
+  "revisor": [],
+  "orgaoJulgador": [{ "nome": "9ª TURMA CÍVEL", "total": 1 }],
+  "base": [{ "nome": "acordaos", "total": 1, "filhos": [{ "nome": "acordaos", "total": 1 }] }],
+  "segredoJustica": [{ "nome": 0, "total": 1 }],
+  "classe": [{ "nome": "APELAÇÃO CÍVEL", "total": 1 }]
+ },
+ "paginacao": { "pagina": 0, "tamanho": 10 },
+ "registros": [
+  {
+   "sequencial": 1,
+   "base": "acordaos",
+   "subbase": "acordaos",
+   "uuid": "11111111-2222-4333-8444-555555555555",
+   "identificador": "9000001",
+   "dataJulgamento": "2026-03-12T03:00:00.000Z",
+   "dataPublicacao": "2026-03-20T03:00:00.000Z",
+   "decisao": "CONHECIDO. DESPROVIDO. UNÂNIME.",
+   "ementa": "APELAÇÃO CÍVEL. EXEMPLO FICTÍCIO DE EMENTA DO TJDFT PARA TESTE. DANO MORAL. PROTESTO INDEVIDO. DANO PRESUMIDO.",
+   "localDePublicacao": "PJe",
+   "processo": "0000001-11.2025.8.07.0001",
+   "nomeRelator": "RELATOR FICTÍCIO",
+   "relatorAtivo": true,
+   "uf": "DF",
+   "segredoJustica": false,
+   "turmaRecursal": false,
+   "descricaoOrgaoJulgador": "9ª TURMA CÍVEL",
+   "versao": "01",
+   "codigoClasseCnj": 198,
+   "codigoSistjOrgaoJulgador": 59,
+   "inteiroTeor": "Poder Judiciário da União\nTRIBUNAL DE JUSTIÇA DO DISTRITO FEDERAL E DOS TERRITÓRIOS\n \nÓrgão\n9ª Turma Cível\nProcesso N.APELAÇÃO CÍVEL 0000001-11.2025.8.07.0001APELANTE(S)PARTE FICTÍCIA APELANTEAPELADO(S)PARTE FICTÍCIA APELADARelatorDesembargador RELATOR FICTÍCIO\n Acórdão Nº9000001 \n\n \nEMENTA\n \nAPELAÇÃO CÍVEL. EXEMPLO FICTÍCIO DE EMENTA DO TJDFT PARA TESTE. DANO MORAL. PROTESTO INDEVIDO. DANO PRESUMIDO.\n1. O dano moral decorrente de protesto indevido é presumido.\n2. Recurso conhecido e desprovido.\n \nRELATÓRIO\n \nTrata-se de apelação cível interposta em ação fictícia, para exemplo de teste.\n \nVOTO\n \nPreenchidos os requisitos de admissibilidade, conheço do recurso. No mérito, o dano moral decorrente de protesto indevido é presumido, e a sentença deve ser mantida.\n \nDECISÃO\n \nCONHECIDO. DESPROVIDO. UNÂNIME.",
+   "possuiInteiroTeor": true
+  }
+ ]
+}
