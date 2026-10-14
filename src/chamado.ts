@@ -10,8 +10,12 @@ export const CHAMADO_LIGADO = false;
 const NOVO_CHAMADO = "https://github.com/leorochasf/garimpo-mcp/issues/new";
 
 /** Erro de formato, da memória ou de programação: o que não é recusa, pausa nem uso errado. */
-function inesperado(e: unknown): e is Error {
-  return e instanceof FormatoInesperadoError || e instanceof FalhaNaMemoriaError || e instanceof TypeError || e instanceof RangeError;
+function tipoInesperado(e: unknown): string | undefined {
+  if (e instanceof FormatoInesperadoError) return "FormatoInesperadoError";
+  if (e instanceof FalhaNaMemoriaError) return "FalhaNaMemoriaError";
+  if (e instanceof TypeError) return "TypeError";
+  if (e instanceof RangeError) return "RangeError";
+  return undefined;
 }
 
 /**
@@ -19,8 +23,10 @@ function inesperado(e: unknown): e is Error {
  * erro, a formulação da busca, número de processo, caminho local ou trecho de documento.
  */
 export function linhaDeChamado(e: unknown, ferramenta: string, versao: string, ligado = CHAMADO_LIGADO): string | undefined {
-  if (!ligado || !inesperado(e)) return undefined;
-  const p = new URLSearchParams({ versao, ferramenta, tipo: e.constructor.name });
+  if (!ligado) return undefined;
+  const tipo = tipoInesperado(e);
+  if (!tipo) return undefined;
+  const p = new URLSearchParams({ versao, ferramenta, tipo });
   return `Para relatar o erro sem dados da pesquisa: ${NOVO_CHAMADO}?${p}`;
 }
 

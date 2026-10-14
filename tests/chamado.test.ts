@@ -3,7 +3,9 @@ import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { describe, expect, it } from "vitest";
-import { Cliente, FormatoInesperadoError, RecusaError, VERSAO } from "../src/cliente.js";
+import { AdiadaError, Cliente, FormatoInesperadoError, PausaPreventivaError, RecusaError, VERSAO } from "../src/cliente.js";
+import { RedeParadaError } from "../src/coordenacao.js";
+import { FalhaNaMemoriaError } from "../src/memoria.js";
 import { criarServidor } from "../src/servidor.js";
 import { CHAMADO_LIGADO, linhaDeChamado } from "../src/chamado.js";
 
@@ -33,25 +35,43 @@ describe("linha de chamado nos erros inesperados (G-81)", () => {
     expect(linhaDeChamado(new RecusaError("recusou", 429), "busca_direta", "9.9.9", true)).toBeUndefined();
     expect(linhaDeChamado(new Error("data inválida"), "busca_direta", "9.9.9", true)).toBeUndefined();
   });
+
+  it.each([FormatoInesperadoError, FalhaNaMemoriaError, TypeError, RangeError])(
+    "usa tipo fixo para %s, mesmo com nome e construtor contendo dados",
+    (Classe) => {
+      const e = new Classe(`formulação ${NUMERO} ${CAMINHO} trecho de documento`);
+      e.name = e.message;
+      Object.defineProperty(e, "constructor", { value: { name: e.message } });
+      const linha = linhaDeChamado(e, "busca_direta", "9.9.9", true)!;
+      const url = new URL(linha.match(/https:\/\/\S+/)![0]);
+      expect(url.searchParams.get("tipo")).toBe(Classe.name);
+      expect(linha).not.toMatch(/0001234|ficticio|formula|documento/);
+      expect(linhaDeChamado(e, "busca_direta", "9.9.9", false)).toBeUndefined();
+    },
+  );
 });
 
 describe("linha de chamado no servidor (G-81)", () => {
-  async function chamarComFalhaDeFormato(chamado?: boolean) {
+  async function chamarComFalhaDeFormato(chamado?: boolean, falha?: Error) {
     const site = new Cliente({
       nome: "O site",
       esperar: async () => {},
       fetch: (async () => new Response(`não é json ${NUMERO}`, { status: 200 })) as typeof fetch,
     });
+    if (falha) site.requisitar = async () => { throw falha; };
     const [ladoCliente, ladoServidor] = InMemoryTransport.createLinkedPair();
     const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "janela-"));
     await criarServidor(site, { dados, chamado }).connect(ladoServidor);
     const mcp = new Client({ name: "teste", version: "0" });
     await mcp.connect(ladoCliente);
+    const ferramentas = await mcp.listTools();
+    const sucesso = await mcp.callTool({ name: "listar_tribunais", arguments: {} });
     const r = (await mcp.callTool({
       name: "busca_direta",
       arguments: { tribunal: "stj", texto: "responsabilidade civil do Estado" },
     })) as { content: { text: string }[]; isError?: boolean };
-    return { isError: r.isError, textos: r.content.map((c) => c.text) };
+    await mcp.close();
+    return { isError: r.isError, textos: r.content.map((c) => c.text), ferramentas, sucesso };
   }
 
   it("desligada (padrão), o erro inesperado vem sem link", async () => {
@@ -70,5 +90,26 @@ describe("linha de chamado no servidor (G-81)", () => {
       tipo: "FormatoInesperadoError",
     });
     expect(linha).not.toMatch(/responsabilidade|0001234/);
+  });
+
+  it.each([
+    new RecusaError("recusou", 429),
+    new AdiadaError("esperar", Date.now() + 60_000),
+    new PausaPreventivaError("pausado", Date.now() + 60_000),
+    new RedeParadaError("estado ilegível"),
+    new Error("uso inválido"),
+  ])("não oferece chamado para %s, mesmo ligada", async (falha) => {
+    const r = await chamarComFalhaDeFormato(true, falha);
+    expect(r.isError).toBe(true);
+    expect(r.textos.join("\n")).not.toMatch(/issues\/new/);
+  });
+
+  it("preserva toda resposta desligada e o tools/list e respostas de sucesso nos dois estados", async () => {
+    const padrao = await chamarComFalhaDeFormato();
+    expect(await chamarComFalhaDeFormato(false)).toEqual(padrao);
+    const ligada = await chamarComFalhaDeFormato(true);
+    expect(ligada.ferramentas).toEqual(padrao.ferramentas);
+    expect(ligada.sucesso).toEqual(padrao.sucesso);
+    expect(JSON.stringify(ligada.sucesso)).not.toMatch(/issues\/new/);
   });
 });
