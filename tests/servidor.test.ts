@@ -2259,14 +2259,15 @@ describe("roteiro de pesquisa (prompt pesquisar_tese e instructions do servidor)
     "O Garimpo pesquisa jurisprudência brasileira em base não oficial e baixa o inteiro teor oficial quando " +
     "disponível; use busca_ampla com 3 a 6 formulações, obter_ementa dos acórdãos que apresentar (até 10), " +
     "obter_inteiro_teor dos que citar (até 3, salvo pedido do usuário) e ler_inteiro_teor por partes, conferindo toda " +
-    "citação literal com conferir_citacao antes de entregá-la; formule a busca com a tese em abstrato, sem nome de " +
+    "citação literal de acórdão com conferir_citacao antes de entregá-la; formule a busca com a tese em abstrato, sem nome de " +
     "parte nem dado do caso. Nunca afirme jurisprudência sem fonte devolvida pelas " +
     "ferramentas nem complete lacunas de memória: indique o que não foi verificado; diante de recusa ou rede parada, " +
     "cesse novas chamadas e avise, podendo continuar a consulta local. O roteiro completo está no prompt " +
     "pesquisar_tese. Ao ler um acórdão, comece pela certidão de julgamento e separe admissibilidade, ratio do voto " +
     "condutor, votos divergentes, tese, dispositivo e o que veio depois (julgamentos_do_processo); o que as " +
     "ferramentas não mostrarem é \"não verificado\". Pergunta por súmula ou tema: texto e situação só como o " +
-    "consultar_precedente os devolver, com data e origem; \"vigente\" e \"superado\" só em citação literal da fonte.";
+    "consultar_precedente os devolver, com data e origem; súmula do STJ na lista da busca_ampla: \"texto da lista do " +
+    "site, não conferido em fonte oficial\". \"vigente\" e \"superado\" só em citação literal da fonte.";
 
   /** Frase de privacidade aprovada em D-14 (2026-10-13), literal; deve estar nas instructions e no roteiro. */
   const FRASE_DE_PRIVACIDADE = "formule a busca com a tese em abstrato, sem nome de parte nem dado do caso";
@@ -2393,7 +2394,7 @@ describe("roteiro de pesquisa (prompt pesquisar_tese e instructions do servidor)
     ["f)", 'Modulação e marco temporal só valem lidos no acórdão; senão, "não verificado".'],
     ["h)", "leia a ementa deles pelo obter_ementa"],
     ["h)", 'para ler o acórdão, use obter_inteiro_teor e ler_inteiro_teor, nos limites do passo 7 e dos tribunais que só dão link; senão, "não verificado"'],
-    ["h)", 'Trânsito em julgado e superação posterior não aparecem nas ferramentas: diga "não verificado".'],
+    ["h)", 'Esse acompanhamento não comprova trânsito em julgado nem superação posterior: diga "não verificado".'],
     ["h)", "O DataJud não cobre o STF, e a falta de registro não prova que algo não aconteceu."],
   ];
 
@@ -2449,7 +2450,7 @@ describe("roteiro de pesquisa (prompt pesquisar_tese e instructions do servidor)
     const mcp = await conectar(siteFalso([]));
     const texto = await roteiro(mcp, { tese: "instituto jurídico X" });
     const modulacao = 'Modulação e marco temporal só valem lidos no acórdão; senão, "não verificado".';
-    const transito = 'Trânsito em julgado e superação posterior não aparecem nas ferramentas: diga "não verificado".';
+    const transito = 'Esse acompanhamento não comprova trânsito em julgado nem superação posterior: diga "não verificado".';
     const registro = "a falta de registro não prova que algo não aconteceu";
     const variantes = [
       texto.replace(modulacao, ""),
@@ -2479,6 +2480,18 @@ describe("roteiro de pesquisa (prompt pesquisar_tese e instructions do servidor)
     expect(passo1).toContain("Inclua formulações que descrevam o assunto ou o fato");
   });
 
+  it("D-15: a conferência de citação se limita a acórdão e não impede a cópia literal de enunciado ou situação em S1 e S2", async () => {
+    const mcp = await conectar(siteFalso([]));
+    const texto = await roteiro(mcp, { tese: "instituto jurídico X" });
+    expect(texto).toContain("9. Antes de entregar qualquer citação literal de acórdão, confira-a com o conferir_citacao");
+    expect(mcp.getInstructions()).toContain("citação literal de acórdão com conferir_citacao");
+    expect(texto).not.toContain("Trânsito em julgado e superação posterior não aparecem nas ferramentas");
+    expect(texto).toContain('Esse acompanhamento não comprova trânsito em julgado nem superação posterior: diga "não verificado".');
+    const { tools } = await mcp.listTools();
+    expect(tools.find((t) => t.name === "conferir_citacao")?.description).toContain("ementa do acórdão");
+    expect(tools.find((t) => t.name === "consultar_precedente")?.description).toContain("situação processual, nunca vigência");
+  });
+
   /** O bloco "pergunta por súmula ou tema": do título ao fim das linhas S1)–S5). */
   function blocoDeSumula(texto: string): string[] {
     const linhas = texto.split("\n");
@@ -2499,6 +2512,9 @@ describe("roteiro de pesquisa (prompt pesquisar_tese e instructions do servidor)
     expect(bloco[1]).toMatch(/consultar_precedente/);
     expect(bloco[1]).toMatch(/com a data e a hora da origem/);
     expect(bloco[1]).toContain('"texto da lista do site, não conferido em fonte oficial"');
+    expect(mcp.getInstructions()).toContain(
+      'súmula do STJ na lista da busca_ampla: "texto da lista do site, não conferido em fonte oficial"',
+    );
     expect(bloco[1]).toMatch(/nunca escreva o enunciado de memória/);
     // S2: situação literal e datada, ou "não verificado"; marca não é vigência.
     expect(bloco[2]).toMatch(/^S2\) Situação ou marca na fonte, literal, com a data e a origem; sem ela, "não verificado"/);
@@ -2524,6 +2540,7 @@ describe("roteiro de pesquisa (prompt pesquisar_tese e instructions do servidor)
     expect(passo11).toMatch(/copiada literalmente, com a data e a origem que a ferramenta devolveu/);
     expect(passo11).toMatch(/sempre com o id e o trecho de onde saiu e a frase "não prova superação"/);
     expect(passo11).toMatch(/"Não verificado — conferir no portal oficial": todo o resto/);
+    expect(passo11).toContain("Não encontrar indício não prova que nada mudou.");
   });
 
   /** Ocorrências de "vigente" ou "superado(a)" fora de aspas (citação): lista vazia = nenhuma. */
@@ -2554,6 +2571,7 @@ describe("roteiro de pesquisa (prompt pesquisar_tese e instructions do servidor)
     const passo12 = texto.split("\n").find((l) => l.startsWith("12. "))!;
 
     expect(passo12).toMatch(/tribunal, órgão, data, entendimento, fundamento e resultado/);
+    expect(passo12).toContain("A amostra não prova consenso nem ausência de divergência; limite a comparação aos acórdãos lidos.");
     expect(passo12).toMatch(/"Onde a pesquisa está fraca", tirado só do cabecalhoDeCobertura da busca_ampla/);
     for (const ponto of [
       "formulações que voltaram sem acórdão",
@@ -2565,6 +2583,7 @@ describe("roteiro de pesquisa (prompt pesquisar_tese e instructions do servidor)
       expect(passo12).toContain(ponto);
     }
     expect(passo12).toMatch(/Não acrescente ponto fraco que esses campos não mostrem/);
+    expect(passo12).toContain("STF por busca (campo avisos)");
     expect(passo12).toMatch(/panorama_da_amostra e diga que é amostra da busca, não estatística/);
   });
 

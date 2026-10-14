@@ -84,10 +84,25 @@ padrões e de igualdade, e o texto integral para leitura humana em `TICKETS/b20-
   âmbito; aplicação pelos tribunais com formulações do assunto (menção não é aplicação); desgaste nas três caixas.
 
 As `instructions` ganham uma frase-ponteiro no fim, para clientes que não abrem o prompt: "Pergunta por súmula ou tema:
-texto e situação só como o consultar_precedente os devolver, com data e origem; "vigente" e "superado" só em citação
-literal da fonte." O teste de igualdade exata foi atualizado junto. O texto novo segue este ADR: sem número de súmula,
+texto e situação só como o consultar_precedente os devolver, com data e origem; súmula do STJ na lista da busca_ampla:
+"texto da lista do site, não conferido em fonte oficial". "vigente" e "superado" só em citação literal da fonte."
+O teste de igualdade exata foi atualizado junto. O texto novo segue este ADR: sem número de súmula,
 tema, precedente ou processo, sem "entende(m) que", exemplos só abstratos; testes novos travam a ordem do bloco de
 súmula, as três caixas, "vigente"/"superado" fora de aspas e a ausência de número. A cópia independente congelada
 passou a `tests/fixtures/roteiro-aprovado.txt`. Checagem sem rede sobre respostas gravadas em
 `docs/banco-de-provas/checagem-roteiro-sumulas-2026-10-14.md` (checagem, não medição estatística). As sugestões 3
 (ficha por precedente) e 6 (procurar o contrário) ficam fora desta revisão.
+
+### Correções da revisão adversarial (D-15, 2026-10-14)
+
+- A frase das `instructions` admite a mesma exceção do S1 para súmula do STJ na lista do site, com a ressalva literal;
+  antes, restringia o texto ao `consultar_precedente`, que não aceita esse tipo no STJ.
+- A conferência literal pelo `conferir_citacao` fica limitada a citação de acórdão (passo 9 e `instructions`): a ferramenta
+  não recebe enunciado nem tese de precedente. S1 e S2 continuam exigindo cópia literal do que a fonte devolveu.
+- A letra h limita a ressalva de trânsito e superação ao acompanhamento pelo `julgamentos_do_processo`; não nega a
+  situação processual literal que o `consultar_precedente` devolve.
+- O passo 11 explicita que não encontrar indício não prova que nada mudou; o passo 12 limita a comparação aos acórdãos
+  lidos, sem prova de consenso ou ausência de divergência, e identifica `avisos` como origem da ressalva do STF.
+
+Testes de igualdade e das ressalvas atualizados no mesmo conjunto. São travas de texto, não prova de que uma IA siga
+as instruções; a leitura semântica continua necessária.
