@@ -1,6 +1,6 @@
 /**
  * DJEN (comunicações processuais do CNJ): as comunicações de um processo, pelo número — metadados e link, nunca o
- * texto, as partes ou os advogados. Fontes, limites e o que o Garimpo guarda: docs/fontes.md.
+ * texto bruto, as partes ou os advogados. Fontes, limites e o que o Garimpo guarda: docs/fontes.md.
  */
 
 import { Cliente, FormatoInesperadoError, type OpcoesCliente, textoExternoLimpo } from "./cliente.js";
@@ -40,13 +40,13 @@ export interface Comunicacao {
 
 export type EmentaDjen = { rotulo: typeof ROTULO_EMENTA; trecho: string } | "não verificado";
 
-const ROTULO_EMENTA = "trecho do DJEN (texto da intimação, não o acórdão oficial)" as const;
+const ROTULO_EMENTA = "trecho do DJEN (texto da intimação, não o acórdão oficial; saneamento de melhor esforço)" as const;
 const TAMANHO_TRECHO = 600;
 const NUMERO_CNJ = /\d{7}-?\d{2}\.?\d{4}\.?\d\.?\d{2}\.?\d{4}/g;
 /** Linha que nomeia parte ou advogado por rótulo fixo: cortada inteira. */
-const LINHA_DE_PESSOA = /^\s*(apelante|apelado|agravante|agravado|embargante|embargado|recorrente|recorrido|impetrante|impetrado|autor|autora|r[ée]u|requerente|requerido|interessado|advogad[oa]s?|procurador(?:a)?|relator(?:a)?|revisor(?:a)?)\b[^\n]{0,20}:/i;
+const LINHA_DE_PESSOA = /\b(apelante|apelado|agravante|agravado|embargante|embargado|recorrente|recorrido|impetrante|impetrado|autor|autora|r[ée]u|requerente|requerido|interessado|advogad[oa]s?(?:\(as?\))?|procurador(?:a)?|relator(?:a)?|revisor(?:a)?)\b[^\n]{0,20}:/i;
 
-/** O que a ferramenta mostra do DJEN (e o que a memória guarda): sem texto, sem partes, sem advogados. */
+/** Metadados e, quando verificável, trecho saneado; nunca o texto bruto, partes ou advogados. */
 export interface ConsultaDjen {
   /** Comunicações que o DJEN diz ter (count). */
   total: number;
@@ -56,7 +56,15 @@ export interface ConsultaDjen {
 /** A consulta guardada tem o formato desta versão? (memória de outra versão ou estragada = ausente). */
 export function ehConsultaDjen(d: unknown): d is ConsultaDjen {
   const c = d as ConsultaDjen;
-  return typeof c === "object" && c !== null && Number.isInteger(c.total) && Array.isArray(c.comunicacoes);
+  return typeof c === "object" && c !== null && Number.isInteger(c.total) && Array.isArray(c.comunicacoes) &&
+    c.comunicacoes.every((i) => i && typeof i === "object" &&
+      Object.keys(i).every((k) => ["dataDisponibilizacao", "tipoComunicacao", "tipoDocumento", "orgao", "classe", "link", "ementa"].includes(k)) &&
+      Object.entries(i).every(([k, v]) => k === "ementa"
+        ? v === "não verificado" || (v && typeof v === "object" && v.rotulo === ROTULO_EMENTA &&
+          typeof v.trecho === "string" && !!v.trecho && v.trecho.length <= TAMANHO_TRECHO &&
+          Object.keys(v).length === 2 && !LINHA_DE_PESSOA.test(v.trecho) &&
+          textoExternoLimpo(v.trecho, TAMANHO_TRECHO) === v.trecho)
+        : typeof v === "string"));
 }
 
 type Bruto = Record<string, unknown>;
@@ -67,19 +75,38 @@ const texto = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : un
  * de processo além do consultado (ementa transcrita ou ato coletivo trariam outro). Um sinal só ou dúvida: "não
  * verificado". Saneamento de melhor esforço: nome de pessoa em texto livre não é detectável.
  */
-function ementaDoAto(tipoDocumento: string | undefined, html: string | undefined, digitos: string): EmentaDjen {
-  if (!tipoDocumento || !/ac[óo]rd[ãa]o/i.test(tipoDocumento) || !html) return "não verificado";
+function ementaDoAto(tipoDocumento: string | undefined, html: string | undefined, digitos: string, bruto: Bruto): EmentaDjen {
+  // Só o valor exato fictício aceito; nenhum sinônimo é inferido sem prova do formato.
+  if (tipoDocumento !== "Acórdão" || !html || !/^\d{20}$/.test(digitos)) return "não verificado";
   const texto = htmlParaTexto(html);
   const numeros = (texto.match(NUMERO_CNJ) ?? []).map((n) => n.replace(/\D/g, ""));
-  const marcas = [...texto.matchAll(/\bEMENTA\b/g)];
-  if (marcas.length !== 1 || !numeros.length || numeros.some((n) => n !== digitos)) return "não verificado";
-  const depois = texto.slice(marcas[0].index + marcas[0][0].length).replace(/^\s*[:.\-–]*/, "");
-  const fim = depois.search(/\b(AC[ÓO]RD[ÃA]O|VOTO|RELAT[ÓO]RIO|VISTOS)\b/);
+  const marcas = [...texto.matchAll(/\bEMENTA\b/gi)];
+  const cabecalho = [...texto.matchAll(/^EMENTA\s*[:.\-–]\s*/gim)];
+  const finais = [...texto.matchAll(/^AC[ÓO]RD[ÃA]O\s*:/gim)];
+  if (marcas.length !== 1 || cabecalho.length !== 1 || finais.length !== 1 || !numeros.length ||
+      numeros.some((n) => n !== digitos) || !texto.slice(0, cabecalho[0].index).match(NUMERO_CNJ) || finais[0].index <= cabecalho[0].index ||
+      /\b(?:transcri\w*|precedente|in verbis|ata|pauta|RELAT[ÓO]RIO|VOTO)\b/i.test(texto)) return "não verificado";
+  if ((texto.match(/\b(?:ACORDAM|DECIDEM)\b/gi) ?? []).length > 1) return "não verificado";
+  const depois = texto.slice(cabecalho[0].index + cabecalho[0][0].length, finais[0].index);
+  const semPessoas = depois.split("\n").filter((l) => !LINHA_DE_PESSOA.test(l)).join(" ");
+  // Nomes declarados pela própria comunicação: qualquer ocorrência no trecho impede sua saída.
+  for (const campo of ["destinatarios", "destinatarioadvogados"] as const) {
+    const pessoas = bruto[campo];
+    if (pessoas === undefined) continue;
+    if (!Array.isArray(pessoas)) return "não verificado";
+    for (const pessoa of pessoas) {
+      const registro = campo === "destinatarioadvogados" ? pessoa?.advogado : pessoa;
+      if (!registro || typeof registro.nome !== "string" || !registro.nome.trim()) return "não verificado";
+      if (semPessoas.toLocaleLowerCase("pt-BR").includes(registro.nome.trim().toLocaleLowerCase("pt-BR")))
+        return "não verificado";
+    }
+  }
+  // Nomes livres detectáveis ou aspas de transcrição: na dúvida não há trecho.
+  if (/["“”«»]|\b[A-ZÀ-Ý][a-zà-ÿ]+\s+(?:(?:de|da|do|dos|das)\s+)?[A-ZÀ-Ý][a-zà-ÿ]+\b/.test(semPessoas))
+    return "não verificado";
   const trecho = textoExternoLimpo(
-    (fim >= 0 ? depois.slice(0, fim) : depois)
-      .split("\n")
-      .filter((l) => !LINHA_DE_PESSOA.test(l))
-      .join(" ")
+    semPessoas
+      .replace(/\b\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2}\b/g, "[número retirado]")
       .replace(/\(?\d{2}\)?\s?9?\d{4}-?\d{4}/g, "[telefone retirado]")
       .replace(/\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/g, "[número retirado]")
       .replace(/\b\d{2}\.?\d{3}-\d{3}\b/g, "[CEP retirado]")
@@ -95,7 +122,9 @@ export function reduzirDjen(json: unknown, digitos = ""): ConsultaDjen {
   if (!r || !Array.isArray(r.items)) {
     throw new FormatoInesperadoError("O DJEN devolveu uma resposta sem a lista de comunicações (items): o formato pode ter mudado.");
   }
-  const comunicacoes = (r.items as Bruto[]).slice(0, POR_PAGINA).map((i) => {
+  const comunicacoes = r.items.slice(0, POR_PAGINA).map((item: unknown) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return { ementa: "não verificado" as const };
+    const i = item as Bruto;
     const link = texto(i.link);
     const c: Comunicacao = {
       dataDisponibilizacao: texto(i.data_disponibilizacao),
@@ -106,8 +135,8 @@ export function reduzirDjen(json: unknown, digitos = ""): ConsultaDjen {
       link: link && /^https:\/\//i.test(link) ? link : undefined,
       // Só quem tem ao menos um sinal (tipo de acórdão ou "EMENTA" no texto) ganha o campo; com um só, "não verificado".
       ementa:
-        /ac[óo]rd[ãa]o/i.test(texto(i.tipoDocumento) ?? "") || /(?:^|[^A-Za-zÀ-ÿ])EMENTA(?![A-Za-zÀ-ÿ])/.test(texto(i.texto) ?? "")
-          ? ementaDoAto(texto(i.tipoDocumento), texto(i.texto), digitos)
+        /ac[óo]rd[ãa]o/i.test(texto(i.tipoDocumento) ?? "") || /(?:^|[^A-Za-zÀ-ÿ])EMENTA(?![A-Za-zÀ-ÿ])/i.test(texto(i.texto) ?? "")
+          ? ementaDoAto(texto(i.tipoDocumento), texto(i.texto), digitos, i)
           : undefined,
     };
     for (const k of Object.keys(c) as (keyof Comunicacao)[]) if (c[k] === undefined) delete c[k];
