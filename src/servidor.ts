@@ -45,6 +45,7 @@ import { ChaveDoDataJud, clienteDoDataJud, TERMO_DE_USO_DATAJUD } from "./dataju
 import { clienteDoDjen, FonteDjen } from "./djen.js";
 import { julgamentosDoProcesso } from "./julgamentos.js";
 import { avisoRecorridoDoAcordao } from "./recorrido.js";
+import { CHAMADO_LIGADO, comLinhaDeChamado, ERRO_DE_ORIGEM } from "./chamado.js";
 import { INSTRUCTIONS, roteiroDePesquisa } from "./roteiro.js";
 import { clienteDoFalcao } from "./falcao.js";
 import { clienteDosPrecedentes, PrecedentesAoVivo, respostaDoStf } from "./precedentesAoVivo.js";
@@ -311,9 +312,11 @@ function marcaDePausa(e: unknown): { estruturada: { liberadoEm: string } & Recor
 function erro(e: unknown) {
   const marca = marcaDePausa(e);
   const texto = { type: "text" as const, text: (e as Error).message };
-  return marca
+  const resposta = marca
     ? { content: [texto, { type: "text" as const, text: marca.texto }], structuredContent: marca.estruturada, isError: true }
     : { content: [texto], isError: true };
+  // A origem não vai na resposta: só deixa o registrar decidir se cabe a linha de chamado (G-81).
+  return Object.defineProperty(resposta, ERRO_DE_ORIGEM, { value: e });
 }
 
 /**
@@ -378,6 +381,8 @@ export interface OpcoesServidor {
   precedentesStf?: Cliente;
   /** Estado de proteção que o diagnostico_dos_freios lê (padrão: o de todos os clientes do processo). */
   coordenacao?: CoordenacaoEmArquivo;
+  /** Liga a linha de chamado nos erros inesperados (padrão: desligada até a publicação autorizada). */
+  chamado?: boolean;
 }
 
 export function criarServidor(
@@ -395,12 +400,14 @@ export function criarServidor(
     falcao = clienteDoFalcao(),
     precedentesStf = clienteDosPrecedentes(),
     coordenacao,
+    chamado = CHAMADO_LIGADO,
   }: OpcoesServidor = {},
 ): McpServer {
   const servidor = new McpServer({ name: "garimpo", version: VERSAO }, { instructions: INSTRUCTIONS });
   /** Registra a ferramenta com o nome dela anotado nas recusas que levar (o histórico do diagnostico_dos_freios). */
   const registrar = ((nome: string, config: never, fazer: (...a: unknown[]) => unknown) =>
-    servidor.registerTool(nome, config, ((...a: unknown[]) => naFerramenta(nome, () => fazer(...a))) as never)) as typeof servidor.registerTool;
+    servidor.registerTool(nome, config, ((...a: unknown[]) =>
+      naFerramenta(nome, async () => comLinhaDeChamado(await fazer(...a), nome, VERSAO, chamado))) as never)) as typeof servidor.registerTool;
   // GARIMPO_SEM_MEMORIA=1 desliga só a memória em disco (a janela guarda enquanto está aberta), nunca o freio.
   const memoria = new Memoria({
     dados: process.env.GARIMPO_SEM_MEMORIA === "1" ? undefined : (dados ?? pastaDeDados()),

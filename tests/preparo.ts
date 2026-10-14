@@ -20,6 +20,7 @@ afterEach(() => rmSync(join(pasta, "protecao", "estado.json"), { force: true }))
 // A memória grava por trás das respostas: uma leva atrasada pode recriar a pasta (ou um arquivo dentro dela) enquanto
 // ela é apagada, e o rmSync falha com ENOTEMPTY mesmo com novas tentativas. Apaga até a pasta ficar meio segundo sem
 // voltar; erro de remoção é só nova rodada, e esgotadas as rodadas a pasta sobra no %TEMP% sem derrubar o arquivo.
+// As 20 pausas somam até 10 s, além dos retries do rmSync: o prazo padrão de 10 s não cobre esta limpeza.
 afterAll(async () => {
   for (let rodada = 0; rodada < 20; rodada++) {
     try {
@@ -30,4 +31,4 @@ afterAll(async () => {
     await new Promise((r) => setTimeout(r, 500));
     if (!existsSync(pasta)) return;
   }
-});
+}, 120_000);
