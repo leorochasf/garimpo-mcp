@@ -33,6 +33,16 @@ const DIPLOMAS: Diploma[] = [
     urn: "urn:lex:br:federal:lei:2015-03-16;13105",
     apelidos: ["cpc", "cpc/2015", "cpc 2015", "codigo de processo civil", "lei 13105/2015", "lei 13105", "lei 13.105/2015"],
   },
+  {
+    sigla: "CC",
+    urn: "urn:lex:br:federal:lei:2002-01-10;10406",
+    apelidos: ["cc", "cc/2002", "cc 2002", "codigo civil", "lei 10406/2002", "lei 10406", "lei 10.406/2002"],
+  },
+  {
+    sigla: "CF",
+    urn: "urn:lex:br:federal:constituicao:1988-10-05;1988",
+    apelidos: ["cf", "cf/88", "cf/1988", "cf 1988", "crfb", "crfb/88", "crfb/1988", "constituicao federal", "constituicao federal de 1988", "constituicao da republica federativa do brasil"],
+  },
 ];
 
 const normalizar = (t: string) =>

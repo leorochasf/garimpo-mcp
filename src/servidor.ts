@@ -1220,7 +1220,7 @@ export function criarServidor(
         "(24 h), com a data da obtenção original.",
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
       inputSchema: {
-        diploma: z.string().describe("Sigla do diploma (ex.: CPC)"),
+        diploma: z.string().describe("Sigla do diploma (CPC, CC ou CF)"),
         dispositivo: z.string().describe('O dispositivo, por escrito (ex.: "art. 85, § 2º, inciso I")'),
       },
     },
