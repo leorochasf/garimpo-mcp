@@ -69,6 +69,7 @@ function deRomano(texto: string): number {
   let total = 0;
   const v = [...texto.toLowerCase()].map((c) => ROMANOS[c]);
   for (let i = 0; i < v.length; i++) total += v[i] < (v[i + 1] ?? 0) ? -v[i] : v[i];
+  if (aRomano(total).toLowerCase() !== texto.toLowerCase()) throw new Error(ERRO_DISPOSITIVO);
   return total;
 }
 
@@ -150,7 +151,7 @@ export interface Parte {
   rotuloNaFonte?: string;
   /** A redação mais recente que a fonte lista, quando ela tem texto. */
   texto?: string;
-  /** Presente só quando a fonte lista mais de uma redação (da mais antiga para a mais recente). */
+  /** Redações e suas marcas, mesmo quando há só uma (da mais antiga para a mais recente). */
   versoesNaFonte?: Versao[];
   /** Marca que a fonte põe no dispositivo todo (ex.: NotInForce), sem que o Garimpo conclua nada. */
   marcaDaFonteNoDispositivo?: string;
@@ -273,14 +274,14 @@ function partesDe(raiz: Bruto): Parte[] {
     const versoes = versoesDoNo(n).map(versaoDe);
     const ultima = versoes[versoes.length - 1];
     const algumTexto = versoes.some((v) => v.texto);
-    if (algumTexto || versoes.length > 1) {
+    if (algumTexto) {
       const nome = versoesDoNo(n).map((v) => texto(v.name)).filter(Boolean).pop();
       const marca = texto(n.legislationLegalForce);
       partes.push({
         dispositivo: citar(baseDoId(n)!),
         ...(nome && { rotuloNaFonte: nome }),
         ...(ultima?.texto && { texto: ultima.texto }),
-        ...(versoes.length > 1 && { versoesNaFonte: versoes }),
+        versoesNaFonte: versoes,
         ...(marca && { marcaDaFonteNoDispositivo: marca }),
         ...(algumTexto && !ultima?.texto && {
           observacao: "A redação mais recente que a fonte lista não traz texto; veja versoesNaFonte.",
@@ -315,7 +316,7 @@ function consultarNaResposta(diploma: Diploma, nomeDaNorma: string, pedido: Pedi
   const no = nos[0];
   const partes = partesDe(no);
   const urlOficial = texto(no["@id"]);
-  if (!partes.some((p) => p.texto || p.versoesNaFonte)) {
+  if (!partes.some((p) => p.texto || p.versoesNaFonte?.some((v) => v.texto))) {
     return { resultado: "não verificado", ...base, ...(urlOficial && { urlOficial }), motivo: "A fonte não traz texto para este dispositivo." };
   }
   return {

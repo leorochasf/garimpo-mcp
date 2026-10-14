@@ -1212,7 +1212,7 @@ export function criarServidor(
         `(hoje: ${diplomasSuportados()}; outra sigla é recusada com a lista) e o dispositivo por escrito (ex.: "art. 85", ` +
         "\"art. 85, § 2º, inciso I\", \"art. 9º, parágrafo único\", \"art. 699-A\"). Dispositivo sem texto na fonte " +
         "volta como \"não verificado\"; dois dispositivos com a mesma identificação, como \"identificação necessária\" " +
-        "(o Garimpo não escolhe). Quando a fonte lista várias redações, vêm todas (versoesNaFonte), da mais antiga para " +
+        "(o Garimpo não escolhe). As redações vêm todas (versoesNaFonte), mesmo quando há só uma, da mais antiga para " +
         "a mais recente, com as marcas que a fonte põe (tipo da versão, lei alteradora, nota, período, força marcada); " +
         "o Garimpo não conclui qual redação vale, não reconstitui alteração e não afirma vigência: confira na página " +
         "oficial antes de citar. Uso conforme a licença CC BY 4.0 que a fonte declara (citar a fonte). A norma inteira " +

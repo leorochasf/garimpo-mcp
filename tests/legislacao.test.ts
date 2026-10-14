@@ -54,6 +54,27 @@ describe("texto_de_lei — texto literal do dispositivo", () => {
     expect(r.partes[2]).toMatchObject({ texto: "o lugar de prestação do serviço;" });
   });
 
+
+  it("preserva data, tipo e marcas de uma redação única", async () => {
+    const r = await encontrado("CPC", "art. 85, § 6º-A");
+    expect(r.partes[0].versoesNaFonte).toHaveLength(1);
+    expect(r.partes[0].versoesNaFonte![0]).toMatchObject({
+      data: "2022-06-02", tipoNaFonte: "Insertion_Version", alteradoPor: "Lei nº 14.365 de 02/06/2022",
+    });
+  });
+
+  it("várias redações sem texto não comprovam texto", async () => {
+    const semTexto = structuredClone(CPC);
+    const limpar = (n: unknown): void => {
+      if (!n || typeof n !== "object") return;
+      const o = n as Record<string, unknown>;
+      delete o.text;
+      Object.values(o).forEach(limpar);
+    };
+    limpar(semTexto);
+    expect((await consultar("CPC", "art. 12, caput", semTexto)).r.resultado).toBe("não verificado");
+  });
+
   it("pelo artigo inteiro, traz o caput e os parágrafos na ordem da fonte, sem a linha vazia do rótulo do artigo", async () => {
     const r = await encontrado("CPC", "art. 85");
 
@@ -222,6 +243,8 @@ describe("texto_de_lei — diploma e dispositivo pedidos", () => {
   });
 
   it.each([
+    "art. 85, § 2º, inciso IIII",
+    "art. 85, § 2º, inciso IIV",
     "§ 2º",
     "o artigo do honorário",
     "arts. 85 e 86",

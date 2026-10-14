@@ -27,7 +27,7 @@ obtenção original**.
   dispositivo que o Garimpo não entende vira erro que ensina, sem chamada.
 - Dispositivo sem texto na fonte: "não verificado". Dois dispositivos com a mesma identificação: "identificação
   necessária", o Garimpo não escolhe.
-- O texto vem como a fonte entrega. Quando ela lista várias redações, vêm todas (`versoesNaFonte`), da mais antiga para a
+- O texto vem como a fonte entrega. As redações vêm todas (`versoesNaFonte`), mesmo quando há só uma, da mais antiga para a
   mais recente, com as marcas dela (tipo da versão, lei alteradora, nota, período, força marcada). O Garimpo **não conclui
   qual redação vale, não reconstitui alteração e não inclui histórico que a fonte não traga**. Redação antiga fiel pode
   ser lida como lei vigente; por isso o aviso fixo e a data vão em toda resposta.
