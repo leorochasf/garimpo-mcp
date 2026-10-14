@@ -33,7 +33,7 @@ describe("ferramentas do TCU", () => {
     const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "janela-"));
     const mcp = await conectar(clienteFalso([]).cliente, dados);
     const { tools } = await mcp.listTools();
-    expect(tools.slice(-4).map((t) => t.name)).toEqual(["panorama_da_amostra", "baixar_anos_tcu", "pesquisar_acordaos_tcu", "ler_acordao_tcu"]);
+    expect(tools.slice(-4).map((t) => t.name)).toEqual(["texto_de_lei", "baixar_anos_tcu", "pesquisar_acordaos_tcu", "ler_acordao_tcu"]);
     const marca = Object.fromEntries(tools.map((t) => [t.name, t.annotations ?? {}]));
     expect(marca.baixar_anos_tcu.readOnlyHint).not.toBe(true);
     expect(marca.baixar_anos_tcu.destructiveHint).toBe(false);

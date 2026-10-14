@@ -7,7 +7,7 @@
 
 import { createHash, randomInt } from "node:crypto";
 import { Cliente, FormatoInesperadoError, HOST_FALCAO, PausaPreventivaError, RecusaError } from "./cliente.js";
-import type { Acordao, ParametrosBusca, Qualificado, ResultadoBusca } from "./busca.js";
+import type { Acordao, ColecaoDeDecisoes, DecisaoDoFalcao, ParametrosBusca, Qualificado, ResultadoBusca } from "./busca.js";
 import { enquadrarAcordao, enquadrarQualificado } from "./enquadramento.js";
 import { juntarEquivalentes } from "./equivalencia.js";
 import { nomesDoFiltro, ressalvaSePoucos } from "./grafia.js";
@@ -352,6 +352,119 @@ export async function buscaNoFalcao(
     qualificados,
     ressalvaQualificados: p.precedentes ? RESSALVA_PRECEDENTES_FALCAO : RESSALVA_FALCAO,
     avisos: gravacao ? [...avisos, gravacao] : avisos,
+  };
+}
+
+/** Coleção do Falcão e rótulo de cada opção `decisoes` (nomes vistos ao vivo em 2026-10-14, TRT2). */
+const COLECOES_DE_DECISOES = {
+  monocraticas: { colecao: "decisoesmonocraticas", tipo: "decisão monocrática" },
+  sentencas: { colecao: "sentencas", tipo: "sentença" },
+} as const;
+
+/** Vai em toda lista de decisões: o que elas não são e o que a lista não traz. */
+export const RESSALVA_DECISOES_FALCAO =
+  "Decisões monocráticas e sentenças não são acórdãos (julgamento colegiado) nem precedentes do art. 927 do CPC: nenhuma " +
+  "recebe enquadramento. A lista traz só metadados da 1ª página (até 10) da coleção do Falcão; o texto não é devolvido " +
+  "(o campo anonimizado da fonte pode trazer nome de parte) e o Garimpo não tem rota para ler essas decisões. " +
+  "Não há busca guardada: repetir a busca chama o Falcão de novo. Os filtros dos acórdãos não foram verificados nessas " +
+  "coleções e por isso não se aplicam. Cobertura por TRT e frescor não verificados.";
+
+const NATUREZA_DECISAO = "não é acórdão (julgamento colegiado) e não é precedente do art. 927 do CPC";
+
+/** Antes de gastar chamada: a opção `decisoes` só leva o texto da busca; o resto é erro que ensina, nunca ignorado. */
+function conferirDecisoesNoFalcao(p: ParametrosBusca): void {
+  const tribunal = p.tribunal.toUpperCase();
+  if (!Object.hasOwn(COLECOES_DE_DECISOES, p.decisoes as string)) {
+    throw new Error(`A opção decisoes no ${tribunal} aceita ${Object.keys(COLECOES_DE_DECISOES).join(" ou ")}; recebeu "${p.decisoes}".`);
+  }
+  const fora = [
+    ...(Object.keys(PARAMETROS_DOS_FILTROS) as (keyof typeof PARAMETROS_DOS_FILTROS)[]).filter((f) => valorDoFiltro(p, f)),
+    ...(p.somenteEmentas !== undefined ? ["somenteEmentas"] : []),
+    ...(p.ordenacao !== undefined ? ["ordenacao"] : []),
+    ...(p.precedentes !== undefined ? ["precedentes"] : []),
+  ];
+  if (fora.length) {
+    throw new Error(
+      `A opção decisoes no ${tribunal} (Falcão) não aceita ${fora.join(", ")}: ela traz só a 1ª página da coleção, pelo ` +
+        "texto da busca. Repita sem eles.",
+    );
+  }
+  if (p.limite !== undefined && p.limite > POR_PAGINA) {
+    throw new Error(`A opção decisoes no ${tribunal} (Falcão) traz uma página, até ${POR_PAGINA}; pediu limite ${p.limite}.`);
+  }
+}
+
+/** Uma página (até 10) de decisões monocráticas ou sentenças de um TRT: só metadados, sem texto, sem memória. */
+export async function buscaDecisoesNoFalcao(cliente: Cliente, p: ParametrosBusca): Promise<ResultadoBusca> {
+  conferirDecisoesNoFalcao(p);
+  const { colecao, tipo } = COLECOES_DE_DECISOES[p.decisoes as ColecaoDeDecisoes];
+  const tribunal = p.tribunal.toLowerCase();
+  const consulta = new URLSearchParams({
+    texto: p.texto,
+    colecao,
+    sessionId: SESSAO,
+    page: "0",
+    size: String(POR_PAGINA),
+    tribunais: tribunal.toUpperCase(),
+  });
+  const json = (await lerJson(await cliente.requisitar(`${PESQUISA_FALCAO}?${consulta}`), tribunal)) as {
+    documentos: unknown[];
+    quantidadeTotal?: unknown;
+  };
+  const decisoes: DecisaoDoFalcao[] = [];
+  let descartados = 0;
+  for (const d of json.documentos as Bruto[]) {
+    const doTribunal = texto(d?.tribunal)?.toLowerCase().replace(/\s+/g, "");
+    const idDoc = texto(d?.idDocumento) ?? texto(d?.idSentenca);
+    if (!doTribunal || doTribunal !== tribunal || !idDoc || !/^[\w-]+$/.test(idDoc)) {
+      descartados++;
+      continue;
+    }
+    const sentenca = p.decisoes === "sentencas";
+    const sigla = texto(sentenca ? d.classeProcessual : d.siglaClasseProcesso);
+    const numeroProcesso = texto(d.numeroProcesso);
+    decisoes.push(
+      limpar({
+        id: `${tribunal}:${colecao}:${idDoc}`,
+        tipo,
+        tribunal,
+        numero: numeroProcesso ? (sigla ? `${sigla} ${numeroProcesso}` : numeroProcesso) : idDoc,
+        numeroCnj: numeroProcesso,
+        classe: texto(sentenca ? d.classeProcessualPorExtenso : d.classeProcesso),
+        orgao: texto(sentenca ? d.orgaoJulgadorPorExtenso : d.orgaoJulgador),
+        redator: texto(d.nomeRedator),
+        dataJulgamento: dataDoFalcao(d.dataJulgamento),
+        dataJuntada: dataDoFalcao(d.dataJuntada),
+        origem: texto(d.origemDocumento),
+        natureza: NATUREZA_DECISAO,
+      }) as DecisaoDoFalcao,
+    );
+  }
+  const total = typeof json.quantidadeTotal === "number" && Number.isFinite(json.quantidadeTotal) ? json.quantidadeTotal : undefined;
+  const mostradas = decisoes.slice(0, p.limite ?? POR_PAGINA);
+  const nome = `${tipo === "sentença" ? "sentenças" : "decisões monocráticas"}`;
+  const informado =
+    total === undefined
+      ? "O Falcão não informou o total"
+      : total >= TETO_DA_CONTAGEM
+        ? `O Falcão informou 10.000 ou mais ${nome} (a contagem dele para aí)`
+        : `O Falcão informou ${total} ${nome}`;
+  const avisos = [
+    "Datas do Falcão: dataJuntada é a de juntada aos autos, não a de publicação; só a sentença traz dataJulgamento.",
+    ...(descartados
+      ? [`${descartados} registro(s) do Falcão descartado(s): sem id da decisão ou de tribunal diferente do pedido (o Garimpo não completa dado por suposição).`]
+      : []),
+  ];
+  return {
+    tribunal,
+    fonte: ROTULO_FALCAO,
+    cabecalhoDeCobertura: `${informado}; o Garimpo recebeu ${json.documentos.length} e mostra ${mostradas.length} (só a 1ª página); pode haver mais.${mostradas.length < decisoes.length ? " Lista cortada pelo limite pedido." : ""}`,
+    acordaos: [],
+    qualificados: [],
+    ressalvaQualificados: RESSALVA_FALCAO,
+    decisoes: mostradas,
+    ressalvaDecisoes: RESSALVA_DECISOES_FALCAO,
+    avisos,
   };
 }
 
