@@ -44,3 +44,7 @@ disjuntor, não dobra a pausa e não exige chamada de prova. Cada recusa da font
 alarga a janela um degrau de uma escada fixa (a partir da próxima janela); 20 chamadas aceitas seguidas voltam um
 degrau. Os números (30 chamadas por janela de 5, 10, 20 ou 30 min) são iniciais, conservadores e sem prova; ficam em
 `ORCAMENTO_POR_SERVICO` (`src/cliente.ts`). Estado do orçamento ilegível = rede parada, como o dos freios.
+
+O estado passa à versão 3: janelas antigas devem atualizar e reiniciar, pois não aplicam estes limites. As versões
+1/2 são migradas preservando as pausas existentes. Recuar o relógio nunca zera o contador: o fim guardado permanece
+valendo até o relógio alcançá-lo, inclusive no teto diário do Falcão.

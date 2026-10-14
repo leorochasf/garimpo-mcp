@@ -94,10 +94,10 @@ const ESPERA_MAXIMA_POR_VAGA_MS = 3 * 60_000;
 const INTERVALO_DE_CONFERENCIA_MS = 250;
 const FORMATO_ESTADO = "garimpo-protecao";
 /**
- * 1: vagas e pausas (B3-01); 2: mais os disjuntores. A 1 é lida e gravada de volta como 2. Os freios (B12) são campo
- * opcional da 2: janelas de versão anterior não chamam o Falcão e, ao regravar o estado, mantêm o campo.
+ * 1: vagas e pausas; 2: mais os disjuntores e freios; 3: mais os orçamentos (I-04/I-05).
+ * As versões 1/2 são migradas sem perder pausas. A 3 impede que janelas antigas ignorem os novos limites.
  */
-const VERSAO_ESTADO = 2;
+const VERSAO_ESTADO = 3;
 
 /** A rede está parada: nenhuma chamada sai até o usuário agir. A leitura local continua. */
 export class RedeParadaError extends Error {
@@ -617,7 +617,7 @@ export class CoordenacaoEmArquivo implements Coordenacao {
     const guardado = await this.lerEstadoGuardado();
     if (guardado) return guardado;
     if (!sobTrava) return this.comTrava(() => this.lerEstado(true));
-    const novo: Estado = { formato: FORMATO_ESTADO, versao: VERSAO_ESTADO, pausas: {}, disjuntores: {} };
+    const novo: Estado = { formato: FORMATO_ESTADO, versao: VERSAO_ESTADO, pausas: {}, disjuntores: {}, orcamentos: {} };
     await this.gravarEstado(novo);
     return novo;
   }
@@ -659,11 +659,11 @@ export class CoordenacaoEmArquivo implements Coordenacao {
       disjuntores !== null &&
       Object.values(disjuntores).every(disjuntorValido) &&
       (freios === undefined || (typeof freios === "object" && freios !== null && Object.values(freios).every(freioValido))) &&
-      (orcamentos === undefined ||
+      ((orcamentos === undefined && versao < 3) ||
         (typeof orcamentos === "object" && orcamentos !== null && Object.values(orcamentos).every(orcamentoValido)));
     if (!valido) throw ilegivel(this.estado);
     // O histórico só serve ao diagnóstico: linha que esta versão não entende é descartada, nunca para a rede.
-    const lido = { ...estado, versao: VERSAO_ESTADO, pausas, disjuntores } as Estado;
+    const lido = { ...estado, versao: VERSAO_ESTADO, pausas, disjuntores, orcamentos: orcamentos ?? {} } as Estado;
     if (historico !== undefined) lido.historico = Array.isArray(historico) ? historico.filter(ocorrenciaValida) : [];
     return lido;
   }
