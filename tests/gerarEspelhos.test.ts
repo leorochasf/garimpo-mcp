@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { crc32, deflateRawSync } from "node:zlib";
@@ -499,6 +499,16 @@ describe("baixarConjuntos", () => {
 
   it("não aceita cache dentro do repositório", async () => {
     await expect(baixarConjuntos(portal(ACERVO).cliente, join(process.cwd(), "cache-dentro"), { orgaos: DOIS })).rejects.toThrow(/fora do repositório/);
+  });
+
+  it("recusa cache que entra no repositório por junction antes de criar a pasta", async () => {
+    const alias = join(novoCache(), "alias");
+    symlinkSync(process.cwd(), alias, "junction");
+    const cache = join(alias, "cache-junction-espelhos-teste");
+    const p = portal(ACERVO);
+    await expect(baixarConjuntos(p.cliente, cache, { orgaos: DOIS })).rejects.toThrow(/fora do repositório/);
+    expect(existsSync(cache)).toBe(false);
+    expect(p.chamadas).toEqual([]);
   });
 
   it("não confunde uma pasta interna cujo nome começa por dois pontos com a pasta pai", async () => {

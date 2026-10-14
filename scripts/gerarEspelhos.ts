@@ -13,7 +13,7 @@
  */
 
 import { createHash } from "node:crypto";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -428,7 +428,12 @@ export async function baixarConjuntos(
   cache: string,
   { orgaos = ORGAOS, agora = Date.now, registrar = () => {} }: OpcoesDeDownload = {},
 ): Promise<{ fichas: Ficha[]; arquivos: ArquivoNoCache[] }> {
-  const relativo = relative(RAIZ_DO_REPOSITORIO, resolve(cache));
+  // Resolve também junctions/symlinks dos pais quando a pasta de cache ainda não existe.
+  const absoluto = resolve(cache);
+  let existente = absoluto;
+  while (!existsSync(existente)) existente = dirname(existente);
+  const real = resolve(realpathSync(existente), relative(existente, absoluto));
+  const relativo = relative(realpathSync(RAIZ_DO_REPOSITORIO), real);
   if (relativo !== ".." && !relativo.startsWith(`..${sep}`) && !isAbsolute(relativo)) {
     throw new ParadaDoGerador(`O cache de downloads precisa ficar fora do repositório (${resolve(cache)}).`);
   }
