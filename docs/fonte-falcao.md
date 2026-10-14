@@ -111,3 +111,18 @@ usuário como texto externo limpo (sem HTML, endereços, e-mails, números longo
 - 429 (bloqueio por horas, segundo o juscraper, MIT) **não** foi provocado nem observado.
 - Por isso o Garimpo tem também um teto diário próprio (50 chamadas por dia de Brasília, todas as janelas somadas,
   mesmo com restante informado alto; ADR-0018, adendo B16). O número é conservador e **não** foi medido.
+
+## Decisões monocráticas e sentenças (I-29, prova de 2026-10-14)
+
+A mesma rota de pesquisa aceita `colecao=decisoesmonocraticas` e `colecao=sentencas`. A `busca_direta` de um TRT as
+oferece só pela opção `decisoes`, com metadados e sem texto; formato, prova e limites em
+[`fontes.md`](fontes.md#falcão-decisões-monocráticas-e-sentenças-dos-trts-i-29--g-38). Chamadas dessa opção contam no mesmo
+teto diário.
+
+## PDF com QR-code (I-28 / G-30): rota não encontrada
+
+Em 2026-10-14 a rota do PDF não foi provada: nenhuma chamada foi gasta nela. Registro de terceiro (prc_jur_crawler, sem
+licença; lido como referência, nada copiado) afirma que, varridos os 18 pedaços do aplicativo do site, os únicos
+endereços `no-auth` são `/pesquisa`, `/pesquisa/filtros` e `/autocompletar`, sem endereço por documento; o PDF do manual
+pode ser montado no navegador ou exigir login. **Não verificado pelo Garimpo.** Sem rota pública conhecida, o texto do
+Falcão continua "texto integral do repositório oficial", sem PDF.

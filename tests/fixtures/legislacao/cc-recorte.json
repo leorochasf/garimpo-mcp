@@ -1,0 +1,1385 @@
+{
+ "legislationPassedBy": {
+  "@type": "GovernmentOrganization",
+  "@id": "https://www.congressonacional.leg.br/"
+ },
+ "@type": "Legislation",
+ "sdPublisher": {
+  "@type": "GovernmentOrganization",
+  "@id": "https://www.congressonacional.leg.br/"
+ },
+ "legislationJurisdiction": {
+  "@type": "AdministrativeArea",
+  "name": "Governo Federal do Brasil (União)",
+  "@id": "https://www.wikidata.org/wiki/Q5440531"
+ },
+ "legislationDate": "2002-01-10",
+ "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406",
+ "headline": "Lei nº 10.406, de 10 de janeiro de 2002",
+ "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406",
+ "inLanguage": "pt",
+ "alternateName": [
+  "LEI-10406-2002-01-10",
+  "Código Civil (2002) (CC)"
+ ],
+ "dateModified": "2024-06-28",
+ "abstract": "Institui o Código Civil.",
+ "sdDatePublished": "2026-04-08",
+ "sdLicense": "https://creativecommons.org/licenses/by/4.0/",
+ "spatialCoverage": {
+  "address": {
+   "addressCountry": "BR",
+   "@type": "PostalAddress"
+  },
+  "@type": "Country",
+  "name": "Brasil",
+  "@id": "https://servicodados.ibge.gov.br/api/v1/localidades/paises/76",
+  "url": "https://pt.wikipedia.org/wiki/Brasil"
+ },
+ "encoding": [
+  {
+   "@type": "LegislationObject",
+   "inLanguage": "pt",
+   "version": "Original",
+   "encodesCreativeWork": {
+    "@type": "Legislation",
+    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10~texto;pt"
+   },
+   "datePublished": "2002-01-11",
+   "license": "https://creativecommons.org/licenses/by/4.0/",
+   "contentUrl": "https://normas.leg.br/api/binario/8da2c69d-0cd4-4b9d-b3f6-51c4fa8bd16e/texto",
+   "additionalType": "PublicacaoOriginal",
+   "isBasedOn": {
+    "contentUrl": null,
+    "@type": "LegislationObject",
+    "name": "Publicação Original [Lei nº 10.406 de 10/01/2002]  [Diário Oficial da União  de 11/01/2002] (p. 1, col. 1)",
+    "legislationLegalVersion": "OfficialLegalValue",
+    "isPartOf": {
+     "@type": "PublicationVolume",
+     "name": "Diário Oficial da União - Edição de 2002-01-11"
+    },
+    "version": "Original"
+   },
+   "name": "Publicação Original [Lei nº 10.406 de 10/01/2002]  [Diário Oficial da União  de 11/01/2002] (p. 1, col. 1)",
+   "publisher": {
+    "@type": "GovernmentOrganization",
+    "@id": "https://www.congressonacional.leg.br/"
+   },
+   "legislationLegalValue": "UnofficialLegalValue",
+   "encodingFormat": "http://www.iana.org/assignments/media-types/text/html",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10~texto;pt$text-html"
+  },
+  {
+   "license": "https://creativecommons.org/licenses/by/4.0/",
+   "contentUrl": "https://normas.leg.br/api/binario/abfcbfa4-0121-4e0f-8dab-8aee99021ef5/texto",
+   "additionalType": "CompilacaoMonoVigenteNaCD",
+   "@type": "LegislationObject",
+   "name": "Compilação Monovigente na CD [Lei nº 10.406 de 10/01/2002] ",
+   "inLanguage": "pt",
+   "publisher": {
+    "@type": "GovernmentOrganization",
+    "@id": "https://www.congressonacional.leg.br/"
+   },
+   "legislationLegalValue": "UnofficialLegalValue",
+   "encodingFormat": "http://www.iana.org/assignments/media-types/text/html",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2024-06-28~texto;pt$text-html",
+   "version": "Current",
+   "encodesCreativeWork": {
+    "@type": "Legislation",
+    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2024-06-28~texto;pt"
+   }
+  }
+ ],
+ "@context": {
+  "@vocab": "http://schema.org/",
+  "lexsdo-br": "https://normas.leg.br/sdo/"
+ },
+ "datePublished": "2002-01-11",
+ "license": "https://creativecommons.org/licenses/by/4.0/",
+ "name": "Lei nº 10.406 de 10/01/2002",
+ "legislationSourceProcess": {
+  "@type": "Legislation",
+  "name": "Projeto de Lei (CD) nº 634/1975 > Projeto de Lei da Câmara nº 118/1984 : Lei nº 10.406 de 10/01/2002",
+  "@id": "https://www.congressonacional.leg.br/materias/materias-bicamerais/-/ver/pl-634-1975"
+ },
+ "publisher": {
+  "@type": "GovernmentOrganization",
+  "@id": "https://www.in.gov.br/"
+ },
+ "legislationType": {
+  "@type": "CategoryCode",
+  "@id": "https://normas.leg.br/tipo-de-norma/?urn=urn:lex:br:federal:tipo.norma:lei"
+ },
+ "sameAs": [
+  "http://www.lexml.gov.br/urn/urn:lex:br:federal:lei:2002-01-10;10406",
+  "http://legis.senado.leg.br/legislacao/DetalhaSigen.action?id=552282"
+ ],
+ "hasPart": [
+  {
+   "workExample": {
+    "legislationDate": "2002-01-10",
+    "@type": "Legislation",
+    "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!",
+    "legislationType": "Original_Version",
+    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!"
+   },
+   "hasPart": [
+    {
+     "workExample": {
+      "legislationDate": "2002-01-10",
+      "@type": "Legislation",
+      "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!articulacao",
+      "legislationType": "Original_Version",
+      "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!articulacao"
+     },
+     "hasPart": [
+      {
+       "workExample": {
+        "legislationDate": "2002-01-10",
+        "@type": "Legislation",
+        "name": "PARTE GERAL",
+        "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!prt1",
+        "legislationType": "Original_Version",
+        "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!prt1"
+       },
+       "hasPart": [
+        {
+         "workExample": {
+          "legislationDate": "2002-01-10",
+          "@type": "Legislation",
+          "name": "LIVRO I",
+          "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!prt1_liv1",
+          "legislationType": "Original_Version",
+          "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!prt1_liv1",
+          "text": "DAS PESSOAS"
+         },
+         "hasPart": [
+          {
+           "workExample": {
+            "legislationDate": "2002-01-10",
+            "@type": "Legislation",
+            "name": "TÍTULO II",
+            "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!prt1_liv1_tit2",
+            "legislationType": "Original_Version",
+            "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!prt1_liv1_tit2",
+            "text": "DAS PESSOAS JURÍDICAS"
+           },
+           "hasPart": [
+            {
+             "workExample": {
+              "legislationDate": "2002-01-10",
+              "@type": "Legislation",
+              "name": "CAPÍTULO I",
+              "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!prt1_liv1_tit2_cap1",
+              "legislationType": "Original_Version",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!prt1_liv1_tit2_cap1",
+              "text": "DISPOSIÇÕES GERAIS"
+             },
+             "hasPart": [
+              {
+               "workExample": [
+                {
+                 "temporalCoverage": "2002-01-10/2021-05-31",
+                 "legislationDate": "2002-01-10",
+                 "@type": "Legislation",
+                 "legislationLegalForce": "NotInForce",
+                 "name": "Art. 50.",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!art50",
+                 "legislationType": "Original_Version",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!art50",
+                 "@reverse": {
+                  "legislationAmends": {
+                   "@type": "Legislation",
+                   "name": "Lei Complementar nº 182 de 01/06/2021",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei.complementar:2021-06-01;182@2021-06-01!art8_cpt_inc2_alt1_art50"
+                  }
+                 }
+                },
+                {
+                 "additionalType": "Applicability_Suppression",
+                 "legislationConsolidates": {
+                  "@type": "Legislation",
+                  "name": "Lei Complementar nº 182 de 01/06/2021",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei.complementar:2021-06-01;182@2021-06-01!art8_cpt_inc2_alt1_art50"
+                 },
+                 "legislationDate": "2021-06-01",
+                 "@type": "Legislation",
+                 "name": "Art. 50.",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2021-06-01!art50",
+                 "legislationType": "Applicability_Suppression_Version",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2021-06-01!art50"
+                }
+               ],
+               "hasPart": [
+                {
+                 "workExample": [
+                  {
+                   "temporalCoverage": "2002-01-10/2019-04-29",
+                   "legislationDate": "2002-01-10",
+                   "@type": "Legislation",
+                   "legislationLegalForce": "NotInForce",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!art50_cpt",
+                   "legislationType": "Original_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!art50_cpt",
+                   "text": "Em caso de abuso da personalidade jurídica, caracterizado pelo desvio de finalidade, ou pela confusão patrimonial, pode o juiz decidir, a requerimento da parte, ou do Ministério Público quando lhe couber intervir no processo, que os efeitos de certas e determinadas relações de obrigações sejam estendidos aos bens particulares dos administradores ou sócios da pessoa jurídica.",
+                   "@reverse": {
+                    "legislationAmends": {
+                     "@type": "Legislation",
+                     "name": "Medida Provisória nº 881 de 30/04/2019",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:medida.provisoria:2019-04-30;881@2019-04-30!art7_cpt_alt1_art50_cpt"
+                    }
+                   }
+                  },
+                  {
+                   "additionalType": "Text_Change",
+                   "temporalCoverage": "2019-04-30/2019-09-19",
+                   "legislationConsolidates": {
+                    "@type": "Legislation",
+                    "name": "Medida Provisória nº 881 de 30/04/2019",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:medida.provisoria:2019-04-30;881@2019-04-30!art7_cpt_alt1_art50_cpt"
+                   },
+                   "legislationDate": "2019-04-30",
+                   "@type": "Legislation",
+                   "legislationLegalForce": "NotInForce",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2019-04-30!art50_cpt",
+                   "legislationType": "Text_Change_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2019-04-30!art50_cpt",
+                   "text": "Em caso de abuso da personalidade jurídica, caracterizado pelo desvio de finalidade ou pela confusão patrimonial, pode o juiz, a requerimento da parte, ou do Ministério Público quando lhe couber intervir no processo, desconsiderá-la para que os efeitos de certas e determinadas relações de obrigações sejam estendidos aos bens particulares de administradores ou de sócios da pessoa jurídica beneficiados direta ou indiretamente pelo abuso.",
+                   "@reverse": {
+                    "legislationAmends": {
+                     "@type": "Legislation",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2019-09-20;13874"
+                    }
+                   }
+                  },
+                  {
+                   "additionalType": "Text_Change",
+                   "legislationConsolidates": {
+                    "@type": "Legislation",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2019-09-20;13874"
+                   },
+                   "legislationDate": "2019-09-20",
+                   "@type": "Legislation",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_cpt",
+                   "legislationType": "Text_Change_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_cpt",
+                   "text": "Em caso de abuso da personalidade jurídica, caracterizado pelo desvio de finalidade ou pela confusão patrimonial, pode o juiz, a requerimento da parte, ou do Ministério Público quando lhe couber intervir no processo, desconsiderá-la para que os efeitos de certas e determinadas relações de obrigações sejam estendidos aos bens particulares de administradores ou de sócios da pessoa jurídica beneficiados direta ou indiretamente pelo abuso."
+                  }
+                 ],
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!art50_cpt",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:caput"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!art50_cpt"
+                },
+                {
+                 "workExample": [
+                  {
+                   "additionalType": "Insertion",
+                   "temporalCoverage": "2019-04-30/2019-09-19",
+                   "legislationConsolidates": {
+                    "@type": "Legislation",
+                    "name": "Medida Provisória nº 881 de 30/04/2019",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:medida.provisoria:2019-04-30;881@2019-04-30!art7_cpt_alt1_art50_par1"
+                   },
+                   "legislationDate": "2019-04-30",
+                   "@type": "Legislation",
+                   "legislationLegalForce": "NotInForce",
+                   "name": "§ 1º",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2019-04-30!art50_par1,mpv-881-2019-04-30",
+                   "legislationType": "Insertion_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2019-04-30!art50_par1,mpv-881-2019-04-30",
+                   "text": "Para fins do disposto neste artigo, desvio de finalidade é a utilização dolosa da pessoa jurídica com o propósito de lesar credores e para a prática de atos ilícitos de qualquer natureza.",
+                   "@reverse": {
+                    "legislationSuppresses": {
+                     "@type": "Legislation",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2019-09-20;13874"
+                    }
+                   }
+                  },
+                  {
+                   "additionalType": [
+                    "Suppression",
+                    "Vigência encerrada por conversão em lei"
+                   ],
+                   "legislationConsolidates": {
+                    "@type": "Legislation",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2019-09-20;13874"
+                   },
+                   "legislationDate": "2019-09-20",
+                   "@type": "Legislation",
+                   "name": "§ 1º",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par1,mpv-881-2019-04-30",
+                   "legislationType": "Suppression_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par1,mpv-881-2019-04-30",
+                   "text": "(Suprimido)",
+                   "publisherNote": "Suprimido pela conversão de Medida Provisória em Lei nº 13.874 de 20/09/2019"
+                  }
+                 ],
+                 "temporalCoverage": "2019-04-30/2019-09-20",
+                 "legislationDate": "2019-04-30",
+                 "@type": "Legislation",
+                 "legislationLegalForce": "NotInForce",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!art50_par1,mpv-881-2019-04-30",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!art50_par1,mpv-881-2019-04-30"
+                },
+                {
+                 "workExample": {
+                  "additionalType": "Insertion",
+                  "legislationConsolidates": {
+                   "@type": "Legislation",
+                   "name": "Lei nº 13.874 de 20/09/2019",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2019-09-20;13874@2019-09-20!art7_cpt_alt1_art50_par1"
+                  },
+                  "legislationDate": "2019-09-20",
+                  "@type": "Legislation",
+                  "name": "§ 1º",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par1,lei-13874-2019-09-20",
+                  "legislationType": "Insertion_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par1,lei-13874-2019-09-20",
+                  "text": "Para os fins do disposto neste artigo, desvio de finalidade é a utilização da pessoa jurídica com o propósito de lesar credores e para a prática de atos ilícitos de qualquer natureza."
+                 },
+                 "legislationDate": "2019-09-20",
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!art50_par1,lei-13874-2019-09-20",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!art50_par1,lei-13874-2019-09-20"
+                },
+                {
+                 "workExample": [
+                  {
+                   "additionalType": "Insertion",
+                   "temporalCoverage": "2019-04-30/2019-09-19",
+                   "legislationConsolidates": {
+                    "@type": "Legislation",
+                    "name": "Medida Provisória nº 881 de 30/04/2019",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:medida.provisoria:2019-04-30;881@2019-04-30!art7_cpt_alt1_art50_par2"
+                   },
+                   "legislationDate": "2019-04-30",
+                   "@type": "Legislation",
+                   "legislationLegalForce": "NotInForce",
+                   "name": "§ 2º",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2019-04-30!art50_par2,mpv-881-2019-04-30",
+                   "legislationType": "Insertion_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2019-04-30!art50_par2,mpv-881-2019-04-30",
+                   "text": "Entende-se por confusão patrimonial a ausência de separação de fato entre os patrimônios, caracterizada por:",
+                   "@reverse": {
+                    "legislationSuppresses": {
+                     "@type": "Legislation",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2019-09-20;13874"
+                    }
+                   }
+                  },
+                  {
+                   "additionalType": [
+                    "Suppression",
+                    "Vigência encerrada por conversão em lei"
+                   ],
+                   "legislationConsolidates": {
+                    "@type": "Legislation",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2019-09-20;13874"
+                   },
+                   "legislationDate": "2019-09-20",
+                   "@type": "Legislation",
+                   "name": "§ 2º",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par2,mpv-881-2019-04-30",
+                   "legislationType": "Suppression_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par2,mpv-881-2019-04-30",
+                   "text": "(Suprimido)",
+                   "publisherNote": "Suprimido pela conversão de Medida Provisória em Lei nº 13.874 de 20/09/2019"
+                  }
+                 ],
+                 "temporalCoverage": "2019-04-30/2019-09-20",
+                 "legislationDate": "2019-04-30",
+                 "hasPart": [
+                  {
+                   "workExample": [
+                    {
+                     "additionalType": "Insertion",
+                     "temporalCoverage": "2019-04-30/2019-09-19",
+                     "legislationConsolidates": {
+                      "@type": "Legislation",
+                      "name": "Medida Provisória nº 881 de 30/04/2019",
+                      "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:medida.provisoria:2019-04-30;881@2019-04-30!art7_cpt_alt1_art50_par2_inc1"
+                     },
+                     "legislationDate": "2019-04-30",
+                     "@type": "Legislation",
+                     "legislationLegalForce": "NotInForce",
+                     "name": "I –",
+                     "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2019-04-30!art50_par2_inc1,mpv-881-2019-04-30",
+                     "legislationType": "Insertion_Version",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2019-04-30!art50_par2_inc1,mpv-881-2019-04-30",
+                     "text": "cumprimento repetitivo pela sociedade de obrigações do sócio ou do administrador ou vice-versa;",
+                     "@reverse": {
+                      "legislationSuppresses": {
+                       "@type": "Legislation",
+                       "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2019-09-20;13874"
+                      }
+                     }
+                    },
+                    {
+                     "additionalType": "Suppression",
+                     "legislationConsolidates": {
+                      "@type": "Legislation",
+                      "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2019-09-20;13874"
+                     },
+                     "legislationDate": "2019-09-20",
+                     "@type": "Legislation",
+                     "name": "I –",
+                     "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par2_inc1,mpv-881-2019-04-30",
+                     "legislationType": "Suppression_Version",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par2_inc1,mpv-881-2019-04-30",
+                     "text": "(Suprimido)"
+                    }
+                   ],
+                   "temporalCoverage": "2019-04-30/2019-09-20",
+                   "legislationDate": "2019-04-30",
+                   "@type": "Legislation",
+                   "legislationLegalForce": "NotInForce",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!art50_par2_inc1,mpv-881-2019-04-30",
+                   "legislationType": {
+                    "@type": "CategoryCode",
+                    "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                   },
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!art50_par2_inc1,mpv-881-2019-04-30"
+                  },
+                  {
+                   "workExample": [
+                    {
+                     "additionalType": "Insertion",
+                     "temporalCoverage": "2019-04-30/2019-09-19",
+                     "legislationConsolidates": {
+                      "@type": "Legislation",
+                      "name": "Medida Provisória nº 881 de 30/04/2019",
+                      "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:medida.provisoria:2019-04-30;881@2019-04-30!art7_cpt_alt1_art50_par2_inc2"
+                     },
+                     "legislationDate": "2019-04-30",
+                     "@type": "Legislation",
+                     "legislationLegalForce": "NotInForce",
+                     "name": "II –",
+                     "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2019-04-30!art50_par2_inc2,mpv-881-2019-04-30",
+                     "legislationType": "Insertion_Version",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2019-04-30!art50_par2_inc2,mpv-881-2019-04-30",
+                     "text": "transferência de ativos ou de passivos sem efetivas contraprestações, exceto o de valor proporcionalmente insignificante; e",
+                     "@reverse": {
+                      "legislationSuppresses": {
+                       "@type": "Legislation",
+                       "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2019-09-20;13874"
+                      }
+                     }
+                    },
+                    {
+                     "additionalType": "Suppression",
+                     "legislationConsolidates": {
+                      "@type": "Legislation",
+                      "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2019-09-20;13874"
+                     },
+                     "legislationDate": "2019-09-20",
+                     "@type": "Legislation",
+                     "name": "II –",
+                     "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par2_inc2,mpv-881-2019-04-30",
+                     "legislationType": "Suppression_Version",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par2_inc2,mpv-881-2019-04-30",
+                     "text": "(Suprimido)"
+                    }
+                   ],
+                   "temporalCoverage": "2019-04-30/2019-09-20",
+                   "legislationDate": "2019-04-30",
+                   "@type": "Legislation",
+                   "legislationLegalForce": "NotInForce",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!art50_par2_inc2,mpv-881-2019-04-30",
+                   "legislationType": {
+                    "@type": "CategoryCode",
+                    "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                   },
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!art50_par2_inc2,mpv-881-2019-04-30"
+                  },
+                  {
+                   "workExample": [
+                    {
+                     "additionalType": "Insertion",
+                     "temporalCoverage": "2019-04-30/2019-09-19",
+                     "legislationConsolidates": {
+                      "@type": "Legislation",
+                      "name": "Medida Provisória nº 881 de 30/04/2019",
+                      "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:medida.provisoria:2019-04-30;881@2019-04-30!art7_cpt_alt1_art50_par2_inc3"
+                     },
+                     "legislationDate": "2019-04-30",
+                     "@type": "Legislation",
+                     "legislationLegalForce": "NotInForce",
+                     "name": "III –",
+                     "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2019-04-30!art50_par2_inc3,mpv-881-2019-04-30",
+                     "legislationType": "Insertion_Version",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2019-04-30!art50_par2_inc3,mpv-881-2019-04-30",
+                     "text": "outros atos de descumprimento da autonomia patrimonial.",
+                     "@reverse": {
+                      "legislationSuppresses": {
+                       "@type": "Legislation",
+                       "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2019-09-20;13874"
+                      }
+                     }
+                    },
+                    {
+                     "additionalType": "Suppression",
+                     "legislationConsolidates": {
+                      "@type": "Legislation",
+                      "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2019-09-20;13874"
+                     },
+                     "legislationDate": "2019-09-20",
+                     "@type": "Legislation",
+                     "name": "III –",
+                     "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par2_inc3,mpv-881-2019-04-30",
+                     "legislationType": "Suppression_Version",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par2_inc3,mpv-881-2019-04-30",
+                     "text": "(Suprimido)"
+                    }
+                   ],
+                   "temporalCoverage": "2019-04-30/2019-09-20",
+                   "legislationDate": "2019-04-30",
+                   "@type": "Legislation",
+                   "legislationLegalForce": "NotInForce",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!art50_par2_inc3,mpv-881-2019-04-30",
+                   "legislationType": {
+                    "@type": "CategoryCode",
+                    "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                   },
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!art50_par2_inc3,mpv-881-2019-04-30"
+                  }
+                 ],
+                 "@type": "Legislation",
+                 "legislationLegalForce": "NotInForce",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!art50_par2,mpv-881-2019-04-30",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!art50_par2,mpv-881-2019-04-30"
+                },
+                {
+                 "workExample": {
+                  "additionalType": "Insertion",
+                  "legislationConsolidates": {
+                   "@type": "Legislation",
+                   "name": "Lei nº 13.874 de 20/09/2019",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2019-09-20;13874@2019-09-20!art7_cpt_alt1_art50_par2"
+                  },
+                  "legislationDate": "2019-09-20",
+                  "@type": "Legislation",
+                  "name": "§ 2º",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par2,lei-13874-2019-09-20",
+                  "legislationType": "Insertion_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par2,lei-13874-2019-09-20",
+                  "text": "Entende-se por confusão patrimonial a ausência de separação de fato entre os patrimônios, caracterizada por:"
+                 },
+                 "legislationDate": "2019-09-20",
+                 "hasPart": [
+                  {
+                   "workExample": {
+                    "additionalType": "Insertion",
+                    "legislationConsolidates": {
+                     "@type": "Legislation",
+                     "name": "Lei nº 13.874 de 20/09/2019",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2019-09-20;13874@2019-09-20!art7_cpt_alt1_art50_par2_inc1"
+                    },
+                    "legislationDate": "2019-09-20",
+                    "@type": "Legislation",
+                    "name": "I –",
+                    "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par2_inc1,lei-13874-2019-09-20",
+                    "legislationType": "Insertion_Version",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par2_inc1,lei-13874-2019-09-20",
+                    "text": "cumprimento repetitivo pela sociedade de obrigações do sócio ou do administrador ou vice-versa;"
+                   },
+                   "legislationDate": "2019-09-20",
+                   "@type": "Legislation",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!art50_par2_inc1,lei-13874-2019-09-20",
+                   "legislationType": {
+                    "@type": "CategoryCode",
+                    "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                   },
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!art50_par2_inc1,lei-13874-2019-09-20"
+                  },
+                  {
+                   "workExample": {
+                    "additionalType": "Insertion",
+                    "legislationConsolidates": {
+                     "@type": "Legislation",
+                     "name": "Lei nº 13.874 de 20/09/2019",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2019-09-20;13874@2019-09-20!art7_cpt_alt1_art50_par2_inc2"
+                    },
+                    "legislationDate": "2019-09-20",
+                    "@type": "Legislation",
+                    "name": "II –",
+                    "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par2_inc2,lei-13874-2019-09-20",
+                    "legislationType": "Insertion_Version",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par2_inc2,lei-13874-2019-09-20",
+                    "text": "transferência de ativos ou de passivos sem efetivas contraprestações, exceto os de valor proporcionalmente insignificante; e"
+                   },
+                   "legislationDate": "2019-09-20",
+                   "@type": "Legislation",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!art50_par2_inc2,lei-13874-2019-09-20",
+                   "legislationType": {
+                    "@type": "CategoryCode",
+                    "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                   },
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!art50_par2_inc2,lei-13874-2019-09-20"
+                  },
+                  {
+                   "workExample": {
+                    "additionalType": "Insertion",
+                    "legislationConsolidates": {
+                     "@type": "Legislation",
+                     "name": "Lei nº 13.874 de 20/09/2019",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2019-09-20;13874@2019-09-20!art7_cpt_alt1_art50_par2_inc3"
+                    },
+                    "legislationDate": "2019-09-20",
+                    "@type": "Legislation",
+                    "name": "III –",
+                    "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par2_inc3,lei-13874-2019-09-20",
+                    "legislationType": "Insertion_Version",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par2_inc3,lei-13874-2019-09-20",
+                    "text": "outros atos de descumprimento da autonomia patrimonial."
+                   },
+                   "legislationDate": "2019-09-20",
+                   "@type": "Legislation",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!art50_par2_inc3,lei-13874-2019-09-20",
+                   "legislationType": {
+                    "@type": "CategoryCode",
+                    "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                   },
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!art50_par2_inc3,lei-13874-2019-09-20"
+                  }
+                 ],
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!art50_par2,lei-13874-2019-09-20",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!art50_par2,lei-13874-2019-09-20"
+                },
+                {
+                 "workExample": [
+                  {
+                   "additionalType": "Insertion",
+                   "temporalCoverage": "2019-04-30/2019-09-19",
+                   "legislationConsolidates": {
+                    "@type": "Legislation",
+                    "name": "Medida Provisória nº 881 de 30/04/2019",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:medida.provisoria:2019-04-30;881@2019-04-30!art7_cpt_alt1_art50_par3"
+                   },
+                   "legislationDate": "2019-04-30",
+                   "@type": "Legislation",
+                   "legislationLegalForce": "NotInForce",
+                   "name": "§ 3º",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2019-04-30!art50_par3,mpv-881-2019-04-30",
+                   "legislationType": "Insertion_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2019-04-30!art50_par3,mpv-881-2019-04-30",
+                   "text": "O disposto no caput e nos § 1º e § 2º também se aplica à extensão das obrigações de sócios ou de administradores à pessoa jurídica.",
+                   "@reverse": {
+                    "legislationSuppresses": {
+                     "@type": "Legislation",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2019-09-20;13874"
+                    }
+                   }
+                  },
+                  {
+                   "additionalType": [
+                    "Suppression",
+                    "Vigência encerrada por conversão em lei"
+                   ],
+                   "legislationConsolidates": {
+                    "@type": "Legislation",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2019-09-20;13874"
+                   },
+                   "legislationDate": "2019-09-20",
+                   "@type": "Legislation",
+                   "name": "§ 3º",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par3,mpv-881-2019-04-30",
+                   "legislationType": "Suppression_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par3,mpv-881-2019-04-30",
+                   "text": "(Suprimido)",
+                   "publisherNote": "Suprimido pela conversão de Medida Provisória em Lei nº 13.874 de 20/09/2019"
+                  }
+                 ],
+                 "temporalCoverage": "2019-04-30/2019-09-20",
+                 "legislationDate": "2019-04-30",
+                 "@type": "Legislation",
+                 "legislationLegalForce": "NotInForce",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!art50_par3,mpv-881-2019-04-30",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!art50_par3,mpv-881-2019-04-30"
+                },
+                {
+                 "workExample": {
+                  "additionalType": "Insertion",
+                  "legislationConsolidates": {
+                   "@type": "Legislation",
+                   "name": "Lei nº 13.874 de 20/09/2019",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2019-09-20;13874@2019-09-20!art7_cpt_alt1_art50_par3"
+                  },
+                  "legislationDate": "2019-09-20",
+                  "@type": "Legislation",
+                  "name": "§ 3º",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par3,lei-13874-2019-09-20",
+                  "legislationType": "Insertion_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par3,lei-13874-2019-09-20",
+                  "text": "O disposto no caput e nos §§ 1º e 2º deste artigo também se aplica à extensão das obrigações de sócios ou de administradores à pessoa jurídica."
+                 },
+                 "legislationDate": "2019-09-20",
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!art50_par3,lei-13874-2019-09-20",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!art50_par3,lei-13874-2019-09-20"
+                },
+                {
+                 "workExample": [
+                  {
+                   "additionalType": "Insertion",
+                   "temporalCoverage": "2019-04-30/2019-09-19",
+                   "legislationConsolidates": {
+                    "@type": "Legislation",
+                    "name": "Medida Provisória nº 881 de 30/04/2019",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:medida.provisoria:2019-04-30;881@2019-04-30!art7_cpt_alt1_art50_par4"
+                   },
+                   "legislationDate": "2019-04-30",
+                   "@type": "Legislation",
+                   "legislationLegalForce": "NotInForce",
+                   "name": "§ 4º",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2019-04-30!art50_par4,mpv-881-2019-04-30",
+                   "legislationType": "Insertion_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2019-04-30!art50_par4,mpv-881-2019-04-30",
+                   "text": "A mera existência de grupo econômico sem a presença dos requisitos de que trata o caput não autoriza a desconsideração da personalidade da pessoa jurídica.",
+                   "@reverse": {
+                    "legislationSuppresses": {
+                     "@type": "Legislation",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2019-09-20;13874"
+                    }
+                   }
+                  },
+                  {
+                   "additionalType": [
+                    "Suppression",
+                    "Vigência encerrada por conversão em lei"
+                   ],
+                   "legislationConsolidates": {
+                    "@type": "Legislation",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2019-09-20;13874"
+                   },
+                   "legislationDate": "2019-09-20",
+                   "@type": "Legislation",
+                   "name": "§ 4º",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par4,mpv-881-2019-04-30",
+                   "legislationType": "Suppression_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par4,mpv-881-2019-04-30",
+                   "text": "(Suprimido)",
+                   "publisherNote": "Suprimido pela conversão de Medida Provisória em Lei nº 13.874 de 20/09/2019"
+                  }
+                 ],
+                 "temporalCoverage": "2019-04-30/2019-09-20",
+                 "legislationDate": "2019-04-30",
+                 "@type": "Legislation",
+                 "legislationLegalForce": "NotInForce",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!art50_par4,mpv-881-2019-04-30",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!art50_par4,mpv-881-2019-04-30"
+                },
+                {
+                 "workExample": {
+                  "additionalType": "Insertion",
+                  "legislationConsolidates": {
+                   "@type": "Legislation",
+                   "name": "Lei nº 13.874 de 20/09/2019",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2019-09-20;13874@2019-09-20!art7_cpt_alt1_art50_par4"
+                  },
+                  "legislationDate": "2019-09-20",
+                  "@type": "Legislation",
+                  "name": "§ 4º",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par4,lei-13874-2019-09-20",
+                  "legislationType": "Insertion_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par4,lei-13874-2019-09-20",
+                  "text": "A mera existência de grupo econômico sem a presença dos requisitos de que trata o caput deste artigo não autoriza a desconsideração da personalidade da pessoa jurídica."
+                 },
+                 "legislationDate": "2019-09-20",
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!art50_par4,lei-13874-2019-09-20",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!art50_par4,lei-13874-2019-09-20"
+                },
+                {
+                 "workExample": [
+                  {
+                   "additionalType": "Insertion",
+                   "temporalCoverage": "2019-04-30/2019-09-19",
+                   "legislationConsolidates": {
+                    "@type": "Legislation",
+                    "name": "Medida Provisória nº 881 de 30/04/2019",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:medida.provisoria:2019-04-30;881@2019-04-30!art7_cpt_alt1_art50_par5"
+                   },
+                   "legislationDate": "2019-04-30",
+                   "@type": "Legislation",
+                   "legislationLegalForce": "NotInForce",
+                   "name": "§ 5º",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2019-04-30!art50_par5,mpv-881-2019-04-30",
+                   "legislationType": "Insertion_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2019-04-30!art50_par5,mpv-881-2019-04-30",
+                   "text": "Não constitui desvio de finalidade a mera expansão ou a alteração da finalidade original da atividade econômica específica da pessoa jurídica.",
+                   "@reverse": {
+                    "legislationSuppresses": {
+                     "@type": "Legislation",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2019-09-20;13874"
+                    }
+                   }
+                  },
+                  {
+                   "additionalType": [
+                    "Suppression",
+                    "Vigência encerrada por conversão em lei"
+                   ],
+                   "legislationConsolidates": {
+                    "@type": "Legislation",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2019-09-20;13874"
+                   },
+                   "legislationDate": "2019-09-20",
+                   "@type": "Legislation",
+                   "name": "§ 5º",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par5,mpv-881-2019-04-30",
+                   "legislationType": "Suppression_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par5,mpv-881-2019-04-30",
+                   "text": "(Suprimido)",
+                   "publisherNote": "Suprimido pela conversão de Medida Provisória em Lei nº 13.874 de 20/09/2019"
+                  }
+                 ],
+                 "temporalCoverage": "2019-04-30/2019-09-20",
+                 "legislationDate": "2019-04-30",
+                 "@type": "Legislation",
+                 "legislationLegalForce": "NotInForce",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!art50_par5,mpv-881-2019-04-30",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!art50_par5,mpv-881-2019-04-30"
+                },
+                {
+                 "workExample": {
+                  "additionalType": "Insertion",
+                  "legislationConsolidates": {
+                   "@type": "Legislation",
+                   "name": "Lei nº 13.874 de 20/09/2019",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2019-09-20;13874@2019-09-20!art7_cpt_alt1_art50_par5"
+                  },
+                  "legislationDate": "2019-09-20",
+                  "@type": "Legislation",
+                  "name": "§ 5º",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par5,lei-13874-2019-09-20",
+                  "legislationType": "Insertion_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2019-09-20!art50_par5,lei-13874-2019-09-20",
+                  "text": "Não constitui desvio de finalidade a mera expansão ou a alteração da finalidade original da atividade econômica específica da pessoa jurídica."
+                 },
+                 "legislationDate": "2019-09-20",
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!art50_par5,lei-13874-2019-09-20",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!art50_par5,lei-13874-2019-09-20"
+                }
+               ],
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!art50",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:artigo"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!art50"
+              }
+             ],
+             "@type": "Legislation",
+             "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!prt1_liv1_tit2_cap1",
+             "legislationType": {
+              "@type": "CategoryCode",
+              "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:capitulo"
+             },
+             "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!prt1_liv1_tit2_cap1"
+            }
+           ],
+           "@type": "Legislation",
+           "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!prt1_liv1_tit2",
+           "legislationType": {
+            "@type": "CategoryCode",
+            "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:titulo"
+           },
+           "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!prt1_liv1_tit2"
+          }
+         ],
+         "@type": "Legislation",
+         "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!prt1_liv1",
+         "legislationType": {
+          "@type": "CategoryCode",
+          "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:livro"
+         },
+         "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!prt1_liv1"
+        },
+        {
+         "workExample": {
+          "legislationDate": "2002-01-10",
+          "@type": "Legislation",
+          "name": "LIVRO III",
+          "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!prt1_liv3",
+          "legislationType": "Original_Version",
+          "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!prt1_liv3",
+          "text": "Dos Fatos Jurídicos"
+         },
+         "hasPart": [
+          {
+           "workExample": {
+            "legislationDate": "2002-01-10",
+            "@type": "Legislation",
+            "name": "TÍTULO III",
+            "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!prt1_liv3_tit3",
+            "legislationType": "Original_Version",
+            "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!prt1_liv3_tit3",
+            "text": "Dos Atos Ilícitos"
+           },
+           "hasPart": [
+            {
+             "workExample": {
+              "legislationDate": "2002-01-10",
+              "@type": "Legislation",
+              "name": "Art. 186.",
+              "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!art186",
+              "legislationType": "Original_Version",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!art186"
+             },
+             "hasPart": {
+              "workExample": [
+               {
+                "temporalCoverage": "2002-01-10/2024-05-21",
+                "legislationDate": "2002-01-10",
+                "@type": "Legislation",
+                "legislationLegalForce": "NotInForce",
+                "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!art186_cpt",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!art186_cpt",
+                "text": "Aquele que, por ação ou omissão voluntária, negligência ou imprudência, violar direito e causar dano a outrem, ainda que exclusivamente moral, comete ato ilícito.",
+                "@reverse": {
+                 "legislationCourtDecision": {
+                  "@type": "Legislation",
+                  "name": "Acórdão da Ação Direta de Inconstitucionalidade nº 7.055 de 22/05/2024",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:supremo.tribunal.federal:acordao;adi:2024-05-22;7055"
+                 }
+                }
+               },
+               {
+                "additionalType": [
+                 "Court_Decision",
+                 "Declaração de Alteração Permanente",
+                 "Interpretação conforme a Constituição de"
+                ],
+                "temporalCoverage": "2024-05-22/2024-05-22",
+                "legislationConsolidates": {
+                 "@type": "Legislation",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:supremo.tribunal.federal:acordao;adi:2024-05-22;7055"
+                },
+                "legislationDate": "2024-05-22",
+                "@type": "Legislation",
+                "legislationLegalForce": "NotInForce",
+                "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2024-05-22!art186_cpt",
+                "legislationType": "Court_Decision_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2024-05-22!art186_cpt",
+                "text": "Aquele que, por ação ou omissão voluntária, negligência ou imprudência, violar direito e causar dano a outrem, ainda que exclusivamente moral, comete ato ilícito.",
+                "@reverse": {
+                 "legislationCourtDecision": {
+                  "@type": "Legislation",
+                  "name": "Acórdão da Ação Direta de Inconstitucionalidade nº 6.792 de 22/05/2024",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:supremo.tribunal.federal:acordao;adi:2024-05-22;6792"
+                 }
+                },
+                "publisherNote": "Foi conferida interpretação conforme a Constituição ao caput dos arts. 186 e 927, para estabelecer que a responsabilidade civil do jornalista, no caso de divulgação de notícias que envolvam pessoa pública ou assunto de interesse social, dependem de o jornalista ter agido com dolo ou com culpa grave, afastando-se a possibilidade de responsabilização na hipótese de meros juízos de valor, opiniões ou críticas ou da divulgação de informações verdadeiras sobre assuntos de interesse público."
+               },
+               {
+                "additionalType": [
+                 "Court_Decision",
+                 "Declaração de Alteração Permanente",
+                 "Interpretação conforme a Constituição de"
+                ],
+                "legislationConsolidates": {
+                 "@type": "Legislation",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:supremo.tribunal.federal:acordao;adi:2024-05-22;6792"
+                },
+                "legislationDate": "2024-05-22",
+                "@type": "Legislation",
+                "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2024-05-22!art186_cpt",
+                "legislationType": "Court_Decision_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2024-05-22!art186_cpt",
+                "text": "Aquele que, por ação ou omissão voluntária, negligência ou imprudência, violar direito e causar dano a outrem, ainda que exclusivamente moral, comete ato ilícito.",
+                "publisherNote": "Foi conferida interpretação conforme a Constituição ao caput dos arts. 186 e 927, para estabelecer que a responsabilidade civil do jornalista, no caso de divulgação de notícias que envolvam pessoa pública ou assunto de interesse social, dependem de o jornalista ter agido com dolo ou com culpa grave, afastando-se a possibilidade de responsabilização na hipótese de meros juízos de valor, opiniões ou críticas ou da divulgação de informações verdadeiras sobre assuntos de interesse público."
+               }
+              ],
+              "@type": "Legislation",
+              "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!art186_cpt",
+              "legislationType": {
+               "@type": "CategoryCode",
+               "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:caput"
+              },
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!art186_cpt"
+             },
+             "@type": "Legislation",
+             "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!art186",
+             "legislationType": {
+              "@type": "CategoryCode",
+              "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:artigo"
+             },
+             "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!art186"
+            },
+            {
+             "workExample": {
+              "legislationDate": "2002-01-10",
+              "@type": "Legislation",
+              "name": "Art. 187.",
+              "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!art187",
+              "legislationType": "Original_Version",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!art187"
+             },
+             "hasPart": {
+              "workExample": {
+               "legislationDate": "2002-01-10",
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!art187_cpt",
+               "legislationType": "Original_Version",
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!art187_cpt",
+               "text": "Também comete ato ilícito o titular de um direito que, ao exercê-lo, excede manifestamente os limites impostos pelo seu fim econômico ou social, pela boa-fé ou pelos bons costumes."
+              },
+              "@type": "Legislation",
+              "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!art187_cpt",
+              "legislationType": {
+               "@type": "CategoryCode",
+               "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:caput"
+              },
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!art187_cpt"
+             },
+             "@type": "Legislation",
+             "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!art187",
+             "legislationType": {
+              "@type": "CategoryCode",
+              "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:artigo"
+             },
+             "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!art187"
+            }
+           ],
+           "@type": "Legislation",
+           "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!prt1_liv3_tit3",
+           "legislationType": {
+            "@type": "CategoryCode",
+            "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:titulo"
+           },
+           "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!prt1_liv3_tit3"
+          },
+          {
+           "workExample": {
+            "legislationDate": "2002-01-10",
+            "@type": "Legislation",
+            "name": "TÍTULO V",
+            "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!prt1_liv3_tit5",
+            "legislationType": "Original_Version",
+            "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!prt1_liv3_tit5",
+            "text": "Da Prova"
+           },
+           "hasPart": [
+            {
+             "workExample": [
+              {
+               "temporalCoverage": "2002-01-10/2015-03-15",
+               "legislationDate": "2002-01-10",
+               "@type": "Legislation",
+               "legislationLegalForce": "NotInForce",
+               "name": "Art. 229.",
+               "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!art229",
+               "legislationType": "Original_Version",
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!art229",
+               "@reverse": {
+                "legislationRepeals": {
+                 "@type": "Legislation",
+                 "name": "Lei nº 13.105 de 16/03/2015",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art1072_cpt_alt1_art229"
+                }
+               }
+              },
+              {
+               "additionalType": "Repeal",
+               "legislationConsolidates": {
+                "@type": "Legislation",
+                "name": "Lei nº 13.105 de 16/03/2015",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art1072_cpt_alt1_art229"
+               },
+               "legislationDate": "2015-03-16",
+               "@type": "Legislation",
+               "name": "Art. 229.",
+               "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2015-03-16!art229",
+               "legislationType": "Repeal_Version",
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2015-03-16!art229"
+              }
+             ],
+             "temporalCoverage": "2002-01-10/2015-03-16",
+             "hasPart": {
+              "workExample": [
+               {
+                "temporalCoverage": "2002-01-10/2015-03-15",
+                "legislationDate": "2002-01-10",
+                "@type": "Legislation",
+                "legislationLegalForce": "NotInForce",
+                "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!art229_cpt",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!art229_cpt",
+                "text": "Ninguém pode ser obrigado a depor sobre fato:",
+                "@reverse": {
+                 "legislationRepeals": {
+                  "@type": "Legislation",
+                  "name": "Lei nº 13.105 de 16/03/2015",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art1072_cpt_alt1_art229_cpt"
+                 }
+                }
+               },
+               {
+                "additionalType": "Repeal",
+                "legislationConsolidates": {
+                 "@type": "Legislation",
+                 "name": "Lei nº 13.105 de 16/03/2015",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art1072_cpt_alt1_art229_cpt"
+                },
+                "legislationDate": "2015-03-16",
+                "@type": "Legislation",
+                "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2015-03-16!art229_cpt",
+                "legislationType": "Repeal_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2015-03-16!art229_cpt",
+                "text": "(Revogado)"
+               }
+              ],
+              "temporalCoverage": "2002-01-10/2015-03-16",
+              "hasPart": [
+               {
+                "workExample": [
+                 {
+                  "temporalCoverage": "2002-01-10/2015-03-15",
+                  "legislationDate": "2002-01-10",
+                  "@type": "Legislation",
+                  "legislationLegalForce": "NotInForce",
+                  "name": "I –",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!art229_cpt_inc1",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!art229_cpt_inc1",
+                  "text": "a cujo respeito, por estado ou profissão, deva guardar segredo;",
+                  "@reverse": {
+                   "legislationRepeals": {
+                    "@type": "Legislation",
+                    "name": "Lei nº 13.105 de 16/03/2015",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art1072_cpt_alt1_art229_cpt_inc1"
+                   }
+                  }
+                 },
+                 {
+                  "additionalType": "Repeal",
+                  "legislationConsolidates": {
+                   "@type": "Legislation",
+                   "name": "Lei nº 13.105 de 16/03/2015",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art1072_cpt_alt1_art229_cpt_inc1"
+                  },
+                  "legislationDate": "2015-03-16",
+                  "@type": "Legislation",
+                  "name": "I –",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2015-03-16!art229_cpt_inc1",
+                  "legislationType": "Repeal_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2015-03-16!art229_cpt_inc1",
+                  "text": "(Revogado)"
+                 }
+                ],
+                "temporalCoverage": "2002-01-10/2015-03-16",
+                "@type": "Legislation",
+                "legislationLegalForce": "NotInForce",
+                "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!art229_cpt_inc1",
+                "legislationType": {
+                 "@type": "CategoryCode",
+                 "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                },
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!art229_cpt_inc1"
+               },
+               {
+                "workExample": [
+                 {
+                  "temporalCoverage": "2002-01-10/2015-03-15",
+                  "legislationDate": "2002-01-10",
+                  "@type": "Legislation",
+                  "legislationLegalForce": "NotInForce",
+                  "name": "II –",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!art229_cpt_inc2",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!art229_cpt_inc2",
+                  "text": "a que não possa responder sem desonra própria, de seu cônjuge, parente em grau sucessível, ou amigo íntimo;",
+                  "@reverse": {
+                   "legislationRepeals": {
+                    "@type": "Legislation",
+                    "name": "Lei nº 13.105 de 16/03/2015",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art1072_cpt_alt1_art229_cpt_inc2"
+                   }
+                  }
+                 },
+                 {
+                  "additionalType": "Repeal",
+                  "legislationConsolidates": {
+                   "@type": "Legislation",
+                   "name": "Lei nº 13.105 de 16/03/2015",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art1072_cpt_alt1_art229_cpt_inc2"
+                  },
+                  "legislationDate": "2015-03-16",
+                  "@type": "Legislation",
+                  "name": "II –",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2015-03-16!art229_cpt_inc2",
+                  "legislationType": "Repeal_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2015-03-16!art229_cpt_inc2",
+                  "text": "(Revogado)"
+                 }
+                ],
+                "temporalCoverage": "2002-01-10/2015-03-16",
+                "@type": "Legislation",
+                "legislationLegalForce": "NotInForce",
+                "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!art229_cpt_inc2",
+                "legislationType": {
+                 "@type": "CategoryCode",
+                 "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                },
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!art229_cpt_inc2"
+               },
+               {
+                "workExample": [
+                 {
+                  "temporalCoverage": "2002-01-10/2015-03-15",
+                  "legislationDate": "2002-01-10",
+                  "@type": "Legislation",
+                  "legislationLegalForce": "NotInForce",
+                  "name": "III –",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!art229_cpt_inc3",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2002-01-10!art229_cpt_inc3",
+                  "text": "que o exponha, ou às pessoas referidas no inciso antecedente, a perigo de vida, de demanda, ou de dano patrimonial imediato.",
+                  "@reverse": {
+                   "legislationRepeals": {
+                    "@type": "Legislation",
+                    "name": "Lei nº 13.105 de 16/03/2015",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art1072_cpt_alt1_art229_cpt_inc3"
+                   }
+                  }
+                 },
+                 {
+                  "additionalType": "Repeal",
+                  "legislationConsolidates": {
+                   "@type": "Legislation",
+                   "name": "Lei nº 13.105 de 16/03/2015",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art1072_cpt_alt1_art229_cpt_inc3"
+                  },
+                  "legislationDate": "2015-03-16",
+                  "@type": "Legislation",
+                  "name": "III –",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406@2015-03-16!art229_cpt_inc3",
+                  "legislationType": "Repeal_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406@2015-03-16!art229_cpt_inc3",
+                  "text": "(Revogado)"
+                 }
+                ],
+                "temporalCoverage": "2002-01-10/2015-03-16",
+                "@type": "Legislation",
+                "legislationLegalForce": "NotInForce",
+                "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!art229_cpt_inc3",
+                "legislationType": {
+                 "@type": "CategoryCode",
+                 "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                },
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!art229_cpt_inc3"
+               }
+              ],
+              "@type": "Legislation",
+              "legislationLegalForce": "NotInForce",
+              "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!art229_cpt",
+              "legislationType": {
+               "@type": "CategoryCode",
+               "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:caput"
+              },
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!art229_cpt"
+             },
+             "@type": "Legislation",
+             "legislationLegalForce": "NotInForce",
+             "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!art229",
+             "legislationType": {
+              "@type": "CategoryCode",
+              "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:artigo"
+             },
+             "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!art229"
+            }
+           ],
+           "@type": "Legislation",
+           "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!prt1_liv3_tit5",
+           "legislationType": {
+            "@type": "CategoryCode",
+            "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:titulo"
+           },
+           "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!prt1_liv3_tit5"
+          }
+         ],
+         "@type": "Legislation",
+         "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!prt1_liv3",
+         "legislationType": {
+          "@type": "CategoryCode",
+          "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:livro"
+         },
+         "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!prt1_liv3"
+        }
+       ],
+       "@type": "Legislation",
+       "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!prt1",
+       "legislationType": {
+        "@type": "CategoryCode",
+        "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:parte"
+       },
+       "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!prt1"
+      }
+     ],
+     "@type": "Legislation",
+     "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!articulacao",
+     "legislationType": {
+      "@type": "CategoryCode",
+      "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:articulacao"
+     },
+     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!articulacao"
+    }
+   ],
+   "@type": "Legislation",
+   "legislationIdentifier": "urn:lex:br:federal:lei:2002-01-10;10406!",
+   "legislationType": {
+    "@type": "CategoryCode",
+    "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:componente.autonomo.articulado"
+   },
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2002-01-10;10406!"
+  }
+ ]
+}
