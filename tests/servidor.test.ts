@@ -2845,3 +2845,41 @@ describe("marca de pausa legível por máquina (G-06)", () => {
     expect(r.content[0].text).not.toMatch(/\[PAUSA/);
   });
 });
+
+describe("servidor MCP: decisões em série na busca ampla", () => {
+  const serie = ["a1", "b2"].map((id) => ({
+    id,
+    texto_ementa: "EMENTA FICTÍCIA. Agravo inadmissível por falta de impugnação.",
+    numero_processo: `${id}/UF`,
+    orgao_julgador: "Turma Exemplo",
+    relator: "Fulano de Tal",
+    data_julgamento: "2024-01-02T00:00:00.000Z",
+    link_pdf: `https://exemplo.test/${id}`,
+  }));
+  const ampla = async (extra: Record<string, unknown>) => {
+    const mcp = await conectar(siteFalso(serie));
+    const r = (await mcp.callTool({
+      name: "busca_ampla",
+      arguments: { formulacoes: ["agravo inadmissível"], tribunais: ["stj"], ...extra },
+    })) as { content: { text: string }[] };
+    return JSON.parse(r.content[0].text);
+  };
+
+  it("agrupa por padrão e agrupar=false lista cada acórdão", async () => {
+    const agrupada = await ampla({});
+    expect(agrupada.acordaos).toHaveLength(1);
+    expect(agrupada.acordaos[0].mesmaEmenta.criterio).toBe("mesma ementa");
+    expect(agrupada.totalAcordaos).toBe(2);
+
+    const solta = await ampla({ agrupar: false });
+    expect(solta.acordaos).toHaveLength(2);
+  });
+
+  it("o tools/list oferece a opção agrupar na busca ampla, e só nela", async () => {
+    const mcp = await conectar(siteFalso([]));
+    const { tools } = await mcp.listTools();
+    const tem = (nome: string) => "agrupar" in ((tools.find((t) => t.name === nome)!.inputSchema.properties as object) ?? {});
+    expect(tem("busca_ampla")).toBe(true);
+    expect(tem("busca_direta")).toBe(false);
+  });
+});

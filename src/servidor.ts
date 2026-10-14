@@ -504,6 +504,13 @@ export function criarServidor(
               "aderência, do julgamento mais antigo ao mais recente, para ver mudança de entendimento; sem data vai ao " +
               "fim, com aviso. Nenhuma chamada a mais",
           ),
+        agrupar: z
+          .boolean()
+          .optional()
+          .describe(
+            "Padrão sim: acórdãos do mesmo tribunal, órgão e relator com a mesma ementa inteira saem numa linha só, com " +
+              "mesmaEmenta (contagem, período e ids dos demais). Só muda a apresentação; false lista cada acórdão",
+          ),
         ...filtros,
         // Conferidos dentro da ferramenta, como tribunal e datas: o erro precisa dizer o formato aceito.
         deveConter: z
