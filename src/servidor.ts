@@ -49,6 +49,8 @@ import { clienteDaLegislacao, diplomasSuportados, textoDeLei } from "./legislaca
 import { CHAMADO_LIGADO, comLinhaDeChamado, ERRO_DE_ORIGEM } from "./chamado.js";
 import { INSTRUCTIONS, roteiroDePesquisa } from "./roteiro.js";
 import { clienteDoFalcao } from "./falcao.js";
+import { AVISO_DE_VELOCIDADE, avisoDeBaixaTcu, baixarAnoTcu, clienteDoTcu, listarAnosDoTcu } from "./tcuBaixar.js";
+import { anosBaixadosTcu, lerAcordaoTcu, lerReciboTcu, pastaDoTcu, pesquisarTcu } from "./tcuLocal.js";
 import { clienteDosPrecedentes, PrecedentesAoVivo, respostaDoStf } from "./precedentesAoVivo.js";
 import {
   avisoDeLinkDoTjgo,
@@ -389,6 +391,8 @@ export interface OpcoesServidor {
   falcao?: Cliente;
   /** Cliente do portal do STF, consultado ao vivo pelo consultar_precedente (ADR-0020). */
   precedentesStf?: Cliente;
+  /** Cliente do TCU, que baixa os arquivos anuais de acórdãos (padrão: o real, com os freios dele). */
+  tcu?: Cliente;
   /** Cliente do normas.leg.br, de onde o texto_de_lei lê o texto oficial (ADR-0026). */
   legislacao?: Cliente;
   /** Estado de proteção que o diagnostico_dos_freios lê (padrão: o de todos os clientes do processo). */
@@ -411,6 +415,7 @@ export function criarServidor(
     djen = clienteDoDjen(),
     falcao = clienteDoFalcao(),
     precedentesStf = clienteDosPrecedentes(),
+    tcu = clienteDoTcu(),
     legislacao = clienteDaLegislacao(),
     coordenacao,
     chamado = CHAMADO_LIGADO,
@@ -1239,6 +1244,146 @@ export function criarServidor(
     async (args) => {
       try {
         return json(await textoDeLei(args, { cliente: legislacao, memoria, agora }));
+      } catch (e) {
+        return erro(e);
+      }
+    },
+  );
+
+  const pastaTcu = dados ?? pastaDeDados();
+
+  registrar(
+    "baixar_anos_tcu",
+    {
+      title: "TCU: ver e baixar os anos de acórdãos",
+      description:
+        "Acórdãos do Tribunal de Contas da União (TCU) vêm de arquivos anuais de dados abertos que ficam no seu " +
+        "computador e são pesquisados aqui, sem rede (pesquisar_acordaos_tcu). Sem argumentos, lista os anos que o TCU " +
+        "publica, com o tamanho de cada arquivo (300 a 500 MB nos anos recentes; o acervo inteiro tem cerca de 7,6 GB), " +
+        "a data da lista do TCU e quais anos já estão baixados (uma só chamada, nada é baixado). Com anos, só AVISA: " +
+        "diz que precisa baixar, o tamanho por ano e no total e a pasta onde fica, e não baixa nada. Cada ano baixado acrescenta cerca de " +
+        "10 a 20 s a cada pesquisa no TCU (o arquivo do ano é lido inteiro): recomende poucos anos. Para baixar, chame " +
+        "de novo com os mesmos anos e confirmar: true: um ano por vez, direto do TCU, pelo cliente único com os freios, " +
+        "retomável se cair, com hash e data no recibo. Ano já baixado não é baixado de novo; renovar: true (com " +
+        "confirmar) pergunta ao TCU se o arquivo mudou e só então baixa, mantendo a cópia antiga se falhar. O Garimpo " +
+        "não baixa o acervo por padrão nem sozinho.",
+      annotations: { destructiveHint: false, openWorldHint: true },
+      inputSchema: {
+        anos: z.array(z.coerce.number().int().min(1990).max(2100)).optional().describe("Anos a baixar, por ex. [2024, 2025]; sem isso, só lista"),
+        confirmar: z.boolean().optional().describe("true = o usuário viu o aviso (tamanho e pasta) e quer baixar"),
+        renovar: z.boolean().optional().describe("true = ano já baixado: conferir com o TCU se mudou e atualizar"),
+      },
+    },
+    async ({ anos, confirmar, renovar }) => {
+      try {
+        if (confirmar && !anos?.length) throw new Error("Para baixar, informe os anos (ex.: anos: [2025]) junto com confirmar: true.");
+        const lista = await listarAnosDoTcu(tcu);
+        if (!anos?.length) {
+          const locais = await anosBaixadosTcu(pastaTcu);
+          return json({
+            listaDoTcuEm: lista.baseEm ?? "não informada",
+            pasta: pastaDoTcu(pastaTcu),
+            anos: await Promise.all(
+              lista.anos.map(async (a) => {
+                const baixado = locais.includes(a.ano);
+                const recibo = baixado ? await lerReciboTcu(pastaTcu, a.ano) : undefined;
+                return {
+                  ano: a.ano,
+                  tamanhoMb: a.tamanhoMb,
+                  baixado,
+                  ...(recibo ? { atualizadoNoTcuEm: recibo.lastModified ?? "não informada", baixadoEm: recibo.baixadoEm } : {}),
+                };
+              }),
+            ),
+            aviso: "Nada foi baixado. Escolha os anos e chame de novo com anos: [...]; o Garimpo avisa o tamanho antes de baixar.",
+          });
+        }
+        const aviso = await avisoDeBaixaTcu(pastaTcu, lista, anos, renovar);
+        if (!confirmar) return json(aviso);
+        const alvo = renovar ? aviso.anos : aviso.anos.filter((a) => !a.jaBaixado);
+        const resultados: Awaited<ReturnType<typeof baixarAnoTcu>>[] = aviso.anos.filter((a) => a.jaBaixado && !renovar).map((a) => ({ ano: a.ano, situacao: "ja-baixado" as const }));
+        for (const a of alvo) {
+          try {
+            resultados.push(await baixarAnoTcu({ dados: pastaTcu, cliente: tcu, ano: a.ano, renovar, listaEm: lista.baseEm, agora }));
+          } catch (e) {
+            if (e instanceof RecusaError || e instanceof PausaPreventivaError || !resultados.length) throw e;
+            throw new Error(`${(e as Error).message} Já concluídos: ${resultados.map((r) => `${r.ano} (${r.situacao})`).join(", ")}.`);
+          }
+        }
+        return json({
+          resultados: resultados.sort((x, y) => x.ano - y.ano),
+          listaDoTcuEm: lista.baseEm ?? "não informada",
+          bases: await Promise.all(aviso.anos.map(async ({ ano }) => {
+            const recibo = await lerReciboTcu(pastaTcu, ano);
+            return { ano, atualizadoNoTcuEm: recibo?.lastModified ?? "não informada", baixadoEm: recibo?.baixadoEm ?? "não informada" };
+          })),
+          pasta: aviso.pasta,
+          aviso: `Pronto para pesquisar_acordaos_tcu. Fonte: dados abertos do TCU, baixados direto do TCU para este computador. ${AVISO_DE_VELOCIDADE}`,
+        });
+      } catch (e) {
+        return erro(e);
+      }
+    },
+  );
+
+  registrar(
+    "pesquisar_acordaos_tcu",
+    {
+      title: "TCU: pesquisar acórdãos nos anos baixados",
+      description:
+        "Pesquisa, no computador e sem rede, os acórdãos do TCU dos anos que o baixar_anos_tcu já baixou. Por palavras " +
+        "(todas devem aparecer; frase entre aspas vale inteira; sem diferenciar acento e maiúscula), com filtros por " +
+        "anos, tipo (ACÓRDÃO ou ACÓRDÃO DE RELAÇÃO), colegiado e relator. Devolve, por acórdão: chave, número, ano, data " +
+        "da sessão, colegiado, relator, tipo, situação, sumário (o resumo do TCU: sumário, não ementa), trechos e link " +
+        "oficial para conferência. Mais recentes primeiro. Acórdão de relação traz só o texto do acórdão (sem sumário, " +
+        "relatório nem voto). INVALIDADO e sigilosos não entram (a resposta diz quantos). Toda resposta traz a data da " +
+        "base de cada ano (atualização no TCU e data do download), quantos anos foram percorridos e o tempo gasto (cada " +
+        "ano leva cerca de 10 a 20 s), a atribuição à fonte, o aviso de que o texto oficial cita nomes de pessoas e os " +
+        "anos pedidos que não estão baixados. Relatório, voto ou sumário que o TCU classificou como sigilosos aparecem em " +
+        "partesSigilosas (o acórdão continua listado). Interessados e advogados do arquivo nunca são lidos nem mostrados. Para o texto, use ler_acordao_tcu.",
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+      inputSchema: {
+        consulta: z.string().min(1).describe("Palavras ou \"frase entre aspas\""),
+        anos: z.array(z.coerce.number().int()).optional().describe("Só estes anos (padrão: todos os baixados)"),
+        tipo: z.enum(["ACÓRDÃO", "ACÓRDÃO DE RELAÇÃO"]).optional(),
+        colegiado: z.string().optional().describe("Parte do nome: Plenário, Primeira Câmara, Segunda Câmara"),
+        relator: z.string().optional().describe("Parte do nome do relator"),
+        limite: z.number().int().min(1).max(50).optional().describe("Quantidade de acórdãos (padrão 10, máximo 50)"),
+      },
+    },
+    async (args) => {
+      try {
+        return json(await pesquisarTcu(pastaTcu, args));
+      } catch (e) {
+        return erro(e);
+      }
+    },
+  );
+
+  registrar(
+    "ler_acordao_tcu",
+    {
+      title: "TCU: ler uma parte de um acórdão",
+      description:
+        "Lê, do arquivo anual já baixado (sem rede), uma parte de um acórdão do TCU: acordao (texto do acórdão), " +
+        "relatorio, voto, decisao ou sumario. Informe o ano e a chave que veio na pesquisa (ou o número e o colegiado). " +
+        "Relatório e voto só existem no tipo ACÓRDÃO; o acórdão de relação traz só o texto (a resposta explica). Texto " +
+        "de HTML convertido, em partes numeradas (use pagina para as seguintes). Acórdão INVALIDADO ou sigiloso não " +
+        "mostra texto. Traz situação, data da base e atribuição. Interessados e advogados não são lidos; o texto " +
+        "oficial pode citar nomes no corpo e o Garimpo não os retira.",
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+      inputSchema: {
+        ano: z.number().int().describe("Ano do arquivo baixado"),
+        chave: z.string().optional().describe("Chave do acórdão, como veio na pesquisa"),
+        numero: z.string().optional().describe("Número do acórdão (com colegiado, se não houver chave)"),
+        colegiado: z.string().optional().describe("Colegiado, por inteiro, junto com o número"),
+        parte: z.enum(["acordao", "relatorio", "voto", "decisao", "sumario"]).describe("Qual parte ler"),
+        pagina: z.number().int().min(1).optional().describe("Parte numerada do texto (padrão 1)"),
+      },
+    },
+    async (args) => {
+      try {
+        return json(await lerAcordaoTcu(pastaTcu, args));
       } catch (e) {
         return erro(e);
       }

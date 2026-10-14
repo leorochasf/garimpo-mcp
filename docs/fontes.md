@@ -314,6 +314,33 @@ seguem «ainda não testou». Provas registradas em 14/10/2026 (STJ em 13/10/202
 
 TRF2 e TRF6 não constam da tabela de tribunais do Garimpo; não foram tratados.
 
+## TCU (arquivos anuais de acórdãos, dados abertos)
+
+Usado por `baixar_anos_tcu`, `pesquisar_acordaos_tcu` e `ler_acordao_tcu` ([ADR-0025](adr/0025-tcu-arquivos-anuais-baixados-pelo-usuario.md)).
+O usuário baixa os anos que escolher, direto do TCU; a pesquisa é local. Leituras de 2026-10-14 (relatório
+`TICKETS/b18-investigacoes/tcu-dados-abertos.md`, local):
+
+- **Lista de arquivos:** `https://sites.tcu.gov.br/dados-abertos/jurisprudencia/arquivos/jurisprudencia-arquivos.csv`
+  (1ª linha: data da última atualização; depois, arquivo e tamanho declarado). **Arquivo anual:**
+  `https://sites.tcu.gov.br/dados-abertos/jurisprudencia/arquivos/acordao-completo/acordao-completo-<ano>.csv`
+  (UTF-8, separador `|`, campos entre aspas, quebra de linha dentro do campo, 33 colunas; aceita `Range`; 300 a 500 MB
+  nos anos recentes, ~7,6 GB no total; `ETag` e `Last-Modified`).
+- **Dicionário:** `https://sites.tcu.gov.br/dados-abertos/jurisprudencia/dicionario-dados.html`. `SUMARIO` = "Resumo do
+  conteúdo do Acórdão"; `RELATORIO` e `VOTO` só no tipo `ACÓRDÃO`; `INTERESSADOS` e `ADVOGADO` não são usados.
+- **robots.txt** de `sites.tcu.gov.br`: `User-agent: *` não veda `/dados-abertos/`; robôs de IA nomeados têm
+  `Disallow: /` (alerta no ADR-0025). O Garimpo não muda de User-Agent.
+- **Termos:** `https://portal.tcu.gov.br/sobre-o-portal/termos-de-uso`: itens 2 a 4 (direitos reservados; uso comercial
+  vedado sem permissão; republicação permitida citando fonte, título e autor). O conjunto não declara licença aberta:
+  **nada do TCU vai no pacote**. Toda resposta cita "TCU, Acórdão N/AAAA – Colegiado, relator X; dados abertos do TCU,
+  base de <data>".
+- **Freios:** serviço `sites.tcu.gov.br` no disjuntor; um arquivo por vez; 429/503 pela regra geral; sem `-k`, sem
+  seguir redirecionamento sozinho.
+- **O que o Garimpo guarda:** `<pasta de dados>/tcu/acordao-completo-<ano>.csv` e um recibo ao lado (URL, bytes, sha256,
+  `ETag`, `Last-Modified`, data do download). Só o que o usuário mandou baixar.
+- **Validado em 2026-10-14:** lista BASE|ANO|TAMANHO|ARQUIVO, `DATASESSAO` dd/mm/aaaa e renovação condicional 304.
+- **Não verificado:** link `pesquisa.apps.tcu.gov.br/redireciona/…`, retomada `If-Range` no CDN e anos anteriores a
+  2025 (relatório e voto).
+
 ## Falcão: decisões monocráticas e sentenças dos TRTs (I-29 / G-38)
 
 - **Rota:** a mesma do Falcão, `GET /jurisprudencia-nacional-backend/api/no-auth/pesquisa` com `colecao=decisoesmonocraticas`
