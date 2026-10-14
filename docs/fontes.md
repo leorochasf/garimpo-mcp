@@ -105,3 +105,29 @@ inventário de acórdãos**.
   nos testes é sintética, montada com os campos da especificação, e não uma resposta real reduzida.
 - **O que o Garimpo guarda:** por até 24 h, só a lista reduzida acima (sem texto e sem nomes), com a fonte e o momento
   da obtenção.
+
+## Espelhos de Acórdãos do STJ (Portal de Dados Abertos)
+
+Fonte do **índice "dispositivo legal → acórdãos do STJ"** ([ADR-0022](adr/0022-indice-de-dispositivo-legal-pelos-espelhos-de-acordaos-do-stj.md)).
+Gerado só pelo mantenedor e levado no pacote como fotografia datada; o usuário nunca baixa o acervo. **Nenhum código
+de rede para esta fonte existe ainda**; esta entrada precede o gerador (ADR-0017).
+
+- **Conjuntos:** 10, `espelhos-de-acordaos-<órgão>` (corte-especial, primeira-secao, segunda-secao, terceira-secao,
+  primeira-turma a sexta-turma), em https://dadosabertos.web.stj.jus.br/dataset/ (fichas lidas em 2026-10-13).
+  Arquivos mensais em JSON e um ZIP de histórico por conjunto; cada conjunto traz `dicionario-espelhodoacordao.csv`.
+- **Licença:** as 10 fichas declaram "Creative Commons Atribuição" (`cc-by`), **sem indicar a versão** (conferido em
+  2026-10-13). Exige atribuição: "Portal de Dados Abertos do STJ — Espelhos de Acórdãos, licença CC BY" no README, no
+  índice e em toda resposta que o usa. A licença dos dados é separada da MIT do código (ADR-0015). A licença é
+  revalidada por conjunto a cada geração.
+- **Acesso:** `robots.txt` do portal com `Disallow: /api/` e `Crawl-Delay: 10`. O Garimpo usa só as páginas de ficha e
+  os downloads, **uma chamada por vez, ≥ 10 s entre chamadas, nunca `/api/`**, pelo cliente único e com os freios da
+  regra 3. Medição de 2026-10-13: 50 chamadas, todas 200, 0,6–14,9 s (mediana 1,8 s).
+- **Periodicidade:** mensal, com defasagem de 1–2 meses; há regravações silenciosas de arquivos já publicados e mês
+  ausente (Segunda Turma 06/2026). O sha256 de cada arquivo as detecta.
+- **O que o Garimpo guarda:** do campo `referenciasLegislativas`, os pares (lei, ano, artigo, parágrafo, inciso) e,
+  por acórdão, classe, número, registro, órgão, relator e datas. **Nunca** `ementa`, `decisao` (traz nome de advogado
+  e de parte) nem `acordaosSimilares`.
+- **Escopo do piloto:** CPC/15, CC/02 e CDC.
+- **Cobertura (medida em amostra, não garantida):** classificação presente em 74% do histórico da Terceira Turma até
+  05/2022, mas em 14–16% dos acórdãos de 2025–2026. Fração do total de acórdãos do STJ coberta: **não verificado**.
+- **Aviso obrigatório:** o literal está no ADR-0022.
