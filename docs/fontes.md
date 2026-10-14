@@ -305,12 +305,18 @@ Fonte pública do próprio tribunal, sem login nem captcha. Relatório de origem
 - **Freios:** pelo cliente único (UA honesto, 2 chamadas simultâneas no total, 429/503 com uma nova tentativa, recusa final
   abre o disjuntor `trf4`; sem intervalo mínimo próprio, limite de ritmo não verificado); busca = 2 chamadas (formulário + POST); inteiro teor = 2 (formulário + GET);
   redirecionamento não é seguido.
-- **Leitor da lista:** estrutura presumida em fixture fictícia (`resultado`, `cabecalho`, `ementa`, `links`), ainda sem
-  validação na resposta real. Campos isolados; total único inteiro e `min(total, 10)` blocos; divergência ou link
+- **Validação da lista em 2026-10-14:** formulário e POST com termo acentuado em ISO-8859-1 confirmados (200), 10 cards
+  `resultadoItem`, total 30196; links relativos com `&` cru antes dos campos, RELATOR/RELATORA e EMENTA após DECISÃO.
+  Relatório: `TICKETS/b18-investigacoes/trf4-validacao-ao-vivo.md`. A fixture reproduz o recorte real com dados fictícios.
+  Corrigidos e testados offline: id/link do vizinho, relator como ementa e perda do último card. O código corrigido
+  não foi reexecutado na rede nesta revisão; o inteiro teor não foi baixado nessa validação adicional.
+- **Leitor da lista:** isola os cards e campos rotulados `resLabel`/`resValue`, vincula id do link ao próprio card,
+  exige total único inteiro e `min(total, 10)` blocos; divergência, campo ausente/duplicado, card truncado ou link
   ausente/ambíguo abortam a lista inteira com erro de formato, sem guardar acórdãos. Não descarta registros em silêncio.
-- **Não verificado:** a marcação HTML real da lista, a posição dos `data-link` e a relação entre total, agrupamento e
-  tamanho da página (as fixtures são feitas à mão a partir do relatório); se a busca e o download dispensam o cookie; termo com acento no POST; filtros do formulário (por isso recusados);
-  TRU4, Turmas Recursais, varas; busca no inteiro teor; PDF oficial; limite de ritmo; estabilidade do `id_jurisprudencia`;
+- **Não verificado:** adaptador corrigido de ponta a ponta, download por ele nesta rodada, relação entre total,
+  agrupamento e tamanho da página fora dos 10 cards observados; se a busca e o download dispensam o cookie;
+  filtros do formulário (por isso recusados);
+  TRU4, Turmas Recursais, varas; busca no inteiro teor; PDF oficial e rota `gerarPDFDocumento`; limite de ritmo; estabilidade do `id_jurisprudencia`;
   Política de Cookies; frescor além dos 10 itens de 13/10/2026; velocidade em relação ao STJ pelo JurisprudênciaIA (não medida).
 ## Exportação de repercussão geral do STF (script do mantenedor, I-33 / D-11)
 

@@ -41,6 +41,12 @@ continua sendo a fonte dos demais tribunais; o TRF4 não está na base dele para
   porque o D-07 do dono a liberou com essa condição cumprida (termos sem vedação, robots sem regra para o host, prova).
 - Prova de 2026-10-14: 1 busca (200, HTML, 530 KB, e-Proc 9.23.2, ementa inteira, 10 itens de 13/10/2026) e 1 inteiro
   teor (200, HTML, 142 KB, sem login nem captcha). Tudo com o User-Agent do Garimpo.
+- Validação adicional da lista em 2026-10-14 (`TICKETS/b18-investigacoes/trf4-validacao-ao-vivo.md`): GET do formulário
+  (200, 73.268 bytes, 396 ms) e POST com termo acentuado em ISO-8859-1 (200, 392.878 bytes, 454 ms), usando cookie,
+  Referer e UA honesto. Confirmou formulário, total, 10 cards `resultadoItem`, links relativos com `&` cru antes dos
+  campos, RELATOR/RELATORA e EMENTA depois de DECISÃO. Expôs três defeitos: link/id do vizinho, relator na ementa e
+  perda do último card. A correção foi testada offline contra recorte fiel, com todos os dados substituídos por fictícios.
+  O adaptador corrigido não foi reexecutado na rede nesta revisão; nenhum inteiro teor foi pedido nessa validação adicional.
 
 ## Decisões
 
@@ -60,13 +66,15 @@ continua sendo a fonte dos demais tribunais; o TRF4 não está na base dele para
 - **Filtros e opções da busca direta:** de/ate, relator, órgão, classe, somenteEmentas, ordenação e precedentes **não** são
   mandados ao e-Proc (a montagem no formulário não foi verificada): pedir um deles dá erro que ensina, nunca é ignorado
   em silêncio. Limite acima de 10 vale 10, com aviso no cabeçalho de cobertura.
-- **Lista presumida, ainda sem validação ao vivo:** o HTML real não foi gravado nem usado para escrever o leitor. A
-  fixture fictícia presume divs `resultado`, com um `cabecalho`, uma `ementa` e um campo `links` por registro. O leitor
-  isola esses campos; classe diferente, campo ausente/duplicado, link ausente/ambíguo ou id repetido com dados distintos
-  abortam a lista inteira com erro de formato, antes de guardar qualquer acórdão. A ordem dos dois links não importa.
+- **Lista conferida com recorte saneado:** a fixture reproduz os cards `resultadoItem#resultado<ID>` da resposta real,
+  em ISO-8859-1. O leitor isola cada card, lê `resLabel`/`resValue` e vincula o `id_jurisprudencia` ao id do próprio
+  card. EMENTA e RELATOR/RELATORA são campos separados; não incorpora a DECISÃO duplicada nem o modal de citação.
+  Classe diferente, campo ausente/duplicado, card truncado, link ausente/ambíguo ou id com dados distintos abortam a
+  lista inteira com erro de formato antes de guardar qualquer acórdão. A ordem dos dois links não importa.
 - **Total ausente ≠ zero:** exige um único `hdnTotalResultado` inteiro completo e exatamente `min(total, 10)` blocos
   na primeira página. Zero só é busca vazia sem blocos/campos de registros; qualquer divergência é erro de formato.
-  A relação entre total, agrupamento e quantidade na página também é presumida e precisa ser conferida ao vivo.
+  Dez cards foram observados com agrupamento marcado e total 30196; a regra para totais menores que 10 e o efeito
+  geral do agrupamento continuam não verificados ao vivo (testados apenas offline).
 - **Vínculo do documento:** o `id_jurisprudencia` do link deve coincidir com o id pedido, antes de qualquer chamada;
   o mesmo processo pode ter vários acórdãos. O número CNJ no texto é uma conferência adicional, não autenticação.
 - **LGPD / dados de pessoas:** o inteiro teor traz partes por iniciais («Identificações de pessoas físicas foram
@@ -84,6 +92,9 @@ continua sendo a fonte dos demais tribunais; o TRF4 não está na base dele para
 ## Consequências
 
 - Sigla `trf4` em `src/tribunais.ts` (fonte «e-Proc do TRF4»), modo de inteiro teor `portal`.
-- **Não verificado, validar ao vivo:** marcação real do HTML da lista; relação total/agrupamento/tamanho da página; posição dos `data-link`; dispensa do cookie; acento no
-  POST; limite de ritmo; frescor. Se o formato mudar, o leitor dá erro de formato, nunca lista vazia.
+- **Não verificado, validar ao vivo:** adaptador corrigido de ponta a ponta e download por ele nesta rodada; dispensa
+  do cookie; relação total/agrupamento/tamanho da página fora dos 10 cards observados; filtros avançados; PDF oficial
+  e rota `gerarPDFDocumento`; limite de ritmo; estabilidade dos ids; Política de Cookies e frescor além da amostra.
+  Não foi medida vantagem de velocidade sobre o STJ pelo JurisprudênciaIA. Se o formato mudar, o leitor dá erro,
+  nunca lista vazia.
 - Se o TRF4 passar a vedar ou a recusar, o disjuntor do serviço abre e o usuário recebe o aviso.

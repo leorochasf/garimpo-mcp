@@ -5,8 +5,8 @@ import { obterInteiroTeor } from "../src/inteiroTeor.js";
 import { Memoria } from "../src/memoria.js";
 
 // Teste ao vivo opcional (D-07 / G-31, ADR-0024): UMA busca (2 chamadas) e UM inteiro teor (2 chamadas), pelo Cliente real
-// (UA honesto, freios). Só com GARIMPO_VIVO_TRF4=1 e sem outra prova ao vivo em curso. Valida o que a fixture à mão só
-// presume: a marcação real da lista, a ordem dos data-link, o termo com acento e o inteiro teor assinado.
+// (UA honesto, freios). Só com GARIMPO_VIVO_TRF4=1 e sem outra prova ao vivo em curso. Repete a validação da lista
+// de 2026-10-14 (recorte saneado na fixture) e verifica o download pelo adaptador, ainda não validado nessa rodada.
 describe.skipIf(process.env.GARIMPO_VIVO_TRF4 !== "1")("TRF4 — ao vivo", () => {
   it("a busca traz acórdãos com ementa e link do inteiro teor; o inteiro teor vem como texto do portal", { timeout: 120_000 }, async () => {
     const memoria = new Memoria();
