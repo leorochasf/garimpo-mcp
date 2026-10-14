@@ -12,6 +12,14 @@
  *   retoma; na reserva, ausente ou inválido = mais 15 min. Nenhuma sondagem automática: sem pedido, nada sai.
  * - Números iniciais (spec do B12); a prova do ticket 01 viu um balde de ~40 que recarga em segundos, sem janela
  *   comprovada: a pausa é folgada de propósito.
+ *
+ * Fonte que não informa o restante tem outro freio, o orçamento por janela (G-05, DQ-25): um limite próprio de
+ * chamadas por janela de tempo, somadas em todas as janelas do Garimpo. No limite, a chamada não sai até o fim da
+ * janela (pausa preventiva, sem abrir o disjuntor). Recusa da fonte alarga a janela um degrau da escada; 20
+ * chamadas aceitas afrouxam um degrau. Números por fonte: configuração do cliente, iniciais e sem prova.
+ *
+ * No Falcão a janela é o dia civil de Brasília (G-01, DQ-01): o aviso de restante não prevê o bloqueio de horas, então
+ * o Garimpo também conta as próprias chamadas por dia e, no teto, pára até a meia-noite, mesmo com restante alto.
  */
 
 import type { Chamada } from "./disjuntor.js";
@@ -35,7 +43,11 @@ export interface Freio {
 }
 
 /** O que o freio diz a uma chamada que quer sair. */
-export type OrdemDoFreio = { tipo: "sai" } | { tipo: "freio"; ate: number } | { tipo: "espera"; ms: number };
+export type OrdemDoFreio =
+  | { tipo: "sai" }
+  /** `por`: o limite próprio que parou a chamada; ausente = o restante informado pela fonte. */
+  | { tipo: "freio"; ate: number; por?: "janela" | "dia" }
+  | { tipo: "espera"; ms: number };
 
 /** O que a resposta disse do restante: o número lido, `undefined` (ausente ou inválido) ou nenhuma resposta. */
 export type RestanteLido = number | undefined | "sem-resposta";
@@ -126,5 +138,101 @@ export function freioValido(f: unknown): f is Freio {
         x.liberacao !== null &&
         Number.isInteger(x.liberacao.pid) &&
         typeof x.liberacao.id === "string"))
+  );
+}
+
+/** Limite próprio de uma fonte: `chamadas` por janela, com a escada de larguras (a janela alarga a cada recusa). */
+export interface ConfigOrcamento {
+  chamadas: number;
+  largurasMs: readonly number[];
+  /** A janela é o dia civil de Brasília (zera à meia-noite) e não tem escada: `largurasMs` fica vazio. */
+  diario?: true;
+}
+
+const HORA_MS = 60 * 60_000;
+const DIA_MS = 24 * HORA_MS;
+/** Brasília é UTC-3 o ano todo (sem horário de verão desde 2019). */
+const BRASILIA_MS = 3 * HORA_MS;
+
+/** A próxima meia-noite de Brasília depois de `agora` (ms). */
+function proximaMeiaNoiteDeBrasilia(agora: number): number {
+  return (Math.floor((agora - BRASILIA_MS) / DIA_MS) + 1) * DIA_MS + BRASILIA_MS;
+}
+
+/** Chamadas aceitas seguidas que afrouxam a janela um degrau. */
+export const ACERTOS_PARA_AFROUXAR = 20;
+
+/** O orçamento de um serviço no estado compartilhado: a janela em curso e o degrau da escada. */
+export interface Orcamento {
+  /** Fim da janela em curso (ms no relógio comum). */
+  fim: number;
+  /** Chamadas já autorizadas nesta janela. */
+  usadas: number;
+  /** O limite da janela (para o diagnóstico). */
+  limite: number;
+  /** A janela é o dia de Brasília (para o diagnóstico). */
+  diario?: true;
+  /** Degrau da escada de larguras; vale a partir da próxima janela. */
+  degrau: number;
+  /** Último degrau da escada configurada: recusas saturam aqui. */
+  ultimoDegrau: number;
+  /** Chamadas aceitas desde a última recusa ou desde o último afrouxamento. */
+  acertos: number;
+}
+
+/**
+ * Antes de sair: a chamada cabe na janela? `novo` é o estado a gravar se ela sair (janela nova quando a anterior
+ * acabou); igual ao recebido quando ela não sai. Recuar o relógio nunca restitui chamadas gastas.
+ */
+export function decidirOrcamento(
+  o: Orcamento | undefined,
+  config: ConfigOrcamento,
+  agora: number,
+): { ordem: OrdemDoFreio; novo: Orcamento } {
+  const diario = config.diario;
+  const ultimoDegrau = diario ? 0 : config.largurasMs.length - 1;
+  const degrau = Math.min(o?.degrau ?? 0, ultimoDegrau);
+  if (!o || agora >= o.fim) {
+    const fim = diario ? proximaMeiaNoiteDeBrasilia(agora) : agora + config.largurasMs[degrau];
+    return {
+      ordem: { tipo: "sai" },
+      novo: { fim, usadas: 1, limite: config.chamadas, ...(diario && { diario }), degrau, ultimoDegrau, acertos: diario ? 0 : o?.acertos ?? 0 },
+    };
+  }
+  if (o.usadas >= config.chamadas) return { ordem: { tipo: "freio", ate: o.fim, por: diario ? "dia" : "janela" }, novo: o };
+  return { ordem: { tipo: "sai" }, novo: { ...o, usadas: o.usadas + 1, limite: config.chamadas, degrau, ultimoDegrau } };
+}
+
+/** Depois de uma chamada: recusa da fonte = janela um degrau mais larga; `ACERTOS_PARA_AFROUXAR` aceitas = um degrau menos. */
+export function anotarOrcamento(o: Orcamento | undefined, resultado: "aceita" | "recusa" | "erro"): Orcamento | undefined {
+  if (!o || o.diario) return o;
+  if (resultado === "erro") return { ...o, acertos: 0 };
+  if (resultado === "recusa") return { ...o, degrau: Math.min(o.degrau + 1, o.ultimoDegrau), acertos: 0 };
+  if (o.acertos + 1 < ACERTOS_PARA_AFROUXAR) return { ...o, acertos: o.acertos + 1 };
+  return { ...o, degrau: Math.max(0, o.degrau - 1), acertos: 0 };
+}
+
+/** Confere o formato de um orçamento lido do estado compartilhado. */
+export function orcamentoValido(o: unknown): o is Orcamento {
+  const x = o as Orcamento;
+  const inteiro = (v: unknown) => Number.isSafeInteger(v) && (v as number) >= 0;
+  return (
+    typeof x === "object" &&
+    x !== null &&
+    !Array.isArray(x) &&
+    Number.isSafeInteger(x.fim) &&
+    Math.abs(x.fim) <= 8.64e15 &&
+    inteiro(x.usadas) &&
+    x.usadas > 0 &&
+    inteiro(x.limite) &&
+    x.limite > 0 &&
+    x.usadas <= x.limite &&
+    inteiro(x.degrau) &&
+    inteiro(x.ultimoDegrau) &&
+    x.degrau <= x.ultimoDegrau &&
+    inteiro(x.acertos) &&
+    x.acertos < ACERTOS_PARA_AFROUXAR &&
+    (x.diario === undefined ||
+      (x.diario === true && x.degrau === 0 && x.ultimoDegrau === 0 && x.acertos === 0 && (x.fim - BRASILIA_MS) % DIA_MS === 0))
   );
 }

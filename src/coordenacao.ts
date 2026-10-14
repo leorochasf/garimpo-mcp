@@ -7,7 +7,8 @@
  * - Vaga (ou trava) alheia só é retomada quando o PID dono comprovadamente não existe; tempo nunca libera.
  * - A pausa por host é reservada sob uma trava curta, com a vaga já ocupada: duas janelas não saem juntas.
  * - O disjuntor de cada serviço (disjuntor.ts) fica no mesmo estado e é decidido e gravado sob a mesma trava; o
- *   freio preventivo (freio.ts) também, com a reserva do restante feita junto da saída.
+ *   freio preventivo (freio.ts) também, com a reserva do restante feita junto da saída. O orçamento por janela, o limite
+ *   próprio de fonte sem restante informado, conta as saídas no mesmo estado e sob a mesma trava.
  * - Estado ilegível, sem permissão ou de versão mais nova = rede parada, com o caminho e a instrução.
  */
 
@@ -29,10 +30,15 @@ import {
   type Saida,
 } from "./disjuntor.js";
 import {
+  anotarOrcamento,
   anotarRestante,
+  type ConfigOrcamento,
   decidirFreio,
+  decidirOrcamento,
   type Freio,
   freioValido,
+  type Orcamento,
+  orcamentoValido,
   RESERVA_DO_FREIO,
   type RestanteLido,
   temFreio,
@@ -55,6 +61,8 @@ export interface PedidoDeSaida {
   chamada: Chamada;
   /** Falso quando a ferramenta em andamento já fez a sua chamada de prova. */
   provaPermitida: boolean;
+  /** Limite próprio do Garimpo para o serviço (orçamento por janela); ausente = sem orçamento. */
+  orcamento?: ConfigOrcamento;
 }
 
 /** O que o cliente pede à coordenação. Implementada em arquivos (produção) ou em memória (testes do cliente). */
@@ -86,10 +94,10 @@ const ESPERA_MAXIMA_POR_VAGA_MS = 3 * 60_000;
 const INTERVALO_DE_CONFERENCIA_MS = 250;
 const FORMATO_ESTADO = "garimpo-protecao";
 /**
- * 1: vagas e pausas (B3-01); 2: mais os disjuntores. A 1 é lida e gravada de volta como 2. Os freios (B12) são campo
- * opcional da 2: janelas de versão anterior não chamam o Falcão e, ao regravar o estado, mantêm o campo.
+ * 1: vagas e pausas; 2: mais os disjuntores e freios; 3: mais os orçamentos (I-04/I-05).
+ * As versões 1/2 são migradas sem perder pausas. A 3 impede que janelas antigas ignorem os novos limites.
  */
-const VERSAO_ESTADO = 2;
+const VERSAO_ESTADO = 3;
 
 /** A rede está parada: nenhuma chamada sai até o usuário agir. A leitura local continua. */
 export class RedeParadaError extends Error {
@@ -326,6 +334,8 @@ interface Estado {
   disjuntores: Record<string, Disjuntor>;
   /** Freio preventivo por serviço (freio.ts). */
   freios?: Record<string, Freio>;
+  /** Orçamento por janela por serviço (freio.ts): o limite próprio de chamadas do Garimpo. */
+  orcamentos?: Record<string, Orcamento>;
   /** Histórico curto do que mudou o disjuntor de cada serviço (só os campos de `Ocorrencia`). */
   historico?: Ocorrencia[];
 }
@@ -383,7 +393,12 @@ export class CoordenacaoEmArquivo implements Coordenacao {
     const estado = await this.lerEstado();
     const instante = agora();
     const ordem = decidirSaida(estado.disjuntores[p.servico], p.chamada, instante, p.provaPermitida, donoMorto).ordem;
-    if (ordem.tipo !== "sai" || !temFreio(p.servico)) return ordem;
+    if (ordem.tipo !== "sai") return ordem;
+    if (p.orcamento) {
+      const doOrcamento = decidirOrcamento(estado.orcamentos?.[p.servico], p.orcamento, instante).ordem;
+      if (doOrcamento.tipo !== "sai") return ordemDoFreio(doOrcamento, ordem);
+    }
+    if (!temFreio(p.servico)) return ordem;
     return ordemDoFreio(decidirFreio(estado.freios?.[p.servico], p.chamada, instante, donoMorto).ordem, ordem);
   }
 
@@ -393,7 +408,7 @@ export class CoordenacaoEmArquivo implements Coordenacao {
     // Sem nada a gravar (saída comum sem pausa de host nem freio, ou chamada que não sai), basta ler.
     const previa = decidir(await this.lerEstado(), agora());
     const freio = temFreio(p.servico);
-    if (previa.ordem.tipo !== "sai" || (!previa.novo && p.intervaloMs <= 0 && !freio)) return previa.ordem;
+    if (previa.ordem.tipo !== "sai" || (!previa.novo && p.intervaloMs <= 0 && !freio && !p.orcamento)) return previa.ordem;
     return this.comTrava(async () => {
       const estado = await this.lerEstado(true);
       const instante = agora();
@@ -405,6 +420,12 @@ export class CoordenacaoEmArquivo implements Coordenacao {
         const falta = ultima === undefined ? 0 : Math.min(p.intervaloMs, ultima + p.intervaloMs - instante);
         if (falta > 0) return { tipo: "espera", ms: falta, motivo: "host" };
       }
+      let orcamento: Orcamento | undefined;
+      if (p.orcamento) {
+        const o = decidirOrcamento(estado.orcamentos?.[p.servico], p.orcamento, instante);
+        if (o.ordem.tipo !== "sai") return ordemDoFreio(o.ordem, ordem);
+        orcamento = o.novo;
+      }
       if (freio) {
         const atual = estado.freios?.[p.servico];
         const f = decidirFreio(atual, p.chamada, instante, donoMorto);
@@ -415,6 +436,7 @@ export class CoordenacaoEmArquivo implements Coordenacao {
           return ordemDoFreio(f.ordem, ordem);
         }
       }
+      if (orcamento) estado.orcamentos = { ...estado.orcamentos, [p.servico]: orcamento };
       if (p.intervaloMs > 0) estado.pausas[p.host] = instante;
       if (novo) estado.disjuntores[p.servico] = novo;
       await this.gravarEstado(estado);
@@ -427,6 +449,15 @@ export class CoordenacaoEmArquivo implements Coordenacao {
       const estado = await this.lerEstado(true);
       const atual = estado.disjuntores[servico];
       const novo = aplicarResultado(atual, chamada, saida, r, agora(), servico);
+      const orcamento = estado.orcamentos?.[servico];
+      const novoOrcamento =
+        r.tipo === "aceita" || r.tipo === "erro"
+          ? anotarOrcamento(orcamento, r.tipo)
+          : r.tipo === "pede-espera" || r.tipo === "recusa-final"
+            ? anotarOrcamento(orcamento, "recusa")
+            : orcamento;
+      if (novoOrcamento && novoOrcamento !== orcamento) estado.orcamentos = { ...estado.orcamentos, [servico]: novoOrcamento };
+      if (novoOrcamento !== orcamento && !(novo && novo !== atual)) await this.gravarEstado(estado);
       if (novo && novo !== atual) {
         estado.disjuntores[servico] = novo;
         const tipo = ocorrenciaDe(r, saida);
@@ -586,7 +617,7 @@ export class CoordenacaoEmArquivo implements Coordenacao {
     const guardado = await this.lerEstadoGuardado();
     if (guardado) return guardado;
     if (!sobTrava) return this.comTrava(() => this.lerEstado(true));
-    const novo: Estado = { formato: FORMATO_ESTADO, versao: VERSAO_ESTADO, pausas: {}, disjuntores: {} };
+    const novo: Estado = { formato: FORMATO_ESTADO, versao: VERSAO_ESTADO, pausas: {}, disjuntores: {}, orcamentos: {} };
     await this.gravarEstado(novo);
     return novo;
   }
@@ -606,6 +637,7 @@ export class CoordenacaoEmArquivo implements Coordenacao {
       pausas?: unknown;
       disjuntores?: unknown;
       freios?: unknown;
+      orcamentos?: unknown;
       historico?: unknown;
     };
     try {
@@ -616,7 +648,7 @@ export class CoordenacaoEmArquivo implements Coordenacao {
     if (estado?.formato !== FORMATO_ESTADO || !Number.isInteger(estado.versao)) throw ilegivel(this.estado);
     const versao = estado.versao as number;
     if (versao > VERSAO_ESTADO) throw versaoMaisNova(this.estado);
-    const { pausas, freios, historico } = estado;
+    const { pausas, freios, orcamentos, historico } = estado;
     const disjuntores = versao === 1 ? {} : estado.disjuntores;
     const valido =
       versao >= 1 &&
@@ -626,10 +658,12 @@ export class CoordenacaoEmArquivo implements Coordenacao {
       typeof disjuntores === "object" &&
       disjuntores !== null &&
       Object.values(disjuntores).every(disjuntorValido) &&
-      (freios === undefined || (typeof freios === "object" && freios !== null && Object.values(freios).every(freioValido)));
+      (freios === undefined || (typeof freios === "object" && freios !== null && Object.values(freios).every(freioValido))) &&
+      ((orcamentos === undefined && versao < 3) ||
+        (typeof orcamentos === "object" && orcamentos !== null && !Array.isArray(orcamentos) && Object.values(orcamentos).every(orcamentoValido)));
     if (!valido) throw ilegivel(this.estado);
     // O histórico só serve ao diagnóstico: linha que esta versão não entende é descartada, nunca para a rede.
-    const lido = { ...estado, versao: VERSAO_ESTADO, pausas, disjuntores } as Estado;
+    const lido = { ...estado, versao: VERSAO_ESTADO, pausas, disjuntores, orcamentos: orcamentos ?? {} } as Estado;
     if (historico !== undefined) lido.historico = Array.isArray(historico) ? historico.filter(ocorrenciaValida) : [];
     return lido;
   }
@@ -712,6 +746,9 @@ function explicar(estado: Estado | undefined, agora: number): DiagnosticoDosFrei
   }
   for (const [servico, f] of Object.entries(estado?.freios ?? {})) {
     if (f.pausaAte !== undefined) fontes.push(fonteDoFreio(servico, f, f.pausaAte, agora));
+  }
+  for (const [servico, o] of Object.entries(estado?.orcamentos ?? {})) {
+    if (o.usadas >= o.limite && agora < o.fim) fontes.push(fonteDoOrcamento(servico, o));
   }
   const sistematicas = fontes.filter((f) => f.indicioDeRecusaSistematica).map((f) => f.servico);
   const recusas = recentes.filter((o) => o.tipo === "recusou" || o.tipo === "recusou-a-prova").length;
@@ -838,6 +875,24 @@ function fonteDoFreio(servico: string, f: Freio, pausaAte: number, agora: number
         : "A pausa venceu: o próximo pedido seu faz uma única chamada, que confere o limite antes de liberar as outras."),
     ...(f.restante !== undefined && { restanteInformado: f.restante }),
     reservaDoFreio: RESERVA_DO_FREIO,
+  };
+}
+
+function fonteDoOrcamento(servico: string, o: Orcamento): FonteNoDiagnostico {
+  return {
+    servico,
+    situacao: "pausa preventiva",
+    ate: diaEHora(o.fim),
+    explicacao: o.diario
+      ? `Não é recusa: além do restante que a fonte informa, o Garimpo usa um limite diário próprio (${o.limite} ` +
+        "chamadas por dia de Brasília, somadas em todas as janelas), porque o aviso de restante não garante que a fonte " +
+        `não bloqueie por horas. O limite de hoje foi usado: nenhuma chamada sai até ${diaEHora(o.fim)} (meia-noite de ` +
+        "Brasília)."
+      :
+      `Não é recusa: esta fonte não informa quantas chamadas restam, e o Garimpo usa um limite próprio (${o.limite} ` +
+      `chamadas por janela de tempo, somadas em todas as janelas) para não chegar à recusa. O limite desta janela foi ` +
+      `usado: nenhuma chamada sai até ${diaEHora(o.fim)}. Cada recusa da fonte alarga a janela; chamadas aceitas ` +
+      "seguidas voltam a afrouxá-la.",
   };
 }
 

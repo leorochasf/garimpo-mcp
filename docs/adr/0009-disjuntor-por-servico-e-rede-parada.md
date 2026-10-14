@@ -32,3 +32,19 @@ fuso), e registra uma **pausa** do `djen` até esse instante para todas as janel
 não abre nem dobra o disjuntor. A primeira chamada depois da pausa, controlada entre as janelas, é a única nova
 tentativa; recusada, abre o disjuntor e avisa, sem novo ciclo. Os outros serviços continuam com o teto de 30 s.
 Ver ADR-0019.
+
+## Adendo (B16, 2026-10-13): orçamento por janela, para fonte que não informa o restante
+
+_Aceito pelo dono em 2026-10-10 (DQ-25); texto e números iniciais do executor da lane L1 — sujeitos a revisão do dono._
+
+Fonte que não diz quanto resta (precedentes do STF e do STJ, TSE) ganha um limite **próprio**: no máximo N chamadas por
+janela de tempo, somadas em todas as janelas do Garimpo, no mesmo estado compartilhado e sob a mesma trava do
+disjuntor. No limite, a chamada não sai até o fim da janela: pausa preventiva, que **não é recusa** — não abre o
+disjuntor, não dobra a pausa e não exige chamada de prova. Cada recusa da fonte (primeiro 429/503 ou recusa final)
+alarga a janela um degrau de uma escada fixa (a partir da próxima janela); 20 chamadas aceitas seguidas voltam um
+degrau. Os números (30 chamadas por janela de 5, 10, 20 ou 30 min) são iniciais, conservadores e sem prova; ficam em
+`ORCAMENTO_POR_SERVICO` (`src/cliente.ts`). Estado do orçamento ilegível = rede parada, como o dos freios.
+
+O estado passa à versão 3: janelas antigas devem atualizar e reiniciar, pois não aplicam estes limites. As versões
+1/2 são migradas preservando as pausas existentes. Recuar o relógio nunca zera o contador: o fim guardado permanece
+valendo até o relógio alcançá-lo, inclusive no teto diário do Falcão.

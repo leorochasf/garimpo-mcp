@@ -71,11 +71,18 @@ interface Janela {
   processo: ChildProcess;
   pronta: Promise<void>;
   vai: () => void;
-  resultado: Promise<{ ok: boolean; corpo?: string; erro?: string }[]>;
+  resultado: Promise<{ ok: boolean; corpo?: string; erro?: string; saidasSimuladas?: number }[]>;
 }
 
 /** Abre uma janela do Garimpo (processo real) na pasta de dados comum. */
-function abrirJanela(config: { url: string; chamadas: number; intervaloMs?: number; relogio?: string }): Janela {
+function abrirJanela(config: {
+  url: string;
+  chamadas: number;
+  intervaloMs?: number;
+  relogio?: string;
+  orcamento?: { chamadas: number; largurasMs: number[]; diario?: true };
+  semRede?: true;
+}): Janela {
   const processo = spawn(process.execPath, [VITE_NODE, JANELA], {
     env: { ...process.env, GARIMPO_DADOS: pasta, JANELA_TESTE: JSON.stringify(config) },
     stdio: ["pipe", "pipe", "pipe"],
@@ -151,6 +158,40 @@ describe("vagas compartilhadas entre janelas (processos reais)", () => {
     const [r] = await outra.resultado;
     expect(r.ok).toBe(true);
     expect(estado.chegadas).toHaveLength(3);
+  }, 60_000);
+});
+
+describe("orçamento por janela compartilhado entre janelas (processos reais)", () => {
+  it("duas janelas somam no mesmo contador: só o limite sai, sem rede nem prazo real", async () => {
+    const relogio = join(pasta, "relogio.txt");
+    await writeFile(relogio, "1800000000000");
+    const orcamento = { chamadas: 3, largurasMs: [10 * 60_000] };
+    const janelas = [1, 2].map(() => abrirJanela({ url: "https://orcamento.test/x", chamadas: 3, orcamento, relogio, semRede: true }));
+    await Promise.all(janelas.map((j) => j.pronta));
+    janelas.forEach((j) => j.vai());
+
+    const porJanela = await Promise.all(janelas.map((j) => j.resultado));
+    const resultados = porJanela.flat();
+    expect(resultados.filter((r) => r.ok)).toHaveLength(3);
+    expect(resultados.filter((r) => !r.ok && /limite de chamadas do próprio Garimpo/.test(r.erro ?? ""))).toHaveLength(3);
+    expect(porJanela.reduce((n, r) => n + r[0].saidasSimuladas!, 0)).toBe(3);
+  }, 60_000);
+});
+
+describe("teto diário compartilhado entre janelas (processos reais)", () => {
+  it("duas janelas somam no mesmo contador do dia, mesmo às 23:59:59, sem rede", async () => {
+    const relogio = join(pasta, "relogio.txt");
+    await writeFile(relogio, String(Date.parse("2026-10-09T23:59:59-03:00")));
+    const orcamento = { chamadas: 3, largurasMs: [], diario: true as const };
+    const janelas = [1, 2].map(() => abrirJanela({ url: "https://orcamento.test/x", chamadas: 3, orcamento, relogio, semRede: true }));
+    await Promise.all(janelas.map((j) => j.pronta));
+    janelas.forEach((j) => j.vai());
+
+    const porJanela = await Promise.all(janelas.map((j) => j.resultado));
+    const resultados = porJanela.flat();
+    expect(resultados.filter((r) => r.ok)).toHaveLength(3);
+    expect(resultados.filter((r) => !r.ok && /limite diário do próprio Garimpo/.test(r.erro ?? ""))).toHaveLength(3);
+    expect(porJanela.reduce((n, r) => n + r[0].saidasSimuladas!, 0)).toBe(3);
   }, 60_000);
 });
 

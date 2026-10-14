@@ -6,17 +6,27 @@
 import { readFileSync } from "node:fs";
 import { Cliente } from "../src/cliente.js";
 
-const { url, chamadas, intervaloMs, relogio } = JSON.parse(process.env.JANELA_TESTE ?? "{}") as {
+const { url, chamadas, intervaloMs, relogio, orcamento, semRede } = JSON.parse(process.env.JANELA_TESTE ?? "{}") as {
   url: string;
   chamadas: number;
   intervaloMs?: number;
   /** Arquivo com o relógio comum a todos os processos, que o teste avança; as esperas só cedem a vez. */
   relogio?: string;
+  /** Limite próprio de chamadas por janela (orçamento) para o serviço deste host. */
+  orcamento?: { chamadas: number; largurasMs: number[]; diario?: true };
+  semRede?: true;
 };
 const host = new URL(url).host;
+let saidasSimuladas = 0;
 const cliente = new Cliente({
   nome: "O servidor de teste",
   intervaloMinimoPorHost: intervaloMs ? { [host]: intervaloMs } : undefined,
+  // O serviço de um host sem domínio de tribunal é o próprio host (com a porta).
+  ...(orcamento && { orcamentoPorServico: { [host]: orcamento } }),
+  ...(semRede && { fetch: (async () => {
+    saidasSimuladas++;
+    return new Response("{}", { headers: { "content-type": "application/json" } });
+  }) as typeof fetch }),
   ...(relogio && {
     agora: () => {
       // O teste regrava o arquivo: uma leitura no meio da gravação volta vazia e é repetida.
@@ -42,4 +52,4 @@ const resultados = await Promise.all(
     }
   }),
 );
-process.stdout.write(`${JSON.stringify(resultados)}\n`);
+process.stdout.write(`${JSON.stringify(resultados.map((r) => ({ ...r, ...(semRede && { saidasSimuladas }) })))}\n`);
