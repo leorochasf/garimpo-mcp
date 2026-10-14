@@ -48,8 +48,26 @@ export interface InfoTribunal {
 }
 
 const EXPLICA_STF =
-  "O portal do STF protege o download com um desafio anti-robô (AWS WAF) que exige JavaScript. " +
-  "O Garimpo não contorna proteções.";
+  "Em 14/10/2026, ao ler o robots.txt de redir.stf.jus.br (host do download do acórdão), o Garimpo recebeu HTTP 202 " +
+  "da proteção anti-robô (WAF) do portal. O Garimpo não contorna proteções; abra o link no navegador.";
+
+/** Provas próprias de 14/10/2026 (TICKETS b17-onda-1/04, 05, 08 e b18-investigacoes/trfs-eproc-cjf): só o observado. */
+const EXPLICA_TJRJ =
+  "O termo de uso do portal do TJRJ veda robôs e coleta automática de dados «sem permissão expressa por escrito» do " +
+  "tribunal (lido em 14/10/2026). O Garimpo respeita e não baixa o PDF; abra o link no navegador.";
+
+const EXPLICA_TJSE =
+  "O robots.txt do TJSE (www.tjse.jus.br), lido em 14/10/2026, traz «Disallow: /» e libera só «/portal»; a pesquisa " +
+  "de jurisprudência fica fora do liberado. O Garimpo respeita e não baixa o acórdão; abra o link no navegador.";
+
+const EXPLICA_TJPA =
+  "Em 14/10/2026, o endereço de documento do portal de jurisprudência do TJPA devolveu só a casca do aplicativo, sem " +
+  "o acórdão. O Garimpo não obtém o texto automaticamente; abra o link no navegador.";
+
+const EXPLICA_TJSC =
+  "Em 14/10/2026, ao ler o robots.txt do portal eproc do TJSC (eprocwebcon.tjsc.jus.br), o Garimpo recebeu uma página " +
+  "de bloqueio («Nossos sistemas classificaram esse acesso como não autorizado»). O Garimpo parou ali e não baixa o " +
+  "acórdão; abra o link no navegador.";
 
 const EXPLICA_STJ =
   "O robots.txt de processo.stj.jus.br (host do inteiro teor), lido em 2026-10-13, veda o acesso automatizado ao host " +
@@ -195,18 +213,18 @@ export const TRIBUNAIS: InfoTribunal[] = [
   { ...tj("tjmg", "TJ de Minas Gerais"), inteiroTeor: "baixa", motivoLink: undefined },
   { ...tj("tjms", "TJ de Mato Grosso do Sul"), inteiroTeor: "baixa", motivoLink: undefined },
   { ...tj("tjmt", "TJ de Mato Grosso") },
-  { ...tj("tjpa", "TJ do Pará") },
+  { ...tj("tjpa", "TJ do Pará"), motivoLink: EXPLICA_TJPA },
   { ...tj("tjpb", "TJ da Paraíba") },
   { ...tj("tjpe", "TJ de Pernambuco") },
   { ...tj("tjpi", "TJ do Piauí"), inteiroTeor: "portal", motivoLink: undefined },
   { ...tj("tjpr", "TJ do Paraná") },
-  { ...tj("tjrj", "TJ do Rio de Janeiro") },
+  { ...tj("tjrj", "TJ do Rio de Janeiro"), motivoLink: EXPLICA_TJRJ },
   { ...tj("tjrn", "TJ do Rio Grande do Norte"), motivoLink: EXPLICA_TJRN },
   { ...tj("tjro", "TJ de Rondônia") },
   { ...tj("tjrr", "TJ de Roraima"), inteiroTeor: "baixa", motivoLink: undefined },
   { ...tj("tjrs", "TJ do Rio Grande do Sul") },
-  { ...tj("tjsc", "TJ de Santa Catarina") },
-  { ...tj("tjse", "TJ de Sergipe") },
+  { ...tj("tjsc", "TJ de Santa Catarina"), motivoLink: EXPLICA_TJSC },
+  { ...tj("tjse", "TJ de Sergipe"), motivoLink: EXPLICA_TJSE },
   { ...tj("tjsp", "TJ de São Paulo"), inteiroTeor: "baixa", motivoLink: undefined },
   { ...tj("tjto", "TJ do Tocantins"), inteiroTeor: "portal", motivoLink: undefined },
   {
