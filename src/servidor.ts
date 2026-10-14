@@ -121,6 +121,18 @@ const filtros = {
   classe: z.string().optional().describe("Classe processual (nos TRTs, a sigla da classe, como ROT ou AP)"),
 };
 
+/** Opções só da busca direta nos TRTs (Falcão); outro tribunal as recusa. */
+const opcoesDosTrts = {
+  somenteEmentas: z
+    .boolean()
+    .optional()
+    .describe("Só TRTs: true pesquisa apenas nas ementas (mais preciso; acórdão sem ementa não aparece). Padrão: ementa e texto integral"),
+  ordenacao: z
+    .enum(["relevancia", "recentes"])
+    .optional()
+    .describe("Só TRTs: relevancia (padrão da fonte) ou recentes (data de juntada, do mais novo ao mais antigo)"),
+};
+
 const renovar = z
   .boolean()
   .optional()
@@ -163,6 +175,17 @@ function conferirDatas(datas: { de?: string; ate?: string }) {
     if (d !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(d)) {
       throw new Error(`A data em "${campo}" ("${d}") está fora do formato: use AAAA-MM-DD, por exemplo 2024-03-15.`);
     }
+  }
+}
+
+/** Recusa, com frase que ensina a corrigir, as opções dos TRTs pedidas para outro tribunal (nunca ignoradas em silêncio). */
+function conferirOpcoesDosTrts(p: { tribunal: string; somenteEmentas?: boolean; ordenacao?: string }) {
+  const pedidas = [p.somenteEmentas !== undefined && "somenteEmentas", p.ordenacao !== undefined && "ordenacao"].filter(Boolean);
+  if (pedidas.length && !ehDoFalcao(p.tribunal)) {
+    throw new Error(
+      `${pedidas.join(" e ")} só ${pedidas.length > 1 ? "valem" : "vale"} nos TRTs (trt1 a trt24, pelo Falcão); ` +
+        `no ${p.tribunal.toUpperCase()} a busca não tem essa opção. Repita sem ${pedidas.length > 1 ? "elas" : "ela"}.`,
+    );
   }
 }
 
@@ -414,7 +437,8 @@ export function criarServidor(
         "(dataJulgamento) e \"juntado em\" (dataJuntada, que não é publicação), e \"sem ementa no Falcão\" quando ela " +
         "não veio; o cabecalhoDeCobertura separa o total informado pelo Falcão (\"10.000 ou mais\" no teto da contagem) " +
         "de quantos vieram e quantos são mostrados. O texto integral fica na memória por 24 h para ler_inteiro_teor e " +
-        "conferir_citacao pelo id. Nos TRTs, os filtros de, ate, relator, orgao e classe estão disponíveis " +
+        "conferir_citacao pelo id. Nos TRTs, somenteEmentas (pesquisa só nas ementas) e ordenacao (relevancia ou " +
+        "recentes, pela data de juntada) estão disponíveis e os filtros de, ate, relator, orgao e classe também " +
         "(de e ate valem para a data de juntada, não a de julgamento; classe só por sigla; data inexistente ou intervalo " +
         "invertido é erro que ensina) e precedentes qualificados não são pesquisados. " +
         `${SOBRE_A_TABELA_NAS_LISTAS} ` +
@@ -426,6 +450,7 @@ export function criarServidor(
         texto: z.string().min(2).describe("Texto da busca (palavras da tese, dispositivo legal, instituto)"),
         limite: z.number().int().min(1).max(100).optional().describe("Máximo de acórdãos (1 a 100; padrão 10)"),
         ...filtros,
+        ...opcoesDosTrts,
         renovar,
       },
     },
@@ -433,6 +458,7 @@ export function criarServidor(
       try {
         conferirTribunais(args.tribunal);
         conferirDatas(args);
+        conferirOpcoesDosTrts(args);
         args.texto = conferirFormulacao(args.texto);
         const r = await buscaDireta(site, args, memoria, { renovar, tabela, tabelaStf, falcao });
         return comAvisoNaturezaJuridica(
