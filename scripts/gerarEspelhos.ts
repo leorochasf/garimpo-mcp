@@ -445,7 +445,8 @@ export async function baixarConjuntos(
   /** Do cache, se o arquivo está lá e confere com o hash do manifesto; senão baixa, confere o formato e guarda. */
   const obter = async (url: string, caminho: string, nome: string, validar: (b: Buffer, em: string) => void = () => {}) => {
     const guardado = manifesto.itens[url];
-    if (guardado && existsSync(caminho)) {
+    // As fichas mudam: reler licença e recursos em cada rodada; só downloads são reaproveitados.
+    if ((nome.endsWith(".json") || nome.endsWith(".zip")) && guardado && existsSync(caminho)) {
       const bytes = readFileSync(caminho);
       if (sha256(bytes) === guardado.sha256) {
         registrar(`cache  ${url}`);

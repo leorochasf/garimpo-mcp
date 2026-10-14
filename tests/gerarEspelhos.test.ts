@@ -348,6 +348,20 @@ const ACERVO = {
 };
 
 describe("baixarConjuntos", () => {
+  it("descobre meses novos e recusa licença alterada mesmo com ficha em cache", async () => {
+    const cache = novoCache();
+    await baixarConjuntos(portal(ACERVO).cliente, cache, { orgaos: DOIS });
+    const atualizado = { ...ACERVO, "primeira-secao": { ...ACERVO["primeira-secao"], "20220630.json": JSON_VAZIO } };
+    const p = portal(atualizado);
+    const r = await baixarConjuntos(p.cliente, cache, { orgaos: DOIS });
+    expect(r.arquivos.some((a) => a.nome === "20220630.json")).toBe(true);
+    expect(p.chamadas.map((c) => c.url)).toEqual([...DOIS.map(paginaDaFicha), arquivoDe("primeira-secao", "20220630.json")]);
+    const mudou = portal(atualizado, {
+      [paginaDaFicha("primeira-secao")]: () => new Response(ficha(["20220630.json"], { licenca: "Todos os direitos reservados" })),
+    });
+    await expect(baixarConjuntos(mudou.cliente, cache, { orgaos: DOIS })).rejects.toThrow(/Creative Commons/);
+  });
+
   it.each([429, 503, 504])("HTTP %i tem só uma nova tentativa, espera e registra as duas respostas", async (status) => {
     const cache = novoCache();
     const log = join(cache, "chamadas.log");
@@ -416,12 +430,12 @@ describe("baixarConjuntos", () => {
     expect(esperas.filter((e) => e === INTERVALO_MS).length).toBeGreaterThanOrEqual(1);
   });
 
-  it("retoma do cache: uma segunda rodada não faz nenhuma chamada e devolve os mesmos hashes", async () => {
+  it("retoma os arquivos do cache, relê as fichas e devolve os mesmos hashes", async () => {
     const cache = novoCache();
     const primeira = await baixarConjuntos(portal(ACERVO).cliente, cache, { orgaos: DOIS });
     const { cliente, chamadas } = portal(ACERVO);
     const segunda = await baixarConjuntos(cliente, cache, { orgaos: DOIS });
-    expect(chamadas).toEqual([]);
+    expect(chamadas.map((c) => c.url)).toEqual(DOIS.map(paginaDaFicha));
     expect(segunda.arquivos.map((a) => a.sha256)).toEqual(primeira.arquivos.map((a) => a.sha256));
     expect(segunda.fichas.map((f) => f.licenca)).toEqual(primeira.fichas.map((f) => f.licenca));
   });
@@ -433,7 +447,7 @@ describe("baixarConjuntos", () => {
     writeFileSync(estragado.caminho, "lixo");
     const { cliente, chamadas } = portal(ACERVO);
     await baixarConjuntos(cliente, cache, { orgaos: DOIS });
-    expect(chamadas.map((c) => c.url)).toEqual([estragado.url]);
+    expect(chamadas.map((c) => c.url)).toEqual([...DOIS.map(paginaDaFicha), estragado.url]);
     expect(readFileSync(estragado.caminho).equals(JSON_VAZIO)).toBe(true);
   });
 
@@ -453,7 +467,7 @@ describe("baixarConjuntos", () => {
     ]);
     const retomada = portal(ACERVO);
     const r = await baixarConjuntos(retomada.cliente, cache, { orgaos: DOIS });
-    expect(retomada.chamadas.map((c) => c.url)).toEqual([url, arquivoDe("primeira-secao", "20220531.json")]);
+    expect(retomada.chamadas.map((c) => c.url)).toEqual([...DOIS.map(paginaDaFicha), url, arquivoDe("primeira-secao", "20220531.json")]);
     expect(r.arquivos).toHaveLength(3);
   });
 
