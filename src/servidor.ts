@@ -48,7 +48,7 @@ import { avisoRecorridoDoAcordao } from "./recorrido.js";
 import { CHAMADO_LIGADO, comLinhaDeChamado, ERRO_DE_ORIGEM } from "./chamado.js";
 import { INSTRUCTIONS, roteiroDePesquisa } from "./roteiro.js";
 import { clienteDoFalcao } from "./falcao.js";
-import { avisoDeBaixaTcu, baixarAnoTcu, clienteDoTcu, listarAnosDoTcu } from "./tcuBaixar.js";
+import { AVISO_DE_VELOCIDADE, avisoDeBaixaTcu, baixarAnoTcu, clienteDoTcu, listarAnosDoTcu } from "./tcuBaixar.js";
 import { anosBaixadosTcu, lerAcordaoTcu, lerReciboTcu, pastaDoTcu, pesquisarTcu } from "./tcuLocal.js";
 import { clienteDosPrecedentes, PrecedentesAoVivo, respostaDoStf } from "./precedentesAoVivo.js";
 import {
@@ -1212,7 +1212,8 @@ export function criarServidor(
         "computador e são pesquisados aqui, sem rede (pesquisar_acordaos_tcu). Sem argumentos, lista os anos que o TCU " +
         "publica, com o tamanho de cada arquivo (300 a 500 MB nos anos recentes; o acervo inteiro tem cerca de 7,6 GB), " +
         "a data da lista do TCU e quais anos já estão baixados (uma só chamada, nada é baixado). Com anos, só AVISA: " +
-        "diz que precisa baixar, o tamanho por ano e no total e a pasta onde fica, e não baixa nada. Para baixar, chame " +
+        "diz que precisa baixar, o tamanho por ano e no total e a pasta onde fica, e não baixa nada. Cada ano baixado acrescenta cerca de " +
+        "10 a 20 s a cada pesquisa no TCU (o arquivo do ano é lido inteiro): recomende poucos anos. Para baixar, chame " +
         "de novo com os mesmos anos e confirmar: true: um ano por vez, direto do TCU, pelo cliente único com os freios, " +
         "retomável se cair, com hash e data no recibo. Ano já baixado não é baixado de novo; renovar: true (com " +
         "confirmar) pergunta ao TCU se o arquivo mudou e só então baixa, mantendo a cópia antiga se falhar. O Garimpo " +
@@ -1263,7 +1264,7 @@ export function criarServidor(
         return json({
           resultados: resultados.sort((x, y) => x.ano - y.ano),
           pasta: aviso.pasta,
-          aviso: "Pronto para pesquisar_acordaos_tcu. Fonte: dados abertos do TCU, baixados direto do TCU para este computador.",
+          aviso: `Pronto para pesquisar_acordaos_tcu. Fonte: dados abertos do TCU, baixados direto do TCU para este computador. ${AVISO_DE_VELOCIDADE}`,
         });
       } catch (e) {
         return erro(e);
@@ -1282,8 +1283,10 @@ export function criarServidor(
         "da sessão, colegiado, relator, tipo, situação, sumário (o resumo do TCU: sumário, não ementa), trechos e link " +
         "oficial para conferência. Mais recentes primeiro. Acórdão de relação traz só o texto do acórdão (sem sumário, " +
         "relatório nem voto). INVALIDADO e sigilosos não entram (a resposta diz quantos). Toda resposta traz a data da " +
-        "base de cada ano (atualização no TCU e data do download), a atribuição à fonte e os anos pedidos que não estão " +
-        "baixados. Interessados e advogados do arquivo nunca são lidos nem mostrados. Para o texto, use ler_acordao_tcu.",
+        "base de cada ano (atualização no TCU e data do download), quantos anos foram percorridos e o tempo gasto (cada " +
+        "ano leva cerca de 10 a 20 s), a atribuição à fonte, o aviso de que o texto oficial cita nomes de pessoas e os " +
+        "anos pedidos que não estão baixados. Relatório, voto ou sumário que o TCU classificou como sigilosos aparecem em " +
+        "partesSigilosas (o acórdão continua listado). Interessados e advogados do arquivo nunca são lidos nem mostrados. Para o texto, use ler_acordao_tcu.",
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
       inputSchema: {
         consulta: z.string().min(1).describe("Palavras ou \"frase entre aspas\""),

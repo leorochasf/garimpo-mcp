@@ -3,24 +3,19 @@ import { mkdtemp } from "node:fs/promises";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { analisarListaTcu, lerRegistrosTcu } from "../src/tcu.js";
-import { acordaoFicticio, csvDoTcu } from "./apoioTcu.js";
+import { acordaoFicticio, csvDoTcu, LISTA_REAL_TCU } from "./apoioTcu.js";
 
 describe("lista de arquivos do TCU", () => {
-  it("acha a data da base, o ano, a URL e o tamanho de cada arquivo anual", () => {
-    const lista = [
-      '"02/10/2026"',
-      '"Acórdãos 2026"|"https://sites.tcu.gov.br/dados-abertos/jurisprudencia/arquivos/acordao-completo/acordao-completo-2026.csv"|"308.50 MB"',
-      '"Acórdãos 1992"|"https://sites.tcu.gov.br/dados-abertos/jurisprudencia/arquivos/acordao-completo/acordao-completo-1992.csv"|"15.07 MB"',
-      '"Súmulas"|"https://sites.tcu.gov.br/dados-abertos/jurisprudencia/arquivos/sumula/sumula.csv"|"804.40 KB"',
-    ].join("\n");
-    const r = analisarListaTcu(lista);
+  it("lê a lista real: cabeçalho, coluna BASE antes do ano, fora de ordem, resumo sem ano e outras bases ficam de fora", () => {
+    const r = analisarListaTcu(LISTA_REAL_TCU);
     expect(r.baseEm).toBe("02/10/2026");
-    expect(r.anos.map((a) => a.ano)).toEqual([1992, 2026]);
-    expect(r.anos[1]).toMatchObject({
-      ano: 2026,
-      url: "https://sites.tcu.gov.br/dados-abertos/jurisprudencia/arquivos/acordao-completo/acordao-completo-2026.csv",
-      tamanhoMb: 308.5,
+    expect(r.anos.map((a) => a.ano)).toEqual([1992, 2020, 2021, 2025]);
+    expect(r.anos[3]).toMatchObject({
+      ano: 2025,
+      url: "https://sites.tcu.gov.br/dados-abertos/jurisprudencia/arquivos/acordao-completo/acordao-completo-2025.csv",
+      tamanhoMb: 394.4,
     });
+    expect(r.anos.map((a) => a.tamanhoMb)).toEqual([15.07, 489.97, 500.75, 394.4]);
   });
 });
 
@@ -86,6 +81,16 @@ describe("pesquisa local no TCU", () => {
     expect(JSON.stringify(r)).not.toMatch(/"ementa"/);
   });
 
+  it("conta os anos percorridos e o tempo, e avisa que o texto oficial cita nomes de pessoas", async () => {
+    const dados = await pastaComAnos();
+    await gravarAnoTcu(dados, 2024, [acordaoFicticio(9, { ANOACORDAO: "2024" })]);
+    const r = await pesquisarTcu(dados, { consulta: "sobrepreço" });
+    expect(r.anosPercorridos).toBe(2);
+    expect(r.tempoSegundos).toBeGreaterThanOrEqual(0);
+    expect(r.avisoNomes).toMatch(/nomes de pessoas.*não os retira/);
+    expect((await pesquisarTcu(dados, { consulta: "sobrepreço", anos: [2025] })).anosPercorridos).toBe(1);
+  });
+
   it("filtra por tipo, colegiado e relator, e exige todas as palavras (frase entre aspas vale inteira)", async () => {
     const dados = await pastaComAnos();
     expect((await pesquisarTcu(dados, { consulta: "sobrepreço", tipo: "ACÓRDÃO DE RELAÇÃO" })).resultados.map((x) => x.numero)).toEqual(["3"]);
@@ -121,6 +126,52 @@ describe("pesquisa local no TCU", () => {
     expect(r.resultados).toEqual([]);
     expect(r.anosUsados).toEqual([]);
     expect(r.aviso).toMatch(/baixar_anos_tcu/);
+  });
+});
+
+const SIGILO =
+  "<p>Documento classificado como sigiloso com fundamento no § 1º do art. 108 da Lei 8.443/1992 (Lei Orgânica do TCU) c/c o art. 22 da Lei 12.527/2011 (Lei de Acesso à Informação).</p>";
+
+describe("acórdão oficializado com relatório, voto e sumário classificados como sigilosos", () => {
+  async function pastaComSigilo() {
+    const dados = await mkdtemp(join(tmpdir(), "garimpo-tcu-"));
+    await gravarAnoTcu(dados, 2025, [
+      acordaoFicticio(7, { SUMARIO: SIGILO, RELATORIO: SIGILO, VOTO: SIGILO, ACORDAO: "<p>ACORDAM os Ministros: considerar o responsável revel.</p>" }),
+    ]);
+    return dados;
+  }
+
+  it("a pesquisa lista o acórdão pelo texto ACORDAO, sem tratar o aviso como conteúdo", async () => {
+    const dados = await pastaComSigilo();
+    const r = await pesquisarTcu(dados, { consulta: "revel" });
+    expect(r.resultados).toHaveLength(1);
+    const a = r.resultados[0];
+    expect(a.temRelatorioEVoto).toBe(false);
+    expect(a.sumario).toBe("");
+    expect(a.partesSigilosas).toEqual(["sumario", "relatorio", "voto"]);
+    expect(JSON.stringify(a)).not.toMatch(/art\. 108/);
+    expect((await pesquisarTcu(dados, { consulta: "sigiloso" })).resultados).toEqual([]);
+  });
+
+  it("a leitura de relatório, voto e sumário diz que foram classificados como sigilosos pelo TCU", async () => {
+    const dados = await pastaComSigilo();
+    for (const parte of ["relatorio", "voto", "sumario"] as const) {
+      const l = await lerAcordaoTcu(dados, { ano: 2025, chave: "ACORDAO-COMPLETO-100007", parte });
+      expect(l.encontrado).toBe(true);
+      expect(l.texto).toBeUndefined();
+      expect(l.aviso).toMatch(/classificados como sigilosos pelo TCU/);
+    }
+    const t = await lerAcordaoTcu(dados, { ano: 2025, chave: "ACORDAO-COMPLETO-100007", parte: "acordao" });
+    expect(t.texto).toContain("considerar o responsável revel");
+  });
+
+  it("só uma parte sigilosa: as outras seguem normais", async () => {
+    const dados = await mkdtemp(join(tmpdir(), "garimpo-tcu-"));
+    await gravarAnoTcu(dados, 2025, [acordaoFicticio(8, { SUMARIO: SIGILO })]);
+    const a = (await pesquisarTcu(dados, { consulta: "sobrepreço" })).resultados[0];
+    expect(a.partesSigilosas).toEqual(["sumario"]);
+    expect(a.temRelatorioEVoto).toBe(true);
+    expect((await lerAcordaoTcu(dados, { ano: 2025, chave: "ACORDAO-COMPLETO-100008", parte: "voto" })).texto).toContain("Voto fictício 8");
   });
 });
 

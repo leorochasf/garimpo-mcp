@@ -8,7 +8,7 @@ import { analisarListaTcu, urlDoAnoTcu } from "../src/tcu.js";
 import { baixarAnoTcu, avisoDeBaixaTcu } from "../src/tcuBaixar.js";
 import { caminhoDoAnoTcu, lerReciboTcu } from "../src/tcuLocal.js";
 import { clienteFalso } from "./apoio.js";
-import { acordaoFicticio, csvDoTcu } from "./apoioTcu.js";
+import { acordaoFicticio, csvDoTcu, LISTA_REAL_TCU } from "./apoioTcu.js";
 
 const CSV = csvDoTcu([acordaoFicticio(1), acordaoFicticio(2)]);
 const BYTES = Buffer.from(CSV, "utf8");
@@ -164,20 +164,14 @@ describe("renovação de um ano já baixado", () => {
 });
 
 describe("aviso antes de baixar", () => {
-  const lista = analisarListaTcu(
-    [
-      '"02/10/2026"',
-      '"2025"|"x/acordao-completo-2025.csv"|"394.40 MB"',
-      '"2024"|"x/acordao-completo-2024.csv"|"401.92 MB"',
-    ].join("\n"),
-  );
+  const lista = analisarListaTcu(LISTA_REAL_TCU);
 
   it("diz que precisa baixar, o tamanho por ano e no total, e a pasta; nada é baixado", async () => {
     const dados = await pasta();
-    const a = await avisoDeBaixaTcu(dados, lista, [2024, 2025]);
+    const a = await avisoDeBaixaTcu(dados, lista, [2021, 2025]);
     expect(a.precisaConfirmar).toBe(true);
-    expect(a.anos.map((x) => [x.ano, x.tamanhoMb])).toEqual([[2024, 401.92], [2025, 394.4]]);
-    expect(a.totalMb).toBeCloseTo(796.32, 2);
+    expect(a.anos.map((x) => [x.ano, x.tamanhoMb])).toEqual([[2021, 500.75], [2025, 394.4]]);
+    expect(a.totalMb).toBeCloseTo(895.15, 2);
     expect(a.pasta).toBe(join(dados, "tcu"));
     expect(a.mensagem).toMatch(/baixar/);
     expect(a.mensagem).toMatch(/confirmar/);

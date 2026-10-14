@@ -1,5 +1,5 @@
 /**
- * TCU (ADR-0024), parte local: arquivos já baixados, recibo, pesquisa e leitura sob pedido. Sem rede.
+ * TCU (ADR-0025), parte local: arquivos já baixados, recibo, pesquisa e leitura sob pedido. Sem rede.
  * Nunca guarda nem devolve INTERESSADOS e ADVOGADO (o leitor de CSV já os descarta).
  */
 
@@ -79,6 +79,18 @@ const SITUACAO_SEM_TEXTO = /invalidad|sigilos/;
 const ENTIDADE_ACENTUADA = /&(?:[a-zA-Z]+(?:acute|grave|circ|tilde|cedil|uml|ordm|ordf);|#\d+;|#x[0-9a-fA-F]+;)/;
 const SEM_ACENTO =(t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
+/** Aviso que o TCU grava no lugar de sumário, relatório ou voto classificados como sigilosos (art. 108, § 1º, Lei 8.443/1992). */
+const AVISO_DE_SIGILO = /^Documento classificado como sigiloso/i;
+const TAMANHO_MAXIMO_DO_AVISO = 600;
+export type ParteSigilosa = "sumario" | "relatorio" | "voto";
+
+/** Texto limpo do campo; o aviso de sigilo do TCU não é conteúdo e vira vazio (a parte é dada como sigilosa). */
+function textoDoCampo(r: Record<string, string>, coluna: string): { texto: string; sigiloso: boolean } {
+  const texto = htmlParaTexto(r[coluna] ?? "");
+  const sigiloso = texto.length < TAMANHO_MAXIMO_DO_AVISO && AVISO_DE_SIGILO.test(texto);
+  return { texto: sigiloso ? "" : texto, sigiloso };
+}
+
 export const linkOficialTcu = (chave: string) => `https://pesquisa.apps.tcu.gov.br/redireciona/acordao-completo/${chave}`;
 
 export interface FiltrosTcu {
@@ -103,8 +115,10 @@ export interface AcordaoTcu {
   /** Resumo do TCU (campo SUMARIO): sumário, nunca ementa. */
   sumario: string;
   trechos: string[];
-  /** Só o acórdão comum traz relatório e voto; o de relação traz só o texto. */
+  /** Só o acórdão comum traz relatório e voto; o de relação traz só o texto. Falso também se o TCU os classificou como sigilosos. */
   temRelatorioEVoto: boolean;
+  /** Partes que o TCU substituiu pelo aviso de documento sigiloso (o acórdão continua listado com o texto ACORDAO). */
+  partesSigilosas?: ParteSigilosa[];
   linkOficial: string;
 }
 
@@ -115,6 +129,11 @@ export interface ResultadoTcu {
   anosSemArquivo: number[];
   /** Registros INVALIDADO ou sigilosos ignorados nos anos pesquisados. */
   excluidosPorSituacao: number;
+  /** Quantos arquivos anuais foram varridos e em quanto tempo: cada pesquisa lê os anos inteiros. */
+  anosPercorridos: number;
+  tempoSegundos: number;
+  /** O texto oficial cita nomes de pessoas no corpo; o Garimpo não os retira. */
+  avisoNomes: string;
   atribuicao: string;
   aviso?: string;
 }
@@ -157,11 +176,12 @@ export async function pesquisarTcu(dados: string, f: FiltrosTcu): Promise<Result
   const anos = pedidos.filter((a) => locais.includes(a)).sort((a, b) => a - b);
   const vazio: ResultadoTcu = {
     total: 0, resultados: [], anosUsados: [], anosSemArquivo: pedidos.filter((a) => !locais.includes(a)),
-    excluidosPorSituacao: 0, atribuicao: ATRIBUICAO_TCU,
+    excluidosPorSituacao: 0, anosPercorridos: 0, tempoSegundos: 0, avisoNomes: AVISO_NOMES, atribuicao: ATRIBUICAO_TCU,
   };
   if (!anos.length) {
     return { ...vazio, aviso: "Nenhum ano do TCU baixado neste computador. Use baixar_anos_tcu para ver os anos e escolher quais baixar." };
   }
+  const inicio = Date.now();
   const termos = termosDe(f.consulta);
   if (!termos.length) return { ...vazio, anosUsados: await Promise.all(anos.map((a) => baseDoAno(dados, a))), aviso: "Consulta vazia." };
   const passa = filtroLocal({ deveConter: termos.map((t) => [t]) })!;
@@ -191,7 +211,14 @@ export async function pesquisarTcu(dados: string, f: FiltrosTcu): Promise<Result
         const baixo = SEM_ACENTO(bruto);
         if (!palavras.every((p) => baixo.includes(p))) continue;
       }
-      const texto = CAMPOS_DE_TEXTO.map((c) => htmlParaTexto(r[c] ?? "")).filter(Boolean).join("\n");
+      const sigilosas: ParteSigilosa[] = [];
+      const texto = CAMPOS_DE_TEXTO.map((c) => {
+        const { texto: t, sigiloso } = textoDoCampo(r, c);
+        if (sigiloso) sigilosas.push(c.toLowerCase() as ParteSigilosa);
+        return t;
+      })
+        .filter(Boolean)
+        .join("\n");
       if (!passa(texto)) continue;
       total++;
       const ordem: [number, number] = [ordemDaData(r.DATASESSAO ?? ""), Number(r.NUMACORDAO) || 0];
@@ -202,9 +229,10 @@ export async function pesquisarTcu(dados: string, f: FiltrosTcu): Promise<Result
         acordao: {
           chave: r.KEY, numero: r.NUMACORDAO, ano: r.ANOACORDAO, titulo: r.TITULO, colegiado: r.COLEGIADO,
           dataSessao: r.DATASESSAO, relator: r.RELATOR, tipo: r.TIPO, situacao: r.SITUACAO,
-          sumario: recorte(htmlParaTexto(r.SUMARIO ?? ""), TAMANHO_SUMARIO),
+          sumario: recorte(textoDoCampo(r, "SUMARIO").texto, TAMANHO_SUMARIO),
           trechos: trechosDe(texto, termos),
-          temRelatorioEVoto: Boolean(r.RELATORIO?.trim() && r.VOTO?.trim()),
+          temRelatorioEVoto: Boolean(textoDoCampo(r, "RELATORIO").texto && textoDoCampo(r, "VOTO").texto),
+          ...(sigilosas.length ? { partesSigilosas: sigilosas } : {}),
           linkOficial: linkOficialTcu(r.KEY),
         },
       });
@@ -218,6 +246,8 @@ export async function pesquisarTcu(dados: string, f: FiltrosTcu): Promise<Result
     resultados: melhores.map((m) => m.acordao),
     anosUsados: await Promise.all(anos.map((a) => baseDoAno(dados, a))),
     excluidosPorSituacao: excluidos,
+    anosPercorridos: anos.length,
+    tempoSegundos: Math.round((Date.now() - inicio) / 100) / 10,
   };
 }
 
@@ -291,7 +321,15 @@ export async function lerAcordaoTcu(dados: string, p: PedidoDeLeituraTcu): Promi
     if (SITUACAO_SEM_TEXTO.test(SEM_ACENTO(r.SITUACAO ?? ""))) {
       return { ...comum, aviso: `Acórdão com situação ${r.SITUACAO}: o Garimpo não mostra o texto. Confira no portal do TCU.` };
     }
-    const texto = htmlParaTexto(r[COLUNA_DA_PARTE[p.parte]] ?? "");
+    const { texto, sigiloso } = textoDoCampo(r, COLUNA_DA_PARTE[p.parte]);
+    if (sigiloso) {
+      return {
+        ...comum,
+        aviso:
+          "Relatório, voto e sumário deste acórdão foram classificados como sigilosos pelo TCU: o arquivo traz só o aviso de " +
+          'sigilo no lugar do texto. O texto do acórdão (parte "acordao") continua disponível.',
+      };
+    }
     if (!texto) {
       const relacao = /rela[cç][aã]o/i.test(r.TIPO ?? "") && p.parte !== "acordao";
       return {

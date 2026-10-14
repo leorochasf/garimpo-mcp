@@ -6,13 +6,9 @@ import { describe, expect, it } from "vitest";
 import { Cliente } from "../src/cliente.js";
 import { criarServidor } from "../src/servidor.js";
 import { clienteFalso, respostaJson } from "./apoio.js";
-import { acordaoFicticio, csvDoTcu, gravarAnoTcu } from "./apoioTcu.js";
+import { acordaoFicticio, csvDoTcu, gravarAnoTcu, LISTA_REAL_TCU } from "./apoioTcu.js";
 
-const LISTA = [
-  '"02/10/2026"',
-  '"2025"|"https://sites.tcu.gov.br/dados-abertos/jurisprudencia/arquivos/acordao-completo/acordao-completo-2025.csv"|"394.40 MB"',
-  '"2024"|"https://sites.tcu.gov.br/dados-abertos/jurisprudencia/arquivos/acordao-completo/acordao-completo-2024.csv"|"401.92 MB"',
-].join("\n");
+const LISTA = LISTA_REAL_TCU;
 const lista = () => new Response(LISTA, { status: 200, headers: { "content-type": "text/csv" } });
 const CSV = Buffer.from(csvDoTcu([acordaoFicticio(1), acordaoFicticio(2, { SUMARIO: "Convênio sem prestação de contas." })]), "utf8");
 const arquivo = () =>
@@ -53,15 +49,16 @@ describe("ferramentas do TCU", () => {
 
   it("sem anos, lista o que o TCU publica (tamanho, data da lista) e o que já está no computador; uma só chamada", async () => {
     const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "janela-"));
-    await gravarAnoTcu(dados, 2024, [acordaoFicticio(1)]);
+    await gravarAnoTcu(dados, 2021, [acordaoFicticio(1)]);
     const { cliente, chamadas } = clienteFalso([lista()]);
     const r = await chamar(await conectar(cliente, dados), "baixar_anos_tcu", {});
     expect(chamadas).toHaveLength(1);
     expect(r.json.listaDoTcuEm).toBe("02/10/2026");
-    expect(r.json.anos).toEqual([
-      expect.objectContaining({ ano: 2024, tamanhoMb: 401.92, baixado: true }),
+    expect(r.json.anos.map((a: { ano: number }) => a.ano)).toEqual([1992, 2020, 2021, 2025]);
+    expect(r.json.anos).toEqual(expect.arrayContaining([
+      expect.objectContaining({ ano: 2021, tamanhoMb: 500.75, baixado: true }),
       expect.objectContaining({ ano: 2025, tamanhoMb: 394.4, baixado: false }),
-    ]);
+    ]));
     expect(r.json.aviso).toMatch(/Nada foi baixado/);
   });
 
@@ -74,6 +71,8 @@ describe("ferramentas do TCU", () => {
     expect(r.json.totalMb).toBe(394.4);
     expect(r.json.pasta).toBe(join(dados, "tcu"));
     expect(r.json.mensagem).toMatch(/confirmar: true/);
+    expect(r.json.mensagem).toMatch(/10 a 20 s/);
+    expect(r.json.mensagem).toMatch(/poucos anos/);
   });
 
   it("com confirmar baixa um ano por vez; depois a pesquisa e a leitura funcionam sem nova chamada", async () => {
@@ -82,6 +81,7 @@ describe("ferramentas do TCU", () => {
     const mcp = await conectar(cliente, dados);
     const baixa = await chamar(mcp, "baixar_anos_tcu", { anos: [2025], confirmar: true });
     expect(baixa.json.resultados).toEqual([expect.objectContaining({ ano: 2025, situacao: "baixado" })]);
+    expect(baixa.json.aviso).toMatch(/10 a 20 s/);
     expect(chamadas).toHaveLength(2);
 
     const achou = await chamar(mcp, "pesquisar_acordaos_tcu", { consulta: "convênio" });
@@ -90,6 +90,9 @@ describe("ferramentas do TCU", () => {
     expect(achou.json.resultados[0]).toMatchObject({ numero: "2", situacao: "OFICIALIZADO" });
     expect(achou.json.anosUsados[0]).toMatchObject({ ano: 2025, atualizadoNoTcuEm: "Fri, 02 Oct 2026 18:12:03 GMT" });
     expect(achou.texto).not.toContain("SEGREDO-");
+    expect(achou.json.avisoNomes).toMatch(/nomes de pessoas/);
+    expect(achou.json.anosPercorridos).toBe(1);
+    expect(achou.json.tempoSegundos).toEqual(expect.any(Number));
 
     const lido = await chamar(mcp, "ler_acordao_tcu", { ano: 2025, chave: "ACORDAO-COMPLETO-100002", parte: "voto" });
     expect(lido.json.texto).toContain("Voto fictício 2");

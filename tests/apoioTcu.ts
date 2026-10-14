@@ -54,3 +54,20 @@ export async function gravarAnoTcu(dados: string, ano: number, registros: Regist
   await writeFile(caminho, csvDoTcu(registros), "utf8");
   return caminho;
 }
+
+const B = "https://sites.tcu.gov.br/dados-abertos/jurisprudencia/arquivos";
+
+/**
+ * Recorte da lista real de arquivos (validação ao vivo de 2026-10-14): data na 1ª linha, cabeçalho
+ * BASE|ANO|TAMANHO|ARQUIVO, coluna BASE antes do ano, linhas fora de ordem, o resumo por IA (ano vazio) e outra base (KB).
+ */
+export const LISTA_REAL_TCU = [
+  '"02/10/2026"',
+  '"BASE"|"ANO"|"TAMANHO"|"ARQUIVO"',
+  `"Acórdãos"|"2020"|"489.97 MB"|"${B}/acordao-completo/acordao-completo-2020.csv"`,
+  `"Acórdãos"|"2021"|"500.75 MB"|"${B}/acordao-completo/acordao-completo-2021.csv"`,
+  `"Acórdãos"|""|"58.12 MB"|"${B}/acordao-completo/acordao-completo-resumo.csv"`,
+  `"Acórdãos"|"1992"|"15.07 MB"|"${B}/acordao-completo/acordao-completo-1992.csv"`,
+  `"Acórdãos"|"2025"|"394.40 MB"|"${B}/acordao-completo/acordao-completo-2025.csv"`,
+  `"Súmulas"|""|"804.40 KB"|"${B}/sumula/sumula.csv"`,
+].join("\n");

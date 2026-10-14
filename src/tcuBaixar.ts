@@ -1,5 +1,5 @@
 /**
- * TCU (ADR-0024), parte de rede: lista dos anos e download dos arquivos anuais para o computador do usuário.
+ * TCU (ADR-0025), parte de rede: lista dos anos e download dos arquivos anuais para o computador do usuário.
  * Toda chamada passa pelo cliente único (freios da regra 3); um arquivo por vez; retomável; nada é baixado sem
  * confirmação explícita; o que já está no disco só é trocado depois que o novo chegou inteiro.
  */
@@ -39,6 +39,11 @@ export interface AvisoDeBaixaTcu {
   mensagem: string;
 }
 
+/** Decisão da 1.0: a pesquisa varre o arquivo de cada ano (7 a 19 s por ano medidos); sem índice local ainda. */
+export const AVISO_DE_VELOCIDADE =
+  "Cada ano baixado acrescenta cerca de 10 a 20 s a cada pesquisa no TCU (o Garimpo lê o arquivo inteiro do ano); " +
+  "baixe poucos anos, só os que a pesquisa precisa.";
+
 const mb = (n: number) => `${n.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} MB`;
 
 /** O aviso que vem antes de qualquer download: o que precisa baixar, quanto pesa e onde fica. Sem rede. */
@@ -56,7 +61,7 @@ export async function avisoDeBaixaTcu(dados: string, lista: ListaDoTcu, anosPedi
     ? "Para pesquisar o TCU, o Garimpo precisa baixar os arquivos anuais de acórdãos para este computador: " +
       `${faltam.map((a) => `${a.ano} (${a.tamanhoMb ? mb(a.tamanhoMb) : "tamanho não informado"})`).join(", ")}; ` +
       `total de cerca de ${mb(totalMb)}, guardados em ${pasta}. Cada arquivo vem direto do TCU, um por vez, e pode levar ` +
-      "vários minutos. Nada foi baixado: para baixar, chame de novo com confirmar: true."
+      "vários minutos. " + AVISO_DE_VELOCIDADE + " Nada foi baixado: para baixar, chame de novo com confirmar: true."
     : `Os anos pedidos já estão baixados em ${pasta}. Para conferir se o TCU atualizou algum, use renovar: true com confirmar: true.`;
   return { precisaConfirmar: faltam.length > 0, anos, totalMb, pasta, mensagem };
 }

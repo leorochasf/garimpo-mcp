@@ -1,5 +1,5 @@
 /**
- * TCU (ADR-0024): acórdãos pelos arquivos anuais de dados abertos, baixados pelo usuário e pesquisados no computador
+ * TCU (ADR-0025): acórdãos pelos arquivos anuais de dados abertos, baixados pelo usuário e pesquisados no computador
  * dele. Fontes, termos e limites: docs/fontes.md. Nada do TCU vai no pacote; sem INTERESSADOS nem ADVOGADO (LGPD).
  */
 
