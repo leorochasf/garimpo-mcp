@@ -59,5 +59,35 @@ formulações de assunto e de conclusão achou mais relevantes que qualquer uma 
 declarada: 5 teses, 1 tribunal cada, gabarito provisório; a rodada não prova precisão nem melhora jurídica. Nenhuma
 outra alteração do texto congelado; as `instructions` não mudam. Além da substring exata da frase e dos padrões de
 afirmação de jurisprudência, o teste compara o roteiro inteiro com a cópia independente congelada em
-`tests/fixtures/roteiro-d15-aprovado.txt`; texto integral para leitura humana em
+`tests/fixtures/roteiro-d15-aprovado.txt` (substituída pela cópia da revisão única, abaixo); texto integral para leitura humana em
 `TICKETS/b20-onda-2/15-roteiro-texto-integral.md`.
+
+## Emenda de 2026-10-14: revisão única (D-15 + entrega de súmulas, sugestões 1, 2, 4 e 5)
+
+O dono aprovou em 2026-10-14 as sugestões 5, 1, 2 e 4 de `TICKETS/b20-onda-2/entrega-sumulas-jurisprudencia.md`,
+aplicadas junto com a frase D-15 numa revisão única do roteiro (um conjunto: `src/roteiro.ts`, este ADR, os testes de
+padrões e de igualdade, e o texto integral para leitura humana em `TICKETS/b20-onda-2/15-roteiro-texto-integral.md`):
+
+- **Sugestão 5** — o passo 1 mantém a frase D-15 e manda mostrar ao usuário a questão central e as formulações usadas,
+  antes dos resultados. Não muda a busca.
+- **Sugestão 2** — novo passo 11: desgaste em três caixas, nesta ordem: "A fonte indica" (situação na fonte ou marca
+  da súmula na lista do STF, literal, com data e origem); "Indício" (algo no material devolvido que sugira mudança,
+  sempre com o id e o trecho de onde saiu e a frase "não prova superação"); "Não verificado — conferir no portal
+  oficial" (todo o resto). "vigente" e "superado(a)" só dentro de citação literal da fonte.
+- **Sugestão 4** — novo passo 12: matriz curta (tribunal, órgão, data, entendimento, fundamento, resultado) e "Onde a
+  pesquisa está fraca" tirado só do `cabecalhoDeCobertura` (formulações sem acórdão, tribunais com erro ou não
+  pesquisados, lista cortada, buscas da memória com a data da mais antiga) e do aviso da própria `busca_ampla` sobre os
+  poucos acórdãos do STF; `panorama_da_amostra` opcional, como amostra, não estatística.
+- **Sugestão 1** — bloco "Pergunta por súmula ou tema", depois dos passos numerados, com ordem fixa S1) a S5): texto
+  da fonte e de onde veio (súmula do STJ, que o `consultar_precedente` não traz: "texto da lista do site, não
+  conferido em fonte oficial"); situação ou marca literal e datada, ou "não verificado"; `enquadramento927` com o
+  âmbito; aplicação pelos tribunais com formulações do assunto (menção não é aplicação); desgaste nas três caixas.
+
+As `instructions` ganham uma frase-ponteiro no fim, para clientes que não abrem o prompt: "Pergunta por súmula ou tema:
+texto e situação só como o consultar_precedente os devolver, com data e origem; "vigente" e "superado" só em citação
+literal da fonte." O teste de igualdade exata foi atualizado junto. O texto novo segue este ADR: sem número de súmula,
+tema, precedente ou processo, sem "entende(m) que", exemplos só abstratos; testes novos travam a ordem do bloco de
+súmula, as três caixas, "vigente"/"superado" fora de aspas e a ausência de número. A cópia independente congelada
+passou a `tests/fixtures/roteiro-aprovado.txt`. Checagem sem rede sobre respostas gravadas em
+`docs/banco-de-provas/checagem-roteiro-sumulas-2026-10-14.md` (checagem, não medição estatística). As sugestões 3
+(ficha por precedente) e 6 (procurar o contrário) ficam fora desta revisão.
