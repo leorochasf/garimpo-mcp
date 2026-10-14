@@ -487,6 +487,7 @@ describe("julgamentos_do_processo: DJEN", () => {
         tipoDocumento: "Acórdão",
         orgao: "GAB. DO RELATOR 1",
         classe: "APELAÇÃO CÍVEL",
+        ementa: "não verificado",
         link: "https://eproc.tribunal-exemplo.invalid/doc=1",
       },
       {
@@ -495,6 +496,7 @@ describe("julgamentos_do_processo: DJEN", () => {
         tipoDocumento: "Acórdão",
         orgao: "GAB. DO RELATOR 1",
         classe: "APELAÇÃO CÍVEL",
+        ementa: "não verificado",
       },
     ]);
     expect(r.json.djen).not.toHaveProperty("listaCortada");

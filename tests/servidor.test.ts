@@ -34,6 +34,15 @@ function siteFalso(registros: unknown[]) {
 }
 
 describe("servidor MCP", () => {
+  it("I-31: descrição do DJEN distingue prova fictícia de verificação ao vivo", async () => {
+    const mcp = await conectar(siteFalso([]));
+    const { tools } = await mcp.listTools();
+    const descricao = tools.find((t) => t.name === "julgamentos_do_processo")!.description!;
+    expect(descricao).toContain("não verificados ao vivo");
+    expect(descricao).toContain("testado só com textos fictícios");
+    expect(descricao).toContain("saneamento de nomes livres não é garantia");
+  });
+
   it("o tools/list descreve os filtros nos TRTs como disponíveis e as datas como de juntada nos TRTs", async () => {
     const mcp = await conectar(siteFalso([]));
     const { tools } = await mcp.listTools();
