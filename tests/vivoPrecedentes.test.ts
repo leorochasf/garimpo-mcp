@@ -2,14 +2,9 @@ import { describe, expect, it } from "vitest";
 import { clienteDosPrecedentes, PrecedentesAoVivo } from "../src/precedentesAoVivo.js";
 import { Memoria } from "../src/memoria.js";
 
-// Teste ao vivo opcional (ADR-0020): 5 chamadas em série, 1 ao portal do STJ e 4 ao do STF. Só com GARIMPO_VIVO=1.
+// Teste ao vivo opcional (ADR-0020): 4 chamadas em série ao portal do STF (o STJ não é consultado: D-18). Só com GARIMPO_VIVO=1.
 describe.skipIf(process.env.GARIMPO_VIVO !== "1")("precedentes ao vivo — portais reais", () => {
-  const aoVivo = new PrecedentesAoVivo(clienteDosPrecedentes("stj"), clienteDosPrecedentes("stf"), new Memoria());
-
-  it("STJ: tema repetitivo 1 com situação", { timeout: 60_000 }, async () => {
-    const d = await aoVivo.doStj("tema repetitivo", 1);
-    expect(d.linha.situacao).toBeTruthy();
-  });
+  const aoVivo = new PrecedentesAoVivo(clienteDosPrecedentes(), new Memoria());
 
   it("STF: repercussão geral 1 com situação e tese", { timeout: 90_000 }, async () => {
     const d = await aoVivo.doStf("repercussão geral", 1);

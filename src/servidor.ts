@@ -47,7 +47,7 @@ import { julgamentosDoProcesso } from "./julgamentos.js";
 import { avisoRecorridoDoAcordao } from "./recorrido.js";
 import { INSTRUCTIONS, roteiroDePesquisa } from "./roteiro.js";
 import { clienteDoFalcao } from "./falcao.js";
-import { clienteDosPrecedentes, PrecedentesAoVivo, respostaDoStf, respostaDoStj } from "./precedentesAoVivo.js";
+import { clienteDosPrecedentes, PrecedentesAoVivo, respostaDoStf } from "./precedentesAoVivo.js";
 import {
   avisoDeLinkDoTjgo,
   ehDoFalcao,
@@ -197,10 +197,10 @@ const AVISO_AO_VIVO =
   "Consultado no portal oficial do tribunal pelo Garimpo (cliente não oficial), na data e hora informadas: a situação " +
   "pode mudar depois. A situação na fonte e a marca da lista de súmulas não são vigência; confira no portal antes de citar.";
 
-/** Plano B (ADR-0020): o portal não respondeu e a resposta vem da tabela empacotada, com a data dela. */
-function planoB(tribunal: "stj" | "stf", data: string, e: unknown) {
+/** Plano B do STF (ADR-0020): o portal não respondeu e a resposta vem da tabela empacotada, com a data dela. */
+function planoB(data: string, e: unknown) {
   return {
-    origem: `tabela de ${data}, o portal do ${tribunal.toUpperCase()} não respondeu`,
+    origem: `tabela de ${data}, o portal do STF não respondeu`,
     motivoDoPlanoB: (e as Error).message,
   };
 }
@@ -340,8 +340,6 @@ export interface OpcoesServidor {
   djen?: Cliente;
   /** Cliente do Falcão, a fonte dos TRTs (padrão: o real, com UA de navegador, 1 s e freio preventivo). */
   falcao?: Cliente;
-  /** Cliente do portal de precedentes do STJ, consultado ao vivo pelo consultar_precedente (ADR-0020). */
-  precedentesStj?: Cliente;
   /** Cliente do portal do STF, consultado ao vivo pelo consultar_precedente (ADR-0020). */
   precedentesStf?: Cliente;
   /** Estado de proteção que o diagnostico_dos_freios lê (padrão: o de todos os clientes do processo). */
@@ -361,8 +359,7 @@ export function criarServidor(
     datajud = clienteDoDataJud(),
     djen = clienteDoDjen(),
     falcao = clienteDoFalcao(),
-    precedentesStj = clienteDosPrecedentes("stj"),
-    precedentesStf = clienteDosPrecedentes("stf"),
+    precedentesStf = clienteDosPrecedentes(),
     coordenacao,
   }: OpcoesServidor = {},
 ): McpServer {
@@ -380,7 +377,7 @@ export function criarServidor(
   /** A chave do DataJud desta janela: a renovada pela wiki vale para as chamadas seguintes. */
   const chaveDoDataJud = new ChaveDoDataJud();
   const fonteDjen = new FonteDjen(djen);
-  const aoVivo = new PrecedentesAoVivo(precedentesStj, precedentesStf, memoria, agora);
+  const aoVivo = new PrecedentesAoVivo(precedentesStf, memoria, agora);
 
   /** Atribuição e datas da tabela, quando ela reforçou algum tema ou IAC do STJ da lista de qualificados. */
   const comATabela = (qualificados: { tribunal: string; tipo: string; numero?: string }[], { curta = false } = {}) => {
@@ -595,7 +592,7 @@ export function criarServidor(
         "fora da pasta de destino. " +
         "Acórdão que veio da busca sem link nenhum: pede o link oficial, uma vez, à rota de link do JurisprudênciaIA " +
         "(exceto TST) e diz que ele veio de lá; sem link também ali, diz como achar o acórdão pelo número CNJ. " +
-        "Baixa do STJ, TJMG, TJSP e TSE. TRT (Falcão): não há PDF a baixar; explica e aponta o ler_inteiro_teor pelo " +
+        "Baixa do TJMG, TJSP e TSE. STJ: não baixa (o robots.txt de processo.stj.jus.br veda o acesso automatizado); devolve o link para conferência manual, e o PDF baixado antes com recibo, ou trazido pelo usuário, é lido normalmente. TRT (Falcão): não há PDF a baixar; explica e aponta o ler_inteiro_teor pelo " +
         "id. TJTO: o portal entrega o acórdão em HTML; o Garimpo o traz como texto do portal do tribunal (sem PDF " +
         "nem recibo) para a memória e aponta o ler_inteiro_teor e o conferir_citacao pelo id. Para STF, TJGO e demais devolve o link e explica como obter no navegador " +
         "(o Garimpo não contorna captcha nem proteção anti-robô) e como ler o PDF baixado: passar o caminho do " +
@@ -853,21 +850,23 @@ export function criarServidor(
   registrar(
     "consultar_precedente",
     {
-      title: "Consultar precedente (portais do STJ e do STF, tabela como plano B)",
+      title: "Consultar precedente (STJ pela tabela, STF pelo portal)",
       description:
-        "Consulta um precedente pelo número no portal do tribunal, na hora da pergunta. STJ: tema repetitivo ou IAC, " +
-        "na página de precedentes do STJ (1 chamada); devolve a situação na fonte (literal, como o STJ escreve: " +
-        "situação processual, nunca vigência), a tese firmada ou \"sem tese firmada na página do portal\", a questão " +
-        "submetida (a pergunta, não a tese), órgão julgador, processo paradigma e a última atualização da página. STF: " +
-        "repercussão geral (ficha do tema e página da tese, 2 chamadas), súmula ou súmula vinculante (lista do tipo e " +
-        "página da súmula, 2 chamadas, 1 com a lista na memória); devolve a situação do tema e a tese, ou a marca de " +
-        "situação da lista do STF e o enunciado; a falta de marca não prova vigência. A resposta diz \"consultado no " +
-        "portal do <tribunal> em <data e hora>\" e fica na memória por 24 h. Se o portal recusar, estiver fora ou " +
-        "devolver uma página que o Garimpo não reconhece, responde a tabela de precedentes que vai no Garimpo " +
-        "(fotografia datada: STJ do Portal de Dados Abertos; STF obtida pelo mantenedor, fundamento Lei 9.610/98, art. " +
-        "8º, IV), com origem \"tabela de <data>, o portal do <tribunal> não respondeu\", o motivo e a atribuição; número " +
-        "ausente dela volta como \"não consta na tabela de <data>\", nunca como inexistente. Sempre com o " +
-        "enquadramento927. O tipo é obrigatório: a numeração de cada tipo é separada.",
+        "Consulta um precedente pelo número. STJ: tema repetitivo ou IAC, direto na tabela de precedentes que vai no " +
+        "Garimpo (fotografia datada do Portal de Dados Abertos do STJ), sem consultar o portal do STJ: o robots.txt de " +
+        "processo.stj.jus.br veda o acesso automatizado ao host, e o Garimpo respeita. A resposta diz \"tabela de " +
+        "<data>; consulta automática ao portal não realizada por restrição de acesso\", traz a situação na fonte (literal, " +
+        "situação processual, nunca vigência), a tese firmada ou \"sem tese firmada na tabela\", a questão submetida (a " +
+        "pergunta, não a tese), órgão julgador, processo paradigma, a atribuição e, com mais de 90 dias, o aviso de idade; " +
+        "número ausente volta como \"não consta na tabela de <data>\", nunca como inexistente. Para a situação do dia, " +
+        "o usuário confere no portal do STJ pelo navegador. STF: no portal do tribunal, na hora da pergunta: repercussão " +
+        "geral (ficha do tema e página da tese, 2 chamadas), súmula ou súmula vinculante (lista do tipo e página da " +
+        "súmula, 2 chamadas, 1 com a lista na memória); devolve a situação do tema e a tese, ou a marca de situação da " +
+        "lista do STF e o enunciado; a falta de marca não prova vigência. A resposta diz \"consultado no portal do STF em " +
+        "<data e hora>\" e fica na memória por 24 h. Se o portal do STF recusar, estiver fora ou devolver uma página que " +
+        "o Garimpo não reconhece, responde a tabela do STF que vai no Garimpo (obtida pelo mantenedor, fundamento Lei " +
+        "9.610/98, art. 8º, IV), com origem \"tabela de <data>, o portal do STF não respondeu\", o motivo e a " +
+        "atribuição. Sempre com o enquadramento927. O tipo é obrigatório: a numeração de cada tipo é separada.",
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
       inputSchema: {
         tribunal: z.string().describe('"stj" ou "stf": só esses dois tribunais'),
@@ -899,7 +898,7 @@ export function criarServidor(
             }
             const resposta = consultarPrecedenteStf(tabelaStf, doTipo, numero, (agora ?? Date.now)());
             return json({
-              ...planoB("stf", resposta.tabela.dataDaObtencao, e),
+              ...planoB(resposta.tabela.dataDaObtencao, e),
               ...resposta,
               avisoNaturezaJuridica: AVISO_DA_TABELA_STF,
             });
@@ -919,21 +918,19 @@ export function criarServidor(
               "têm numeração separada: o Tema 1 e o IAC 1 são precedentes diferentes.",
           );
         }
-        try {
-          return json({ ...respostaDoStj(await aoVivo.doStj(doTipo, numero)), avisoNaturezaJuridica: AVISO_AO_VIVO });
-        } catch (e) {
-          if (!tabela) {
-            throw new Error(
-              `O portal do STJ não respondeu (${(e as Error).message}) e a tabela de precedentes não foi carregada neste servidor.`,
-            );
-          }
-          const resposta = consultarPrecedente(tabela, doTipo, numero, (agora ?? Date.now)());
-          return json({
-            ...planoB("stj", resposta.tabela.dataDaColeta, e),
-            ...resposta,
-            avisoNaturezaJuridica: AVISO_DA_TABELA,
-          });
+        // D-18: o robots.txt de processo.stj.jus.br veda o host inteiro; o STJ responde só pela tabela, sem tentar o portal.
+        if (!tabela) {
+          throw new Error(
+            "A tabela de precedentes do STJ não foi carregada neste servidor, e a consulta automática ao portal do STJ " +
+              "não é feita por restrição de acesso: o precedente não pôde ser verificado.",
+          );
         }
+        const resposta = consultarPrecedente(tabela, doTipo, numero, (agora ?? Date.now)());
+        return json({
+          origem: `tabela de ${resposta.tabela.dataDaColeta}; consulta automática ao portal não realizada por restrição de acesso`,
+          ...resposta,
+          avisoNaturezaJuridica: AVISO_DA_TABELA,
+        });
       } catch (e) {
         return erro(e);
       }

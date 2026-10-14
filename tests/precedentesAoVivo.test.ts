@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { Cliente, UA_NAVEGADOR, USER_AGENT, Vagas } from "../src/cliente.js";
@@ -112,71 +112,6 @@ async function tabelaPequena(): Promise<TabelaDePrecedentes> {
 // Páginas sintéticas no formato das páginas reais (docs/banco-de-provas/precedentes-ao-vivo-prova.md): mesma
 // marcação, textos inventados.
 
-/** Página de precedentes do STJ (ISO-8859-1, como a real). */
-function paginaStj({
-  letra = "T",
-  numero = 1198,
-  situacao = "Acórdão Publicado - RE Pendente",
-  questao = "Questão sintética submetida a julgamento.",
-  tese = "Tese sintética firmada pelo tribunal.",
-} = {}): Response {
-  const rotulo = letra === "I" ? "IAC" : "Tema Repetitivo";
-  const html = `<html><body><form>
-<div class="container containerDocumento"><div class="row"><div class="col-3 tituloDocumento">Documento 1</div></div>
-<div class="row"><div class="col-3 p-0 borda_clara"><div class="row"><div class="col-12 titulo_campo_processo">
-  ${rotulo}
-  <span class="dados_campo_processo fonte_destaque highlightBrs">${numero}</span>
-  <span><a href="javascript:copiarLinkTema(
-      '${letra}',
-      '${numero}',
-      'iconeCopy-${letra}-${numero}',
-      'iconeCheck-${letra}-${numero}');"></a></span>
-</div></div></div>
-<div class="col-3 p-0 borda_clara"><div class="row">
-  <div class="col-6 titulo_campo_processo">
-      Situação
-  </div>
-  <div class="col-6 dados_campo_processo fonte_destaque">
-      ${situacao}
-  </div>
-</div></div>
-<div class="col-3 p-0 borda_clara"><div class="row">
-  <div class="col-4 titulo_campo_processo">
-      Órgão julgador
-  </div>
-  <div class="col-8 dados_campo_processo">
-      CORTE ESPECIAL
-  </div>
-</div></div></div>
-<div class="row ">
-  <div class="col-3 titulo_campo campo_texto borda_clara">
-      Questão submetida a julgamento
-  </div>
-  <div class="col-9 dados_campo campo_texto borda_clara">
-      <div align="justify"><span><p>${questao}</p></span></div>
-  </div>
-</div>
-${tese === "" ? "" : `<div class="row ">
-  <div class="col-3 titulo_campo campo_texto borda_clara">
-      Tese Firmada
-  </div>
-  <div class="col-9 dados_campo campo_texto borda_clara">
-      <div align="justify"><span><p>${tese}</p></span></div>
-  </div>
-</div>`}
-<div class="row cabecalho_processo borda_clara oculto_no_resumo"><div class="col-2">
-  <span title="Paradigma Principal"><span class="glyphicon">&#xe006;</span></span>
-</div><div class="col-8 titulo_campo"><a href="#"><b>REsp 100001/XX</b></a></div></div>
-<div class="row borda_clara"><div class="col-12"><div>
-Última atualização: 13/08/2026
-</div></div></div>
-</div></form></body></html>`;
-  return new Response(Buffer.from(html, "latin1"), {
-    status: 200,
-    headers: { "content-type": "text/html;charset=ISO-8859-1" },
-  });
-}
-
 const SEM_REDE = () =>
   new Cliente({
     nome: "O portal",
@@ -188,7 +123,7 @@ const SEM_REDE = () =>
 async function conectar(opcoes: OpcoesServidor) {
   const [ladoCliente, ladoServidor] = InMemoryTransport.createLinkedPair();
   const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "janela-"));
-  await criarServidor(SEM_REDE(), { dados, precedentesStj: SEM_REDE(), precedentesStf: SEM_REDE(), ...opcoes }).connect(
+  await criarServidor(SEM_REDE(), { dados, precedentesStf: SEM_REDE(), ...opcoes }).connect(
     ladoServidor,
   );
   const mcp = new Client({ name: "teste", version: "0" });
@@ -204,78 +139,64 @@ async function consultar(mcp: Client, args: Record<string, unknown>) {
   return { erro: r.isError === true, texto: r.content[0].text, dado: r.isError ? undefined : JSON.parse(r.content[0].text) };
 }
 
-const QUANDO = /^consultado no portal do STJ em \d{2}\/\d{2}\/\d{4} \d{2}:\d{2} \(hora local, UTC[+-]\d{2}:\d{2}\)$/;
+/** Qualquer fetch do processo (o dos clientes do Garimpo incluído) falha e fica registrado: o STJ não sai para a rede. */
+function semRedeNenhuma(): string[] {
+  const chamadas: string[] = [];
+  vi.spyOn(globalThis, "fetch").mockImplementation((async (url: string) => {
+    chamadas.push(String(url));
+    throw new Error("sem rede no teste");
+  }) as typeof fetch);
+  return chamadas;
+}
 
-describe("consultar_precedente — STJ ao vivo", () => {
-  it("tema repetitivo: busca a página do tema no portal do STJ e devolve situação, questão e tese literais", async () => {
-    const { cliente, chamadas } = clienteFalso([paginaStj()], { nome: "O portal do STJ" });
-    const mcp = await conectar({ precedentesStj: cliente });
-    const { dado } = await consultar(mcp, { tribunal: "stj", tipo: "tema repetitivo", numero: 1198 });
-    expect(chamadas.map((c) => c.url)).toEqual([
-      "https://processo.stj.jus.br/repetitivos/temas_repetitivos/pesquisa.jsp?novaConsulta=true&tipo_pesquisa=T&cod_tema_inicial=1198&cod_tema_final=1198",
-    ]);
-    expect(dado.origem).toMatch(QUANDO);
-    expect(dado.consta).toBe(true);
-    expect(dado.situacaoNaFonte).toBe("Acórdão Publicado - RE Pendente");
-    expect(dado.questaoSubmetida).toBe("Questão sintética submetida a julgamento.");
-    expect(dado.teseFirmada).toBe("Tese sintética firmada pelo tribunal.");
-    expect(dado.orgaoJulgador).toBe("CORTE ESPECIAL");
-    expect(dado.processoParadigma).toEqual(["REsp 100001/XX"]);
-    expect(dado.ultimaAtualizacaoNoPortal).toBe("13/08/2026");
-    expect(dado.enquadramento927.inciso).toBe("III");
-    expect(dado.enquadramento927.evidencia).toMatch(/portal do STJ em .*tema repetitivo nº 1198, com tese firmada/);
-    expect(dado.tabela).toBeUndefined();
-  });
+const ORIGEM_D18 = "tabela de 2026-10-09; consulta automática ao portal não realizada por restrição de acesso";
 
-  it("IAC vai com tipo_pesquisa=I", async () => {
-    const { cliente, chamadas } = clienteFalso([paginaStj({ letra: "I", numero: 1 })], { nome: "O portal do STJ" });
-    const mcp = await conectar({ precedentesStj: cliente });
-    const { dado } = await consultar(mcp, { tribunal: "stj", tipo: "IAC", numero: 1 });
-    expect(chamadas[0].url).toContain("tipo_pesquisa=I&cod_tema_inicial=1&cod_tema_final=1");
-    expect(dado.origem).toMatch(QUANDO);
-  });
+afterEach(() => vi.restoreAllMocks());
 
-  it("o portal recusa (403): a tabela responde como plano B, dizendo a data dela e o motivo", async () => {
-    const recusa = () => new Response("negado", { status: 403 });
-    const { cliente, chamadas } = clienteFalso([recusa], { nome: "O portal do STJ" });
-    const mcp = await conectar({ precedentesStj: cliente, tabela: await tabelaPequena() });
+describe("consultar_precedente — STJ só pela tabela (D-18: o robots.txt de processo.stj.jus.br veda o host)", () => {
+  it("tema repetitivo: responde a tabela de pronto, sem chamar o portal, e diz que a consulta automática não foi feita", async () => {
+    const chamadas = semRedeNenhuma();
+    const mcp = await conectar({ tabela: await tabelaPequena() });
     const { dado } = await consultar(mcp, { tribunal: "stj", tipo: "tema repetitivo", numero: 1 });
-    expect(chamadas).toHaveLength(1);
-    expect(dado.origem).toBe("tabela de 2026-10-09, o portal do STJ não respondeu");
-    expect(dado.motivoDoPlanoB).toMatch(/O portal do STJ bloqueou a chamada \(HTTP 403/);
-    expect(dado.tabela.dataDaColeta).toBe("2026-10-09");
+    expect(chamadas).toHaveLength(0);
+    expect(dado.origem).toBe(ORIGEM_D18);
     expect(dado.consta).toBe(true);
+    expect(dado.tabela.dataDaColeta).toBe("2026-10-09");
+    expect(dado.motivoDoPlanoB).toBeUndefined();
+    expect(JSON.stringify(dado)).not.toMatch(/não respondeu/);
     expect(dado.avisoNaturezaJuridica).toMatch(/^Fotografia da tabela de precedentes do STJ/);
   });
 
-  it("página com outro tipo ou número (o portal ignora código errado) não é aceita: vai ao plano B", async () => {
-    const { cliente } = clienteFalso([paginaStj({ letra: "T", numero: 1 })], { nome: "O portal do STJ" });
-    const mcp = await conectar({ precedentesStj: cliente, tabela: await tabelaPequena() });
+  it("IAC: o mesmo caminho, sem chamada", async () => {
+    const chamadas = semRedeNenhuma();
+    const mcp = await conectar({ tabela: await tabelaPequena() });
     const { dado } = await consultar(mcp, { tribunal: "stj", tipo: "IAC", numero: 1 });
-    expect(dado.origem).toBe("tabela de 2026-10-09, o portal do STJ não respondeu");
-    expect(dado.motivoDoPlanoB).toMatch(/veio sem o IAC 1/);
+    expect(chamadas).toHaveLength(0);
+    expect(dado.origem).toBe(ORIGEM_D18);
   });
 
-  it("sem tabela e sem portal: erro que diz os dois motivos", async () => {
-    const { cliente } = clienteFalso([new Response("negado", { status: 403 })], { nome: "O portal do STJ" });
-    const mcp = await conectar({ precedentesStj: cliente });
+  it("número fora da tabela: \"não consta na tabela de <data>\", com a origem D-18 e sem chamada", async () => {
+    const chamadas = semRedeNenhuma();
+    const mcp = await conectar({ tabela: await tabelaPequena() });
+    const { dado } = await consultar(mcp, { tribunal: "stj", tipo: "tema repetitivo", numero: 999999 });
+    expect(chamadas).toHaveLength(0);
+    expect(dado.consta).toBe(false);
+    expect(dado.resultado).toMatch(/^não consta na tabela de precedentes do STJ de 2026-10-09/);
+    expect(dado.origem).toBe(ORIGEM_D18);
+  });
+
+  it("sem tabela carregada: erro claro (não verificável), nunca dado inventado nem \"portal não respondeu\"", async () => {
+    const chamadas = semRedeNenhuma();
+    const mcp = await conectar({});
     const r = await consultar(mcp, { tribunal: "stj", tipo: "tema repetitivo", numero: 1 });
+    expect(chamadas).toHaveLength(0);
     expect(r.erro).toBe(true);
-    expect(r.texto).toMatch(/O portal do STJ não respondeu .* e a tabela de precedentes não foi carregada/);
-  });
-
-  it("a mesma pergunta dentro de 24 h volta da memória, sem nova chamada, com a hora da consulta original", async () => {
-    let agora = Date.parse("2026-10-09T15:00:00Z");
-    const { cliente, chamadas } = clienteFalso([paginaStj()], { nome: "O portal do STJ" });
-    const mcp = await conectar({ precedentesStj: cliente, agora: () => agora });
-    const primeira = await consultar(mcp, { tribunal: "stj", tipo: "tema repetitivo", numero: 1198 });
-    agora += 3 * 3_600_000;
-    const segunda = await consultar(mcp, { tribunal: "stj", tipo: "tema repetitivo", numero: 1198 });
-    expect(chamadas).toHaveLength(1);
-    expect(segunda.dado.teseFirmada).toBe(primeira.dado.teseFirmada);
-    expect(segunda.dado.origem).toBe(`${primeira.dado.origem}; da memória do Garimpo (consulta feita nas últimas 24 h)`);
+    expect(r.texto).toMatch(/tabela de precedentes do STJ não foi carregada/);
+    expect(r.texto).toMatch(/restrição de acesso/);
+    expect(r.texto).not.toMatch(/não respondeu/);
   });
 });
+
 
 const QUANDO_STF = /^consultado no portal do STF em \d{2}\/\d{2}\/\d{4} \d{2}:\d{2} \(hora local, UTC[+-]\d{2}:\d{2}\)$/;
 
@@ -355,29 +276,6 @@ describe("consultar_precedente — STF ao vivo", () => {
 });
 
 describe("identificação e disjuntor dos portais de precedentes", () => {
-  it("o STJ recebe a identificação honesta do Garimpo", async () => {
-    const { cliente, chamadas } = clienteFalso([paginaStj()], { nome: "O portal do STJ" });
-    const mcp = await conectar({ precedentesStj: cliente });
-    await consultar(mcp, { tribunal: "stj", tipo: "tema repetitivo", numero: 1198 });
-    expect(new Headers(chamadas[0].init.headers).get("User-Agent")).toBe(USER_AGENT);
-  });
-
-  it("página de verificação com HTTP 200: plano B e o disjuntor dos precedentes aberto (nada sai na consulta seguinte)", async () => {
-    const desafio = () =>
-      new Response(readFileSync(new URL("./fixtures/desafios/verificacao-de-seguranca.html", import.meta.url)), {
-        status: 200,
-        headers: { "content-type": "text/html; charset=utf-8" },
-      });
-    const { cliente, chamadas } = clienteFalso([desafio, paginaStj({ numero: 1 })], { nome: "O portal do STJ" });
-    const mcp = await conectar({ precedentesStj: cliente, tabela: await tabelaPequena() });
-    const { dado } = await consultar(mcp, { tribunal: "stj", tipo: "tema repetitivo", numero: 1 });
-    expect(dado.origem).toBe("tabela de 2026-10-09, o portal do STJ não respondeu");
-    expect(dado.motivoDoPlanoB).toMatch(/página de verificação anti-robô \(HTTP 200\)/);
-    const depois = await consultar(mcp, { tribunal: "stj", tipo: "tema repetitivo", numero: 2 });
-    expect(depois.dado.motivoDoPlanoB).toMatch(/não foi feita/);
-    expect(chamadas).toHaveLength(1);
-  });
-
   it("serviço próprio no disjuntor: uma recusa nos precedentes não pausa o resto do tribunal", () => {
     expect(servicoDe("https://processo.stj.jus.br/repetitivos/temas_repetitivos/pesquisa.jsp?x=1")).toBe("stj-precedentes");
     expect(servicoDe("https://processo.stj.jus.br/processo/revista/documento/mediado/?x=1")).toBe("stj");
