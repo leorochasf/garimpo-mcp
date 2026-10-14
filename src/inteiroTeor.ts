@@ -27,6 +27,7 @@ import { htmlComConteudoOculto, htmlComIndicioDeCorte, htmlParaTexto } from "./h
 import type { Guardado, Memoria, TextoIntegral } from "./memoria.js";
 import { textoDoTjdft } from "./tjdft.js";
 import { textoDoTjpi } from "./tjpi.js";
+import { textoDoTrf4 } from "./trf4.js";
 import { ehDoFalcao, infoTribunal } from "./tribunais.js";
 
 export interface PedidoInteiroTeor {
@@ -286,12 +287,17 @@ async function textoDoPortal(
     const trazido =
       doTjdft ? await textoDoTjdft(cliente, link, acordao)
       : acordao.tribunal === "tjpi" ? await textoDoTjpi(cliente, link, acordao)
+      : acordao.tribunal === "trf4" ? await textoDoTrf4(cliente, link, acordao)
       : await baixarTextoTjto(cliente, link);
     if (!trazido) {
       return {
         baixado: false,
         link,
-        explicacao: acordao.tribunal === "tjpi"
+        explicacao: acordao.tribunal === "trf4"
+          ? "O e-Proc do TRF4 não entregou o documento assinado deste acórdão (sem a assinatura eletrônica, processo " +
+            "divergente, texto curto demais ou redirecionamento): texto não verificado, nada foi guardado. Abra o link " +
+            "no navegador para conferir o documento."
+          : acordao.tribunal === "tjpi"
           ? `O portal do ${nomeTribunal} não entregou uma página com texto verificável deste acórdão ` +
             "(formato ou processo divergente, seção Acórdão sem texto ou redirecionamento): texto não verificado, " +
             "nada foi guardado. Abra o link no navegador para conferir o documento."

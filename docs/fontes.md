@@ -277,6 +277,47 @@ técnica do TJSP (`baixarEsaj`), com o host do tribunal. Só PDF reconhecido vir
   PDF dos demais; o limite de ritmo do portal (um projeto de terceiros cita 403 depois de ~50 downloads seguidos; o
   Garimpo fica muito abaixo); os termos de uso.
 
+## Busca oficial do e-Proc do TRF4 (ementa e texto do portal do tribunal)
+
+Usada por `busca_direta` com `tribunal: "trf4"` e por `obter_inteiro_teor` (D-07 / G-31, [ADR-0024](adr/0024-trf4-busca-oficial-do-eproc-e-texto-do-portal.md)).
+Fonte pública do próprio tribunal, sem login nem captcha. Relatório de origem: `TICKETS/b18-investigacoes/trfs-eproc-cjf.md`.
+
+- **Host:** `eproc-jur.trf4.jus.br` (serviço `trf4` no disjuntor). Rotas: `GET /eproc2trf4/externo_controlador.php?acao=jurisprudencia@jurisprudencia/pesquisar`
+  (formulário e cookie de sessão); `POST …?acao=jurisprudencia@jurisprudencia/listar_resultados` (corpo `txtPesquisa`,
+  `rdoCampo=E`, `selOrigem[]=1`, `selTipoDocumento[]=1`, `chkAgruparResultados=on`, `hdnInfraPrefixoCookie=TRF4_Eproc_`);
+  `GET …?acao=jurisprudencia@jurisprudencia/download_inteiro_teor&id_jurisprudencia=<id>&termosPesquisados=…`.
+- **robots.txt (lido em 2026-10-14):** `eproc-jur.trf4.jus.br/robots.txt` 404 (sem regras); `www.trf4.jus.br/robots.txt` 200,
+  `User-agent: *`, 75 `Disallow`, sem jurisprudência nem o host do e-Proc, **com `Disallow: /trf4/processos/`**.
+- **Termos de uso (lidos em 2026-10-14):** Termos de Uso da Justiça Federal da 4ª Região (Res. 125/2021),
+  https://www.trf4.jus.br/trf4/controlador.php?acao=pagina_visualizar&id_pagina=2201. Item 9, literal: «É de total
+  responsabilidade do(a) Usuário(a) a utilização das informações a que teve acesso em qualquer site ou sistema da Justiça
+  Federal da 4ª Região.» Os 10 itens e a Política de Privacidade (id_pagina=2200) não falam de robôs nem de coleta
+  automatizada. A Política de Cookies (id_pagina=2202) **não foi lida**. Sem vedação ≠ autorização: **não verificado**.
+- **Formato:** HTML `iso-8859-1`. Busca: total no campo oculto `hdnTotalResultado`; 10 resultados com ementa inteira, data
+  de julgamento e de publicação; dois `data-link` por resultado (inteiro teor e «acompanhamento processual»). Inteiro
+  teor: HTML inline do acórdão (relatório, voto, ementa, acórdão), com assinatura eletrônica (Lei 11.419/2006); partes
+  por iniciais. Não é PDF.
+- **O que o Garimpo chama:** só o host do e-Proc, https, rota `externo_controlador.php` (as 3 ações acima). O link de
+  acompanhamento processual (`http://www.trf4.jus.br/trf4/processos/…`) **só é mostrado** (como `linkConsulta`, no
+  texto exato que veio, sem https forçado) e nunca é chamado. `https://verificar.trf4.jus.br` só aparece como texto.
+- **Rótulo:** «texto do portal do tribunal (TRF4)», sem recibo (não é o inteiro teor oficial, que é o PDF); fica 24 h na
+  memória e é lido/conferido pelo id.
+- **Freios:** pelo cliente único (UA honesto, 2 chamadas simultâneas no total, 429/503 com uma nova tentativa, recusa final
+  abre o disjuntor `trf4`; sem intervalo mínimo próprio, limite de ritmo não verificado); busca = 2 chamadas (formulário + POST); inteiro teor = 2 (formulário + GET);
+  redirecionamento não é seguido.
+- **Validação da lista em 2026-10-14:** formulário e POST com termo acentuado em ISO-8859-1 confirmados (200), 10 cards
+  `resultadoItem`, total 30196; links relativos com `&` cru antes dos campos, RELATOR/RELATORA e EMENTA após DECISÃO.
+  Relatório: `TICKETS/b18-investigacoes/trf4-validacao-ao-vivo.md`. A fixture reproduz o recorte real com dados fictícios.
+  Corrigidos e testados offline: id/link do vizinho, relator como ementa e perda do último card. O código corrigido
+  não foi reexecutado na rede nesta revisão; o inteiro teor não foi baixado nessa validação adicional.
+- **Leitor da lista:** isola os cards e campos rotulados `resLabel`/`resValue`, vincula id do link ao próprio card,
+  exige total único inteiro e `min(total, 10)` blocos; divergência, campo ausente/duplicado, card truncado ou link
+  ausente/ambíguo abortam a lista inteira com erro de formato, sem guardar acórdãos. Não descarta registros em silêncio.
+- **Não verificado:** adaptador corrigido de ponta a ponta, download por ele nesta rodada, relação entre total,
+  agrupamento e tamanho da página fora dos 10 cards observados; se a busca e o download dispensam o cookie;
+  filtros do formulário (por isso recusados);
+  TRU4, Turmas Recursais, varas; busca no inteiro teor; PDF oficial e rota `gerarPDFDocumento`; limite de ritmo; estabilidade do `id_jurisprudencia`;
+  Política de Cookies; frescor além dos 10 itens de 13/10/2026; velocidade em relação ao STJ pelo JurisprudênciaIA (não medida).
 ## Exportação de repercussão geral do STF (script do mantenedor, I-33 / D-11)
 
 - **Rota:** `https://portal.stf.jus.br/jurisprudenciaRepercussao/exportarDados.asp?` (o botão "Exportar Dados" de
