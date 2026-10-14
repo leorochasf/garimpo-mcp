@@ -8,7 +8,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { Cliente, PausaPreventivaError, RecusaError, VERSAO } from "./cliente.js";
 import { buscaDireta, conferirDadosDoAcordao, ementaAparentementeIncompleta } from "./busca.js";
-import { buscaAmpla, type ResultadoAmplo } from "./ampla.js";
+import { buscaAmpla, expandirAgrupadorTrt, type ResultadoAmplo } from "./ampla.js";
 import {
   type CoordenacaoEmArquivo,
   coordenacaoPadrao,
@@ -45,6 +45,7 @@ import { ChaveDoDataJud, clienteDoDataJud, TERMO_DE_USO_DATAJUD } from "./dataju
 import { clienteDoDjen, FonteDjen } from "./djen.js";
 import { julgamentosDoProcesso } from "./julgamentos.js";
 import { avisoRecorridoDoAcordao } from "./recorrido.js";
+import { clienteDaLegislacao, diplomasSuportados, textoDeLei } from "./legislacao.js";
 import { CHAMADO_LIGADO, comLinhaDeChamado, ERRO_DE_ORIGEM } from "./chamado.js";
 import { INSTRUCTIONS, roteiroDePesquisa } from "./roteiro.js";
 import { clienteDoFalcao } from "./falcao.js";
@@ -139,6 +140,14 @@ const opcoesDosTrts = {
       'Só TRTs: true acrescenta a lista de precedentes qualificados da coleção "precedentes" do Falcão (IRDR, IAC, ' +
         "súmulas; 1 chamada a mais, até 10 itens, só pelo texto da busca). Padrão: só acórdãos",
     ),
+  decisoes: z
+    .enum(["monocraticas", "sentencas"])
+    .optional()
+    .describe(
+      "Só TRTs: monocraticas ou sentencas traz, em vez de acórdãos, a 1ª página (até 10) da coleção do Falcão, só " +
+        "metadados e sem texto; não são acórdãos nem precedentes do art. 927; não combina com filtros nem com as outras " +
+        "opções. Padrão: só acórdãos",
+    ),
 };
 
 const renovar = z
@@ -187,11 +196,12 @@ function conferirDatas(datas: { de?: string; ate?: string }) {
 }
 
 /** Recusa, com frase que ensina a corrigir, as opções dos TRTs pedidas para outro tribunal (nunca ignoradas em silêncio). */
-function conferirOpcoesDosTrts(p: { tribunal: string; somenteEmentas?: boolean; ordenacao?: string; precedentes?: boolean }) {
+function conferirOpcoesDosTrts(p: { tribunal: string; somenteEmentas?: boolean; ordenacao?: string; precedentes?: boolean; decisoes?: string }) {
   const pedidas = [
     p.somenteEmentas !== undefined && "somenteEmentas",
     p.ordenacao !== undefined && "ordenacao",
     p.precedentes !== undefined && "precedentes",
+    p.decisoes !== undefined && "decisoes",
   ].filter(Boolean);
   if (pedidas.length && !ehDoFalcao(p.tribunal)) {
     throw new Error(
@@ -379,6 +389,8 @@ export interface OpcoesServidor {
   falcao?: Cliente;
   /** Cliente do portal do STF, consultado ao vivo pelo consultar_precedente (ADR-0020). */
   precedentesStf?: Cliente;
+  /** Cliente do normas.leg.br, de onde o texto_de_lei lê o texto oficial (ADR-0026). */
+  legislacao?: Cliente;
   /** Estado de proteção que o diagnostico_dos_freios lê (padrão: o de todos os clientes do processo). */
   coordenacao?: CoordenacaoEmArquivo;
   /** Liga a linha de chamado nos erros inesperados (padrão: desligada até a publicação autorizada). */
@@ -399,6 +411,7 @@ export function criarServidor(
     djen = clienteDoDjen(),
     falcao = clienteDoFalcao(),
     precedentesStf = clienteDosPrecedentes(),
+    legislacao = clienteDaLegislacao(),
     coordenacao,
     chamado = CHAMADO_LIGADO,
   }: OpcoesServidor = {},
@@ -461,7 +474,9 @@ export function criarServidor(
         "invertido é erro que ensina). Precedentes qualificados dos TRTs só com precedentes:true: uma chamada a mais à " +
         'coleção "precedentes" do Falcão (IRDR, IAC, súmulas), com o tipo e a situação que a fonte informa (ou "não ' +
         'verificado"), sem inciso do art. 927 e sem afirmar vigência; sem a opção a lista vem vazia, por isso, não por ' +
-        "falta de precedente. " +
+        "falta de precedente. Com decisoes:monocraticas ou decisoes:sentencas, devolve só metadados em lista própria, " +
+        "sem texto, sem enquadramento927 e sem busca guardada (uma chamada por pedido); limite padrão e máximo 10, " +
+        "sem filtros nem as outras opções dos TRTs. " +
         `${SOBRE_A_TABELA_NAS_LISTAS} ` +
         `${SOBRE_A_BUSCA_GUARDADA} A busca guardada traz o campo buscaGuardada com essa data. ` +
         SOBRE_O_RECORRIDO,
@@ -469,7 +484,7 @@ export function criarServidor(
       inputSchema: {
         tribunal,
         texto: z.string().min(2).describe("Texto da busca (palavras da tese, dispositivo legal, instituto)"),
-        limite: z.number().int().min(1).max(100).optional().describe("Máximo de acórdãos (1 a 100; padrão 10)"),
+        limite: z.number().int().min(1).max(100).optional().describe("Máximo de acórdãos (1 a 100; padrão 10); com decisoes, máximo de decisões (1 a 10; padrão 10)"),
         ...filtros,
         ...opcoesDosTrts,
         renovar,
@@ -530,7 +545,8 @@ export function criarServidor(
         "formulação × TRT, com teto de 5 páginas do Falcão por chamada, usadas primeiro na 1ª formulação de cada TRT " +
         "pedido, na ordem dada, depois nas seguintes; o que não couber (ou parar na pausa preventiva) sai no " +
         "cabecalhoDeCobertura como foraDoTeto ou pausaPreventiva, nunca como busca vazia, e repetir a mesma chamada " +
-        "executa as que faltam. Com TRT, cada acórdão traz a fonte (rótulos em fontes) e o aviso cita as duas fontes; " +
+        "executa as que faltam. O valor \"trt\" em tribunais vale por trt1 a trt24 (conta como 1 dos 5), sem ampliar o teto: " +
+        "cobre os TRTs em lotes de 5 páginas por chamada, e o cabecalhoDeCobertura traz agrupadorTrt com o custo. Com TRT, cada acórdão traz a fonte (rótulos em fontes) e o aviso cita as duas fontes; " +
         "os filtros de, ate, relator, orgao e classe valem também com TRT (de e ate = data de juntada nos TRTs, " +
         "julgamento nas demais fontes; classe só por sigla). " +
         `${SOBRE_O_RECORRIDO}`,
@@ -573,12 +589,12 @@ export function criarServidor(
     },
     async ({ deveConter, naoPodeConter, ...args }) => {
       try {
-        conferirTribunais(...args.tribunais);
+        conferirTribunais(...expandirAgrupadorTrt(args.tribunais));
         conferirDatas(args);
         args.formulacoes = args.formulacoes.map(conferirFormulacao);
         const filtrosLocais = lerFiltrosLocais({ deveConter, naoPodeConter });
         // Tabelas e aviso de natureza jurídica entram na resposta final: a busca mede o teto com eles.
-        const acrescimos = (r: ResultadoAmplo) => ({ ...comATabela(r.qualificados, { curta: true }), avisoNaturezaJuridica: avisoDasFontes(args.tribunais) });
+        const acrescimos = (r: ResultadoAmplo) => ({ ...comATabela(r.qualificados, { curta: true }), avisoNaturezaJuridica: avisoDasFontes(expandirAgrupadorTrt(args.tribunais)) });
         const r = await buscaAmpla(site, { ...args, ...filtrosLocais }, memoria, { tabela, tabelaStf, falcao, acrescimos });
         return json({ ...r, ...acrescimos(r) });
       } catch (e) {
@@ -1190,6 +1206,39 @@ export function criarServidor(
           },
           [...new Set(guardados.flatMap((g) => (g.guardado ? [g.guardado.acordao.tribunal] : [])))],
         );
+      } catch (e) {
+        return erro(e);
+      }
+    },
+  );
+
+  registrar(
+    "texto_de_lei",
+    {
+      title: "Texto de lei",
+      description:
+        "Texto literal de UM dispositivo de lei (artigo, parágrafo, inciso ou alínea) como a página oficial " +
+        "normas.leg.br (Congresso Nacional e Senado Federal) o mostra, com a URL oficial, a data de obtenção e o aviso " +
+        "fixo \"texto conforme a página oficial em <data>; o Garimpo não afirma vigência\". Ferramenta separada da " +
+        "jurisprudência: não faz busca, não resume e não liga artigo a precedente. Informe o diploma pela sigla " +
+        `(hoje: ${diplomasSuportados()}; outra sigla é recusada com a lista) e o dispositivo por escrito (ex.: "art. 85", ` +
+        "\"art. 85, § 2º, inciso I\", \"art. 9º, parágrafo único\", \"art. 699-A\"). Dispositivo sem texto na fonte " +
+        "volta como \"não verificado\"; dois dispositivos com a mesma identificação, como \"identificação necessária\" " +
+        "(o Garimpo não escolhe). As redações vêm todas (versoesNaFonte), mesmo quando há só uma, da mais antiga para " +
+        "a mais recente, com as marcas que a fonte põe (tipo da versão, lei alteradora, nota, período, força marcada); " +
+        "o Garimpo não conclui qual redação vale, não reconstitui alteração e não afirma vigência: confira na página " +
+        "oficial antes de citar. Uso conforme a licença CC BY 4.0 que a fonte declara (citar a fonte). A norma inteira " +
+        "pesa mais de 4 MB: cada consulta é uma chamada, 1 s entre chamadas; a repetida volta da memória do Garimpo " +
+        "(24 h), com a data da obtenção original.",
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
+      inputSchema: {
+        diploma: z.string().describe("Sigla do diploma (CPC, CC ou CF)"),
+        dispositivo: z.string().describe('O dispositivo, por escrito (ex.: "art. 85, § 2º, inciso I")'),
+      },
+    },
+    async (args) => {
+      try {
+        return json(await textoDeLei(args, { cliente: legislacao, memoria, agora }));
       } catch (e) {
         return erro(e);
       }

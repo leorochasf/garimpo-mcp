@@ -1,0 +1,1963 @@
+{
+ "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105",
+ "@type": "Legislation",
+ "name": "Lei nº 13.105 de 16/03/2015",
+ "headline": "Lei nº 13.105, de 16 de março de 2015",
+ "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105",
+ "legislationDate": "2015-03-16",
+ "dateModified": "2025-03-13",
+ "sdDatePublished": "2026-04-08",
+ "datePublished": "2015-03-17",
+ "license": "https://creativecommons.org/licenses/by/4.0/",
+ "sdLicense": "https://creativecommons.org/licenses/by/4.0/",
+ "alternateName": [
+  "LEI-13105-2015-03-16",
+  "Código de Processo Civil (2015) (CPC)"
+ ],
+ "sameAs": [
+  "http://www.lexml.gov.br/urn/urn:lex:br:federal:lei:2015-03-16;13105",
+  "http://legis.senado.leg.br/legislacao/DetalhaSigen.action?id=584917"
+ ],
+ "inLanguage": "pt",
+ "hasPart": {
+  "workExample": {
+   "legislationDate": "2015-03-16",
+   "@type": "Legislation",
+   "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!",
+   "legislationType": "Original_Version",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!"
+  },
+  "hasPart": [
+   {
+    "workExample": {
+     "legislationDate": "2015-03-16",
+     "@type": "Legislation",
+     "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!articulacao",
+     "legislationType": "Original_Version",
+     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!articulacao"
+    },
+    "hasPart": [
+     {
+      "workExample": {
+       "legislationDate": "2015-03-16",
+       "@type": "Legislation",
+       "name": "PARTE GERAL",
+       "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt1",
+       "legislationType": "Original_Version",
+       "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt1"
+      },
+      "hasPart": [
+       {
+        "workExample": {
+         "legislationDate": "2015-03-16",
+         "@type": "Legislation",
+         "name": "LIVRO I",
+         "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt1_liv1",
+         "legislationType": "Original_Version",
+         "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt1_liv1",
+         "text": "DAS NORMAS PROCESSUAIS CIVIS"
+        },
+        "hasPart": {
+         "workExample": {
+          "legislationDate": "2015-03-16",
+          "@type": "Legislation",
+          "name": "TÍTULO ÚNICO",
+          "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt1_liv1_tit1u",
+          "legislationType": "Original_Version",
+          "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt1_liv1_tit1u",
+          "text": "DAS NORMAS FUNDAMENTAIS E DA APLICAÇÃO DAS NORMAS PROCESSUAIS"
+         },
+         "hasPart": [
+          {
+           "workExample": {
+            "legislationDate": "2015-03-16",
+            "@type": "Legislation",
+            "name": "CAPÍTULO I",
+            "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt1_liv1_tit1u_cap1",
+            "legislationType": "Original_Version",
+            "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt1_liv1_tit1u_cap1",
+            "text": "DAS NORMAS FUNDAMENTAIS DO PROCESSO CIVIL"
+           },
+           "hasPart": [
+            {
+             "workExample": {
+              "legislationDate": "2015-03-16",
+              "@type": "Legislation",
+              "name": "Art. 9º",
+              "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art9",
+              "legislationType": "Original_Version",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art9"
+             },
+             "hasPart": [
+              {
+               "workExample": {
+                "legislationDate": "2015-03-16",
+                "@type": "Legislation",
+                "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art9_cpt",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art9_cpt",
+                "text": "Não se proferirá decisão contra uma das partes sem que ela seja previamente ouvida."
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art9_cpt",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:caput"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art9_cpt"
+              },
+              {
+               "workExample": {
+                "legislationDate": "2015-03-16",
+                "@type": "Legislation",
+                "name": "Parágrafo único.",
+                "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art9_par1u",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art9_par1u",
+                "text": "O disposto no caput não se aplica:"
+               },
+               "hasPart": [
+                {
+                 "workExample": {
+                  "legislationDate": "2015-03-16",
+                  "@type": "Legislation",
+                  "name": "I –",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art9_par1u_inc1",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art9_par1u_inc1",
+                  "text": "à tutela provisória de urgência;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art9_par1u_inc1",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art9_par1u_inc1"
+                },
+                {
+                 "workExample": [
+                  {
+                   "temporalCoverage": "2015-03-16/2023-04-23",
+                   "legislationDate": "2015-03-16",
+                   "@type": "Legislation",
+                   "legislationLegalForce": "NotInForce",
+                   "name": "II –",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art9_par1u_inc2",
+                   "legislationType": "Original_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art9_par1u_inc2",
+                   "text": "às hipóteses de tutela da evidência previstas no art. 311, incisos II e III;",
+                   "@reverse": {
+                    "legislationCourtDecision": {
+                     "@type": "Legislation",
+                     "name": "Acórdão da Ação Direta de Inconstitucionalidade nº 5.492 de 24/04/2023",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:supremo.tribunal.federal:acordao;adi:2023-04-24;5492"
+                    }
+                   }
+                  },
+                  {
+                   "additionalType": [
+                    "Court_Decision",
+                    "Declaração de Constitucionalidade",
+                    "Declara Constitucionalidade de"
+                   ],
+                   "legislationConsolidates": {
+                    "@type": "Legislation",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:supremo.tribunal.federal:acordao;adi:2023-04-24;5492"
+                   },
+                   "legislationDate": "2023-04-24",
+                   "@type": "Legislation",
+                   "name": "II –",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2023-04-24!art9_par1u_inc2",
+                   "legislationType": "Court_Decision_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2023-04-24!art9_par1u_inc2",
+                   "text": "às hipóteses de tutela da evidência previstas no art. 311, incisos II e III;"
+                  }
+                 ],
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art9_par1u_inc2",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art9_par1u_inc2"
+                },
+                {
+                 "workExample": {
+                  "legislationDate": "2015-03-16",
+                  "@type": "Legislation",
+                  "name": "III –",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art9_par1u_inc3",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art9_par1u_inc3",
+                  "text": "à decisão prevista no art. 701."
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art9_par1u_inc3",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art9_par1u_inc3"
+                }
+               ],
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art9_par1u",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art9_par1u"
+              }
+             ],
+             "@type": "Legislation",
+             "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art9",
+             "legislationType": {
+              "@type": "CategoryCode",
+              "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:artigo"
+             },
+             "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art9"
+            },
+            {
+             "workExample": {
+              "legislationDate": "2015-03-16",
+              "@type": "Legislation",
+              "name": "Art. 12.",
+              "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12",
+              "legislationType": "Original_Version",
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12"
+             },
+             "hasPart": [
+              {
+               "workExample": [
+                {
+                 "temporalCoverage": "2015-03-16/2016-02-03",
+                 "legislationDate": "2015-03-16",
+                 "@type": "Legislation",
+                 "legislationLegalForce": "NotInForce",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_cpt",
+                 "legislationType": "Original_Version",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_cpt",
+                 "text": "Os juízes e os tribunais deverão obedecer à ordem cronológica de conclusão para proferir sentença ou acórdão.",
+                 "@reverse": {
+                  "legislationAmends": {
+                   "@type": "Legislation",
+                   "name": "Lei nº 13.256 de 04/02/2016",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2016-02-04;13256@2016-02-04!art2_cpt_alt1_art12_cpt"
+                  }
+                 }
+                },
+                {
+                 "additionalType": "Text_Change",
+                 "legislationConsolidates": {
+                  "@type": "Legislation",
+                  "name": "Lei nº 13.256 de 04/02/2016",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2016-02-04;13256@2016-02-04!art2_cpt_alt1_art12_cpt"
+                 },
+                 "legislationDate": "2016-02-04",
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2016-02-04!art12_cpt",
+                 "legislationType": "Text_Change_Version",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2016-02-04!art12_cpt",
+                 "text": "Os juízes e os tribunais atenderão, preferencialmente, à ordem cronológica de conclusão para proferir sentença ou acórdão."
+                }
+               ],
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art12_cpt",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:caput"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art12_cpt"
+              },
+              {
+               "workExample": {
+                "legislationDate": "2015-03-16",
+                "@type": "Legislation",
+                "name": "§ 1º",
+                "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par1",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par1",
+                "text": "A lista de processos aptos a julgamento deverá estar permanentemente à disposição para consulta pública em cartório e na rede mundial de computadores."
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art12_par1",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art12_par1"
+              },
+              {
+               "workExample": {
+                "legislationDate": "2015-03-16",
+                "@type": "Legislation",
+                "name": "§ 2º",
+                "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par2",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par2",
+                "text": "Estão excluídos da regra do caput:"
+               },
+               "hasPart": [
+                {
+                 "workExample": {
+                  "legislationDate": "2015-03-16",
+                  "@type": "Legislation",
+                  "name": "I –",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par2_inc1",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par2_inc1",
+                  "text": "as sentenças proferidas em audiência, homologatórias de acordo ou de improcedência liminar do pedido;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art12_par2_inc1",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art12_par2_inc1"
+                },
+                {
+                 "workExample": {
+                  "legislationDate": "2015-03-16",
+                  "@type": "Legislation",
+                  "name": "II –",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par2_inc2",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par2_inc2",
+                  "text": "o julgamento de processos em bloco para aplicação de tese jurídica firmada em julgamento de casos repetitivos;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art12_par2_inc2",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art12_par2_inc2"
+                },
+                {
+                 "workExample": {
+                  "legislationDate": "2015-03-16",
+                  "@type": "Legislation",
+                  "name": "III –",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par2_inc3",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par2_inc3",
+                  "text": "o julgamento de recursos repetitivos ou de incidente de resolução de demandas repetitivas;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art12_par2_inc3",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art12_par2_inc3"
+                },
+                {
+                 "workExample": {
+                  "legislationDate": "2015-03-16",
+                  "@type": "Legislation",
+                  "name": "IV –",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par2_inc4",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par2_inc4",
+                  "text": "as decisões proferidas com base nos arts. 485 e 932;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art12_par2_inc4",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art12_par2_inc4"
+                },
+                {
+                 "workExample": {
+                  "legislationDate": "2015-03-16",
+                  "@type": "Legislation",
+                  "name": "V –",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par2_inc5",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par2_inc5",
+                  "text": "o julgamento de embargos de declaração;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art12_par2_inc5",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art12_par2_inc5"
+                },
+                {
+                 "workExample": {
+                  "legislationDate": "2015-03-16",
+                  "@type": "Legislation",
+                  "name": "VI –",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par2_inc6",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par2_inc6",
+                  "text": "o julgamento de agravo interno;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art12_par2_inc6",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art12_par2_inc6"
+                },
+                {
+                 "workExample": {
+                  "legislationDate": "2015-03-16",
+                  "@type": "Legislation",
+                  "name": "VII –",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par2_inc7",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par2_inc7",
+                  "text": "as preferências legais e as metas estabelecidas pelo Conselho Nacional de Justiça;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art12_par2_inc7",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art12_par2_inc7"
+                },
+                {
+                 "workExample": {
+                  "legislationDate": "2015-03-16",
+                  "@type": "Legislation",
+                  "name": "VIII –",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par2_inc8",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par2_inc8",
+                  "text": "os processos criminais, nos órgãos jurisdicionais que tenham competência penal;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art12_par2_inc8",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art12_par2_inc8"
+                },
+                {
+                 "workExample": {
+                  "legislationDate": "2015-03-16",
+                  "@type": "Legislation",
+                  "name": "IX –",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par2_inc9",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par2_inc9",
+                  "text": "a causa que exija urgência no julgamento, assim reconhecida por decisão fundamentada."
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art12_par2_inc9",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art12_par2_inc9"
+                }
+               ],
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art12_par2",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art12_par2"
+              },
+              {
+               "workExample": {
+                "legislationDate": "2015-03-16",
+                "@type": "Legislation",
+                "name": "§ 3º",
+                "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par3",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par3",
+                "text": "Após elaboração de lista própria, respeitar-se-á a ordem cronológica das conclusões entre as preferências legais."
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art12_par3",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art12_par3"
+              },
+              {
+               "workExample": {
+                "legislationDate": "2015-03-16",
+                "@type": "Legislation",
+                "name": "§ 4º",
+                "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par4",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par4",
+                "text": "Após a inclusão do processo na lista de que trata o § 1º, o requerimento formulado pela parte não altera a ordem cronológica para a decisão, exceto quando implicar a reabertura da instrução ou a conversão do julgamento em diligência."
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art12_par4",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art12_par4"
+              },
+              {
+               "workExample": {
+                "legislationDate": "2015-03-16",
+                "@type": "Legislation",
+                "name": "§ 5º",
+                "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par5",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par5",
+                "text": "Decidido o requerimento previsto no § 4º, o processo retornará à mesma posição em que anteriormente se encontrava na lista."
+               },
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art12_par5",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art12_par5"
+              },
+              {
+               "workExample": {
+                "legislationDate": "2015-03-16",
+                "@type": "Legislation",
+                "name": "§ 6º",
+                "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par6",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par6",
+                "text": "Ocupará o primeiro lugar na lista prevista no § 1º ou, conforme o caso, no § 3º, o processo que:"
+               },
+               "hasPart": [
+                {
+                 "workExample": {
+                  "legislationDate": "2015-03-16",
+                  "@type": "Legislation",
+                  "name": "I –",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par6_inc1",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par6_inc1",
+                  "text": "tiver sua sentença ou acórdão anulado, salvo quando houver necessidade de realização de diligência ou de complementação da instrução;"
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art12_par6_inc1",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art12_par6_inc1"
+                },
+                {
+                 "workExample": {
+                  "legislationDate": "2015-03-16",
+                  "@type": "Legislation",
+                  "name": "II –",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par6_inc2",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art12_par6_inc2",
+                  "text": "se enquadrar na hipótese do art. 1.040, inciso II."
+                 },
+                 "@type": "Legislation",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art12_par6_inc2",
+                 "legislationType": {
+                  "@type": "CategoryCode",
+                  "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                 },
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art12_par6_inc2"
+                }
+               ],
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art12_par6",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art12_par6"
+              }
+             ],
+             "@type": "Legislation",
+             "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art12",
+             "legislationType": {
+              "@type": "CategoryCode",
+              "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:artigo"
+             },
+             "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art12"
+            }
+           ],
+           "@type": "Legislation",
+           "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!prt1_liv1_tit1u_cap1",
+           "legislationType": {
+            "@type": "CategoryCode",
+            "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:capitulo"
+           },
+           "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!prt1_liv1_tit1u_cap1"
+          }
+         ],
+         "@type": "Legislation",
+         "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!prt1_liv1_tit1u",
+         "legislationType": {
+          "@type": "CategoryCode",
+          "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:titulo"
+         },
+         "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!prt1_liv1_tit1u"
+        },
+        "@type": "Legislation",
+        "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!prt1_liv1",
+        "legislationType": {
+         "@type": "CategoryCode",
+         "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:livro"
+        },
+        "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!prt1_liv1"
+       },
+       {
+        "workExample": {
+         "legislationDate": "2015-03-16",
+         "@type": "Legislation",
+         "name": "LIVRO III",
+         "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt1_liv3",
+         "legislationType": "Original_Version",
+         "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt1_liv3",
+         "text": "DOS SUJEITOS DO PROCESSO"
+        },
+        "hasPart": [
+         {
+          "workExample": {
+           "legislationDate": "2015-03-16",
+           "@type": "Legislation",
+           "name": "TÍTULO I",
+           "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt1_liv3_tit1",
+           "legislationType": "Original_Version",
+           "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt1_liv3_tit1",
+           "text": "DAS PARTES E DOS PROCURADORES"
+          },
+          "hasPart": [
+           {
+            "workExample": {
+             "legislationDate": "2015-03-16",
+             "@type": "Legislation",
+             "name": "CAPÍTULO II",
+             "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt1_liv3_tit1_cap2",
+             "legislationType": "Original_Version",
+             "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt1_liv3_tit1_cap2",
+             "text": "DOS DEVERES DAS PARTES E DE SEUS PROCURADORES"
+            },
+            "hasPart": [
+             {
+              "workExample": {
+               "legislationDate": "2015-03-16",
+               "@type": "Legislation",
+               "name": "Seção III",
+               "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt1_liv3_tit1_cap2_sec3",
+               "legislationType": "Original_Version",
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt1_liv3_tit1_cap2_sec3",
+               "text": "Das Despesas, dos Honorários Advocatícios e das Multas"
+              },
+              "hasPart": [
+               {
+                "workExample": {
+                 "legislationDate": "2015-03-16",
+                 "@type": "Legislation",
+                 "name": "Art. 85.",
+                 "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85",
+                 "legislationType": "Original_Version",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85"
+                },
+                "hasPart": [
+                 {
+                  "workExample": {
+                   "legislationDate": "2015-03-16",
+                   "@type": "Legislation",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_cpt",
+                   "legislationType": "Original_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_cpt",
+                   "text": "A sentença condenará o vencido a pagar honorários ao advogado do vencedor."
+                  },
+                  "@type": "Legislation",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_cpt",
+                  "legislationType": {
+                   "@type": "CategoryCode",
+                   "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:caput"
+                  },
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_cpt"
+                 },
+                 {
+                  "workExample": {
+                   "legislationDate": "2015-03-16",
+                   "@type": "Legislation",
+                   "name": "§ 1º",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par1",
+                   "legislationType": "Original_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par1",
+                   "text": "São devidos honorários advocatícios na reconvenção, no cumprimento de sentença, provisório ou definitivo, na execução, resistida ou não, e nos recursos interpostos, cumulativamente."
+                  },
+                  "@type": "Legislation",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par1",
+                  "legislationType": {
+                   "@type": "CategoryCode",
+                   "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                  },
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par1"
+                 },
+                 {
+                  "workExample": {
+                   "legislationDate": "2015-03-16",
+                   "@type": "Legislation",
+                   "name": "§ 2º",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par2",
+                   "legislationType": "Original_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par2",
+                   "text": "Os honorários serão fixados entre o mínimo de dez e o máximo de vinte por cento sobre o valor da condenação, do proveito econômico obtido ou, não sendo possível mensurá-lo, sobre o valor atualizado da causa, atendidos:"
+                  },
+                  "hasPart": [
+                   {
+                    "workExample": {
+                     "legislationDate": "2015-03-16",
+                     "@type": "Legislation",
+                     "name": "I –",
+                     "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par2_inc1",
+                     "legislationType": "Original_Version",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par2_inc1",
+                     "text": "o grau de zelo do profissional;"
+                    },
+                    "@type": "Legislation",
+                    "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par2_inc1",
+                    "legislationType": {
+                     "@type": "CategoryCode",
+                     "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                    },
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par2_inc1"
+                   },
+                   {
+                    "workExample": {
+                     "legislationDate": "2015-03-16",
+                     "@type": "Legislation",
+                     "name": "II –",
+                     "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par2_inc2",
+                     "legislationType": "Original_Version",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par2_inc2",
+                     "text": "o lugar de prestação do serviço;"
+                    },
+                    "@type": "Legislation",
+                    "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par2_inc2",
+                    "legislationType": {
+                     "@type": "CategoryCode",
+                     "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                    },
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par2_inc2"
+                   },
+                   {
+                    "workExample": {
+                     "legislationDate": "2015-03-16",
+                     "@type": "Legislation",
+                     "name": "III –",
+                     "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par2_inc3",
+                     "legislationType": "Original_Version",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par2_inc3",
+                     "text": "a natureza e a importância da causa;"
+                    },
+                    "@type": "Legislation",
+                    "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par2_inc3",
+                    "legislationType": {
+                     "@type": "CategoryCode",
+                     "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                    },
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par2_inc3"
+                   },
+                   {
+                    "workExample": {
+                     "legislationDate": "2015-03-16",
+                     "@type": "Legislation",
+                     "name": "IV –",
+                     "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par2_inc4",
+                     "legislationType": "Original_Version",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par2_inc4",
+                     "text": "o trabalho realizado pelo advogado e o tempo exigido para o seu serviço."
+                    },
+                    "@type": "Legislation",
+                    "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par2_inc4",
+                    "legislationType": {
+                     "@type": "CategoryCode",
+                     "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                    },
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par2_inc4"
+                   }
+                  ],
+                  "@type": "Legislation",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par2",
+                  "legislationType": {
+                   "@type": "CategoryCode",
+                   "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                  },
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par2"
+                 },
+                 {
+                  "workExample": {
+                   "legislationDate": "2015-03-16",
+                   "@type": "Legislation",
+                   "name": "§ 3º",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par3",
+                   "legislationType": "Original_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par3",
+                   "text": "Nas causas em que a Fazenda Pública for parte, a fixação dos honorários observará os critérios estabelecidos nos incisos I a IV do § 2º e os seguintes percentuais:"
+                  },
+                  "hasPart": [
+                   {
+                    "workExample": {
+                     "legislationDate": "2015-03-16",
+                     "@type": "Legislation",
+                     "name": "I –",
+                     "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par3_inc1",
+                     "legislationType": "Original_Version",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par3_inc1",
+                     "text": "mínimo de dez e máximo de vinte por cento sobre o valor da condenação ou do proveito econômico obtido até 200 (duzentos) salários-mínimos;"
+                    },
+                    "@type": "Legislation",
+                    "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par3_inc1",
+                    "legislationType": {
+                     "@type": "CategoryCode",
+                     "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                    },
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par3_inc1"
+                   },
+                   {
+                    "workExample": {
+                     "legislationDate": "2015-03-16",
+                     "@type": "Legislation",
+                     "name": "II –",
+                     "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par3_inc2",
+                     "legislationType": "Original_Version",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par3_inc2",
+                     "text": "mínimo de oito e máximo de dez por cento sobre o valor da condenação ou do proveito econômico obtido acima de 200 (duzentos) salários-mínimos até 2.000 (dois mil) salários-mínimos;"
+                    },
+                    "@type": "Legislation",
+                    "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par3_inc2",
+                    "legislationType": {
+                     "@type": "CategoryCode",
+                     "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                    },
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par3_inc2"
+                   },
+                   {
+                    "workExample": {
+                     "legislationDate": "2015-03-16",
+                     "@type": "Legislation",
+                     "name": "III –",
+                     "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par3_inc3",
+                     "legislationType": "Original_Version",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par3_inc3",
+                     "text": "mínimo de cinco e máximo de oito por cento sobre o valor da condenação ou do proveito econômico obtido acima de 2.000 (dois mil) salários-mínimos até 20.000 (vinte mil) salários-mínimos;"
+                    },
+                    "@type": "Legislation",
+                    "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par3_inc3",
+                    "legislationType": {
+                     "@type": "CategoryCode",
+                     "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                    },
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par3_inc3"
+                   },
+                   {
+                    "workExample": {
+                     "legislationDate": "2015-03-16",
+                     "@type": "Legislation",
+                     "name": "IV –",
+                     "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par3_inc4",
+                     "legislationType": "Original_Version",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par3_inc4",
+                     "text": "mínimo de três e máximo de cinco por cento sobre o valor da condenação ou do proveito econômico obtido acima de 20.000 (vinte mil) salários-mínimos até 100.000 (cem mil) salários-mínimos;"
+                    },
+                    "@type": "Legislation",
+                    "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par3_inc4",
+                    "legislationType": {
+                     "@type": "CategoryCode",
+                     "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                    },
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par3_inc4"
+                   },
+                   {
+                    "workExample": {
+                     "legislationDate": "2015-03-16",
+                     "@type": "Legislation",
+                     "name": "V –",
+                     "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par3_inc5",
+                     "legislationType": "Original_Version",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par3_inc5",
+                     "text": "mínimo de um e máximo de três por cento sobre o valor da condenação ou do proveito econômico obtido acima de 100.000 (cem mil) salários-mínimos."
+                    },
+                    "@type": "Legislation",
+                    "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par3_inc5",
+                    "legislationType": {
+                     "@type": "CategoryCode",
+                     "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                    },
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par3_inc5"
+                   }
+                  ],
+                  "@type": "Legislation",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par3",
+                  "legislationType": {
+                   "@type": "CategoryCode",
+                   "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                  },
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par3"
+                 },
+                 {
+                  "workExample": {
+                   "legislationDate": "2015-03-16",
+                   "@type": "Legislation",
+                   "name": "§ 4º",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par4",
+                   "legislationType": "Original_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par4",
+                   "text": "Em qualquer das hipóteses do § 3º:"
+                  },
+                  "hasPart": [
+                   {
+                    "workExample": {
+                     "legislationDate": "2015-03-16",
+                     "@type": "Legislation",
+                     "name": "I –",
+                     "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par4_inc1",
+                     "legislationType": "Original_Version",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par4_inc1",
+                     "text": "os percentuais previstos nos incisos I a V devem ser aplicados desde logo, quando for líquida a sentença;"
+                    },
+                    "@type": "Legislation",
+                    "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par4_inc1",
+                    "legislationType": {
+                     "@type": "CategoryCode",
+                     "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                    },
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par4_inc1"
+                   },
+                   {
+                    "workExample": {
+                     "legislationDate": "2015-03-16",
+                     "@type": "Legislation",
+                     "name": "II –",
+                     "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par4_inc2",
+                     "legislationType": "Original_Version",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par4_inc2",
+                     "text": "não sendo líquida a sentença, a definição do percentual, nos termos previstos nos incisos I a V, somente ocorrerá quando liquidado o julgado;"
+                    },
+                    "@type": "Legislation",
+                    "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par4_inc2",
+                    "legislationType": {
+                     "@type": "CategoryCode",
+                     "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                    },
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par4_inc2"
+                   },
+                   {
+                    "workExample": {
+                     "legislationDate": "2015-03-16",
+                     "@type": "Legislation",
+                     "name": "III –",
+                     "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par4_inc3",
+                     "legislationType": "Original_Version",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par4_inc3",
+                     "text": "não havendo condenação principal ou não sendo possível mensurar o proveito econômico obtido, a condenação em honorários dar-se-á sobre o valor atualizado da causa;"
+                    },
+                    "@type": "Legislation",
+                    "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par4_inc3",
+                    "legislationType": {
+                     "@type": "CategoryCode",
+                     "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                    },
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par4_inc3"
+                   },
+                   {
+                    "workExample": {
+                     "legislationDate": "2015-03-16",
+                     "@type": "Legislation",
+                     "name": "IV –",
+                     "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par4_inc4",
+                     "legislationType": "Original_Version",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par4_inc4",
+                     "text": "será considerado o salário-mínimo vigente quando prolatada sentença líquida ou o que estiver em vigor na data da decisão de liquidação."
+                    },
+                    "@type": "Legislation",
+                    "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par4_inc4",
+                    "legislationType": {
+                     "@type": "CategoryCode",
+                     "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:inciso"
+                    },
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par4_inc4"
+                   }
+                  ],
+                  "@type": "Legislation",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par4",
+                  "legislationType": {
+                   "@type": "CategoryCode",
+                   "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                  },
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par4"
+                 },
+                 {
+                  "workExample": {
+                   "legislationDate": "2015-03-16",
+                   "@type": "Legislation",
+                   "name": "§ 5º",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par5",
+                   "legislationType": "Original_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par5",
+                   "text": "Quando, conforme o caso, a condenação contra a Fazenda Pública ou o benefício econômico obtido pelo vencedor ou o valor da causa for superior ao valor previsto no inciso I do § 3º, a fixação do percentual de honorários deve observar a faixa inicial e, naquilo que a exceder, a faixa subsequente, e assim sucessivamente."
+                  },
+                  "@type": "Legislation",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par5",
+                  "legislationType": {
+                   "@type": "CategoryCode",
+                   "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                  },
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par5"
+                 },
+                 {
+                  "workExample": {
+                   "legislationDate": "2015-03-16",
+                   "@type": "Legislation",
+                   "name": "§ 6º",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par6",
+                   "legislationType": "Original_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par6",
+                   "text": "Os limites e critérios previstos nos §§ 2º e 3º aplicam-se independentemente de qual seja o conteúdo da decisão, inclusive aos casos de improcedência ou de sentença sem resolução de mérito."
+                  },
+                  "@type": "Legislation",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par6",
+                  "legislationType": {
+                   "@type": "CategoryCode",
+                   "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                  },
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par6"
+                 },
+                 {
+                  "workExample": {
+                   "additionalType": "Insertion",
+                   "legislationConsolidates": {
+                    "@type": "Legislation",
+                    "name": "Lei nº 14.365 de 02/06/2022",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2022-06-02;14365@2022-06-02!art3_cpt_alt1_art85_par6-1"
+                   },
+                   "legislationDate": "2022-06-02",
+                   "@type": "Legislation",
+                   "name": "§ 6º-A.",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2022-06-02!art85_par6-1,lei-14365-2022-06-02",
+                   "legislationType": "Insertion_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2022-06-02!art85_par6-1,lei-14365-2022-06-02",
+                   "text": "Quando o valor da condenação ou do proveito econômico obtido ou o valor atualizado da causa for líquido ou liquidável, para fins de fixação dos honorários advocatícios, nos termos dos §§ 2º e 3º, é proibida a apreciação equitativa, salvo nas hipóteses expressamente previstas no § 8º deste artigo."
+                  },
+                  "legislationDate": "2022-06-02",
+                  "@type": "Legislation",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par6-1,lei-14365-2022-06-02",
+                  "legislationType": {
+                   "@type": "CategoryCode",
+                   "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                  },
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par6-1,lei-14365-2022-06-02"
+                 },
+                 {
+                  "workExample": {
+                   "legislationDate": "2015-03-16",
+                   "@type": "Legislation",
+                   "name": "§ 7º",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par7",
+                   "legislationType": "Original_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par7",
+                   "text": "Não serão devidos honorários no cumprimento de sentença contra a Fazenda Pública que enseje expedição de precatório, desde que não tenha sido impugnada."
+                  },
+                  "@type": "Legislation",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par7",
+                  "legislationType": {
+                   "@type": "CategoryCode",
+                   "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                  },
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par7"
+                 },
+                 {
+                  "workExample": {
+                   "legislationDate": "2015-03-16",
+                   "@type": "Legislation",
+                   "name": "§ 8º",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par8",
+                   "legislationType": "Original_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par8",
+                   "text": "Nas causas em que for inestimável ou irrisório o proveito econômico ou, ainda, quando o valor da causa for muito baixo, o juiz fixará o valor dos honorários por apreciação equitativa, observando o disposto nos incisos do § 2º."
+                  },
+                  "@type": "Legislation",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par8",
+                  "legislationType": {
+                   "@type": "CategoryCode",
+                   "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                  },
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par8"
+                 },
+                 {
+                  "workExample": {
+                   "additionalType": "Insertion",
+                   "legislationConsolidates": {
+                    "@type": "Legislation",
+                    "name": "Lei nº 14.365 de 02/06/2022",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2022-06-02;14365@2022-06-02!art3_cpt_alt1_art85_par8-1"
+                   },
+                   "legislationDate": "2022-06-02",
+                   "@type": "Legislation",
+                   "name": "§ 8º-A.",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2022-06-02!art85_par8-1,lei-14365-2022-06-02",
+                   "legislationType": "Insertion_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2022-06-02!art85_par8-1,lei-14365-2022-06-02",
+                   "text": "Na hipótese do § 8º deste artigo, para fins de fixação equitativa de honorários sucumbenciais, o juiz deverá observar os valores recomendados pelo Conselho Seccional da Ordem dos Advogados do Brasil a título de honorários advocatícios ou o limite mínimo de 10% (dez por cento) estabelecido no § 2º deste artigo, aplicando-se o que for maior."
+                  },
+                  "legislationDate": "2022-06-02",
+                  "@type": "Legislation",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par8-1,lei-14365-2022-06-02",
+                  "legislationType": {
+                   "@type": "CategoryCode",
+                   "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                  },
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par8-1,lei-14365-2022-06-02"
+                 },
+                 {
+                  "workExample": {
+                   "legislationDate": "2015-03-16",
+                   "@type": "Legislation",
+                   "name": "§ 9º",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par9",
+                   "legislationType": "Original_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par9",
+                   "text": "Na ação de indenização por ato ilícito contra pessoa, o percentual de honorários incidirá sobre a soma das prestações vencidas acrescida de 12 (doze) prestações vincendas."
+                  },
+                  "@type": "Legislation",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par9",
+                  "legislationType": {
+                   "@type": "CategoryCode",
+                   "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                  },
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par9"
+                 },
+                 {
+                  "workExample": {
+                   "legislationDate": "2015-03-16",
+                   "@type": "Legislation",
+                   "name": "§ 10.",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par10",
+                   "legislationType": "Original_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par10",
+                   "text": "Nos casos de perda do objeto, os honorários serão devidos por quem deu causa ao processo."
+                  },
+                  "@type": "Legislation",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par10",
+                  "legislationType": {
+                   "@type": "CategoryCode",
+                   "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                  },
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par10"
+                 },
+                 {
+                  "workExample": {
+                   "legislationDate": "2015-03-16",
+                   "@type": "Legislation",
+                   "name": "§ 11.",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par11",
+                   "legislationType": "Original_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par11",
+                   "text": "O tribunal, ao julgar recurso, majorará os honorários fixados anteriormente levando em conta o trabalho adicional realizado em grau recursal, observando, conforme o caso, o disposto nos §§ 2º a 6º, sendo vedado ao tribunal, no cômputo geral da fixação de honorários devidos ao advogado do vencedor, ultrapassar os respectivos limites estabelecidos nos §§ 2º e 3º para a fase de conhecimento."
+                  },
+                  "@type": "Legislation",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par11",
+                  "legislationType": {
+                   "@type": "CategoryCode",
+                   "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                  },
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par11"
+                 },
+                 {
+                  "workExample": {
+                   "legislationDate": "2015-03-16",
+                   "@type": "Legislation",
+                   "name": "§ 12.",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par12",
+                   "legislationType": "Original_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par12",
+                   "text": "Os honorários referidos no § 11 são cumuláveis com multas e outras sanções processuais, inclusive as previstas no art. 77."
+                  },
+                  "@type": "Legislation",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par12",
+                  "legislationType": {
+                   "@type": "CategoryCode",
+                   "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                  },
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par12"
+                 },
+                 {
+                  "workExample": {
+                   "legislationDate": "2015-03-16",
+                   "@type": "Legislation",
+                   "name": "§ 13.",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par13",
+                   "legislationType": "Original_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par13",
+                   "text": "As verbas de sucumbência arbitradas em embargos à execução rejeitados ou julgados improcedentes e em fase de cumprimento de sentença serão acrescidas no valor do débito principal, para todos os efeitos legais."
+                  },
+                  "@type": "Legislation",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par13",
+                  "legislationType": {
+                   "@type": "CategoryCode",
+                   "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                  },
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par13"
+                 },
+                 {
+                  "workExample": {
+                   "legislationDate": "2015-03-16",
+                   "@type": "Legislation",
+                   "name": "§ 14.",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par14",
+                   "legislationType": "Original_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par14",
+                   "text": "Os honorários constituem direito do advogado e têm natureza alimentar, com os mesmos privilégios dos créditos oriundos da legislação do trabalho, sendo vedada a compensação em caso de sucumbência parcial."
+                  },
+                  "@type": "Legislation",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par14",
+                  "legislationType": {
+                   "@type": "CategoryCode",
+                   "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                  },
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par14"
+                 },
+                 {
+                  "workExample": {
+                   "legislationDate": "2015-03-16",
+                   "@type": "Legislation",
+                   "name": "§ 15.",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par15",
+                   "legislationType": "Original_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par15",
+                   "text": "O advogado pode requerer que o pagamento dos honorários que lhe caibam seja efetuado em favor da sociedade de advogados que integra na qualidade de sócio, aplicando-se à hipótese o disposto no § 14."
+                  },
+                  "@type": "Legislation",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par15",
+                  "legislationType": {
+                   "@type": "CategoryCode",
+                   "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                  },
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par15"
+                 },
+                 {
+                  "workExample": {
+                   "legislationDate": "2015-03-16",
+                   "@type": "Legislation",
+                   "name": "§ 16.",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par16",
+                   "legislationType": "Original_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par16",
+                   "text": "Quando os honorários forem fixados em quantia certa, os juros moratórios incidirão a partir da data do trânsito em julgado da decisão."
+                  },
+                  "@type": "Legislation",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par16",
+                  "legislationType": {
+                   "@type": "CategoryCode",
+                   "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                  },
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par16"
+                 },
+                 {
+                  "workExample": {
+                   "legislationDate": "2015-03-16",
+                   "@type": "Legislation",
+                   "name": "§ 17.",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par17",
+                   "legislationType": "Original_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par17",
+                   "text": "Os honorários serão devidos quando o advogado atuar em causa própria."
+                  },
+                  "@type": "Legislation",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par17",
+                  "legislationType": {
+                   "@type": "CategoryCode",
+                   "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                  },
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par17"
+                 },
+                 {
+                  "workExample": {
+                   "legislationDate": "2015-03-16",
+                   "@type": "Legislation",
+                   "name": "§ 18.",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par18",
+                   "legislationType": "Original_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par18",
+                   "text": "Caso a decisão transitada em julgado seja omissa quanto ao direito aos honorários ou ao seu valor, é cabível ação autônoma para sua definição e cobrança."
+                  },
+                  "@type": "Legislation",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par18",
+                  "legislationType": {
+                   "@type": "CategoryCode",
+                   "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                  },
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par18"
+                 },
+                 {
+                  "workExample": [
+                   {
+                    "temporalCoverage": "2015-03-16/2020-06-18",
+                    "legislationDate": "2015-03-16",
+                    "@type": "Legislation",
+                    "legislationLegalForce": "NotInForce",
+                    "name": "§ 19.",
+                    "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par19",
+                    "legislationType": "Original_Version",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art85_par19",
+                    "text": "Os advogados públicos perceberão honorários de sucumbência, nos termos da lei.",
+                    "@reverse": {
+                     "legislationCourtDecision": {
+                      "@type": "Legislation",
+                      "name": "Acórdão da Ação Direta de Inconstitucionalidade nº 6.053 de 19/06/2020",
+                      "@id": "https://normas.leg.br/?urn=urn:lex:br:supremo.tribunal.federal:acordao;adi:2020-06-19;6053"
+                     }
+                    }
+                   },
+                   {
+                    "additionalType": [
+                     "Court_Decision",
+                     "Declaração de Alteração Permanente",
+                     "Interpretação conforme a Constituição de"
+                    ],
+                    "legislationConsolidates": {
+                     "@type": "Legislation",
+                     "@id": "https://normas.leg.br/?urn=urn:lex:br:supremo.tribunal.federal:acordao;adi:2020-06-19;6053"
+                    },
+                    "legislationDate": "2020-06-19",
+                    "@type": "Legislation",
+                    "name": "§ 19.",
+                    "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2020-06-19!art85_par19",
+                    "legislationType": "Court_Decision_Version",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2020-06-19!art85_par19",
+                    "text": "Os advogados públicos perceberão honorários de sucumbência, nos termos da lei.",
+                    "publisherNote": "Foi conferida interpretação conforme a Constituição ao art. 85, § 19, de forma a estabelecer que a somatória dos subsídios e honorários de sucumbência percebidos mensalmente pelos advogados públicos não poderá exceder ao teto dos Ministros do Supremo Tribunal Federal, conforme o que dispõe o art. 37, XI, da Constituição Federal."
+                   }
+                  ],
+                  "@type": "Legislation",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par19",
+                  "legislationType": {
+                   "@type": "CategoryCode",
+                   "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                  },
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par19"
+                 },
+                 {
+                  "workExample": {
+                   "additionalType": "Insertion",
+                   "legislationConsolidates": {
+                    "@type": "Legislation",
+                    "name": "Lei nº 14.365 de 02/06/2022",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2022-06-02;14365@2022-06-02!art3_cpt_alt1_art85_par20"
+                   },
+                   "legislationDate": "2022-06-02",
+                   "@type": "Legislation",
+                   "name": "§ 20.",
+                   "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2022-06-02!art85_par20,lei-14365-2022-06-02",
+                   "legislationType": "Insertion_Version",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2022-06-02!art85_par20,lei-14365-2022-06-02",
+                   "text": "O disposto nos §§ 2º, 3º, 4º, 5º, 6º, 6º-A, 8º, 8º-A, 9º e 10 deste artigo aplica-se aos honorários fixados por arbitramento judicial."
+                  },
+                  "legislationDate": "2022-06-02",
+                  "@type": "Legislation",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85_par20,lei-14365-2022-06-02",
+                  "legislationType": {
+                   "@type": "CategoryCode",
+                   "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                  },
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85_par20,lei-14365-2022-06-02"
+                 }
+                ],
+                "@type": "Legislation",
+                "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art85",
+                "legislationType": {
+                 "@type": "CategoryCode",
+                 "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:artigo"
+                },
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art85"
+               }
+              ],
+              "@type": "Legislation",
+              "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!prt1_liv3_tit1_cap2_sec3",
+              "legislationType": {
+               "@type": "CategoryCode",
+               "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:secao"
+              },
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!prt1_liv3_tit1_cap2_sec3"
+             }
+            ],
+            "@type": "Legislation",
+            "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!prt1_liv3_tit1_cap2",
+            "legislationType": {
+             "@type": "CategoryCode",
+             "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:capitulo"
+            },
+            "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!prt1_liv3_tit1_cap2"
+           }
+          ],
+          "@type": "Legislation",
+          "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!prt1_liv3_tit1",
+          "legislationType": {
+           "@type": "CategoryCode",
+           "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:titulo"
+          },
+          "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!prt1_liv3_tit1"
+         }
+        ],
+        "@type": "Legislation",
+        "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!prt1_liv3",
+        "legislationType": {
+         "@type": "CategoryCode",
+         "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:livro"
+        },
+        "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!prt1_liv3"
+       }
+      ],
+      "@type": "Legislation",
+      "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!prt1",
+      "legislationType": {
+       "@type": "CategoryCode",
+       "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:parte"
+      },
+      "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!prt1"
+     },
+     {
+      "workExample": {
+       "legislationDate": "2015-03-16",
+       "@type": "Legislation",
+       "name": "PARTE ESPECIAL",
+       "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt2",
+       "legislationType": "Original_Version",
+       "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt2"
+      },
+      "hasPart": [
+       {
+        "workExample": {
+         "legislationDate": "2015-03-16",
+         "@type": "Legislation",
+         "name": "LIVRO I",
+         "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt2_liv1",
+         "legislationType": "Original_Version",
+         "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt2_liv1",
+         "text": "DO PROCESSO DE CONHECIMENTO E DO CUMPRIMENTO DE SENTENÇA"
+        },
+        "hasPart": [
+         {
+          "workExample": {
+           "legislationDate": "2015-03-16",
+           "@type": "Legislation",
+           "name": "TÍTULO III",
+           "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt2_liv1_tit3",
+           "legislationType": "Original_Version",
+           "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt2_liv1_tit3",
+           "text": "DOS PROCEDIMENTOS ESPECIAIS"
+          },
+          "hasPart": [
+           {
+            "workExample": {
+             "legislationDate": "2015-03-16",
+             "@type": "Legislation",
+             "name": "CAPÍTULO X",
+             "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt2_liv1_tit3_cap10",
+             "legislationType": "Original_Version",
+             "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt2_liv1_tit3_cap10",
+             "text": "DAS AÇÕES DE FAMÍLIA"
+            },
+            "hasPart": [
+             {
+              "workExample": {
+               "additionalType": "Insertion",
+               "legislationConsolidates": {
+                "@type": "Legislation",
+                "name": "Lei nº 14.713 de 30/10/2023",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2023-10-30;14713@2023-10-30!art2_cpt_alt1_art699-1"
+               },
+               "legislationDate": "2023-10-30",
+               "@type": "Legislation",
+               "name": "Art. 699-A.",
+               "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2023-10-30!art699-1,lei-14713-2023-10-30",
+               "legislationType": "Insertion_Version",
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2023-10-30!art699-1,lei-14713-2023-10-30"
+              },
+              "legislationDate": "2023-10-30",
+              "hasPart": {
+               "workExample": {
+                "additionalType": "Insertion",
+                "legislationConsolidates": {
+                 "@type": "Legislation",
+                 "name": "Lei nº 14.713 de 30/10/2023",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2023-10-30;14713@2023-10-30!art2_cpt_alt1_art699-1_cpt"
+                },
+                "legislationDate": "2023-10-30",
+                "@type": "Legislation",
+                "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2023-10-30!art699-1_cpt,lei-14713-2023-10-30",
+                "legislationType": "Insertion_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2023-10-30!art699-1_cpt,lei-14713-2023-10-30",
+                "text": "Nas ações de guarda, antes de iniciada a audiência de mediação e conciliação de que trata o art. 695 deste Código, o juiz indagará às partes e ao Ministério Público se há risco de violência doméstica ou familiar, fixando o prazo de 5 (cinco) dias para a apresentação de prova ou de indícios pertinentes."
+               },
+               "legislationDate": "2023-10-30",
+               "@type": "Legislation",
+               "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art699-1_cpt,lei-14713-2023-10-30",
+               "legislationType": {
+                "@type": "CategoryCode",
+                "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:caput"
+               },
+               "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art699-1_cpt,lei-14713-2023-10-30"
+              },
+              "@type": "Legislation",
+              "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art699-1,lei-14713-2023-10-30",
+              "legislationType": {
+               "@type": "CategoryCode",
+               "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:artigo"
+              },
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art699-1,lei-14713-2023-10-30"
+             }
+            ],
+            "@type": "Legislation",
+            "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!prt2_liv1_tit3_cap10",
+            "legislationType": {
+             "@type": "CategoryCode",
+             "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:capitulo"
+            },
+            "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!prt2_liv1_tit3_cap10"
+           }
+          ],
+          "@type": "Legislation",
+          "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!prt2_liv1_tit3",
+          "legislationType": {
+           "@type": "CategoryCode",
+           "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:titulo"
+          },
+          "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!prt2_liv1_tit3"
+         }
+        ],
+        "@type": "Legislation",
+        "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!prt2_liv1",
+        "legislationType": {
+         "@type": "CategoryCode",
+         "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:livro"
+        },
+        "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!prt2_liv1"
+       },
+       {
+        "workExample": {
+         "legislationDate": "2015-03-16",
+         "@type": "Legislation",
+         "name": "LIVRO III",
+         "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt2_liv3",
+         "legislationType": "Original_Version",
+         "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt2_liv3",
+         "text": "DOS PROCESSOS NOS TRIBUNAIS E DOS MEIOS DE IMPUGNAÇÃO DAS DECISÕES JUDICIAIS"
+        },
+        "hasPart": [
+         {
+          "workExample": {
+           "legislationDate": "2015-03-16",
+           "@type": "Legislation",
+           "name": "TÍTULO I",
+           "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt2_liv3_tit1",
+           "legislationType": "Original_Version",
+           "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt2_liv3_tit1",
+           "text": "DA ORDEM DOS PROCESSOS E DOS PROCESSOS DE COMPETÊNCIA ORIGINÁRIA DOS TRIBUNAIS"
+          },
+          "hasPart": [
+           {
+            "workExample": {
+             "legislationDate": "2015-03-16",
+             "@type": "Legislation",
+             "name": "CAPÍTULO II",
+             "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt2_liv3_tit1_cap2",
+             "legislationType": "Original_Version",
+             "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt2_liv3_tit1_cap2",
+             "text": "DA ORDEM DOS PROCESSOS NO TRIBUNAL"
+            },
+            "hasPart": [
+             {
+              "workExample": [
+               {
+                "temporalCoverage": "2015-03-16/2016-02-03",
+                "legislationDate": "2015-03-16",
+                "@type": "Legislation",
+                "legislationLegalForce": "NotInForce",
+                "name": "Art. 945.",
+                "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art945",
+                "legislationType": "Original_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art945",
+                "@reverse": {
+                 "legislationRepeals": {
+                  "@type": "Legislation",
+                  "name": "Lei nº 13.256 de 04/02/2016",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2016-02-04;13256@2016-02-04!art3_cpt_inc1_alt1_art945"
+                 }
+                }
+               },
+               {
+                "additionalType": "Repeal",
+                "legislationConsolidates": {
+                 "@type": "Legislation",
+                 "name": "Lei nº 13.256 de 04/02/2016",
+                 "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2016-02-04;13256@2016-02-04!art3_cpt_inc1_alt1_art945"
+                },
+                "legislationDate": "2016-02-04",
+                "@type": "Legislation",
+                "name": "Art. 945.",
+                "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2016-02-04!art945",
+                "legislationType": "Repeal_Version",
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2016-02-04!art945"
+               }
+              ],
+              "temporalCoverage": "2015-03-16/2016-02-04",
+              "hasPart": [
+               {
+                "workExample": [
+                 {
+                  "temporalCoverage": "2015-03-16/2016-02-03",
+                  "legislationDate": "2015-03-16",
+                  "@type": "Legislation",
+                  "legislationLegalForce": "NotInForce",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art945_cpt",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art945_cpt",
+                  "text": "A critério do órgão julgador, o julgamento dos recursos e dos processos de competência originária que não admitem sustentação oral poderá realizar-se por meio eletrônico.",
+                  "@reverse": {
+                   "legislationRepeals": {
+                    "@type": "Legislation",
+                    "name": "Lei nº 13.256 de 04/02/2016",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2016-02-04;13256@2016-02-04!art3_cpt_inc1_alt1_art945_cpt"
+                   }
+                  }
+                 },
+                 {
+                  "additionalType": "Repeal",
+                  "legislationConsolidates": {
+                   "@type": "Legislation",
+                   "name": "Lei nº 13.256 de 04/02/2016",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2016-02-04;13256@2016-02-04!art3_cpt_inc1_alt1_art945_cpt"
+                  },
+                  "legislationDate": "2016-02-04",
+                  "@type": "Legislation",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2016-02-04!art945_cpt",
+                  "legislationType": "Repeal_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2016-02-04!art945_cpt",
+                  "text": "(Revogado)"
+                 }
+                ],
+                "temporalCoverage": "2015-03-16/2016-02-04",
+                "@type": "Legislation",
+                "legislationLegalForce": "NotInForce",
+                "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art945_cpt",
+                "legislationType": {
+                 "@type": "CategoryCode",
+                 "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:caput"
+                },
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art945_cpt"
+               },
+               {
+                "workExample": [
+                 {
+                  "temporalCoverage": "2015-03-16/2016-02-03",
+                  "legislationDate": "2015-03-16",
+                  "@type": "Legislation",
+                  "legislationLegalForce": "NotInForce",
+                  "name": "§ 1º",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art945_par1",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art945_par1",
+                  "text": "O relator cientificará as partes, pelo Diário da Justiça, de que o julgamento se fará por meio eletrônico.",
+                  "@reverse": {
+                   "legislationRepeals": {
+                    "@type": "Legislation",
+                    "name": "Lei nº 13.256 de 04/02/2016",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2016-02-04;13256@2016-02-04!art3_cpt_inc1_alt1_art945_par1"
+                   }
+                  }
+                 },
+                 {
+                  "additionalType": "Repeal",
+                  "legislationConsolidates": {
+                   "@type": "Legislation",
+                   "name": "Lei nº 13.256 de 04/02/2016",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2016-02-04;13256@2016-02-04!art3_cpt_inc1_alt1_art945_par1"
+                  },
+                  "legislationDate": "2016-02-04",
+                  "@type": "Legislation",
+                  "name": "§ 1º",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2016-02-04!art945_par1",
+                  "legislationType": "Repeal_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2016-02-04!art945_par1",
+                  "text": "(Revogado)"
+                 }
+                ],
+                "temporalCoverage": "2015-03-16/2016-02-04",
+                "@type": "Legislation",
+                "legislationLegalForce": "NotInForce",
+                "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art945_par1",
+                "legislationType": {
+                 "@type": "CategoryCode",
+                 "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                },
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art945_par1"
+               },
+               {
+                "workExample": [
+                 {
+                  "temporalCoverage": "2015-03-16/2016-02-03",
+                  "legislationDate": "2015-03-16",
+                  "@type": "Legislation",
+                  "legislationLegalForce": "NotInForce",
+                  "name": "§ 2º",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art945_par2",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art945_par2",
+                  "text": "Qualquer das partes poderá, no prazo de 5 (cinco) dias, apresentar memoriais ou discordância do julgamento por meio eletrônico.",
+                  "@reverse": {
+                   "legislationRepeals": {
+                    "@type": "Legislation",
+                    "name": "Lei nº 13.256 de 04/02/2016",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2016-02-04;13256@2016-02-04!art3_cpt_inc1_alt1_art945_par2"
+                   }
+                  }
+                 },
+                 {
+                  "additionalType": "Repeal",
+                  "legislationConsolidates": {
+                   "@type": "Legislation",
+                   "name": "Lei nº 13.256 de 04/02/2016",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2016-02-04;13256@2016-02-04!art3_cpt_inc1_alt1_art945_par2"
+                  },
+                  "legislationDate": "2016-02-04",
+                  "@type": "Legislation",
+                  "name": "§ 2º",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2016-02-04!art945_par2",
+                  "legislationType": "Repeal_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2016-02-04!art945_par2",
+                  "text": "(Revogado)"
+                 }
+                ],
+                "temporalCoverage": "2015-03-16/2016-02-04",
+                "@type": "Legislation",
+                "legislationLegalForce": "NotInForce",
+                "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art945_par2",
+                "legislationType": {
+                 "@type": "CategoryCode",
+                 "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                },
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art945_par2"
+               },
+               {
+                "workExample": [
+                 {
+                  "temporalCoverage": "2015-03-16/2016-02-03",
+                  "legislationDate": "2015-03-16",
+                  "@type": "Legislation",
+                  "legislationLegalForce": "NotInForce",
+                  "name": "§ 3º",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art945_par3",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art945_par3",
+                  "text": "A discordância não necessita de motivação, sendo apta a determinar o julgamento em sessão presencial.",
+                  "@reverse": {
+                   "legislationRepeals": {
+                    "@type": "Legislation",
+                    "name": "Lei nº 13.256 de 04/02/2016",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2016-02-04;13256@2016-02-04!art3_cpt_inc1_alt1_art945_par3"
+                   }
+                  }
+                 },
+                 {
+                  "additionalType": "Repeal",
+                  "legislationConsolidates": {
+                   "@type": "Legislation",
+                   "name": "Lei nº 13.256 de 04/02/2016",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2016-02-04;13256@2016-02-04!art3_cpt_inc1_alt1_art945_par3"
+                  },
+                  "legislationDate": "2016-02-04",
+                  "@type": "Legislation",
+                  "name": "§ 3º",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2016-02-04!art945_par3",
+                  "legislationType": "Repeal_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2016-02-04!art945_par3",
+                  "text": "(Revogado)"
+                 }
+                ],
+                "temporalCoverage": "2015-03-16/2016-02-04",
+                "@type": "Legislation",
+                "legislationLegalForce": "NotInForce",
+                "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art945_par3",
+                "legislationType": {
+                 "@type": "CategoryCode",
+                 "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                },
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art945_par3"
+               },
+               {
+                "workExample": [
+                 {
+                  "temporalCoverage": "2015-03-16/2016-02-03",
+                  "legislationDate": "2015-03-16",
+                  "@type": "Legislation",
+                  "legislationLegalForce": "NotInForce",
+                  "name": "§ 4º",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art945_par4",
+                  "legislationType": "Original_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art945_par4",
+                  "text": "Caso surja alguma divergência entre os integrantes do órgão julgador durante o julgamento eletrônico, este ficará imediatamente suspenso, devendo a causa ser apreciada em sessão presencial.",
+                  "@reverse": {
+                   "legislationRepeals": {
+                    "@type": "Legislation",
+                    "name": "Lei nº 13.256 de 04/02/2016",
+                    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2016-02-04;13256@2016-02-04!art3_cpt_inc1_alt1_art945_par4"
+                   }
+                  }
+                 },
+                 {
+                  "additionalType": "Repeal",
+                  "legislationConsolidates": {
+                   "@type": "Legislation",
+                   "name": "Lei nº 13.256 de 04/02/2016",
+                   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2016-02-04;13256@2016-02-04!art3_cpt_inc1_alt1_art945_par4"
+                  },
+                  "legislationDate": "2016-02-04",
+                  "@type": "Legislation",
+                  "name": "§ 4º",
+                  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2016-02-04!art945_par4",
+                  "legislationType": "Repeal_Version",
+                  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2016-02-04!art945_par4",
+                  "text": "(Revogado)"
+                 }
+                ],
+                "temporalCoverage": "2015-03-16/2016-02-04",
+                "@type": "Legislation",
+                "legislationLegalForce": "NotInForce",
+                "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art945_par4",
+                "legislationType": {
+                 "@type": "CategoryCode",
+                 "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:paragrafo"
+                },
+                "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art945_par4"
+               }
+              ],
+              "@type": "Legislation",
+              "legislationLegalForce": "NotInForce",
+              "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art945",
+              "legislationType": {
+               "@type": "CategoryCode",
+               "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:artigo"
+              },
+              "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art945"
+             }
+            ],
+            "@type": "Legislation",
+            "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!prt2_liv3_tit1_cap2",
+            "legislationType": {
+             "@type": "CategoryCode",
+             "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:capitulo"
+            },
+            "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!prt2_liv3_tit1_cap2"
+           }
+          ],
+          "@type": "Legislation",
+          "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!prt2_liv3_tit1",
+          "legislationType": {
+           "@type": "CategoryCode",
+           "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:titulo"
+          },
+          "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!prt2_liv3_tit1"
+         }
+        ],
+        "@type": "Legislation",
+        "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!prt2_liv3",
+        "legislationType": {
+         "@type": "CategoryCode",
+         "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:livro"
+        },
+        "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!prt2_liv3"
+       },
+       {
+        "workExample": {
+         "legislationDate": "2015-03-16",
+         "@type": "Legislation",
+         "name": "LIVRO IV",
+         "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt2_liv4",
+         "legislationType": "Original_Version",
+         "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!prt2_liv4",
+         "text": "DISPOSIÇÕES FINAIS E TRANSITÓRIAS"
+        },
+        "hasPart": [
+         {
+          "workExample": {
+           "legislationDate": "2015-03-16",
+           "@type": "Legislation",
+           "name": "Art. 1.045.",
+           "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art1045",
+           "legislationType": "Original_Version",
+           "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art1045"
+          },
+          "hasPart": {
+           "workExample": {
+            "legislationDate": "2015-03-16",
+            "@type": "Legislation",
+            "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art1045_cpt",
+            "legislationType": "Original_Version",
+            "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105@2015-03-16!art1045_cpt",
+            "text": "Este Código entra em vigor após decorrido 1 (um) ano da data de sua publicação oficial."
+           },
+           "@type": "Legislation",
+           "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art1045_cpt",
+           "legislationType": {
+            "@type": "CategoryCode",
+            "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:caput"
+           },
+           "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art1045_cpt"
+          },
+          "@type": "Legislation",
+          "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!art1045",
+          "legislationType": {
+           "@type": "CategoryCode",
+           "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:artigo"
+          },
+          "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!art1045"
+         }
+        ],
+        "@type": "Legislation",
+        "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!prt2_liv4",
+        "legislationType": {
+         "@type": "CategoryCode",
+         "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:livro"
+        },
+        "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!prt2_liv4"
+       }
+      ],
+      "@type": "Legislation",
+      "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!prt2",
+      "legislationType": {
+       "@type": "CategoryCode",
+       "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:parte"
+      },
+      "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!prt2"
+     }
+    ],
+    "@type": "Legislation",
+    "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!articulacao",
+    "legislationType": {
+     "@type": "CategoryCode",
+     "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:articulacao"
+    },
+    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!articulacao"
+   }
+  ],
+  "@type": "Legislation",
+  "legislationIdentifier": "urn:lex:br:federal:lei:2015-03-16;13105!",
+  "legislationType": {
+   "@type": "CategoryCode",
+   "@id": "https://normas.leg.br/tipo-de-dispositivo/?urn=urn:lex:br:federal:tipo.dispositivo:componente.autonomo.articulado"
+  },
+  "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2015-03-16;13105!"
+ }
+}

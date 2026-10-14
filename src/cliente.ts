@@ -128,7 +128,7 @@ const INTERVALO_POR_HOST: Record<string, number> = { [HOST_FALCAO]: 1_000 };
  */
 const ORCAMENTO_DE_FONTE_SEM_RESTANTE: ConfigOrcamento = { chamadas: 30, largurasMs: [5 * 60_000, 10 * 60_000, 20 * 60_000, 30 * 60_000] };
 /** Falcão (serviço "jt"): teto diário do Garimpo, por dia civil de Brasília (G-01, DQ-01); número inicial conservador, sem prova. */
-const TETO_DIARIO_DO_FALCAO = 50;
+export const TETO_DIARIO_DO_FALCAO = 50;
 const ORCAMENTO_POR_SERVICO: Record<string, ConfigOrcamento> = {
   jt: { chamadas: TETO_DIARIO_DO_FALCAO, largurasMs: [], diario: true },
   "stf-precedentes": ORCAMENTO_DE_FONTE_SEM_RESTANTE,

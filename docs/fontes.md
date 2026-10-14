@@ -313,3 +313,72 @@ seguem «ainda não testou». Provas registradas em 14/10/2026 (STJ em 13/10/202
 - **STF:** `redir.stf.jus.br` respondeu 202 de WAF à leitura do `robots.txt`.
 
 TRF2 e TRF6 não constam da tabela de tribunais do Garimpo; não foram tratados.
+
+## Falcão: decisões monocráticas e sentenças dos TRTs (I-29 / G-38)
+
+- **Rota:** a mesma do Falcão, `GET /jurisprudencia-nacional-backend/api/no-auth/pesquisa` com `colecao=decisoesmonocraticas`
+  ou `colecao=sentencas` (nomes de coleção conhecidos pela literatura e confirmados ao vivo). Termos de uso e regras de
+  acesso: [`fonte-falcao.md`](fonte-falcao.md). Só na `busca_direta` de um TRT, pela opção `decisoes`
+  (`monocraticas` ou `sentencas`); sem a opção nada muda.
+- **Prova PV-I29 (2026-10-14, 2 chamadas, pelo Cliente do Falcão, TRT2, texto genérico, página 0, `size=10`):** as duas HTTP 200,
+  `x-rate-limit-remaining: 39`, `quantidadeTotal` 10000 nas duas, 10 documentos cada, sem 429. Campos observados:
+  - **monocráticas** (373.806 bytes): `idDocumento`, `numeroProcesso`, `siglaClasseProcesso`, `classeProcesso`,
+    `orgaoJulgador`, `idOrgaoJulgador`, `nomeRedator`, `tipoDocumento` ("Decisão"), `origemDocumento` (nos 10:
+    `DECISAO_MONOCRATICA_2GRAU`), `tribunal`, `dataJuntada` (`dd/mm/aaaa`; **sem** `dataJulgamento`), `conteudoDocumento`
+    (HTML com CSS), `textoDocumentoAnonim`, `highlight*`, `prioridades`, `score`. Sem `ementa` nem `relator`.
+  - **sentenças** (931.907 bytes): `idSentenca`, `numeroProcesso`, `classeProcessual` (sigla), `classeProcessualPorExtenso`,
+    `orgaoJulgador` (código numérico), `orgaoJulgadorPorExtenso` (vara), `nomeRelator` (vazio), `nomeRedator`,
+    `tipoDocumento` ("Sentença"), `tribunal`, `dataJulgamento`, `dataJuntada`, `faseProcessual`, `textoSentenca`,
+    `highlightSentenca`, `highlightSentencaAnonimizado`, `prioridades`, `score`.
+- **O que o Garimpo devolve:** só metadados da 1ª página (até 10, respeitando o `limite` pedido): tipo, id `tribunal:coleção:id`, número (CNJ com a sigla
+  da classe), classe, órgão, redator, `dataJuntada` e, na sentença, `dataJulgamento`. **Nunca o texto**: o campo "anonimizado"
+  da sentença trazia nome de parte na prova (o nome da pessoa jurídica aparecia no começo do texto), então não é seguro
+  como trecho. A decisão monocrática e a sentença não são acórdão (julgamento colegiado) nem precedente do art. 927 do CPC:
+  não recebem `enquadramento927` e a resposta diz isso em `ressalvaDecisoes` e em cada item (`natureza`).
+- **Freios:** uma chamada por busca, a mesma de qualquer busca do Falcão (UA de navegador, 1 s, freio preventivo, teto
+  diário de 50). Sem busca guardada: repetir chama o Falcão de novo. Os filtros (`de`, `ate`, `relator`, `orgao`, `classe`),
+  `somenteEmentas`, `ordenacao` e `precedentes` **não foram verificados** nessas coleções e são recusados com a opção.
+- **Não verificado:** cobertura por TRT; frescor; outros TRTs além do TRT2 (o TST não tem sentenças); a coleção
+  `recursorevista`; se o texto dessas decisões vem anonimizado de fato; rota de leitura do texto por id.
+
+## Legislação: `normas.leg.br` (D-12 / I-43, ADR-0026)
+
+Usada por `texto_de_lei`: o texto literal de um dispositivo de lei, sem afirmar vigência.
+
+- **Verificado em:** 2026-10-14 (13:09–13:14 UTC), UA honesto do Garimpo, uma chamada por vez.
+- **`https://normas.leg.br/robots.txt`:** 200 `text/plain`, 25 bytes: `User-agent: *` / `Allow: /`.
+- **Licença e termos:** a resposta da norma declara `license` e `sdLicense` = https://creativecommons.org/licenses/by/4.0/
+  (CC BY 4.0: citar a fonte). A política de uso do portal do Senado
+  (https://www12.senado.leg.br/institucional/documentos/politica-de-uso-do-portal-do-senado-federal, lida em 2026-10-14;
+  `www12.senado.leg.br/robots.txt`: `User-agent: *` / `Disallow:` vazio) diz, literal: "Todo o conteúdo deste Portal é de
+  propriedade autoral do Senado Federal, mas pode ser utilizado pelos usuários, desde que seja citada a fonte e para fins
+  lícitos." e "O cidadão só tem o direito de acessar o conteúdo que é disponibilizado ao público em geral no Portal."
+- **Rota:** `GET https://normas.leg.br/api/public/normas?urn=urn:lex:br:federal:lei:2015-03-16;13105&&tipo_documento=maior-detalhe`
+  (a forma que o site monta; não é API documentada). 200 `application/json`, 4,1 MB para o CPC. Pedir um dispositivo
+  pela URN (`...!art186`) devolve só `{"urn": ...}` — por isso a consulta é sempre da norma inteira.
+- **Formato (JSON-LD):** raiz com `headline`, `dateModified` (CPC: 2025-03-13), `sdDatePublished` (2026-04-08) e `hasPart`
+  aninhado; cada dispositivo tem `legislationIdentifier` (`...!art85_par2_inc1`) e `workExample` (um objeto ou uma lista
+  de redações com `legislationDate`, `legislationType` — Original_Version, Text_Change_Version, Insertion_Version,
+  Repeal_Version, Court_Decision_Version —, `text`, `legislationConsolidates`, `publisherNote`, `temporalCoverage` e
+  `legislationLegalForce`, ex. `NotInForce`). Revogado: a redação com `Repeal_Version` traz o texto "(Revogado)" e a
+  redação anterior fica na lista. O Garimpo mostra essas marcas **como a fonte as dá**, sem concluir vigência.
+- **Provado ao vivo (PV-20):** CPC art. 85 (caput, §§, incisos), art. 12 (alterado), art. 945 (revogado), art. 85 § 19
+  (decisão judicial anotada). Provas sem sucesso, registradas: `www.planalto.gov.br/robots.txt` → conexão derrubada
+  (reset) ao UA honesto; `legis.senado.leg.br/robots.txt` → 403 "Request forbidden by administrative rules". Nenhum dos
+  dois é usado.
+- **Freios:** serviço `normas.leg.br` no disjuntor (o host), 1 s entre chamadas, 2 vagas somadas, 429/503 pela regra
+  geral. **Guarda:** por 24 h na memória, só o dispositivo reduzido, com a data da obtenção original.
+- **Ampliação (2026-10-14, I-43/D-12), uma chamada por diploma, URN do documento inteiro, 200 application/json, cliente
+  único com freios e UA honesto:**
+  `.../normas?urn=urn:lex:br:federal:lei:2002-01-10;10406&&tipo_documento=maior-detalhe` (CC, 5,3 MB, `dateModified`
+  2024-06-28): provados art. 186 (redação original com `NotInForce` 2002-01-10/2024-05-21 e redações da ADI 7.055 com a
+  nota "Foi conferida interpretação conforme a Constituição ao caput dos arts. 186 e 927...") e art. 229 (`Repeal_Version`
+  "(Revogado)" pela Lei 13.105/2015);
+  `.../normas?urn=urn:lex:br:federal:constituicao:1988-10-05;1988&&tipo_documento=maior-detalhe` (CF, 4,7 MB,
+  `dateModified` 2026-05-05): provado art. 5º, caput, literal. Siglas: `CC`, `CF`.
+  `.../normas?urn=urn:lex:br:federal:lei:1990-09-11;8078&&tipo_documento=maior-detalhe` (CDC): 200 com 8 KB, só
+  metadados (sem `hasPart` nem texto) — **não provado, fora da lista**; com o teto de 3 chamadas não houve nova
+  tentativa. Alguns textos trazem marcação da fonte embutida (ex.: `<span ... xlink:href=...>Constituição</span>` em CF
+  art. 5º, I), repassada como veio.
+- **Não verificado:** CDC e demais diplomas (cada um pede uma prova ao vivo curta e uma linha na tabela); atualidade da
+  compilação (a fonte informa `dateModified`; CPC 2025-03-13, CC 2024-06-28, CF 2026-05-05).
