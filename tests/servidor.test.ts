@@ -2246,12 +2246,16 @@ describe("roteiro de pesquisa (prompt pesquisar_tese e instructions do servidor)
     "O Garimpo pesquisa jurisprudência brasileira em base não oficial e baixa o inteiro teor oficial quando " +
     "disponível; use busca_ampla com 3 a 6 formulações, obter_ementa dos acórdãos que apresentar (até 10), " +
     "obter_inteiro_teor dos que citar (até 3, salvo pedido do usuário) e ler_inteiro_teor por partes, conferindo toda " +
-    "citação literal com conferir_citacao antes de entregá-la. Nunca afirme jurisprudência sem fonte devolvida pelas " +
+    "citação literal com conferir_citacao antes de entregá-la; formule a busca com a tese em abstrato, sem nome de " +
+    "parte nem dado do caso. Nunca afirme jurisprudência sem fonte devolvida pelas " +
     "ferramentas nem complete lacunas de memória: indique o que não foi verificado; diante de recusa ou rede parada, " +
     "cesse novas chamadas e avise, podendo continuar a consulta local. O roteiro completo está no prompt " +
     "pesquisar_tese. Ao ler um acórdão, comece pela certidão de julgamento e separe admissibilidade, ratio do voto " +
     "condutor, votos divergentes, tese, dispositivo e o que veio depois (julgamentos_do_processo); o que as " +
     "ferramentas não mostrarem é \"não verificado\".";
+
+  /** Frase de privacidade aprovada em D-14 (2026-10-13), literal; deve estar nas instructions e no roteiro. */
+  const FRASE_DE_PRIVACIDADE = "formule a busca com a tese em abstrato, sem nome de parte nem dado do caso";
 
   /** Padrões de afirmação de jurisprudência (ADR-0014): trava parcial, a leitura humana continua obrigatória. */
   const AFIRMA_JURISPRUDENCIA = [
@@ -2271,6 +2275,16 @@ describe("roteiro de pesquisa (prompt pesquisar_tese e instructions do servidor)
   it("as instructions da inicialização trazem o texto exato aprovado", async () => {
     const mcp = await conectar(siteFalso([]));
     expect(mcp.getInstructions()).toBe(INSTRUCTIONS_APROVADAS);
+  });
+
+  it("a frase de privacidade aprovada em D-14 aparece literal nas instructions e na orientação inicial do roteiro", async () => {
+    const mcp = await conectar(siteFalso([]));
+    const texto = await roteiro(mcp, { tese: "instituto jurídico X" });
+
+    expect(mcp.getInstructions()).toContain(FRASE_DE_PRIVACIDADE);
+    expect(texto).toContain(FRASE_DE_PRIVACIDADE);
+    // A frase entra no passo 1 (formulação), antes de qualquer busca.
+    expect(texto.indexOf(FRASE_DE_PRIVACIDADE)).toBeLessThan(texto.indexOf("2. Rode a busca_ampla"));
   });
 
   it("o prompt aparece na lista como Pesquisar tese, com tese obrigatória e tribunais opcional", async () => {

@@ -39,3 +39,12 @@ promessas sobre ferramentas que vieram da adaptação do agente, não do método
 só informa a seção no PDF quando reconhece o título; no texto integral de TRT ou sem seção identificada, a atribuição
 se confere pelo contexto da leitura, senão "não verificado". Na letra h, o obter_ementa só dá a ementa dos embargos;
 o acórdão deles se lê pelo obter_inteiro_teor e ler_inteiro_teor, nos limites do passo 7, senão "não verificado".
+
+## Emenda de 2026-10-13: frase de privacidade (D-14 / G-85)
+
+O dono, por delegação ao Sol (decisão D-14, 2026-10-13), aprovou a frase literal "formule a busca com a tese em
+abstrato, sem nome de parte nem dado do caso". Ela entrou nas `instructions` (depois da frase da conferência de
+citação) e no passo 1 do `pesquisar_tese`, em revisão mínima própria: nenhuma outra alteração do texto congelado,
+e as demais mudanças do roteiro continuam reservadas à revisão única de D-15. O teste de igualdade das
+`instructions` e um teste de substring exata (nas duas peças) foram atualizados no mesmo conjunto; os padrões de
+afirmação de jurisprudência seguem passando. É orientação ao cliente de IA, não garantia técnica de anonimização.
