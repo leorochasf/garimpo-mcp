@@ -1,12 +1,15 @@
 import { readFileSync } from "node:fs";
 import { mkdtemp } from "node:fs/promises";
 import { join } from "node:path";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { describe, expect, it } from "vitest";
 import { buscaDireta, lerBuscaGuardada } from "../src/busca.js";
 import { FormatoInesperadoError, USER_AGENT } from "../src/cliente.js";
 import { obterInteiroTeor } from "../src/inteiroTeor.js";
 import { lerTextoIntegral } from "../src/leitura.js";
 import { Memoria } from "../src/memoria.js";
+import { criarServidor } from "../src/servidor.js";
 import { infoTribunal, SIGLAS } from "../src/tribunais.js";
 import { lerResultadosDoTrf4 } from "../src/trf4.js";
 import { clienteFalso } from "./apoio.js";
@@ -37,6 +40,27 @@ const comTotal = (total: string | undefined) =>
     : RESULTADOS.replace('value="2"', `value="${total}"`);
 
 describe("TRF4 — busca oficial do e-Proc (D-07 / G-31): o que o usuário vê na lista", () => {
+  it("tools/list informa a fonte e as limitações do TRF4 nas duas buscas", async () => {
+    const [ladoCliente, ladoServidor] = InMemoryTransport.createLinkedPair();
+    const servidor = criarServidor(clienteFalso([]).cliente);
+    const mcp = new Client({ name: "teste-trf4", version: "0" });
+    await servidor.connect(ladoServidor);
+    await mcp.connect(ladoCliente);
+    try {
+      const { tools } = await mcp.listTools();
+      for (const nome of ["busca_direta", "busca_ampla"]) {
+        const t = tools.find((t) => t.name === nome)!;
+        expect(t.description).toMatch(/TRF4.*e-Proc/);
+        expect(t.description).toMatch(/10 acórdãos/);
+        expect(t.description).toMatch(/TRF4.*filtros.*recusados/);
+        expect(t.description).toMatch(/precedentes qualificados do TRF4 não são pesquisados/);
+      }
+    } finally {
+      await mcp.close();
+      await servidor.close();
+    }
+  });
+
   it("regressão: cada processo recebe o id e o link do seu próprio card, nunca do vizinho", () => {
     const { acordaos } = lerResultadosDoTrf4(RESULTADOS);
     expect(acordaos.map((a) => [a.numeroCnj, a.id])).toEqual([

@@ -251,6 +251,13 @@ const AVISO_TRF4 =
   "Resultado obtido da busca oficial do e-Proc do TRF4 por cliente não oficial (Garimpo); o texto do acórdão é o do " +
   "portal do tribunal, não o PDF oficial; confira no portal do tribunal antes de citar.";
 
+const SOBRE_A_BUSCA_TRF4 =
+  "TRF4 vem da busca oficial do e-Proc do tribunal: só acórdãos, pesquisa nas ementas, uma página de até 10 acórdãos " +
+  "por formulação, na ordem do portal; limite acima de 10 vale 10 com aviso. No TRF4, filtros de, ate, relator, orgao " +
+  "e classe, somenteEmentas:true, precedentes:true e ordenacao diferente de relevancia são recusados; precedentes qualificados " +
+  "do TRF4 não são pesquisados (lista vazia por isso). O inteiro teor é trazido por obter_inteiro_teor como texto do " +
+  "portal do tribunal, sem PDF nem recibo, para ler e conferir pelo id. ";
+
 /**
  * O aviso das fontes usadas, pelos tribunais: só JurisprudênciaIA, só Falcão, só e-Proc do TRF4, ou mais de uma, cada
  * uma com o seu (a oficialidade de uma fonte não se estende às outras).
@@ -469,6 +476,7 @@ export function criarServidor(
         'coleção "precedentes" do Falcão (IRDR, IAC, súmulas), com o tipo e a situação que a fonte informa (ou "não ' +
         'verificado"), sem inciso do art. 927 e sem afirmar vigência; sem a opção a lista vem vazia, por isso, não por ' +
         "falta de precedente. " +
+        SOBRE_A_BUSCA_TRF4 +
         `${SOBRE_A_TABELA_NAS_LISTAS} ` +
         `${SOBRE_A_BUSCA_GUARDADA} A busca guardada traz o campo buscaGuardada com essa data. ` +
         SOBRE_O_RECORRIDO,
@@ -540,6 +548,7 @@ export function criarServidor(
         "executa as que faltam. Com TRT, cada acórdão traz a fonte (rótulos em fontes) e o aviso cita as duas fontes; " +
         "os filtros de, ate, relator, orgao e classe valem também com TRT (de e ate = data de juntada nos TRTs, " +
         "julgamento nas demais fontes; classe só por sigla). " +
+        SOBRE_A_BUSCA_TRF4 +
         `${SOBRE_O_RECORRIDO}`,
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
       inputSchema: {
