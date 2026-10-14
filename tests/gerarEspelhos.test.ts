@@ -486,6 +486,12 @@ describe("baixarConjuntos", () => {
   it("não aceita cache dentro do repositório", async () => {
     await expect(baixarConjuntos(portal(ACERVO).cliente, join(process.cwd(), "cache-dentro"), { orgaos: DOIS })).rejects.toThrow(/fora do repositório/);
   });
+
+  it("não confunde uma pasta interna cujo nome começa por dois pontos com a pasta pai", async () => {
+    const cache = join(process.cwd(), "..cache-espelhos-teste");
+    pastas.push(cache);
+    await expect(baixarConjuntos(portal(ACERVO).cliente, cache, { orgaos: DOIS })).rejects.toThrow(/fora do repositório/);
+  });
 });
 
 // ——— Rodada inteira: baixar, ler (ZIP e JSON), montar e gravar ———

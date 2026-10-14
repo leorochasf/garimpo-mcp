@@ -15,7 +15,7 @@
 import { createHash } from "node:crypto";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 import { Cliente, type OpcoesCliente } from "../src/cliente.js";
@@ -429,7 +429,7 @@ export async function baixarConjuntos(
   { orgaos = ORGAOS, agora = Date.now, registrar = () => {} }: OpcoesDeDownload = {},
 ): Promise<{ fichas: Ficha[]; arquivos: ArquivoNoCache[] }> {
   const relativo = relative(RAIZ_DO_REPOSITORIO, resolve(cache));
-  if (!relativo.startsWith("..") && !isAbsolute(relativo)) {
+  if (relativo !== ".." && !relativo.startsWith(`..${sep}`) && !isAbsolute(relativo)) {
     throw new ParadaDoGerador(`O cache de downloads precisa ficar fora do repositório (${resolve(cache)}).`);
   }
   mkdirSync(cache, { recursive: true });
