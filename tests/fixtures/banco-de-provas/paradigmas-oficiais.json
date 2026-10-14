@@ -1,13 +1,43 @@
 {
  "_leia": "OBRIGATÓRIOS OFICIAIS da régua (ticket 21): o processo paradigma de cada tema, copiado da tabela OFICIAL (STJ: precedentes qualificados; STF: repercussão geral). Campo oficial independente: NÃO é marcação de IA nem do dono, e NÃO se mistura com os 33 obrigatórios mecânicos provisórios de regua.json. Entram os paradigmas que a rodada de 2026-10-10 achou no topo (1–10) da busca pela tese; ficam de fora, anotados, os 3 'não indexados' e o 'fora do topo'. Só números públicos de paradigma; nenhum dado de partes. Mede cobertura de UM item por tema, nunca precisão; a busca pelo texto da tese infla o acerto. Decisão do piloto, em 2026-10-10, na recomendação sobre o ticket 21, sobre a rodada de 2026-10-10 (docs/banco-de-provas/rodada-paradigmas-e-versao-leiga.md); o dono ainda não revisou estes paradigmas.",
+ "_d02": "D-02 (2026-10-13): os 20 são OBRIGATÓRIOS PROVISÓRIOS DE RECUPERAÇÃO de item conhecido (o paradigma oficial do tema aparece na busca pela tese do tema?). NÃO são gabarito de relevância: nenhum processo é tido por relevante só por ter o mesmo número, a tese correspondente é a do próprio tema na tabela oficial, e precisão ou relevância só se medem com rótulos próprios (pré-marcação por IA ou do dono). Os 33 obrigatórios mecânicos de regua.json continuam provisórios e separados. Três situações, nunca misturadas: 'não indexado na fonte' (o site não tem o acórdão; só se afirma com verificação, a rodada de 2026-10-10 deixou 3 como inferência não verificada), 'não recuperado' (a busca não devolveu o paradigma) e 'recuperado fora do topo-N' (devolveu, depois da posição N). N = 'topo', fixado ANTES de qualquer comparação nova.",
  "origem": "rodada de gravação de 2026-10-10 (ticket 21), 78 chamadas, semente 20261010; posições vêm das gravações cruas (fora do git)",
  "topo": 10,
+ "topoFixadoEm": "2026-10-14",
+ "fotografiaDasTabelas": {
+  "stj": {
+   "fonte": "Precedentes qualificados",
+   "atualizacaoDaFonte": "Última Atualização outubro 8, 2026, 17:25 (UTC)",
+   "geradaEm": "2026-10-09T12:31:47.509Z",
+   "arquivoTemas": {
+    "coletadoEm": "2026-10-09T12:31:44.288Z",
+    "sha256": "98f1506ec8f02c4e849e968c9550268a947e32e2e7a10f188385add5cf31fd16"
+   }
+  },
+  "stf": {
+   "fonte": "portal do STF, exportação Todos os temas (repercussão geral)",
+   "geradaEm": "2026-10-10T02:22:42.413Z",
+   "arquivo": {
+    "obtidoEm": "2026-10-10T02:18:35.577Z",
+    "sha256": "36cf680c254d0875e91e04149c50c956ca461d4eb7cfc30dde94365e1660a9a9"
+   }
+  }
+ },
  "obrigatoriosOficiais": [
   {
    "tribunal": "stf",
    "tipo": "repercussão geral",
    "numero": 364,
    "paradigma": "RE 607886",
+   "acordao": {
+    "classe": "RE",
+    "numero": 607886
+   },
+   "tabela": {
+    "situacao": "Trânsito em Julgado",
+    "dataJulgamento": "18/02/2011",
+    "teseSha256": "a4a57d9cce293b17"
+   },
    "posicaoNaRodada": 1
   },
   {
@@ -15,6 +45,15 @@
    "tipo": "repercussão geral",
    "numero": 365,
    "paradigma": "RE 580252",
+   "acordao": {
+    "classe": "RE",
+    "numero": 580252
+   },
+   "tabela": {
+    "situacao": "Trânsito em Julgado",
+    "dataJulgamento": "18/02/2011",
+    "teseSha256": "d590bb81995f5fc5"
+   },
    "posicaoNaRodada": 1
   },
   {
@@ -22,6 +61,15 @@
    "tipo": "repercussão geral",
    "numero": 475,
    "paradigma": "RE 754917",
+   "acordao": {
+    "classe": "RE",
+    "numero": 754917
+   },
+   "tabela": {
+    "situacao": "Trânsito em Julgado",
+    "dataJulgamento": "11/06/2013",
+    "teseSha256": "480b1ed757402610"
+   },
    "posicaoNaRodada": 2
   },
   {
@@ -29,6 +77,15 @@
    "tipo": "repercussão geral",
    "numero": 512,
    "paradigma": "RE 662405",
+   "acordao": {
+    "classe": "RE",
+    "numero": 662405
+   },
+   "tabela": {
+    "situacao": "Trânsito em Julgado",
+    "dataJulgamento": "16/12/2011",
+    "teseSha256": "2d4ed4d4fb6749b5"
+   },
    "posicaoNaRodada": 1
   },
   {
@@ -36,6 +93,15 @@
    "tipo": "repercussão geral",
    "numero": 540,
    "paradigma": "RE 704292",
+   "acordao": {
+    "classe": "RE",
+    "numero": 704292
+   },
+   "tabela": {
+    "situacao": "Trânsito em Julgado",
+    "dataJulgamento": "20/08/2014",
+    "teseSha256": "238020b64c6f52b2"
+   },
    "posicaoNaRodada": 3
   },
   {
@@ -43,6 +109,15 @@
    "tipo": "repercussão geral",
    "numero": 864,
    "paradigma": "RE 905357",
+   "acordao": {
+    "classe": "RE",
+    "numero": 905357
+   },
+   "tabela": {
+    "situacao": "Trânsito em Julgado",
+    "dataJulgamento": "30/10/2015",
+    "teseSha256": "752cb4988012970b"
+   },
    "posicaoNaRodada": 1
   },
   {
@@ -50,6 +125,15 @@
    "tipo": "repercussão geral",
    "numero": 874,
    "paradigma": "RE 917285",
+   "acordao": {
+    "classe": "RE",
+    "numero": 917285
+   },
+   "tabela": {
+    "situacao": "Trânsito em Julgado",
+    "dataJulgamento": "18/12/2015",
+    "teseSha256": "1181e2f6fdcee166"
+   },
    "posicaoNaRodada": 1
   },
   {
@@ -57,6 +141,15 @@
    "tipo": "repercussão geral",
    "numero": 939,
    "paradigma": "RE 1043313",
+   "acordao": {
+    "classe": "RE",
+    "numero": 1043313
+   },
+   "tabela": {
+    "situacao": "Trânsito em Julgado",
+    "dataJulgamento": "28/08/2017",
+    "teseSha256": "c78cde7923e2190b"
+   },
    "posicaoNaRodada": 2
   },
   {
@@ -64,6 +157,15 @@
    "tipo": "repercussão geral",
    "numero": 994,
    "paradigma": "RE 1089282",
+   "acordao": {
+    "classe": "RE",
+    "numero": 1089282
+   },
+   "tabela": {
+    "situacao": "Trânsito em Julgado",
+    "dataJulgamento": "11/05/2018",
+    "teseSha256": "70ffd0657cb51f47"
+   },
    "posicaoNaRodada": 1
   },
   {
@@ -71,6 +173,15 @@
    "tipo": "repercussão geral",
    "numero": 1184,
    "paradigma": "RE 1355208",
+   "acordao": {
+    "classe": "RE",
+    "numero": 1355208
+   },
+   "tabela": {
+    "situacao": "Trânsito em Julgado",
+    "dataJulgamento": "26/11/2021",
+    "teseSha256": "296a7996765a1ec5"
+   },
    "posicaoNaRodada": 2
   },
   {
@@ -78,6 +189,15 @@
    "tipo": "repercussão geral",
    "numero": 1253,
    "paradigma": "RE 1163774",
+   "acordao": {
+    "classe": "RE",
+    "numero": 1163774
+   },
+   "tabela": {
+    "situacao": "Acórdão de mérito publicado",
+    "dataJulgamento": "03/06/2023",
+    "teseSha256": "de7659d511eb3cf2"
+   },
    "posicaoNaRodada": 1
   },
   {
@@ -85,6 +205,15 @@
    "tipo": "tema repetitivo",
    "numero": 172,
    "paradigma": "REsp 1111159",
+   "acordao": {
+    "classe": "REsp",
+    "numero": 1111159
+   },
+   "tabela": {
+    "situacao": "Trânsito em Julgado",
+    "dataJulgamento": "2009-11-11",
+    "teseSha256": "50fb96140f635f8d"
+   },
    "posicaoNaRodada": 4
   },
   {
@@ -92,6 +221,15 @@
    "tipo": "tema repetitivo",
    "numero": 400,
    "paradigma": "REsp 1143320",
+   "acordao": {
+    "classe": "REsp",
+    "numero": 1143320
+   },
+   "tabela": {
+    "situacao": "Trânsito em Julgado",
+    "dataJulgamento": "2010-05-12",
+    "teseSha256": "086a8b0d4669b100"
+   },
    "posicaoNaRodada": 1
   },
   {
@@ -99,6 +237,15 @@
    "tipo": "tema repetitivo",
    "numero": 506,
    "paradigma": "REsp 1252412",
+   "acordao": {
+    "classe": "REsp",
+    "numero": 1252412
+   },
+   "tabela": {
+    "situacao": "Trânsito em Julgado",
+    "dataJulgamento": "2013-11-06",
+    "teseSha256": "d4f683e93feaa102"
+   },
    "posicaoNaRodada": 4
   },
   {
@@ -106,6 +253,15 @@
    "tipo": "tema repetitivo",
    "numero": 574,
    "paradigma": "REsp 1220934",
+   "acordao": {
+    "classe": "REsp",
+    "numero": 1220934
+   },
+   "tabela": {
+    "situacao": "Trânsito em Julgado",
+    "dataJulgamento": "2013-04-24",
+    "teseSha256": "2aa1e7b6ab1702db"
+   },
    "posicaoNaRodada": 1
   },
   {
@@ -113,6 +269,15 @@
    "tipo": "tema repetitivo",
    "numero": 938,
    "paradigma": "REsp 1551956",
+   "acordao": {
+    "classe": "REsp",
+    "numero": 1551956
+   },
+   "tabela": {
+    "situacao": "Trânsito em Julgado",
+    "dataJulgamento": "2016-08-24",
+    "teseSha256": "28747b44862980ef"
+   },
    "posicaoNaRodada": 1
   },
   {
@@ -120,6 +285,15 @@
    "tipo": "tema repetitivo",
    "numero": 1018,
    "paradigma": "REsp 1767789",
+   "acordao": {
+    "classe": "REsp",
+    "numero": 1767789
+   },
+   "tabela": {
+    "situacao": "Trânsito em Julgado",
+    "dataJulgamento": "2022-06-08",
+    "teseSha256": "3eb6b007505fd78c"
+   },
    "posicaoNaRodada": 4
   },
   {
@@ -127,6 +301,15 @@
    "tipo": "tema repetitivo",
    "numero": 1135,
    "paradigma": "REsp 1954503",
+   "acordao": {
+    "classe": "REsp",
+    "numero": 1954503
+   },
+   "tabela": {
+    "situacao": "Trânsito em Julgado",
+    "dataJulgamento": "2022-10-26",
+    "teseSha256": "27aac2d822659565"
+   },
    "posicaoNaRodada": 5
   },
   {
@@ -134,6 +317,15 @@
    "tipo": "tema repetitivo",
    "numero": 1277,
    "paradigma": "REsp 2069773",
+   "acordao": {
+    "classe": "REsp",
+    "numero": 2069773
+   },
+   "tabela": {
+    "situacao": "Trânsito em Julgado",
+    "dataJulgamento": "2025-02-06",
+    "teseSha256": "bcfdafcfa981e143"
+   },
    "posicaoNaRodada": 1
   },
   {
@@ -141,6 +333,15 @@
    "tipo": "tema repetitivo",
    "numero": 1311,
    "paradigma": "REsp 2057984",
+   "acordao": {
+    "classe": "REsp",
+    "numero": 2057984
+   },
+   "tabela": {
+    "situacao": "Acórdão Publicado - RE Pendente",
+    "dataJulgamento": "2025-06-11",
+    "teseSha256": "e48a599881da6913"
+   },
    "posicaoNaRodada": 1
   }
  ],
@@ -150,28 +351,68 @@
    "tipo": "repercussão geral",
    "numero": 141,
    "paradigma": "RE 572921",
-   "motivo": "não indexado (inferência, não verificado)"
+   "acordao": {
+    "classe": "RE",
+    "numero": 572921
+   },
+   "tabela": {
+    "situacao": "Trânsito em Julgado",
+    "dataJulgamento": "13/11/2008",
+    "teseSha256": "7c3192899ca237ec"
+   },
+   "motivo": "não indexado (inferência, não verificado)",
+   "situacaoNaRodada": "nao-indexado-na-fonte"
   },
   {
    "tribunal": "stj",
    "tipo": "tema repetitivo",
    "numero": 143,
    "paradigma": "REsp 1111002",
-   "motivo": "não indexado (inferência, não verificado)"
+   "acordao": {
+    "classe": "REsp",
+    "numero": 1111002
+   },
+   "tabela": {
+    "situacao": "Trânsito em Julgado",
+    "dataJulgamento": "2009-09-23",
+    "teseSha256": "471e562a46f2bf9b"
+   },
+   "motivo": "não indexado (inferência, não verificado)",
+   "situacaoNaRodada": "nao-indexado-na-fonte"
   },
   {
    "tribunal": "stj",
    "tipo": "tema repetitivo",
    "numero": 181,
    "paradigma": "REsp 1112884",
-   "motivo": "não indexado (inferência, não verificado)"
+   "acordao": {
+    "classe": "REsp",
+    "numero": 1112884
+   },
+   "tabela": {
+    "situacao": "Trânsito em Julgado",
+    "dataJulgamento": "2009-08-26",
+    "teseSha256": "05b711c719b8fa0f"
+   },
+   "motivo": "não indexado (inferência, não verificado)",
+   "situacaoNaRodada": "nao-indexado-na-fonte"
   },
   {
    "tribunal": "stj",
    "tipo": "tema repetitivo",
    "numero": 687,
    "paradigma": "REsp 1358281",
-   "motivo": "fora do topo (posição 16)"
+   "acordao": {
+    "classe": "REsp",
+    "numero": 1358281
+   },
+   "tabela": {
+    "situacao": "Trânsito em Julgado",
+    "dataJulgamento": "2014-04-23",
+    "teseSha256": "c9c703e6a4c2a2a0"
+   },
+   "motivo": "fora do topo (posição 16)",
+   "situacaoNaRodada": "recuperado-fora-do-topo"
   }
  ]
 }

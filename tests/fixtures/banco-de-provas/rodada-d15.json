@@ -1,0 +1,58 @@
+{
+ "_leia": "PLANO da rodada ao vivo da revisão do roteiro (D-15; G-66, G-67, G-68), escolhido e escrito ANTES de olhar o que o Garimpo devolve para estas formulações (NÃO TREINAR PARA A PROVA). Compara, em 5 teses, a formulação pelo ASSUNTO com a formulação pela CONCLUSÃO, cada uma em linguagem TÉCNICA e em linguagem LEIGA: 4 buscas por tese, 1 chamada cada, no tribunal principal, sem dado de caso. As teses foram escolhidas por terem lista de relevantes conhecida (para haver cobertura) e por serem de áreas diferentes, não pelo desempenho que tiveram na rodada anterior (cuja tabela o autor da escolha já tinha lido, o que fica dito). O gabarito é a pré-marcação da IA mais as marcas do dono da lista curta, PROVISÓRIO: a rodada não autoriza afirmar melhora jurídica (D-15). Critério de adoção, fixado aqui: uma orientação só entra no roteiro se, somadas as 5 teses, a formulação sugerida tiver cobertura maior sem precisão menor (ou precisão maior sem cobertura menor) que a alternativa, e nenhuma tese isolada piorar nas duas; precisão = relevantes ÷ julgados (sem julgamento fica fora da conta e é contado à parte); o tamanho da amostra (5 teses, 1 tribunal cada) é dito junto do resultado. G-67 (cascata) e G-68 (léxico) não têm chamada aqui: a cascata é só texto 'se o usuário pedir foco em relator ou órgão'; o léxico é só sugestão, curado do zero, depois da medição.",
+ "fixadoEm": "2026-10-14",
+ "limiteDaBusca": 100,
+ "tetoDeChamadas": 24,
+ "teses": [
+  {
+   "tese": 1,
+   "tribunal": "stj",
+   "variantes": [
+    { "id": "tecnica-assunto", "busca": "improbidade administrativa elemento subjetivo dolo específico Lei 14.230" },
+    { "id": "tecnica-conclusao", "busca": "improbidade só se configura com dolo específico, culpa grave não basta" },
+    { "id": "leiga-assunto", "busca": "improbidade administrativa intenção de causar prejuízo lei nova" },
+    { "id": "leiga-conclusao", "busca": "administrador sem intenção de lesar não responde por improbidade" }
+   ]
+  },
+  {
+   "tese": 10,
+   "tribunal": "stj",
+   "variantes": [
+    { "id": "tecnica-assunto", "busca": "dano ambiental prescrição pretensão de reparação" },
+    { "id": "tecnica-conclusao", "busca": "reparação de dano ambiental é imprescritível" },
+    { "id": "leiga-assunto", "busca": "prazo para cobrar conserto de dano ao meio ambiente" },
+    { "id": "leiga-conclusao", "busca": "dano ao meio ambiente pode ser cobrado a qualquer tempo" }
+   ]
+  },
+  {
+   "tese": 17,
+   "tribunal": "stj",
+   "variantes": [
+    { "id": "tecnica-assunto", "busca": "ITBI base de cálculo valor da transação valor venal de referência" },
+    { "id": "tecnica-conclusao", "busca": "base de cálculo do ITBI é o valor da transação, não o valor de referência fixado pelo município" },
+    { "id": "leiga-assunto", "busca": "imposto de compra de imóvel valor cobrado pela prefeitura" },
+    { "id": "leiga-conclusao", "busca": "prefeitura não pode cobrar imposto da compra do imóvel sobre valor maior que o pago" }
+   ]
+  },
+  {
+   "tese": 18,
+   "tribunal": "tse",
+   "variantes": [
+    { "id": "tecnica-assunto", "busca": "candidaturas femininas cota de gênero fraude" },
+    { "id": "tecnica-conclusao", "busca": "fraude à cota de gênero cassa a chapa e anula os votos do partido" },
+    { "id": "leiga-assunto", "busca": "candidata laranja cota de mulheres partido" },
+    { "id": "leiga-conclusao", "busca": "partido que lançou candidata de mentira perde os eleitos" }
+   ]
+  },
+  {
+   "tese": 20,
+   "tribunal": "stj",
+   "variantes": [
+    { "id": "tecnica-assunto", "busca": "inscrição indevida em cadastro de inadimplentes dano moral" },
+    { "id": "tecnica-conclusao", "busca": "inscrição indevida gera dano moral presumido salvo inscrição preexistente legítima" },
+    { "id": "leiga-assunto", "busca": "nome negativado por dívida que não era minha indenização" },
+    { "id": "leiga-conclusao", "busca": "nome sujo por engano dá direito a indenização mesmo sem provar prejuízo" }
+   ]
+  }
+ ]
+}
