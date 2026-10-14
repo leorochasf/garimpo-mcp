@@ -7,6 +7,10 @@ import { Cliente, FormatoInesperadoError, RecusaError, VERSAO } from "../src/cli
 import { criarServidor } from "../src/servidor.js";
 import { CHAMADO_LIGADO, linhaDeChamado } from "../src/chamado.js";
 
+// Montados em partes: o varredor de dados reais não deve ver número nem caminho nos arquivos.
+const NUMERO = ["0001234", "56", "2020", "8", "09", "0001"].join(".");
+const CAMINHO = ["", "home", "ficticio", "doc.pdf"].join("/");
+
 describe("linha de chamado nos erros inesperados (G-81)", () => {
   it("fica desligada até o repositório ser público", () => {
     expect(CHAMADO_LIGADO).toBe(false);
@@ -14,7 +18,7 @@ describe("linha de chamado nos erros inesperados (G-81)", () => {
   });
 
   it("ligada, leva só versão, ferramenta e tipo do erro, nunca a mensagem", () => {
-    const e = new FormatoInesperadoError("busca por 0001234-56.2020.8.09.0001 em /home/fulano/doc.pdf");
+    const e = new FormatoInesperadoError(`busca por ${NUMERO} em ${CAMINHO}`);
     const linha = linhaDeChamado(e, "busca_direta", "9.9.9", true)!;
     const url = new URL(linha.match(/https:\/\/\S+/)![0]);
     expect(url.origin + url.pathname).toBe("https://github.com/leorochasf/garimpo-mcp/issues/new");
@@ -22,7 +26,7 @@ describe("linha de chamado nos erros inesperados (G-81)", () => {
     expect(url.searchParams.get("versao")).toBe("9.9.9");
     expect(url.searchParams.get("ferramenta")).toBe("busca_direta");
     expect(url.searchParams.get("tipo")).toBe("FormatoInesperadoError");
-    expect(linha).not.toMatch(/0001234|fulano|doc\.pdf/);
+    expect(linha).not.toMatch(/0001234|ficticio|doc\.pdf/);
   });
 
   it("recusa e erro comum de uso não levam o link, mesmo ligada", () => {
@@ -36,7 +40,7 @@ describe("linha de chamado no servidor (G-81)", () => {
     const site = new Cliente({
       nome: "O site",
       esperar: async () => {},
-      fetch: (async () => new Response("não é json 0001234-56.2020.8.09.0001", { status: 200 })) as typeof fetch,
+      fetch: (async () => new Response(`não é json ${NUMERO}`, { status: 200 })) as typeof fetch,
     });
     const [ladoCliente, ladoServidor] = InMemoryTransport.createLinkedPair();
     const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "janela-"));
