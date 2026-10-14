@@ -305,8 +305,11 @@ Fonte pública do próprio tribunal, sem login nem captcha. Relatório de origem
 - **Freios:** pelo cliente único (UA honesto, 2 chamadas simultâneas no total, 429/503 com uma nova tentativa, recusa final
   abre o disjuntor `trf4`; sem intervalo mínimo próprio, limite de ritmo não verificado); busca = 2 chamadas (formulário + POST); inteiro teor = 2 (formulário + GET);
   redirecionamento não é seguido.
-- **Não verificado:** a marcação HTML real da lista e a ordem dos `data-link` (as fixtures são feitas à mão a partir do
-  relatório); se a busca e o download dispensam o cookie; termo com acento no POST; filtros do formulário (por isso recusados);
+- **Leitor da lista:** estrutura presumida em fixture fictícia (`resultado`, `cabecalho`, `ementa`, `links`), ainda sem
+  validação na resposta real. Campos isolados; total único inteiro e `min(total, 10)` blocos; divergência ou link
+  ausente/ambíguo abortam a lista inteira com erro de formato, sem guardar acórdãos. Não descarta registros em silêncio.
+- **Não verificado:** a marcação HTML real da lista, a posição dos `data-link` e a relação entre total, agrupamento e
+  tamanho da página (as fixtures são feitas à mão a partir do relatório); se a busca e o download dispensam o cookie; termo com acento no POST; filtros do formulário (por isso recusados);
   TRU4, Turmas Recursais, varas; busca no inteiro teor; PDF oficial; limite de ritmo; estabilidade do `id_jurisprudencia`;
   Política de Cookies; frescor além dos 10 itens de 13/10/2026; velocidade em relação ao STJ pelo JurisprudênciaIA (não medida).
 ## Motivo do «só link» com prova própria (I-23 / G-24, DQ-24b)
