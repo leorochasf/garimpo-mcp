@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0 (RASCUNHO: não publicada; versão do package.json segue 0.5.0)
+## 1.0 (2026-10-14; ainda não publicada)
 
 ### Novidades
 
@@ -26,6 +26,12 @@ Respostas melhores
 - Agrupamento em série na busca ampla: acórdãos do mesmo tribunal, órgão e relator com a mesma ementa saem numa linha só, com a contagem, o período e os demais ids. Vem ligado; `agrupar: false` mostra cada acórdão.
 - DJEN: a comunicação de acórdão mostra um trecho da ementa, saneado por regras de melhor esforço (sem garantia de detectar nomes livres), só quando o tipo do documento e o texto atendem aos critérios; com dúvida, "não verificado".
 - Frase de privacidade nas instruções e no roteiro: "formule a busca com a tese em abstrato, sem nome de parte nem dado do caso".
+
+Roteiro de pesquisa (o que a IA faz ao usar o Garimpo)
+- A IA passa a mostrar a estratégia antes dos resultados: a questão central e as formulações de busca que vai usar.
+- Pergunta sobre súmula ou tema tem resposta própria, em ordem fixa: o texto e de onde veio, a situação (como a fonte informa, com data, ou "não verificado"), a força pelo art. 927 do CPC e a aplicação pelos tribunais (menção não é aplicação).
+- O "desgaste" do entendimento vem em três caixas: "a fonte indica" (literal, com data e origem), "indício" (algo no material que sugere mudança, com o trecho e a frase "não prova superação") e "não verificado". As palavras "vigente" e "superado" só aparecem dentro de citação literal da fonte.
+- Nova seção "onde a pesquisa está fraca": formulações sem acórdão, tribunais com erro ou não pesquisados, lista cortada e buscas vindas da memória, tirado só do que a busca devolveu.
 
 Freios novos (proteção do seu IP)
 - Limite próprio por janela de tempo para as fontes que não informam quanto resta (precedentes do STF e TSE; o orçamento do STJ permanece definido, mas a consulta ao portal está desligada).
