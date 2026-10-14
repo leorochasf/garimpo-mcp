@@ -277,7 +277,8 @@ async function textoDoPortal(
   const ler =
     `Leia com o ler_inteiro_teor com o id ${acordao.id} (fica na memória do Garimpo por 24 h) e confira citações ` +
     "com o conferir_citacao pelo mesmo id.";
-  if (!(await memoria.obterTexto(acordao.id))) {
+  let textoGuardado: TextoIntegral | undefined = await memoria.obterTexto(acordao.id);
+  if (!textoGuardado) {
     const doTjdft = acordao.tribunal === "tjdft";
     const trazido = doTjdft ? await textoDoTjdft(cliente, link, acordao) : await baixarTextoTjto(cliente, link);
     if (!trazido) {
@@ -292,15 +293,15 @@ async function textoDoPortal(
             "conferir o documento.",
       };
     }
-    if (trazido.motivoSemTexto) {
-      memoria.lembrarTextos([{ id: acordao.id, ...trazido }]);
-      return {
-        baixado: false,
-        link,
-        explicacao: `O ${nomeTribunal} não entregou o texto deste acórdão: ${trazido.motivoSemTexto}. Texto não verificado. Abra o link no navegador para conferir o documento.`,
-      };
-    }
-    memoria.lembrarTextos([{ id: acordao.id, ...trazido }]);
+    textoGuardado = { id: acordao.id, ...trazido };
+    memoria.lembrarTextos([textoGuardado]);
+  }
+  if (textoGuardado.motivoSemTexto || !textoGuardado.texto) {
+    return {
+      baixado: false,
+      link,
+      explicacao: `O ${nomeTribunal} não entregou o texto deste acórdão: ${textoGuardado.motivoSemTexto ?? "o texto veio vazio"}. Texto não verificado. Abra o link no navegador para conferir o documento.`,
+    };
   }
   return {
     baixado: false,

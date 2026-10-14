@@ -13,6 +13,7 @@ const ENDPOINT = `https://${HOST_TJDFT}/api/v1/pesquisa`;
 const CAMINHO_DO_LINK = /^\/acordaos\/(\d+)\/inteiro-teor\/([0-9a-f-]{36})$/i;
 
 interface RegistroTjdft {
+  identificador?: unknown;
   uuid?: unknown;
   processo?: unknown;
   segredoJustica?: unknown;
@@ -61,15 +62,15 @@ export async function textoDoTjdft(
     }),
   });
   const registros = ((await r.json()) as { registros?: RegistroTjdft[] } | null)?.registros;
-  const registro = Array.isArray(registros)
-    ? registros.find(
-        (g) =>
-          typeof g?.uuid === "string" &&
-          g.uuid.toLowerCase() === uuid &&
-          (!acordao.numeroCnj || g.processo === acordao.numeroCnj),
-      )
-    : undefined;
-  if (!registro) return undefined;
+  if (!Array.isArray(registros) || registros.length !== 1) return undefined;
+  const registro = registros[0];
+  if (
+    !registro ||
+    String(registro.identificador) !== identificador ||
+    typeof registro.uuid !== "string" ||
+    registro.uuid.toLowerCase() !== uuid ||
+    (acordao.numeroCnj && registro.processo !== acordao.numeroCnj)
+  ) return undefined;
   const vazio = (motivo: string) => ({ texto: "", indicioDeCorte: false, motivoSemTexto: motivo });
   if (registro.segredoJustica === true) return vazio("o acórdão está em segredo de justiça");
   if (registro.possuiInteiroTeor === false) return vazio("a API do TJDFT informa que o acórdão não tem inteiro teor");

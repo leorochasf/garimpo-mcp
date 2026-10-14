@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Acordao } from "../src/busca.js";
+import { USER_AGENT } from "../src/cliente.js";
 import { obterInteiroTeor } from "../src/inteiroTeor.js";
 import { lerTextoIntegral } from "../src/leitura.js";
 import { Memoria } from "../src/memoria.js";
@@ -48,6 +49,7 @@ describe("inteiro teor — TJDFT entrega o texto do portal do tribunal pela API"
     expect(chamadas).toHaveLength(1);
     expect(chamadas[0].url).toBe(API);
     expect(chamadas[0].init.method).toBe("POST");
+    expect(new Headers(chamadas[0].init.headers).get("user-agent")).toBe(USER_AGENT);
     const corpo = JSON.parse(String(chamadas[0].init.body));
     expect(corpo.termosAcessorios).toEqual([{ campo: "identificador", valor: "9000001" }]);
     expect(corpo.retornaInteiroTeor).toBe(true);
@@ -93,6 +95,20 @@ describe("inteiro teor — TJDFT: só o registro certo vira texto; o resto é n�
     expect(await memoria.obterTexto("tjdft:123")).toBeUndefined();
   });
 
+  it("registro de outro identificador: não verificado, nada guardado", async () => {
+    const { resultado, memoria } = await obter(resposta((g) => (g.identificador = "9000002")));
+    expect(resultado.baixado ? "" : resultado.explicacao).toMatch(/não verificado/);
+    expect(await memoria.obterTexto("tjdft:123")).toBeUndefined();
+  });
+
+  it.each(["outro uuid", "mesmo uuid"])("mais de um registro (%s): não escolhe nenhum", async (caso) => {
+    const dado = gravada();
+    dado.registros.push({ ...dado.registros[0], ...(caso === "outro uuid" ? { uuid: "99999999-2222-4333-8444-555555555555" } : {}) });
+    const { resultado, memoria } = await obter(() => respostaJson(dado));
+    expect(resultado.baixado ? "" : resultado.explicacao).toMatch(/não verificado/);
+    expect(await memoria.obterTexto("tjdft:123")).toBeUndefined();
+  });
+
   it.each([
     ["segredo de justiça", (g: Registro) => (g.segredoJustica = true), /segredo de justiça/],
     ["possuiInteiroTeor falso", (g: Registro) => (g.possuiInteiroTeor = false), /não tem inteiro teor/],
@@ -103,6 +119,11 @@ describe("inteiro teor — TJDFT: só o registro certo vira texto; o resto é n�
     const guardado = await memoria.obterTexto("tjdft:123");
     expect(guardado?.texto).toBe("");
     expect(guardado?.motivoSemTexto).toMatch(motivo);
+    const { cliente, chamadas } = clienteFalso([]);
+    const repetido = await obterInteiroTeor({ id: "tjdft:123" }, () => cliente, memoria);
+    expect(chamadas).toHaveLength(0);
+    expect(repetido.baixado ? "" : repetido.explicacao).toMatch(/não verificado/);
+    expect(repetido.baixado ? "" : repetido.explicacao).toMatch(motivo);
   });
 
   it("link fora do formato do TJDFT é recusado antes de qualquer chamada", async () => {
@@ -141,6 +162,8 @@ describe("ler_inteiro_teor — texto do portal do TJDFT pelo id", () => {
     const p = await lerTextoIntegral("tjdft:123", 1, memoria);
     expect(p.cabecalho.completo).toMatch(/^não: .*segredo de justiça/);
     expect(p.avisos.join(" ")).toMatch(/Sem texto integral/);
+    expect(p.cabecalho.natureza).toMatch(/não verificado/);
+    expect(JSON.stringify(p)).not.toMatch(/Falcão|TJTO/);
   });
 });
 

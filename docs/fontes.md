@@ -195,7 +195,7 @@ recibo.
 - **Como o Garimpo chega ao acórdão:** do link `https://jurisdf.tjdft.jus.br/acordaos/<identificador>/inteiro-teor/<uuid>`
   tira o `identificador` e pede `POST` com `termosAcessorios: [{campo: "identificador", valor}]`, `retornaInteiroTeor:
   true` (observado na primeira prova do ticket 02, fora da documentação) e `query` com uma palavra da ementa (a API exige o termo). O
-  registro só vale se o `uuid` for o do link e, quando a busca trouxe o número CNJ, o `processo` for o mesmo; senão, texto
+  registro só vale se for o único devolvido, com `identificador` e `uuid` iguais aos do link e, quando a busca trouxe o número CNJ, o `processo` for o mesmo; senão, texto
   **não verificado** e nada é guardado. `segredoJustica` verdadeiro ou `possuiInteiroTeor` falso = sem texto. Busca por
   `uuid` ou pelo número CNJ no `query` não devolveu o registro (primeira prova do ticket 02 e prova de 2026-10-14).
 - **Freios:** serviço `tjdft` no disjuntor (regra 3 do `CLAUDE.md`); freio preventivo pelo restante que a API informa em

@@ -171,6 +171,7 @@ export const NATUREZA_SEM_TEXTO_INTEGRAL = "sem texto integral: o Falcão não m
 
 /** O que o texto guardado na memória é: sem texto integral, texto do portal do tribunal (TJTO) ou texto do Falcão. */
 export function naturezaDoTexto(semTexto: boolean, doPortal: boolean, id = ""): string {
+  if (semTexto && doPortal && id.startsWith("tjdft:")) return "sem texto integral: texto do TJDFT não verificado";
   if (semTexto) return NATUREZA_SEM_TEXTO_INTEGRAL;
   if (doPortal && id.startsWith("tjdft:")) return NATUREZA_DO_TEXTO_DO_PORTAL_TJDFT;
   return doPortal ? NATUREZA_DO_TEXTO_DO_PORTAL : NATUREZA_DO_TEXTO_INTEGRAL;
