@@ -88,9 +88,10 @@ describe("servidor MCP", () => {
       ["diagnostico_dos_freios", true, false],
       ["conferir_acordao_citado", true, true],
       ["panorama_da_amostra", true, false],
+      ["texto_de_lei", true, true],
     ] as const;
     // idempotentHint: só as de leitura que não gravam nada; obter/ler_inteiro_teor gravam recibo/arquivo e ficam sem a marca.
-    const idempotente = new Set(["busca_direta", "busca_ampla", "obter_ementa", "conferir_citacao", "consultar_precedente", "julgamentos_do_processo", "listar_tribunais", "diagnostico_dos_freios", "conferir_acordao_citado", "panorama_da_amostra"]);
+    const idempotente = new Set(["busca_direta", "busca_ampla", "obter_ementa", "conferir_citacao", "consultar_precedente", "julgamentos_do_processo", "listar_tribunais", "diagnostico_dos_freios", "conferir_acordao_citado", "panorama_da_amostra", "texto_de_lei"]);
 
     for (let i = 0; i < 2; i++) {
       const mcp = await conectar(siteFalso([]));
