@@ -13,6 +13,7 @@ beforeAll(() => {
 });
 // Os testes que gravam centenas de acórdãos no disco ou rodam o disjuntor entre janelas levam de 2 a 6 s com a máquina
 // carregada: o prazo padrão de 5 s derrubava um deles ao acaso.
+// Os testes de freio com dezenas de chamadas têm prazo próprio para o trabalho de disco sob carga.
 vi.setConfig({ testTimeout: 20_000 });
 // Cada teste começa com o estado de proteção zerado: o disjuntor aberto por uma recusa num teste não vale no
 // seguinte.
