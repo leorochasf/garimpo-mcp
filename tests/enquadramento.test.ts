@@ -311,6 +311,12 @@ describe("âmbito do precedente (ADR-0007, emenda do âmbito)", () => {
     expect(e).not.toHaveProperty("ambito");
   });
 
+  it.each(["", "   "])("IRDR sem tribunal identificado (%j) → sem âmbito", (tribunal) => {
+    const e = enquadrarAcordao(acordao({ tribunal, siglaClasse: "IRDR" }));
+    expect(e.inciso).toBe("não classificado");
+    expect(e).not.toHaveProperty("ambito");
+  });
+
   it.each([
     ["classe ausente", () => enquadrarAcordao(acordao({}))],
     ["REsp", () => enquadrarAcordao(acordao({ tribunal: "stj", siglaClasse: "REsp" }))],

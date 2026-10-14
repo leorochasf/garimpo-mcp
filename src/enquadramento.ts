@@ -127,6 +127,7 @@ function comAmbitoNacional(e: Enquadramento927, tribunal: string): Enquadramento
 }
 
 function ambitoDoIrdr(a: AcordaoParaEnquadrar): string | undefined {
+  if (!a.tribunal.trim()) return undefined;
   if (incidenteDaClasse(a) !== "IRDR" || ["stf", "stj"].includes(a.tribunal)) return undefined;
   // A sigla e o nome por extenso, quando presentes, precisam identificar o mesmo incidente.
   if (a.siglaClasse && a.siglaClasse !== "IRDR") return undefined;
