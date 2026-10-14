@@ -93,6 +93,8 @@ passou a `tests/fixtures/roteiro-aprovado.txt`. Checagem sem rede sobre resposta
 `docs/banco-de-provas/checagem-roteiro-sumulas-2026-10-14.md` (checagem, não medição estatística). As sugestões 3
 (ficha por precedente) e 6 (procurar o contrário) ficam fora desta revisão.
 
+Lido e aprovado pelo dono em 2026-10-14.
+
 ### Correções da revisão adversarial (D-15, 2026-10-14)
 
 - A frase das `instructions` admite a mesma exceção do S1 para súmula do STJ na lista do site, com a ressalva literal;
