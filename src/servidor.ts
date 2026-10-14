@@ -8,7 +8,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { Cliente, PausaPreventivaError, RecusaError, VERSAO } from "./cliente.js";
 import { buscaDireta, conferirDadosDoAcordao, ementaAparentementeIncompleta } from "./busca.js";
-import { buscaAmpla, type ResultadoAmplo } from "./ampla.js";
+import { buscaAmpla, expandirAgrupadorTrt, type ResultadoAmplo } from "./ampla.js";
 import {
   type CoordenacaoEmArquivo,
   coordenacaoPadrao,
@@ -45,9 +45,12 @@ import { ChaveDoDataJud, clienteDoDataJud, TERMO_DE_USO_DATAJUD } from "./dataju
 import { clienteDoDjen, FonteDjen } from "./djen.js";
 import { julgamentosDoProcesso } from "./julgamentos.js";
 import { avisoRecorridoDoAcordao } from "./recorrido.js";
+import { clienteDaLegislacao, diplomasSuportados, textoDeLei } from "./legislacao.js";
 import { CHAMADO_LIGADO, comLinhaDeChamado, ERRO_DE_ORIGEM } from "./chamado.js";
 import { INSTRUCTIONS, roteiroDePesquisa } from "./roteiro.js";
 import { clienteDoFalcao } from "./falcao.js";
+import { AVISO_DE_VELOCIDADE, avisoDeBaixaTcu, baixarAnoTcu, clienteDoTcu, listarAnosDoTcu } from "./tcuBaixar.js";
+import { anosBaixadosTcu, lerAcordaoTcu, lerReciboTcu, pastaDoTcu, pesquisarTcu } from "./tcuLocal.js";
 import { clienteDosPrecedentes, PrecedentesAoVivo, respostaDoStf } from "./precedentesAoVivo.js";
 import {
   avisoDeLinkDoTjgo,
@@ -140,6 +143,14 @@ const opcoesDosTrts = {
       'Só TRTs: true acrescenta a lista de precedentes qualificados da coleção "precedentes" do Falcão (IRDR, IAC, ' +
         "súmulas; 1 chamada a mais, até 10 itens, só pelo texto da busca). Padrão: só acórdãos",
     ),
+  decisoes: z
+    .enum(["monocraticas", "sentencas"])
+    .optional()
+    .describe(
+      "Só TRTs: monocraticas ou sentencas traz, em vez de acórdãos, a 1ª página (até 10) da coleção do Falcão, só " +
+        "metadados e sem texto; não são acórdãos nem precedentes do art. 927; não combina com filtros nem com as outras " +
+        "opções. Padrão: só acórdãos",
+    ),
 };
 
 const renovar = z
@@ -188,11 +199,12 @@ function conferirDatas(datas: { de?: string; ate?: string }) {
 }
 
 /** Recusa, com frase que ensina a corrigir, as opções dos TRTs pedidas para outro tribunal (nunca ignoradas em silêncio). */
-function conferirOpcoesDosTrts(p: { tribunal: string; somenteEmentas?: boolean; ordenacao?: string; precedentes?: boolean }) {
+function conferirOpcoesDosTrts(p: { tribunal: string; somenteEmentas?: boolean; ordenacao?: string; precedentes?: boolean; decisoes?: string }) {
   const pedidas = [
     p.somenteEmentas !== undefined && "somenteEmentas",
     p.ordenacao !== undefined && "ordenacao",
     p.precedentes !== undefined && "precedentes",
+    p.decisoes !== undefined && "decisoes",
   ].filter(Boolean);
   if (pedidas.length && !ehDoFalcao(p.tribunal)) {
     throw new Error(
@@ -393,6 +405,10 @@ export interface OpcoesServidor {
   falcao?: Cliente;
   /** Cliente do portal do STF, consultado ao vivo pelo consultar_precedente (ADR-0020). */
   precedentesStf?: Cliente;
+  /** Cliente do TCU, que baixa os arquivos anuais de acórdãos (padrão: o real, com os freios dele). */
+  tcu?: Cliente;
+  /** Cliente do normas.leg.br, de onde o texto_de_lei lê o texto oficial (ADR-0026). */
+  legislacao?: Cliente;
   /** Estado de proteção que o diagnostico_dos_freios lê (padrão: o de todos os clientes do processo). */
   coordenacao?: CoordenacaoEmArquivo;
   /** Liga a linha de chamado nos erros inesperados (padrão: desligada até a publicação autorizada). */
@@ -413,6 +429,8 @@ export function criarServidor(
     djen = clienteDoDjen(),
     falcao = clienteDoFalcao(),
     precedentesStf = clienteDosPrecedentes(),
+    tcu = clienteDoTcu(),
+    legislacao = clienteDaLegislacao(),
     coordenacao,
     chamado = CHAMADO_LIGADO,
   }: OpcoesServidor = {},
@@ -475,7 +493,9 @@ export function criarServidor(
         "invertido é erro que ensina). Precedentes qualificados dos TRTs só com precedentes:true: uma chamada a mais à " +
         'coleção "precedentes" do Falcão (IRDR, IAC, súmulas), com o tipo e a situação que a fonte informa (ou "não ' +
         'verificado"), sem inciso do art. 927 e sem afirmar vigência; sem a opção a lista vem vazia, por isso, não por ' +
-        "falta de precedente. " +
+        "falta de precedente. Com decisoes:monocraticas ou decisoes:sentencas, devolve só metadados em lista própria, " +
+        "sem texto, sem enquadramento927 e sem busca guardada (uma chamada por pedido); limite padrão e máximo 10, " +
+        "sem filtros nem as outras opções dos TRTs. " +
         SOBRE_A_BUSCA_TRF4 +
         `${SOBRE_A_TABELA_NAS_LISTAS} ` +
         `${SOBRE_A_BUSCA_GUARDADA} A busca guardada traz o campo buscaGuardada com essa data. ` +
@@ -484,7 +504,7 @@ export function criarServidor(
       inputSchema: {
         tribunal,
         texto: z.string().min(2).describe("Texto da busca (palavras da tese, dispositivo legal, instituto)"),
-        limite: z.number().int().min(1).max(100).optional().describe("Máximo de acórdãos (1 a 100; padrão 10)"),
+        limite: z.number().int().min(1).max(100).optional().describe("Máximo de acórdãos (1 a 100; padrão 10); com decisoes, máximo de decisões (1 a 10; padrão 10)"),
         ...filtros,
         ...opcoesDosTrts,
         renovar,
@@ -545,7 +565,8 @@ export function criarServidor(
         "formulação × TRT, com teto de 5 páginas do Falcão por chamada, usadas primeiro na 1ª formulação de cada TRT " +
         "pedido, na ordem dada, depois nas seguintes; o que não couber (ou parar na pausa preventiva) sai no " +
         "cabecalhoDeCobertura como foraDoTeto ou pausaPreventiva, nunca como busca vazia, e repetir a mesma chamada " +
-        "executa as que faltam. Com TRT, cada acórdão traz a fonte (rótulos em fontes) e o aviso cita as duas fontes; " +
+        "executa as que faltam. O valor \"trt\" em tribunais vale por trt1 a trt24 (conta como 1 dos 5), sem ampliar o teto: " +
+        "cobre os TRTs em lotes de 5 páginas por chamada, e o cabecalhoDeCobertura traz agrupadorTrt com o custo. Com TRT, cada acórdão traz a fonte (rótulos em fontes) e o aviso cita as duas fontes; " +
         "os filtros de, ate, relator, orgao e classe valem também com TRT (de e ate = data de juntada nos TRTs, " +
         "julgamento nas demais fontes; classe só por sigla). " +
         SOBRE_A_BUSCA_TRF4 +
@@ -589,12 +610,12 @@ export function criarServidor(
     },
     async ({ deveConter, naoPodeConter, ...args }) => {
       try {
-        conferirTribunais(...args.tribunais);
+        conferirTribunais(...expandirAgrupadorTrt(args.tribunais));
         conferirDatas(args);
         args.formulacoes = args.formulacoes.map(conferirFormulacao);
         const filtrosLocais = lerFiltrosLocais({ deveConter, naoPodeConter });
         // Tabelas e aviso de natureza jurídica entram na resposta final: a busca mede o teto com eles.
-        const acrescimos = (r: ResultadoAmplo) => ({ ...comATabela(r.qualificados, { curta: true }), avisoNaturezaJuridica: avisoDasFontes(args.tribunais) });
+        const acrescimos = (r: ResultadoAmplo) => ({ ...comATabela(r.qualificados, { curta: true }), avisoNaturezaJuridica: avisoDasFontes(expandirAgrupadorTrt(args.tribunais)) });
         const r = await buscaAmpla(site, { ...args, ...filtrosLocais }, memoria, { tabela, tabelaStf, falcao, acrescimos });
         return json({ ...r, ...acrescimos(r) });
       } catch (e) {
@@ -1206,6 +1227,179 @@ export function criarServidor(
           },
           [...new Set(guardados.flatMap((g) => (g.guardado ? [g.guardado.acordao.tribunal] : [])))],
         );
+      } catch (e) {
+        return erro(e);
+      }
+    },
+  );
+
+  registrar(
+    "texto_de_lei",
+    {
+      title: "Texto de lei",
+      description:
+        "Texto literal de UM dispositivo de lei (artigo, parágrafo, inciso ou alínea) como a página oficial " +
+        "normas.leg.br (Congresso Nacional e Senado Federal) o mostra, com a URL oficial, a data de obtenção e o aviso " +
+        "fixo \"texto conforme a página oficial em <data>; o Garimpo não afirma vigência\". Ferramenta separada da " +
+        "jurisprudência: não faz busca, não resume e não liga artigo a precedente. Informe o diploma pela sigla " +
+        `(hoje: ${diplomasSuportados()}; outra sigla é recusada com a lista) e o dispositivo por escrito (ex.: "art. 85", ` +
+        "\"art. 85, § 2º, inciso I\", \"art. 9º, parágrafo único\", \"art. 699-A\"). Dispositivo sem texto na fonte " +
+        "volta como \"não verificado\"; dois dispositivos com a mesma identificação, como \"identificação necessária\" " +
+        "(o Garimpo não escolhe). As redações vêm todas (versoesNaFonte), mesmo quando há só uma, da mais antiga para " +
+        "a mais recente, com as marcas que a fonte põe (tipo da versão, lei alteradora, nota, período, força marcada); " +
+        "o Garimpo não conclui qual redação vale, não reconstitui alteração e não afirma vigência: confira na página " +
+        "oficial antes de citar. Uso conforme a licença CC BY 4.0 que a fonte declara (citar a fonte). A norma inteira " +
+        "pesa mais de 4 MB: cada consulta é uma chamada, 1 s entre chamadas; a repetida volta da memória do Garimpo " +
+        "(24 h), com a data da obtenção original.",
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
+      inputSchema: {
+        diploma: z.string().describe("Sigla do diploma (CPC, CC ou CF)"),
+        dispositivo: z.string().describe('O dispositivo, por escrito (ex.: "art. 85, § 2º, inciso I")'),
+      },
+    },
+    async (args) => {
+      try {
+        return json(await textoDeLei(args, { cliente: legislacao, memoria, agora }));
+      } catch (e) {
+        return erro(e);
+      }
+    },
+  );
+
+  const pastaTcu = dados ?? pastaDeDados();
+
+  registrar(
+    "baixar_anos_tcu",
+    {
+      title: "TCU: ver e baixar os anos de acórdãos",
+      description:
+        "Acórdãos do Tribunal de Contas da União (TCU) vêm de arquivos anuais de dados abertos que ficam no seu " +
+        "computador e são pesquisados aqui, sem rede (pesquisar_acordaos_tcu). Sem argumentos, lista os anos que o TCU " +
+        "publica, com o tamanho de cada arquivo (300 a 500 MB nos anos recentes; o acervo inteiro tem cerca de 7,6 GB), " +
+        "a data da lista do TCU e quais anos já estão baixados (uma só chamada, nada é baixado). Com anos, só AVISA: " +
+        "diz que precisa baixar, o tamanho por ano e no total e a pasta onde fica, e não baixa nada. Cada ano baixado acrescenta cerca de " +
+        "10 a 20 s a cada pesquisa no TCU (o arquivo do ano é lido inteiro): recomende poucos anos. Para baixar, chame " +
+        "de novo com os mesmos anos e confirmar: true: um ano por vez, direto do TCU, pelo cliente único com os freios, " +
+        "retomável se cair, com hash e data no recibo. Ano já baixado não é baixado de novo; renovar: true (com " +
+        "confirmar) pergunta ao TCU se o arquivo mudou e só então baixa, mantendo a cópia antiga se falhar. O Garimpo " +
+        "não baixa o acervo por padrão nem sozinho.",
+      annotations: { destructiveHint: false, openWorldHint: true },
+      inputSchema: {
+        anos: z.array(z.coerce.number().int().min(1990).max(2100)).optional().describe("Anos a baixar, por ex. [2024, 2025]; sem isso, só lista"),
+        confirmar: z.boolean().optional().describe("true = o usuário viu o aviso (tamanho e pasta) e quer baixar"),
+        renovar: z.boolean().optional().describe("true = ano já baixado: conferir com o TCU se mudou e atualizar"),
+      },
+    },
+    async ({ anos, confirmar, renovar }) => {
+      try {
+        if (confirmar && !anos?.length) throw new Error("Para baixar, informe os anos (ex.: anos: [2025]) junto com confirmar: true.");
+        const lista = await listarAnosDoTcu(tcu);
+        if (!anos?.length) {
+          const locais = await anosBaixadosTcu(pastaTcu);
+          return json({
+            listaDoTcuEm: lista.baseEm ?? "não informada",
+            pasta: pastaDoTcu(pastaTcu),
+            anos: await Promise.all(
+              lista.anos.map(async (a) => {
+                const baixado = locais.includes(a.ano);
+                const recibo = baixado ? await lerReciboTcu(pastaTcu, a.ano) : undefined;
+                return {
+                  ano: a.ano,
+                  tamanhoMb: a.tamanhoMb,
+                  baixado,
+                  ...(recibo ? { atualizadoNoTcuEm: recibo.lastModified ?? "não informada", baixadoEm: recibo.baixadoEm } : {}),
+                };
+              }),
+            ),
+            aviso: "Nada foi baixado. Escolha os anos e chame de novo com anos: [...]; o Garimpo avisa o tamanho antes de baixar.",
+          });
+        }
+        const aviso = await avisoDeBaixaTcu(pastaTcu, lista, anos, renovar);
+        if (!confirmar) return json(aviso);
+        const alvo = renovar ? aviso.anos : aviso.anos.filter((a) => !a.jaBaixado);
+        const resultados: Awaited<ReturnType<typeof baixarAnoTcu>>[] = aviso.anos.filter((a) => a.jaBaixado && !renovar).map((a) => ({ ano: a.ano, situacao: "ja-baixado" as const }));
+        for (const a of alvo) {
+          try {
+            resultados.push(await baixarAnoTcu({ dados: pastaTcu, cliente: tcu, ano: a.ano, renovar, listaEm: lista.baseEm, agora }));
+          } catch (e) {
+            if (e instanceof RecusaError || e instanceof PausaPreventivaError || !resultados.length) throw e;
+            throw new Error(`${(e as Error).message} Já concluídos: ${resultados.map((r) => `${r.ano} (${r.situacao})`).join(", ")}.`);
+          }
+        }
+        return json({
+          resultados: resultados.sort((x, y) => x.ano - y.ano),
+          listaDoTcuEm: lista.baseEm ?? "não informada",
+          bases: await Promise.all(aviso.anos.map(async ({ ano }) => {
+            const recibo = await lerReciboTcu(pastaTcu, ano);
+            return { ano, atualizadoNoTcuEm: recibo?.lastModified ?? "não informada", baixadoEm: recibo?.baixadoEm ?? "não informada" };
+          })),
+          pasta: aviso.pasta,
+          aviso: `Pronto para pesquisar_acordaos_tcu. Fonte: dados abertos do TCU, baixados direto do TCU para este computador. ${AVISO_DE_VELOCIDADE}`,
+        });
+      } catch (e) {
+        return erro(e);
+      }
+    },
+  );
+
+  registrar(
+    "pesquisar_acordaos_tcu",
+    {
+      title: "TCU: pesquisar acórdãos nos anos baixados",
+      description:
+        "Pesquisa, no computador e sem rede, os acórdãos do TCU dos anos que o baixar_anos_tcu já baixou. Por palavras " +
+        "(todas devem aparecer; frase entre aspas vale inteira; sem diferenciar acento e maiúscula), com filtros por " +
+        "anos, tipo (ACÓRDÃO ou ACÓRDÃO DE RELAÇÃO), colegiado e relator. Devolve, por acórdão: chave, número, ano, data " +
+        "da sessão, colegiado, relator, tipo, situação, sumário (o resumo do TCU: sumário, não ementa), trechos e link " +
+        "oficial para conferência. Mais recentes primeiro. Acórdão de relação traz só o texto do acórdão (sem sumário, " +
+        "relatório nem voto). INVALIDADO e sigilosos não entram (a resposta diz quantos). Toda resposta traz a data da " +
+        "base de cada ano (atualização no TCU e data do download), quantos anos foram percorridos e o tempo gasto (cada " +
+        "ano leva cerca de 10 a 20 s), a atribuição à fonte, o aviso de que o texto oficial cita nomes de pessoas e os " +
+        "anos pedidos que não estão baixados. Relatório, voto ou sumário que o TCU classificou como sigilosos aparecem em " +
+        "partesSigilosas (o acórdão continua listado). Interessados e advogados do arquivo nunca são lidos nem mostrados. Para o texto, use ler_acordao_tcu.",
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+      inputSchema: {
+        consulta: z.string().min(1).describe("Palavras ou \"frase entre aspas\""),
+        anos: z.array(z.coerce.number().int()).optional().describe("Só estes anos (padrão: todos os baixados)"),
+        tipo: z.enum(["ACÓRDÃO", "ACÓRDÃO DE RELAÇÃO"]).optional(),
+        colegiado: z.string().optional().describe("Parte do nome: Plenário, Primeira Câmara, Segunda Câmara"),
+        relator: z.string().optional().describe("Parte do nome do relator"),
+        limite: z.number().int().min(1).max(50).optional().describe("Quantidade de acórdãos (padrão 10, máximo 50)"),
+      },
+    },
+    async (args) => {
+      try {
+        return json(await pesquisarTcu(pastaTcu, args));
+      } catch (e) {
+        return erro(e);
+      }
+    },
+  );
+
+  registrar(
+    "ler_acordao_tcu",
+    {
+      title: "TCU: ler uma parte de um acórdão",
+      description:
+        "Lê, do arquivo anual já baixado (sem rede), uma parte de um acórdão do TCU: acordao (texto do acórdão), " +
+        "relatorio, voto, decisao ou sumario. Informe o ano e a chave que veio na pesquisa (ou o número e o colegiado). " +
+        "Relatório e voto só existem no tipo ACÓRDÃO; o acórdão de relação traz só o texto (a resposta explica). Texto " +
+        "de HTML convertido, em partes numeradas (use pagina para as seguintes). Acórdão INVALIDADO ou sigiloso não " +
+        "mostra texto. Traz situação, data da base e atribuição. Interessados e advogados não são lidos; o texto " +
+        "oficial pode citar nomes no corpo e o Garimpo não os retira.",
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+      inputSchema: {
+        ano: z.number().int().describe("Ano do arquivo baixado"),
+        chave: z.string().optional().describe("Chave do acórdão, como veio na pesquisa"),
+        numero: z.string().optional().describe("Número do acórdão (com colegiado, se não houver chave)"),
+        colegiado: z.string().optional().describe("Colegiado, por inteiro, junto com o número"),
+        parte: z.enum(["acordao", "relatorio", "voto", "decisao", "sumario"]).describe("Qual parte ler"),
+        pagina: z.number().int().min(1).optional().describe("Parte numerada do texto (padrão 1)"),
+      },
+    },
+    async (args) => {
+      try {
+        return json(await lerAcordaoTcu(pastaTcu, args));
       } catch (e) {
         return erro(e);
       }

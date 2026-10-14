@@ -2,7 +2,9 @@
 
 Servidor MCP local (stdio), em Node/TypeScript, que pesquisa jurisprudência brasileira em várias fontes
 públicas — a principal é a busca direta do JurisprudênciaIA; outras entram onde ela não chega
-([ADR-0017](docs/adr/0017-garimpo-busca-em-varias-fontes.md)) — e baixa o inteiro teor oficial dos tribunais.
+([ADR-0017](docs/adr/0017-garimpo-busca-em-varias-fontes.md)) — e baixa o inteiro teor oficial dos tribunais. Legislação entra no escopo só como ferramenta
+separada (`texto_de_lei`: texto literal de um dispositivo de fonte oficial, sem afirmar vigência;
+[ADR-0026](docs/adr/0026-texto-de-lei-ferramenta-separada.md)).
 **Cliente não oficial**: não é afiliado ao JurisprudênciaIA, à JAI nem a nenhuma outra fonte. Licença MIT.
 Feito para qualquer pessoa usar.
 

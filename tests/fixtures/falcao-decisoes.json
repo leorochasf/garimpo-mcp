@@ -1,0 +1,88 @@
+{
+  "_nota": "Sintética, no formato visto em 2 chamadas reais ao Falcão (2026-10-14, TRT2, colecao=decisoesmonocraticas e colecao=sentencas, página 0, size 10). Nenhum dado real: números, órgãos, nomes e textos são fictícios. Os corpos (conteudoDocumento, textoSentenca e os campos anonimizados) existem para provar que o Garimpo NÃO os devolve na lista. Na prova real, o campo anonimizado da sentença trazia nome de parte; por isso nenhum trecho sai.",
+  "monocraticas": {
+    "documentos": [
+      {
+        "idDocumento": "900000001",
+        "nomeRedator": "Desembargadora Fictícia Um",
+        "classeProcesso": "Recurso Ordinário Trabalhista",
+        "siglaClasseProcesso": "ROT",
+        "orgaoJulgador": "Vice-Presidência Judicial",
+        "idOrgaoJulgador": 7,
+        "conteudoDocumento": "<style>body{margin:0}</style><p>CORPO-SECRETO-MONO-1 decisão fictícia com DADO-DE-PARTE-OMITIDO.</p>",
+        "textoDocumentoAnonim": "CORPO-SECRETO-MONO-1 ____ ____ decisão fictícia.",
+        "numeroProcesso": "0000001-01.2020.5.02.0001",
+        "tipoDocumento": "Decisão",
+        "tribunal": "TRT2",
+        "highlightTextoDocumentoAnonimizado": "CORPO-SECRETO-MONO-1",
+        "highlightConteudoDocumento": "CORPO-SECRETO-MONO-1",
+        "origemDocumento": "DECISAO_MONOCRATICA_2GRAU",
+        "prioridades": null,
+        "dataJuntada": "11/01/2023",
+        "score": 9.5
+      },
+      {
+        "idDocumento": "900000002",
+        "nomeRedator": "Desembargador Fictício Dois",
+        "classeProcesso": "Agravo de Petição",
+        "siglaClasseProcesso": "AP",
+        "orgaoJulgador": "Gabinete Fictício",
+        "idOrgaoJulgador": 8,
+        "conteudoDocumento": "<p>CORPO-SECRETO-MONO-2</p>",
+        "textoDocumentoAnonim": "CORPO-SECRETO-MONO-2",
+        "numeroProcesso": "0000002-02.2021.5.02.0002",
+        "tipoDocumento": "Decisão",
+        "tribunal": "TRT2",
+        "origemDocumento": "DECISAO_MONOCRATICA_2GRAU",
+        "prioridades": null,
+        "dataJuntada": "02/03/2024",
+        "score": 8.1
+      },
+      {
+        "idDocumento": "900000003",
+        "nomeRedator": "Outro Tribunal",
+        "siglaClasseProcesso": "ROT",
+        "numeroProcesso": "0000003-03.2021.5.03.0003",
+        "tipoDocumento": "Decisão",
+        "tribunal": "TRT3",
+        "dataJuntada": "02/03/2024"
+      },
+      {
+        "nomeRedator": "Sem Id",
+        "siglaClasseProcesso": "ROT",
+        "numeroProcesso": "0000004-04.2021.5.02.0004",
+        "tribunal": "TRT2",
+        "dataJuntada": "02/03/2024"
+      }
+    ],
+    "temasTopFive": [],
+    "quantidadeTotal": 10000
+  },
+  "sentencas": {
+    "documentos": [
+      {
+        "idSentenca": "800000001",
+        "classeProcessual": "ATOrd",
+        "classeProcessualPorExtenso": "Ação Trabalhista - Rito Ordinário",
+        "numeroProcesso": "0000010-10.2019.5.02.0010",
+        "orgaoJulgador": "55",
+        "orgaoJulgadorPorExtenso": "99ª Vara do Trabalho Fictícia",
+        "nomeRelator": "",
+        "nomeRedator": "Juiz Fictício Três",
+        "tribunal": "TRT2",
+        "tipoDocumento": "Sentença",
+        "textoSentenca": "<p>CORPO-SECRETO-SENT-1 DADO-DE-PARTE-OMITIDO.</p>",
+        "highlightSentenca": "CORPO-SECRETO-SENT-1",
+        "highlightSentencaAnonimizado": "CORPO-SECRETO-SENT-1 DADO-DE-PARTE-OMITIDO.",
+        "orgaoJulgadorColegiadoPorExtenso": "",
+        "faseProcessual": null,
+        "prioridades": null,
+        "dataJulgamento": "30/11/2020",
+        "dataJuntada": "01/12/2020",
+        "score": 7.7
+      }
+    ],
+    "temasTopFive": [],
+    "quantidadeTotal": 10000
+  }
+}
