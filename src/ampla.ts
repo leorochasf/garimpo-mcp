@@ -627,11 +627,11 @@ function ajustarAoTeto<T>(
   const avisosBase = r.avisos;
   const listaBase = r.cabecalhoDeCobertura.listaCortada;
   const mostradosBase = r.cabecalhoDeCobertura.porTribunal.map((l) => l.mostrados);
-  const montar = (tam: number, n: number, medindo = false): ResultadoAmplo => {
+  const montar = (tam: number, n: number, medindo = false, agruparLista = agrupar): ResultadoAmplo => {
     // O corte pega os n de maior aderência; só então a ordem de apresentação (data) se aplica aos que ficam.
     const porOrdem = ordenar(apresentados.slice(0, n));
     // Séries de mesma ementa só depois do corte e da ordem: o grupo fica onde está o primeiro dele.
-    const grupos = agrupar
+    const grupos = agruparLista
       ? agruparEmSerie(porOrdem.itens.map((x) => ({ x, ...paraAcordao(x) }))).map((g) => ({
           principal: g.principal.x,
           outros: g.outros.map((o) => o.x),
@@ -687,12 +687,20 @@ function ajustarAoTeto<T>(
     `Ordem por data: ${apresentados.length} acórdãos sem data foram para o fim da lista.`,
   ).length + 1;
   const cabe = (tam: number, n: number) => {
-    const x = montar(tam, n, true);
+    const x = montar(tam, n, true, false);
     return JSON.stringify({ ...x, ...acrescimos?.(x) }).length + reservaDoAviso <= TETO_DA_RESPOSTA;
   };
-  if (cabe(tamanho, apresentados.length)) return montar(tamanho, apresentados.length);
+  // O agrupamento não participa da seleção nem do corte pelo teto. Se os campos da série fizerem a resposta
+  // crescer além do teto (grupos pequenos), preserva-se a lista individual, sem tirar nenhum acórdão.
+  const finalizar = (tam: number, n: number) => {
+    const x = montar(tam, n);
+    return JSON.stringify({ ...x, ...acrescimos?.(x) }).length + reservaDoAviso <= TETO_DA_RESPOSTA
+      ? x
+      : montar(tam, n, false, false);
+  };
+  if (cabe(tamanho, apresentados.length)) return finalizar(tamanho, apresentados.length);
   for (const tam of [80, 60, TRECHO_MINIMO].filter((t) => t < tamanho)) {
-    if (cabe(tam, apresentados.length)) return montar(tam, apresentados.length);
+    if (cabe(tam, apresentados.length)) return finalizar(tam, apresentados.length);
   }
   const tam = Math.min(tamanho, TRECHO_MINIMO);
   let [baixo, alto] = [0, apresentados.length - 1];
@@ -701,5 +709,5 @@ function ajustarAoTeto<T>(
     if (cabe(tam, meio)) baixo = meio;
     else alto = meio - 1;
   }
-  return montar(tam, baixo);
+  return finalizar(tam, baixo);
 }

@@ -10,7 +10,8 @@ Só agrupa o que é textualmente a mesma ementa: **mesmo tribunal, órgão e rel
 normalizar apenas espaços e quebras de linha (palavras, negações, números, pontuação e maiúsculas contam). Ementa
 ausente ou cortada, ou tribunal, órgão ou relator sem valor, deixa o acórdão sozinho. O agrupamento vem **depois** do
 filtro local, da ordem e do corte: não muda quem entra na lista, `totalAcordaos`, `mostrados` nem o aviso de lista
-cortada (todos contam acórdãos, não linhas). Vale por padrão; `agrupar: false` devolve a lista como era.
+cortada (todos contam acórdãos, não linhas). O teto é calculado pela lista individual; se os campos do grupo
+fizerem a apresentação ultrapassar o teto, mantém-se a lista individual, com a mesma seleção. Vale por padrão; `agrupar: false` devolve a lista como era.
 
 O rótulo é "mesma ementa": nunca "mesma tese" nem "mesmo resultado". Não é a junção de `src/equivalencia.ts`, que
 trata o **mesmo** acórdão duplicado na base do site; aqui são acórdãos distintos, só apresentados juntos.

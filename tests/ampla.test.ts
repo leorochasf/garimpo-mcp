@@ -1338,6 +1338,61 @@ describe("busca ampla: decisões em série (mesma ementa)", () => {
     expect(cortada.acordaos.reduce((n, a) => n + (a.mesmaEmenta?.quantidade ?? 1), 0)).toBe(2);
   });
 
+  it("o teto preserva a seleção e a lista cortada com agrupamento ligado ou desligado, nas duas ordens", async () => {
+    const results = Array.from({ length: 100 }, (_, i) => serie(
+      String(i + 1000),
+      `2024-01-${String(28 - i % 28).padStart(2, "0")}T00:00:00.000Z`,
+      { link_pdf: `https://exemplo.test/${"caminho/".repeat(35)}${i}` },
+    ));
+    const { cliente } = site(results);
+    const idsDe = (r: Awaited<ReturnType<typeof buscaAmpla>>) =>
+      r.acordaos.flatMap((a) => [a.id, ...(a.mesmaEmenta?.ids ?? [])]).sort();
+    const solta = await buscaAmpla(cliente, { ...pedido, maximo: 100, agrupar: false });
+    expect(solta.mostrados).toBeLessThan(100);
+    for (const ordem of ["aderencia", "data"] as const) {
+      const agrupada = await buscaAmpla(cliente, { ...pedido, maximo: 100, ordem });
+      expect(idsDe(agrupada)).toEqual(idsDe(solta));
+      expect(agrupada.mostrados).toBe(solta.mostrados);
+      expect(agrupada.cabecalhoDeCobertura.listaCortada).toBe(solta.cabecalhoDeCobertura.listaCortada);
+      expect(agrupada.cabecalhoDeCobertura.porTribunal).toEqual(solta.cabecalhoDeCobertura.porTribunal);
+      expect(JSON.stringify(agrupada).length).toBeLessThan(25_000);
+    }
+  });
+
+  it("mantém a lista individual se os campos do grupo excederem o teto, sem cortar acórdãos", async () => {
+    const { cliente } = site([serie("s1", "2024-05-10"), serie("s2", "2024-05-11")]);
+    const solta = await buscaAmpla(cliente, { ...pedido, agrupar: false });
+    const acrescimos = () => ({ complemento: "x".repeat(25_000 - JSON.stringify(solta).length - 120) });
+    const r = await buscaAmpla(cliente, pedido, undefined, { acrescimos });
+    expect(r.acordaos).toEqual(solta.acordaos);
+    expect(r.mostrados).toBe(2);
+    expect(r.cabecalhoDeCobertura.listaCortada).toBeUndefined();
+    expect(JSON.stringify({ ...r, ...acrescimos() }).length).toBeLessThan(25_000);
+  });
+
+  it("cada id de uma série permite recuperar a própria ementa e os metadados pela memória", async () => {
+    const memoria = new Memoria({ dados: undefined });
+    const { cliente, estado } = site([serie("s1", "2024-05-10"), serie("s2", "2024-05-11")]);
+    const r = await buscaAmpla(cliente, pedido, memoria);
+    const grupo = r.acordaos[0];
+    expect(grupo.mesmaEmenta?.quantidade).toBe(2);
+    for (const id of [grupo.id, ...grupo.mesmaEmenta!.ids]) {
+      const guardado = await memoria.obter(id);
+      expect(guardado?.acordao.id).toBe(id);
+      expect(guardado?.acordao.ementa).toBe(EMENTA);
+    }
+    expect(estado.chamadas).toBe(1);
+  });
+
+  it("ementas iguais mas cortadas na fonte ficam individuais", async () => {
+    const { cliente } = site(["s1", "s2"].map((id) => serie(id, "2024-05-10", {
+      texto_ementa: "EMENTA FICTÍCIA. DANO MORAL COLETIVO. Recurso inadmissível porque",
+    })));
+    const r = await buscaAmpla(cliente, pedido);
+    expect(r.acordaos).toHaveLength(2);
+    expect(r.acordaos.every((a) => !a.mesmaEmenta)).toBe(true);
+  });
+
   it("em ordem de data, o grupo fica onde está o primeiro da série", async () => {
     const { cliente } = site([
       serie("s1", "2024-05-10T00:00:00.000Z"),
