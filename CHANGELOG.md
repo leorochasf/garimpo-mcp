@@ -2,7 +2,7 @@
 
 ## 1.0 (RASCUNHO: não publicada; versão do package.json segue 0.5.0)
 
-Marcadores `[PENDENTE: ...]` indicam o que ainda não entrou no `main`; tire-os (ou apague a linha) quando entrar.
+Fica o marcador `[PENDENTE: ...]` do que ainda não foi medido; tire-o quando a medição entrar.
 
 ### Novidades
 
@@ -11,13 +11,15 @@ Mais tribunais com o texto do acórdão
 - TJMS: o PDF do acórdão é baixado pelo portal oficial (eSAJ), com recibo.
 - TJRR: o PDF é baixado, com recibo. TJPI: o texto vem do portal do tribunal.
 - TJPA, TJRJ, TJSE, TJSC e STF seguem "só link", mas agora o Garimpo diz o motivo real e a data em que ele foi conferido.
-- [PENDENTE: TRF4]
-- [PENDENTE: TCU]
+- TRF4 (novo): a busca vem da busca oficial do e-Proc do tribunal (sem login nem captcha), com a ementa inteira, e o `obter_inteiro_teor` traz o acórdão como "texto do portal do tribunal" (HTML, sem PDF e sem recibo; o Garimpo não confere a assinatura eletrônica do tribunal). Cada busca é uma lista de até 10 resultados; os filtros de período, relator, órgão e classe ainda não funcionam no TRF4 e a ferramenta avisa. O link de acompanhamento do processo só é mostrado, nunca aberto pelo Garimpo, porque o `robots.txt` do tribunal o veda. O termo de uso do TRF4 não fala de acesso automatizado; isso fica registrado como "não verificado".
+- TCU (novo): acórdãos do Tribunal de Contas da União pelos arquivos anuais de dados abertos do próprio tribunal. Três ferramentas: `baixar_anos_tcu`, `pesquisar_acordaos_tcu` e `ler_acordao_tcu`. Você escolhe os anos; antes de baixar, o Garimpo avisa o tamanho (de 300 a 500 MB por ano nos anos recentes; o acervo inteiro passa de 7 GB), o tempo e a pasta, e só baixa com a sua confirmação, um ano por vez. A pesquisa roda no seu computador, sem rede. O campo do TCU é "sumário", não "ementa". Acórdão invalidado ou sigiloso não entra como texto; relatório e voto sigilosos são reconhecidos e avisados. O texto oficial pode citar nomes de pessoas, e a pesquisa avisa que o Garimpo não os retira. Os dados não vão no pacote e não são repassados: cada usuário baixa direto do TCU.
+- Legislação: nova ferramenta `texto_de_lei`, com o texto literal de UM dispositivo (artigo, parágrafo, inciso ou alínea) do CPC, do CC e da CF, tirado do portal oficial normas.leg.br, com a URL, a data e o aviso "o Garimpo não afirma vigência". Traz todas as redações que a fonte oferece, com as marcas dela, e não diz qual vale. O CDC ainda não está disponível: a fonte respondeu sem o texto.
 
 TRTs (Justiça do Trabalho)
 - Precedentes dos TRTs (súmulas, OJs e incidentes como IRDR e IAC) sob pedido, com `precedentes: true` na `busca_direta`. Cada item traz o tipo e a situação como a fonte rotula, com a data, ou "não verificado".
 - Filtros novos nos TRTs: pesquisar só nas ementas e escolher a ordenação.
-- [PENDENTE: TRTs na busca ampla]
+- Busca ampla nos TRTs: o valor `"trt"` em `tribunais` vale pelos 24 TRTs de uma vez (conta como um dos 5 tribunais do pedido). Cobrir uma página por TRT e por formulação custa 24 chamadas por formulação; cada chamada executa no máximo 5 páginas do Falcão, o resto sai como `foraDoTeto` no cabeçalho de cobertura e a mesma busca repetida executa as próximas (as já feitas voltam da memória). Tudo dentro do teto diário próprio de 50 chamadas.
+- Decisões monocráticas e sentenças dos TRTs: a opção `decisoes` (`monocraticas` ou `sentencas`) da `busca_direta` traz até 10 itens da coleção do Falcão, **só metadados**, em lista separada. Nunca o texto, e nunca como acórdão nem como precedente do art. 927 do CPC. Testado só no TRT2.
 
 Respostas melhores
 - Nova ferramenta `conferir_acordao_citado`: confere número, tribunal, data e órgão de um acórdão que você já tem citado. Diz "confirmado" ou aponta o que não bate.
@@ -32,11 +34,11 @@ Freios novos (proteção do seu IP)
 - Teto diário próprio de 50 chamadas por dia para a Justiça do Trabalho, mesmo quando o Falcão diz que ainda há saldo.
 - No TJDFT, o freio também lê o saldo informado pela API do tribunal.
 - Estado de proteção corrompido ou ilegível para a rede em vez de seguir adivinhando.
-- Menos operações de disco por chamada ao Falcão (de 33 para 26 por chamada). [PENDENTE: medição de velocidade]
+- Menos operações de disco por chamada ao Falcão (de 33 para 23 por chamada). [PENDENTE: medição de velocidade]
 
 Para quem mantém ou quer ajudar
 - Formulários de problema e sugestão no GitHub, sem campo para dado de processo, e verificação automática (tipos, testes sem rede e build). A linha de chamado nos erros inesperados fica desligada até a publicação.
-- [PENDENTE: legislação]
+- Script do mantenedor com modo opcional que baixa a exportação de repercussão geral do STF (ver Limites conhecidos).
 
 ### Mudanças importantes
 
@@ -51,12 +53,15 @@ Motivo do "só link"
 ### Limites conhecidos
 
 - Tribunais que bloqueiam o acesso automatizado por termo de uso ou `robots.txt` (STJ, TJRJ, TJSE; no TJSC e no STF o portal respondeu com página de bloqueio ou desafio) ficam só com o link. O Garimpo não troca de identidade nem contorna.
+- Sem o texto do acórdão, só link: TST (o link do PDF é um endereço encurtado que levou só à casca do aplicativo, sem o acórdão), TJPA (o portal devolveu só a casca do aplicativo), STF (o PDF fica atrás da proteção anti-robô do portal) e os demais tribunais não testados.
+- Fora do Garimpo por ora: TRF2 e TRF6 (os termos de uso vedam robôs sem autorização expressa), TRF3 e TRF5 (não achamos rota pública de jurisprudência), CJF (TRF1 e TNU; a conexão foi derrubada pelo servidor) e o Banco Nacional de Precedentes do CNJ (a API é só para tribunais credenciados; a consulta pública é só no navegador).
 - Os avisos de "quem disse" (órgão do fecho x órgão do registro) continuam **desligados**: faltam a validação cega por dois juristas e o segundo avaliador.
 - "Perto de" (filtro "não pode conter X perto de Y"): a medição não mostrou ganho e o filtro não foi feito.
-- O índice de dispositivo legal pelos Espelhos de Acórdãos do STJ (artigo → acórdãos) tem gerador e leitor prontos, mas o índice não é entregue no pacote desta versão.
+- O índice de dispositivo legal pelos Espelhos de Acórdãos do STJ (artigo → acórdãos) tem gerador e leitor prontos, mas o índice não é entregue no pacote desta versão: o portal do STJ respondeu 504 (erro do servidor) quando se tentou gerá-lo.
 - Súmulas do STJ, escolha do texto integral do TST, Jurisprudência em Teses, registros do chat do JurisprudênciaIA e situação de superação ficaram para depois.
-- TJRJ (PDF) e TJSE (HTML) ainda não são baixados.
 - A exportação de repercussão geral do STF por download é um modo opcional do script do mantenedor, não uma função da ferramenta.
+- TCU lento: cada ano baixado acrescenta de 7 a 19 segundos a cada pesquisa (a pesquisa varre o arquivo; não há índice nesta versão). Baixe poucos anos.
+- TRF4: a validação ao vivo cobriu a lista e um inteiro teor; o leitor depois corrigido só foi testado sem rede; a velocidade em relação ao STJ pelo JurisprudênciaIA não foi medida.
 
 ## 0.5.0
 
