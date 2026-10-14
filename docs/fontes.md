@@ -205,3 +205,27 @@ recibo.
 - **Não verificado:** o que a janela da cota mede além de «60 por minuto» (visto: `reset` em segundos); se `query` com
   palavra da ementa casa sempre (visto em 1 acórdão: «apelação»); a combinação `identificador` + `retornaInteiroTeor` numa
   só chamada ao vivo (cada uma vista em chamada separada); o frescor da base.
+
+## Portais de jurisprudência do TJRR e do TJPI (inteiro teor por um GET por documento)
+
+Usados por `obter_inteiro_teor` no TJRR e no TJPI (I-16 / G-23, prova PV-06 de 2026-10-14). Cada tribunal é uma fonte
+própria; a aprovação de um host não vale para outro.
+
+- **TJRR (`jurisprudencia.tjrr.jus.br`): PDF.** O link da busca (`/inteiroTeor.xhtml?id=<n>`) é uma página JSF com o PDF
+  embutido numa sessão; o Garimpo pede direto `GET /pdf?id=<n>` (`application/pdf`, `attachment`), sem cookie, e guarda o
+  PDF com recibo como nos demais. `robots.txt`: HTTP 404 (nenhuma regra publicada). Termos de uso do portal: **não
+  encontrados** (a página do tribunal só tem o item de proteção de dados, sem regra sobre robôs). Prova: 1 GET do PDF,
+  200, 229 048 bytes, 19 páginas, nº do processo igual ao da busca.
+- **TJPI (`jurisprudencia.tjpi.jus.br`): texto em HTML.** `GET /jurisprudences/<n>/public` (o link de consulta da busca)
+  devolve a página do acórdão já com a ementa e o texto do acórdão no HTML; o Garimpo guarda esse texto na memória pelo
+  id (rótulo «texto do portal do tribunal», sem PDF nem recibo; mesma natureza do TJTO e do TJDFT). Só vale a página com
+  as seções «Ementa» e «Acórdão» e, quando a busca trouxe o número CNJ, o mesmo processo na coluna «Detalhes». `robots.txt`:
+  só uma linha de comentário (nada vedado). Termos de uso: **não encontrados**. Prova: 1 GET (2 na sessão, a segunda para
+  guardar a página), 200 `text/html`, 78 KB, texto de ~35 mil caracteres, processo conferido.
+- **TJPA (`jurisprudencia.tjpa.jus.br`): não integrado.** O portal é uma aplicação de página única (`/#/documento/<id>`);
+  `GET /documento/<id>` (rota citada por terceiros) devolve a casca da aplicação (HTTP 200 `text/html`, 31 663 bytes, a
+  mesma do `robots.txt`), não o documento. A API por trás da aplicação não é documentada; o Garimpo não a procura por
+  tentativa. O tribunal segue como «só link».
+- **Freios:** pelo cliente único (UA honesto, no máximo 2 chamadas simultâneas, uma nova tentativa em 429/503).
+- **Não verificado:** estabilidade das rotas `/pdf?id=` e `/jurisprudences/<n>/public`; se acórdãos antigos têm PDF; o
+  frescor; se o TJPI mantém o texto integral em todos os acórdãos (visto em 1).
