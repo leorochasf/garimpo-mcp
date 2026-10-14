@@ -1,7 +1,10 @@
 /**
  * Gerador da tabela de precedentes do STF (ADR-0015, decisão do dono de 2026-10-09): script do mantenedor, fora do
- * pacote npm. **Não usa rede**: lê os arquivos que o mantenedor obteve do portal do STF no navegador e grava a
- * fotografia datada em dados/tabela-precedentes-stf.json.
+ * pacote npm. **Não usa rede por padrão**: lê os arquivos que o mantenedor obteve do portal do STF no navegador e
+ * grava a fotografia datada em dados/tabela-precedentes-stf.json. Modo opcional `--baixar` (I-33, D-11): o script
+ * obtém sozinho só a exportação de repercussão geral (uma chamada, pelo cliente único, 10 s entre chamadas, uma nova
+ * tentativa em 429/503, parada em recusa, sem login nem desafio), com a trava de G-56; o resto vem da pasta.
+ * Download inválido, recusa ou mudança inesperada param antes de gravar e a tabela anterior continua.
  *
  * Pasta de entrada (padrão `entrada-stf/`, fora do git), a cada versão:
  * - `RepercussaoGeral.xls`: tela "Todos os temas" de repercussão geral → botão "Exportar Dados"
@@ -39,11 +42,16 @@ import {
 } from "../src/tabelaDoStf.js";
 import { ENTIDADES } from "../src/html.js";
 import { conferirComAAnterior, type OpcoesDaTrava } from "../src/tabelaDePrecedentes.js";
+import { Cliente, HOST_PORTAL_STF } from "../src/cliente.js";
 
 export const VERSAO_DO_GERADOR_STF = "1";
 export const DESTINO_PADRAO_STF = fileURLToPath(new URL("../dados/tabela-precedentes-stf.json", import.meta.url));
 /** Onde o relatório de mudanças (G-59) é gravado a cada geração da tabela empacotada. */
 export const PASTA_DO_RELATORIO_STF = fileURLToPath(new URL("../docs/tabela-mudancas/", import.meta.url));
+/** A exportação de RG do portal do STF (a rota do botão "Exportar Dados"); a única URL que o modo `--baixar` pede. */
+export const URL_EXPORTACAO_RG = "https://portal.stf.jus.br/jurisprudenciaRepercussao/exportarDados.asp?";
+/** Intervalo mínimo entre chamadas ao portal (D-11). */
+export const INTERVALO_MS = 10_000;
 export const ENTRADA_PADRAO_STF = fileURLToPath(new URL("../entrada-stf/", import.meta.url));
 
 /** O gerador para: a tabela anterior fica como estava. */
@@ -58,8 +66,10 @@ export interface ArquivoDoMantenedor {
   /** Caminho relativo à pasta de entrada, com "/". */
   nome: string;
   bytes: Buffer;
-  /** Data e hora (ISO, UTC) em que o arquivo foi obtido (data de modificação no disco). */
+  /** Data e hora (ISO, UTC) em que o arquivo foi obtido (data de modificação no disco, ou fim do download). */
   obtidoEm: string;
+  /** Só no que o próprio script baixou: a URL pedida. */
+  url?: string;
 }
 
 export interface EntradaDoStf {
@@ -88,30 +98,71 @@ export function lerEntrada(pasta: string): EntradaDoStf {
   };
 }
 
-/** Lê, gera, compara com a tabela anterior (trava de G-56) e só então grava (temporário + troca), sem deixar a tabela pela metade. */
+/**
+ * Lê, gera, compara com a tabela anterior (trava de G-56) e só então grava (temporário + troca), sem deixar a tabela
+ * pela metade. `baixada` (modo `--baixar`) toma o lugar de `RepercussaoGeral.xls` da pasta; o resto vem da pasta.
+ */
 export function gerarEGravarStf(
   pasta: string = ENTRADA_PADRAO_STF,
   destino: string = DESTINO_PADRAO_STF,
   agora: () => number = Date.now,
   trava: OpcoesDaTrava = {},
+  baixada?: ArquivoDoMantenedor,
 ): TabelaDoStf {
   const momento = new Date(agora()).toISOString();
-  const tabela = { ...gerarTabelaStf(lerEntrada(pasta), momento), conferidaEm: momento };
-  const proveniencia = [
-    ...Object.entries(tabela.fonte.paginas).map(([tipo, pagina]) => `página de ${tipo}: ${pagina}`),
-    ...tabela.arquivos.map((a) => `${a.parte}: ${a.nome} — obtido em ${a.obtidoEm} — sha256 ${a.sha256}`),
-  ];
+  const entrada = { ...lerEntrada(pasta), ...(baixada ? { repercussaoGeral: baixada } : {}) };
+  const tabela = { ...gerarTabelaStf(entrada, momento), conferidaEm: momento };
   conferirComAAnterior(
     destino,
     tabela,
     { pastaDoRelatorio: destino === DESTINO_PADRAO_STF ? PASTA_DO_RELATORIO_STF : undefined, ...trava },
     (m) => new ParadaDoGerador(m),
-    { nome: "stf", proveniencia },
+    { nome: "stf", proveniencia: proveniencia(tabela, baixada) },
   );
   const provisorio = `${destino}.gerando`;
-  writeFileSync(provisorio, `${JSON.stringify(tabela, null, 1)}\n`);
+  writeFileSync(provisorio, `${JSON.stringify(tabela, null, 1)}
+`);
   renameSync(provisorio, destino);
   return tabela;
+}
+
+/**
+ * Origem da versão nova, para o relatório de mudanças: páginas, arquivos (com URL e data do download, se baixado),
+ * descartes. O gerador não descarta tema: o que vem sem título entra na tabela e é listado aqui.
+ */
+export function proveniencia(tabela: TabelaDoStf, baixada?: ArquivoDoMantenedor): string[] {
+  const semTitulo = tabela.linhas.filter((l) => l.tipo === "repercussão geral" && !l.titulo).map((l) => l.numero);
+  return [
+    ...Object.entries(tabela.fonte.paginas).map(([tipo, pagina]) => `página de ${tipo}: ${pagina}`),
+    ...tabela.arquivos.map((a) => {
+      const url = baixada?.url && a.parte === "repercussão geral" ? `${baixada.url} (baixado pelo script) — ` : "";
+      return `${a.parte}: ${url}${a.nome} — obtido em ${a.obtidoEm} — sha256 ${a.sha256}`;
+    }),
+    "descartes: nenhum",
+    `repercussão geral sem título (mantidos na tabela): ${semTitulo.length}${semTitulo.length ? ` — tema ${semTitulo.join(", ")}` : ""}`,
+  ];
+}
+
+/** Cliente do modo `--baixar`: identificação do portal (UA de navegador, ADR-0020), freios compartilhados e 10 s entre chamadas. */
+export function clienteDoGeradorStf(): Cliente {
+  return new Cliente({ nome: "O STF", intervaloMinimoPorHost: { [HOST_PORTAL_STF]: INTERVALO_MS }, prazoMs: 300_000 });
+}
+
+/**
+ * Uma obtenção da exportação de RG. Redirecionamento não é seguido; qualquer coisa que não seja 200 (inclusive a
+ * recusa depois da única nova tentativa do cliente) para antes de qualquer gravação. A validade do conteúdo (cabeçalho,
+ * números, duplicatas) fica com `gerarTabelaStf`.
+ */
+export async function baixarExportacaoRg(cliente: Cliente, agora: () => number = Date.now): Promise<ArquivoDoMantenedor> {
+  const r = await cliente.requisitar(URL_EXPORTACAO_RG, { redirect: "manual" }).catch((e: Error) => {
+    throw new ParadaDoGerador(e.message);
+  });
+  if (r.status !== 200) {
+    await r.body?.cancel();
+    throw new ParadaDoGerador(`O STF respondeu HTTP ${r.status} para ${URL_EXPORTACAO_RG}.`);
+  }
+  const bytes = Buffer.from(await r.arrayBuffer());
+  return { nome: "RepercussaoGeral.xls", bytes, obtidoEm: new Date(agora()).toISOString(), url: URL_EXPORTACAO_RG };
 }
 
 // ——— Parte pura: arquivos do mantenedor → tabela ———
