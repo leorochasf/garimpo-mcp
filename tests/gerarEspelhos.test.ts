@@ -190,6 +190,14 @@ function indiceDe(...lotes: Record<string, unknown>[][]) {
 }
 
 describe("ConstrutorDoIndice", () => {
+  it("remove ambas as entradas quando o novo ID e a nova identidade colidem com registros diferentes", () => {
+    const ix = indiceDe([reg({ id: "A", numeroRegistro: "R1" }), reg({ id: "B", numeroRegistro: "R2" })],
+      [reg({ id: "A", numeroRegistro: "R2" })]);
+    expect(ix.acordaos.map((a) => a[0])).toEqual(["A"]);
+    expect(ix.contagens.duplicadosPorId).toBe(1);
+    expect(ix.contagens.duplicadosPorRegistroDataClasse).toBe(1);
+  });
+
   it("indexa dispositivo → acórdão só nas três leis do piloto, com os metadados mínimos", () => {
     const r = reg({
       referenciasLegislativas: [`${CPC15}ART:00085 PAR:00008 ART:00086`, `${CDC}ART:00014`, `${CC02}ART:00186`, `${CPC73}ART:00020`],

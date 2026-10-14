@@ -265,7 +265,8 @@ export class ConstrutorDoIndice {
     if (this.porId.has(id)) {
       this.duplicadosPorId++;
       this.remover(id);
-    } else if (identidade && this.porIdentidade.has(identidade)) {
+    }
+    if (identidade && this.porIdentidade.has(identidade)) {
       this.duplicadosPorIdentidade++;
       this.remover(this.porIdentidade.get(identidade) as string);
     }
