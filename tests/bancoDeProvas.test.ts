@@ -171,7 +171,8 @@ describe("obrigatórios oficiais: processo paradigma da tabela oficial (ticket 2
     for (const o of [...p.obrigatoriosOficiais, ...p.foraDaRegua]) {
       const rotulo = `${o.tribunal} ${o.numero}`;
       expect(`${o.acordao.classe} ${o.acordao.numero}`, rotulo).toBe(o.paradigma);
-      const linha = (tabelas[o.tribunal].linhas as { tipo: string; numero: number; dataJulgamento?: string; teseFirmada?: string }[]).find((l) => l.tipo === o.tipo && l.numero === o.numero);
+      const linha = (tabelas[o.tribunal].linhas as { tipo: string; numero: number; situacao?: string; dataJulgamento?: string; teseFirmada?: string }[]).find((l) => l.tipo === o.tipo && l.numero === o.numero);
+      expect(linha?.situacao, rotulo).toBe(o.tabela.situacao);
       expect(linha?.dataJulgamento, rotulo).toBe(o.tabela.dataJulgamento);
       expect(createHash("sha256").update(linha?.teseFirmada ?? "").digest("hex").slice(0, 16), rotulo).toBe(o.tabela.teseSha256);
     }
