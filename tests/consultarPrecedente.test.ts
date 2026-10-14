@@ -134,7 +134,7 @@ describe("consultar_precedente — tabela de precedentes do STJ (plano B, portal
     const { erro, dado } = await consultar(mcp, { tribunal: "stj", tipo: "IAC", numero: 978 });
     expect(erro).toBe(false);
     expect(dado.consta).toBe(false);
-    expect(dado.resultado).toMatch(/^não consta na tabela de precedentes do STJ de 2026-10-09/);
+    expect(dado.resultado).toMatch(/^não consta na tabela de 2026-10-09/);
     expect(dado.resultado).not.toMatch(/não existe\b/);
     expect(dado.tabela.atribuicao).toMatch(/Precedentes qualificados/);
   });

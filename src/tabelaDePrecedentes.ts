@@ -140,7 +140,7 @@ export function consultarPrecedente(t: TabelaDePrecedentes, tipo: TipoNaTabela, 
       numero,
       consta: false,
       resultado:
-        `não consta na tabela de precedentes do STJ de ${data}: o ${tipo} pode ser posterior a essa fotografia ou o ` +
+        `não consta na tabela de ${data}: o ${tipo} do STJ pode ser posterior a essa fotografia ou o ` +
         "número estar errado. Estar fora desta fotografia não quer dizer estar fora do STJ: confira no portal do STJ.",
       tabela: sobre,
     };

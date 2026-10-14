@@ -181,7 +181,7 @@ describe("consultar_precedente — STJ só pela tabela (D-18: o robots.txt de pr
     const { dado } = await consultar(mcp, { tribunal: "stj", tipo: "tema repetitivo", numero: 999999 });
     expect(chamadas).toHaveLength(0);
     expect(dado.consta).toBe(false);
-    expect(dado.resultado).toMatch(/^não consta na tabela de precedentes do STJ de 2026-10-09/);
+    expect(dado.resultado).toMatch(/^não consta na tabela de 2026-10-09/);
     expect(dado.origem).toBe(ORIGEM_D18);
   });
 
