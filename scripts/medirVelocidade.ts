@@ -130,6 +130,7 @@ interface Janela {
   mcp: Client;
   chamadas: string;
   stderr: string[];
+  ferramentas: number;
 }
 
 async function abrirJanela(versao: Versao, dados: string, k: number, gravadas: string): Promise<{ janela: Janela; ms: number }> {
@@ -152,8 +153,8 @@ async function abrirJanela(versao: Versao, dados: string, k: number, gravadas: s
   const mcp = new Client({ name: "medir-velocidade", version: "0" });
   const t0 = performance.now();
   await mcp.connect(transporte);
-  await mcp.listTools();
-  return { janela: { mcp, chamadas, stderr }, ms: performance.now() - t0 };
+  const { tools } = await mcp.listTools();
+  return { janela: { mcp, chamadas, stderr, ferramentas: tools.length }, ms: performance.now() - t0 };
 }
 
 async function passo(j: Janela, nome: string, args: Record<string, unknown>): Promise<Medida> {
@@ -179,7 +180,7 @@ async function bateria(j: Janela, r: Recorte, k: number, pdf: string): Promise<R
 }
 
 /** Uma rodada: pasta de dados nova, `janelas` processos ao mesmo tempo; devolve as medidas da 1ª janela. */
-async function rodada(versao: Versao, janelas: number, recortes: Recorte[], gravadas: string, pdfModelo: string): Promise<{ medidas: Rodada; semResposta: string[]; stderr: string }> {
+async function rodada(versao: Versao, janelas: number, recortes: Recorte[], gravadas: string, pdfModelo: string): Promise<{ medidas: Rodada; semResposta: string[]; stderr: string; ferramentas: number }> {
   const dados = await mkdtemp(join(tmpdir(), "garimpo-vel-"));
   const abertas: Janela[] = [];
   try {
@@ -190,7 +191,7 @@ async function rodada(versao: Versao, janelas: number, recortes: Recorte[], grav
     abertas.push(...inicio.map((i) => i.janela));
     const baterias = await Promise.all(abertas.map((j, k) => bateria(j, recortes[k], k, pdf)));
     const semResposta = (await Promise.all(abertas.map((j) => contarChamadas(j.chamadas)))).flatMap((c) => c.semResposta);
-    return { medidas: { inicio: { ms: inicio[0].ms, chamadas: 0 }, ...baterias[0] }, semResposta, stderr: abertas.flatMap((j) => j.stderr).join("") };
+    return { medidas: { inicio: { ms: inicio[0].ms, chamadas: 0 }, ...baterias[0] }, semResposta, stderr: abertas.flatMap((j) => j.stderr).join(""), ferramentas: abertas[0].ferramentas };
   } finally {
     await Promise.all(abertas.map((j) => j.mcp.close().catch(() => {})));
     await rm(dados, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }).catch(() => {});
@@ -254,12 +255,14 @@ async function principal(): Promise<void> {
     const inicio = new Date();
     const crus: Record<string, Record<Passo, Medida[]>> = {};
     const naoGravadas = new Set<string>();
+    const ferramentas: Record<Versao, Set<number>> = { antes: new Set(), depois: new Set() };
     for (let i = 0; i < N; i++) {
       for (const janelas of [1, 2]) {
         // Alterna quem vai primeiro: a carga da máquina pesa igual nas duas versões.
         const ordem: Versao[] = (i + janelas) % 2 ? ["antes", "depois"] : ["depois", "antes"];
         for (const versao of ordem) {
-          const { medidas, semResposta, stderr } = await rodada(versao, janelas, recortes, gravadas, pdfModelo);
+          const { medidas, semResposta, stderr, ferramentas: nf } = await rodada(versao, janelas, recortes, gravadas, pdfModelo);
+          ferramentas[versao].add(nf);
           semResposta.forEach((s) => naoGravadas.add(`${versao}: ${s}`));
           const chave = `${versao}|${janelas}`;
           crus[chave] ??= Object.fromEntries(PASSOS.map((p) => [p, []])) as unknown as Record<Passo, Medida[]>;
@@ -301,13 +304,14 @@ async function principal(): Promise<void> {
         );
       }
     }
+    linhas.push("", `Ferramentas no tools/list: antes ${[...ferramentas.antes].join("/")}, depois ${[...ferramentas.depois].join("/")}.`);
     if (naoGravadas.size) linhas.push("", `Chamadas sem resposta gravada (404 do fetch falso): ${[...naoGravadas].join("; ")}`);
     console.log(linhas.join("\n"));
 
     const saida = join(raiz, "banco-de-provas-resultados", "velocidade");
     await mkdir(saida, { recursive: true });
     const arquivo = join(saida, `${inicio.toISOString().replace(/[:.]/g, "-")}.json`);
-    await writeFile(arquivo, JSON.stringify({ inicio, N, versoes: VERSOES, cargaAntes, cargaDepois, crus }, null, 1));
+    await writeFile(arquivo, JSON.stringify({ inicio, N, versoes: VERSOES, cargaAntes, cargaDepois, ferramentas: { antes: [...ferramentas.antes], depois: [...ferramentas.depois] }, crus }, null, 1));
     console.log(`\nTempos crus: ${arquivo}`);
   } finally {
     await rm(trabalho, { recursive: true, force: true });
