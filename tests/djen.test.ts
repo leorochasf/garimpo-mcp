@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { AdiadaError, Cliente, RecusaError, Vagas } from "../src/cliente.js";
 import { servicoDe } from "../src/disjuntor.js";
-import { clienteDoDjen, FonteDjen } from "../src/djen.js";
+import { clienteDoDjen, FonteDjen, reduzirDjen } from "../src/djen.js";
 
 const URL_DJEN = "https://comunicaapi.pje.jus.br/api/v1/comunicacao?numeroProcesso=1&itensPorPagina=100&pagina=1";
 const vazio = (headers: Record<string, string> = {}) =>
@@ -116,5 +116,73 @@ describe("freios do DJEN", () => {
     await fonte.consultar("1");
     await fonte.consultar("1");
     expect(d.esperas).toEqual([60_000]);
+  });
+});
+
+// Números fictícios, sem relação com processo real; textos inventados (I-31 / G-47).
+const CNJ_A = "0000123-70.2020.8.27.0001";
+const DIGITOS_A = "00001237020208270001";
+const CNJ_B = "0000124-55.2020.8.27.0001";
+
+const comunicacao = (tipoDocumento: string, texto: string) => ({
+  items: [{ tipoDocumento, tipoComunicacao: "Intimação", nomeOrgao: "Órgão fictício", texto }],
+  count: 1,
+});
+const ementaDe = (r: ReturnType<typeof reduzirDjen>) => r.comunicacoes[0]?.ementa;
+
+describe("trecho da ementa do próprio acórdão (dois sinais)", () => {
+  const ato = (extra = "") =>
+    `<p>Processo ${CNJ_A}</p><p>EMENTA: DIREITO CIVIL. Cobrança indevida. Dano moral não configurado.</p>${extra}<p>ACÓRDÃO: Vistos.</p>`;
+
+  it("tipo de acórdão + texto com uma ementa e só o número consultado: devolve o trecho, rotulado como do DJEN", () => {
+    const e = ementaDe(reduzirDjen(comunicacao("Acórdão", ato()), DIGITOS_A));
+    expect(e).toEqual({
+      rotulo: "trecho do DJEN (texto da intimação, não o acórdão oficial)",
+      trecho: "DIREITO CIVIL. Cobrança indevida. Dano moral não configurado.",
+    });
+  });
+
+  it("só o texto confirma (tipo de documento não é de acórdão): não verificado", () => {
+    expect(ementaDe(reduzirDjen(comunicacao("Despacho", ato()), DIGITOS_A))).toBe("não verificado");
+  });
+
+  it("só o tipo indica (texto sem ementa): não verificado", () => {
+    expect(ementaDe(reduzirDjen(comunicacao("Acórdão", `Processo ${CNJ_A}. Intimem-se.`), DIGITOS_A))).toBe(
+      "não verificado",
+    );
+  });
+
+  it("texto que cita outro processo (ementa transcrita): não verificado", () => {
+    const r = reduzirDjen(comunicacao("Acórdão", ato(`<p>Precedente ${CNJ_B}</p>`)), DIGITOS_A);
+    expect(ementaDe(r)).toBe("não verificado");
+  });
+
+  it("duas ementas no texto (coletivo): não verificado", () => {
+    const r = reduzirDjen(comunicacao("Acórdão", ato("<p>EMENTA: OUTRO TEMA.</p>")), DIGITOS_A);
+    expect(ementaDe(r)).toBe("não verificado");
+  });
+
+  it("texto sem o número consultado: não verificado", () => {
+    const r = reduzirDjen(comunicacao("Acórdão", "<p>EMENTA: ALGO.</p>"), DIGITOS_A);
+    expect(ementaDe(r)).toBe("não verificado");
+  });
+
+  it("comunicação que não é de acórdão não ganha o campo", () => {
+    expect(ementaDe(reduzirDjen(comunicacao("Pauta de julgamento", "Pauta"), DIGITOS_A))).toBeUndefined();
+  });
+
+  it("saneia: CPF, telefone, CEP, e-mail e OAB mascarados; linha de parte/advogado cortada", () => {
+    const texto =
+      `<p>${CNJ_A}</p><p>EMENTA: Tema genérico.</p><p>Apelante: Fulano Fictício</p>` +
+      "<p>Advogado: Beltrano Fictício</p><p>Contato (62) 99999-8888, CEP 74000-000, 123.456.789-09, a@b.com, OAB/GO 12345.</p>";
+    const t = (ementaDe(reduzirDjen(comunicacao("Acórdão", texto), DIGITOS_A)) as { trecho: string }).trecho;
+    expect(t).toContain("Tema genérico.");
+    expect(t).not.toMatch(/Fulano|Beltrano|99999|74000|123\.456|a@b|12345/);
+  });
+
+  it("mostra só o trecho: o texto bruto nunca sai nem fica na consulta", () => {
+    const r = reduzirDjen(comunicacao("Acórdão", ato()), DIGITOS_A);
+    expect(JSON.stringify(r)).not.toContain("Vistos");
+    expect(JSON.stringify(r)).not.toContain(CNJ_A);
   });
 });

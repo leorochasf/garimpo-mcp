@@ -42,3 +42,8 @@ divididas com o site, e comparar por data confundiria julgamentos.
   definida pelo usuário.
 - Nomes de serviço no disjuntor: `datajud` (API e wiki) e `djen` (API de comunicações), em vez de "cnj" e "pje".
 - A espera do DJEN depois de um 429 é exceção ao ADR-0009 (ver o adendo lá).
+- Nota (I-31 / G-47, 2026-10-14): o DJEN passa a mostrar, em comunicação de tipo acórdão, um trecho saneado da ementa, só
+  se dois sinais conferirem (o tipo de documento indica acórdão **e** o texto tem uma única ementa e nenhum número de
+  processo além do consultado); com um sinal ou dúvida, "não verificado". O trecho é de melhor esforço (nome de pessoa
+  em texto livre não é detectável), rotulado como trecho do DJEN, e é só ele que fica na memória. A consulta continua
+  só pelo número (DJEN por texto livre segue fora, DQ-18).
