@@ -131,6 +131,13 @@ const opcoesDosTrts = {
     .enum(["relevancia", "recentes"])
     .optional()
     .describe("Só TRTs: relevancia (padrão da fonte) ou recentes (data de juntada, do mais novo ao mais antigo)"),
+  precedentes: z
+    .boolean()
+    .optional()
+    .describe(
+      'Só TRTs: true acrescenta a lista de precedentes qualificados da coleção "precedentes" do Falcão (IRDR, IAC, ' +
+        "súmulas; 1 chamada a mais, até 10 itens, só pelo texto da busca). Padrão: só acórdãos",
+    ),
 };
 
 const renovar = z
@@ -179,8 +186,12 @@ function conferirDatas(datas: { de?: string; ate?: string }) {
 }
 
 /** Recusa, com frase que ensina a corrigir, as opções dos TRTs pedidas para outro tribunal (nunca ignoradas em silêncio). */
-function conferirOpcoesDosTrts(p: { tribunal: string; somenteEmentas?: boolean; ordenacao?: string }) {
-  const pedidas = [p.somenteEmentas !== undefined && "somenteEmentas", p.ordenacao !== undefined && "ordenacao"].filter(Boolean);
+function conferirOpcoesDosTrts(p: { tribunal: string; somenteEmentas?: boolean; ordenacao?: string; precedentes?: boolean }) {
+  const pedidas = [
+    p.somenteEmentas !== undefined && "somenteEmentas",
+    p.ordenacao !== undefined && "ordenacao",
+    p.precedentes !== undefined && "precedentes",
+  ].filter(Boolean);
   if (pedidas.length && !ehDoFalcao(p.tribunal)) {
     throw new Error(
       `${pedidas.join(" e ")} só ${pedidas.length > 1 ? "valem" : "vale"} nos TRTs (trt1 a trt24, pelo Falcão); ` +
@@ -440,7 +451,10 @@ export function criarServidor(
         "conferir_citacao pelo id. Nos TRTs, somenteEmentas (pesquisa só nas ementas) e ordenacao (relevancia ou " +
         "recentes, pela data de juntada) estão disponíveis e os filtros de, ate, relator, orgao e classe também " +
         "(de e ate valem para a data de juntada, não a de julgamento; classe só por sigla; data inexistente ou intervalo " +
-        "invertido é erro que ensina) e precedentes qualificados não são pesquisados. " +
+        "invertido é erro que ensina). Precedentes qualificados dos TRTs só com precedentes:true: uma chamada a mais à " +
+        'coleção "precedentes" do Falcão (IRDR, IAC, súmulas), com o tipo e a situação que a fonte informa (ou "não ' +
+        'verificado"), sem inciso do art. 927 e sem afirmar vigência; sem a opção a lista vem vazia, por isso, não por ' +
+        "falta de precedente. " +
         `${SOBRE_A_TABELA_NAS_LISTAS} ` +
         `${SOBRE_A_BUSCA_GUARDADA} A busca guardada traz o campo buscaGuardada com essa data. ` +
         SOBRE_O_RECORRIDO,

@@ -7,8 +7,8 @@
 
 import { createHash, randomInt } from "node:crypto";
 import { Cliente, FormatoInesperadoError, HOST_FALCAO, PausaPreventivaError, RecusaError } from "./cliente.js";
-import type { Acordao, ParametrosBusca, ResultadoBusca } from "./busca.js";
-import { enquadrarAcordao } from "./enquadramento.js";
+import type { Acordao, ParametrosBusca, Qualificado, ResultadoBusca } from "./busca.js";
+import { enquadrarAcordao, enquadrarQualificado } from "./enquadramento.js";
 import { juntarEquivalentes } from "./equivalencia.js";
 import { nomesDoFiltro, ressalvaSePoucos } from "./grafia.js";
 import { htmlComConteudoOculto, htmlComIndicioDeCorte, htmlParaTexto } from "./html.js";
@@ -35,6 +35,13 @@ export function clienteDoFalcao(): Cliente {
 export const RESSALVA_FALCAO =
   "Precedentes qualificados dos TRTs (súmulas, IRDR/IAC regionais) não são pesquisados no Falcão pelo Garimpo: a " +
   "lista vem vazia por isso, não por falta de precedente.";
+
+/** Ressalva da lista quando a coleção `precedentes` foi pedida (precedentes: true): de onde vêm os itens e o que não provam. */
+export const RESSALVA_PRECEDENTES_FALCAO =
+  'Precedentes da coleção "precedentes" do Falcão (uma página, até 10 itens, do mesmo TRT), com o rótulo e a situação ' +
+  "que a fonte informa; parte dos itens vem do Banco Nacional de Precedentes. O rótulo e a situação são da fonte: não " +
+  "provam enquadramento no art. 927, vigência nem aplicabilidade, e a falta de um item na lista não prova que o " +
+  "precedente não exista. Súmulas e orientações jurisprudenciais de TRT não foram observadas na coleção ao vivo.";
 
 const AVISO_DATAS =
   'Datas do Falcão: "julgado em" é a data de julgamento e "juntado em" a de juntada do acórdão aos autos, que não é ' +
@@ -135,7 +142,11 @@ export function chaveNoFalcao(p: ParametrosBusca): string {
     .filter((f) => valorDoFiltro(p, f))
     .map((f) => [f, valorDoFiltro(p, f)]);
   // As opções entram só quando mudam o pedido: "relevancia" e somenteEmentas falso são o pedido sem a opção.
-  const opcoes = [...(p.somenteEmentas ? ["somenteEmentas"] : []), ...(ORDENACOES[p.ordenacao ?? "relevancia"] ? [p.ordenacao] : [])];
+  const opcoes = [
+    ...(p.somenteEmentas ? ["somenteEmentas"] : []),
+    ...(ORDENACOES[p.ordenacao ?? "relevancia"] ? [p.ordenacao] : []),
+    ...(p.precedentes ? ["precedentes"] : []),
+  ];
   const chave = ["falcao", p.tribunal.toLowerCase(), p.texto, limite, ...(filtros.length ? [filtros] : []), ...(opcoes.length ? [opcoes] : [])];
   return createHash("sha256").update(JSON.stringify(chave)).digest("hex");
 }
@@ -205,8 +216,8 @@ export async function lerBuscaGuardadaNoFalcao(
         coberturaNoFalcao(busca.totalNaFonte, busca.registrosDoSite, busca.acordaos.length, limite, nomesDoFiltro(p)) +
         (busca.possivelmenteIncompleta ? AVISO_CABECALHO_INCONSISTENTE : ""),
       acordaos: busca.acordaos.map((a) => a.registro),
-      qualificados: [],
-      ressalvaQualificados: RESSALVA_FALCAO,
+      qualificados: busca.qualificados,
+      ressalvaQualificados: p.precedentes ? RESSALVA_PRECEDENTES_FALCAO : RESSALVA_FALCAO,
       avisos: [...busca.avisos],
     },
   };
@@ -260,6 +271,26 @@ export async function buscaNoFalcao(
     brutos.push(...documentos);
     if (documentos.length < POR_PAGINA) break;
   }
+  let qualificados: Qualificado[] = [];
+  if (p.precedentes && !completa) {
+    avisos.push("Os precedentes do Falcão não foram consultados: a busca de acórdãos parou antes (ver aviso acima).");
+  } else if (p.precedentes) {
+    if ((Object.keys(PARAMETROS_DOS_FILTROS) as (keyof typeof PARAMETROS_DOS_FILTROS)[]).some((f) => valorDoFiltro(p, f)) || p.somenteEmentas || p.ordenacao === "recentes") {
+      avisos.push("Os filtros, somenteEmentas e ordenacao valem para os acórdãos, não para os precedentes: a coleção recebeu só o texto da busca.");
+    }
+    try {
+      const { documentos } = (await pedirPrecedentes(cliente, tribunal, p)) as { documentos: unknown[] };
+      const doFalcao = normalizarPrecedentesDoFalcao(tribunal, documentos);
+      qualificados = doFalcao.qualificados;
+      if (doFalcao.descartados) {
+        avisos.push(`${doFalcao.descartados} precedente(s) do Falcão descartado(s): sem identificação ou de tribunal diferente do pedido.`);
+      }
+    } catch (e) {
+      // Os acórdãos já vieram: a falha da coleção vira aviso, e a busca incompleta não é guardada.
+      avisos.push(`Os precedentes do Falcão não vieram: ${(e as Error).message}`);
+      completa = false;
+    }
+  }
   const { unicos, repetidos } = tirarRepetidos(brutos);
   if (repetidos) {
     avisos.push(
@@ -303,7 +334,7 @@ export async function buscaNoFalcao(
     memoria?.guardarBusca(chaveNoFalcao(p), {
       registrosDoSite: recebidos.length,
       acordaos: juntos.map(({ ids, registro }) => ({ ids, registro })),
-      qualificados: [],
+      qualificados,
       avisos: [...avisos],
       ...(total !== undefined && { totalNaFonte: total }),
       ...(!consistente && { possivelmenteIncompleta: true }),
@@ -318,8 +349,8 @@ export async function buscaNoFalcao(
       coberturaNoFalcao(total, recebidos.length, juntos.length, limite, nomesDoFiltro(p)) +
       (consistente ? "" : AVISO_CABECALHO_INCONSISTENTE),
     acordaos: juntos.map((a) => a.registro),
-    qualificados: [],
-    ressalvaQualificados: RESSALVA_FALCAO,
+    qualificados,
+    ressalvaQualificados: p.precedentes ? RESSALVA_PRECEDENTES_FALCAO : RESSALVA_FALCAO,
     avisos: gravacao ? [...avisos, gravacao] : avisos,
   };
 }
@@ -359,7 +390,10 @@ async function pedirPagina(cliente: Cliente, tribunal: string, p: ParametrosBusc
   if (p.somenteEmentas) consulta.set("pesquisaSomenteNasEmentas", "true");
   const ordenacao = ORDENACOES[p.ordenacao ?? "relevancia"];
   if (ordenacao) consulta.set("ordenacao", ordenacao);
-  const resposta = await cliente.requisitar(`${PESQUISA_FALCAO}?${consulta}`);
+  return lerJson(await cliente.requisitar(`${PESQUISA_FALCAO}?${consulta}`), tribunal);
+}
+
+async function lerJson(resposta: Response, tribunal: string): Promise<unknown> {
   let json: unknown;
   try {
     json = await resposta.json();
@@ -372,6 +406,19 @@ async function pedirPagina(cliente: Cliente, tribunal: string, p: ParametrosBusc
     );
   }
   return json;
+}
+
+/** A coleção `precedentes` do mesmo TRT: uma página de 10, só o texto pedido (os filtros do acórdão não foram verificados nela). */
+async function pedirPrecedentes(cliente: Cliente, tribunal: string, p: ParametrosBusca): Promise<unknown> {
+  const consulta = new URLSearchParams({
+    texto: p.texto,
+    colecao: "precedentes",
+    sessionId: SESSAO,
+    page: "0",
+    size: String(POR_PAGINA),
+    tribunais: tribunal.toUpperCase(),
+  });
+  return lerJson(await cliente.requisitar(`${PESQUISA_FALCAO}?${consulta}`), tribunal);
 }
 
 type Bruto = Record<string, unknown>;
@@ -452,6 +499,52 @@ export function normalizarDoFalcao(tribunal: string, documentos: unknown[]) {
     }
   }
   return { acordaos, textos, descartados, divergencias, integraisIguaisAEmenta };
+}
+
+/** Rótulo do Garimpo para o `tipo` que a coleção `precedentes` informa; o que não está aqui fica como a fonte escreveu. */
+const TIPOS_DA_COLECAO: Record<string, string> = { SUMULA: "súmula" };
+
+/** "Suscitado, em 19/08/2026 (segundo o Falcão; …)": a situação como a fonte informa, ou "não verificado". */
+function situacaoDoPrecedente(d: Bruto): string {
+  const situacao = d.situacao as Bruto | null | undefined;
+  const descricao = texto(situacao?.descricao);
+  if (!descricao) return "não verificado: o Falcão não informou a situação";
+  const data = dataDoFalcao(d.dataSituacao);
+  const dia = data && `${data.slice(8)}/${data.slice(5, 7)}/${data.slice(0, 4)}`;
+  return `${descricao}${dia ? `, em ${dia}` : ""} (segundo o Falcão; é a situação ou marca da fonte, não prova vigência)`;
+}
+
+/**
+ * Normaliza os itens da coleção `precedentes` (formato visto ao vivo em 2026-10-14: categoria de origem BNP, tipo de
+ * origem TST). O enquadramento no art. 927 vem da regra fixa do ADR-0007, que não dá inciso a nenhum deles.
+ */
+export function normalizarPrecedentesDoFalcao(tribunal: string, documentos: unknown[]) {
+  const qualificados: Qualificado[] = [];
+  let descartados = 0;
+  for (const d of documentos as Bruto[]) {
+    const doTribunal = texto(d?.tribunal)?.toLowerCase().replace(/\s+/g, "");
+    const rotulo = texto(d?.categoria) ?? texto(d?.tipo);
+    if (!doTribunal || doTribunal !== tribunal || !rotulo) {
+      descartados++;
+      continue;
+    }
+    const tipo = TIPOS_DA_COLECAO[rotulo] ?? rotulo;
+    const numero = texto(d.numero);
+    const tese = htmlParaTexto(texto(d.tese) ?? texto(d.conteudoDecisao) ?? "");
+    const paradigma = (d.processosParadigma as Bruto[] | null | undefined)?.[0];
+    qualificados.push(
+      limpar({
+        tipo,
+        numero,
+        texto: tese,
+        questao: texto(d.questao),
+        situacaoNaFonte: situacaoDoPrecedente(d),
+        processoParadigma: texto(paradigma?.numero),
+        enquadramento927: enquadrarQualificado({ tribunal, tipo, numero, tese: undefined }),
+      }),
+    );
+  }
+  return { qualificados, descartados };
 }
 
 /** Minúsculas e espaços juntados; acentos ficam como vêm. */
