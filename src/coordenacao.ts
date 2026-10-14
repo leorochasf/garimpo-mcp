@@ -368,7 +368,6 @@ export class CoordenacaoEmArquivo implements Coordenacao {
   }
 
   async ocupar(conta: ContaDeEspera, sinal?: AbortSignal): Promise<Liberar> {
-    await this.prepararPasta();
     let antes = this.agora();
     const contar = () => {
       const agora = this.agora();
@@ -376,7 +375,7 @@ export class CoordenacaoEmArquivo implements Coordenacao {
       antes = agora;
     };
     for (;;) {
-      const liberar = await this.tentarVagas();
+      const liberar = await this.comPasta(() => this.tentarVagas());
       if (liberar) {
         contar();
         return liberar;
@@ -525,6 +524,20 @@ export class CoordenacaoEmArquivo implements Coordenacao {
     }
   }
 
+  /**
+   * Faz a operação direto; só se a pasta de proteção faltar (ou não for pasta) é que a prepara e repete uma vez. Evita
+   * um mkdir em cada vaga e em cada trava, e o resultado é o mesmo: a pasta é recriada e a falta de acesso aparece igual.
+   */
+  private async comPasta<T>(fazer: () => Promise<T>): Promise<T> {
+    try {
+      return await fazer();
+    } catch (e) {
+      if (codigo(e) !== "ENOENT" && codigo(e) !== "ENOTDIR") throw e;
+      await this.prepararPasta();
+      return fazer();
+    }
+  }
+
   /** Tenta ocupar uma vaga livre (ou de dono comprovadamente morto) sem esperar. */
   private async tentarVagas(): Promise<Liberar | undefined> {
     for (let i = 1; i <= MAXIMO_DE_VAGAS; i++) {
@@ -597,11 +610,10 @@ export class CoordenacaoEmArquivo implements Coordenacao {
 
   /** Trava curta para ler e gravar o estado; a de dono morto é retomada, a de dono vivo é esperada. */
   private async comTrava<T>(fazer: () => Promise<T>): Promise<T> {
-    await this.prepararPasta();
     const trava = join(this.protecao, "trava.json");
     const inicio = this.agora();
     let aquisicao: string | undefined;
-    while (!(aquisicao = await this.criar(trava))) {
+    while (!(aquisicao = await this.comPasta(() => this.criar(trava)))) {
       if (this.agora() - inicio >= ESPERA_MAXIMA_POR_VAGA_MS) throw vagasEsgotadas(this.protecao);
       await this.dormir(10);
     }

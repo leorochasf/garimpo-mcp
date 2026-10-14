@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -73,13 +73,28 @@ async function opsPorChamada(url: string): Promise<number[]> {
 describe("operações de arquivo por chamada", () => {
   it("JurisprudênciaIA (sem freio, sem orçamento)", async () => {
     const ops = await opsPorChamada("https://jurisprudenciaia.com.br/api/x");
-    // Antes do ticket 16: 8 por chamada (conferir 1, vaga 4, reservar 1, liberar 2).
-    expect(Math.max(...ops.slice(1))).toBeLessThanOrEqual(8);
+    // Antes do ticket 16: 8 por chamada (conferir 1, vaga 4 com mkdir, reservar 1, liberar 2).
+    expect(Math.max(...ops.slice(1))).toBeLessThanOrEqual(7);
   });
 
   it("Falcão (freio + orçamento diário + pausa por host)", async () => {
     const ops = await opsPorChamada("https://jurisprudencia.jt.jus.br/api/x");
-    // Antes do ticket 16: 33 por chamada.
-    expect(Math.max(...ops.slice(1))).toBeLessThanOrEqual(26);
+    // Antes do ticket 16: 33 por chamada (3 mkdir e uma trava inteira a mais).
+    expect(Math.max(...ops.slice(1))).toBeLessThanOrEqual(23);
+  });
+
+  it("pasta de proteção apagada no meio é recriada, como antes", async () => {
+    const cliente = new Cliente({
+      nome: "O servidor de teste",
+      vagas: new CoordenacaoEmArquivo({ pasta }),
+      esperar: async () => {},
+      fetch: (async () => new Response("{}", { headers: { "content-type": "application/json" } })) as typeof fetch,
+    });
+    await (await cliente.requisitar("https://jurisprudenciaia.com.br/api/x")).json();
+    await new Promise((r) => setTimeout(r, 50));
+    await rm(join(pasta, "protecao"), { recursive: true, force: true });
+    await (await cliente.requisitar("https://jurisprudenciaia.com.br/api/x")).json();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(await readdir(join(pasta, "protecao"))).toEqual(["estado.json"]);
   });
 });
