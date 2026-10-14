@@ -180,6 +180,23 @@ describe("TRF4 — busca oficial do e-Proc (D-07 / G-31): o que o usuário vê n
     expect(r.avisos.join(" ")).toMatch(/10 por busca|uma página/i);
   });
 
+  it("total acima de 10 aceita exatamente a primeira página de 10 e aplica o limite pedido", async () => {
+    const inicio = RESULTADOS.indexOf('<div class="resultado">');
+    const fim = RESULTADOS.indexOf('<div class="resultado">', inicio + 1);
+    const primeiro = RESULTADOS.slice(inicio, fim);
+    const pagina = comTotal("50").slice(0, inicio) + Array.from({ length: 10 }, (_, i) =>
+      primeiro.replaceAll(CNJ_1, `${String(i + 1).padStart(7, "0")}-11.2025.4.04.9999`)
+        .replaceAll('100000000000000000000000000001', String(i + 1).padStart(30, "0")),
+    ).join("") + '</body></html>';
+    for (const [limite, quantidade] of [[100, 10], [1, 1]]) {
+      const { cliente, chamadas } = clienteFalso([formulario(), () => html(pagina)]);
+      const r = await buscaDireta(cliente, { tribunal: "trf4", texto: "x", limite }, undefined, { eproc: cliente });
+      expect(r.acordaos).toHaveLength(quantidade);
+      expect(r.cabecalhoDeCobertura).toMatch(/informou 50.*recebeu 10/);
+      expect(chamadas).toHaveLength(2);
+    }
+  });
+
   it("resultado sem o link do inteiro teor aborta a lista (sem id o Garimpo não inventa)", async () => {
     const sem = RESULTADOS.replace(/<a href="#" data-link="externo_controlador[^>]*>Inteiro teor<\/a>/, "");
     const { cliente } = clienteFalso([formulario(), () => html(sem)]);

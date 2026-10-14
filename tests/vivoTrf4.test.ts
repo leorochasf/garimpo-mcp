@@ -11,7 +11,7 @@ describe.skipIf(process.env.GARIMPO_VIVO_TRF4 !== "1")("TRF4 — ao vivo", () =>
   it("a busca traz acórdãos com ementa e link do inteiro teor; o inteiro teor vem como texto do portal", { timeout: 120_000 }, async () => {
     const memoria = new Memoria();
     const cliente = new Cliente({ nome: "O e-Proc do TRF4" });
-    const r = await buscaDireta(cliente, { tribunal: "trf4", texto: "aposentadoria especial", limite: 3 }, memoria, { eproc: cliente });
+    const r = await buscaDireta(cliente, { tribunal: "trf4", texto: "contribuição previdenciária", limite: 3 }, memoria, { eproc: cliente });
     expect(r.acordaos.length).toBeGreaterThan(0);
     for (const a of r.acordaos) {
       expect(a.ementa.length).toBeGreaterThan(50);
