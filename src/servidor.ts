@@ -7,7 +7,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { Cliente, PausaPreventivaError, RecusaError, VERSAO } from "./cliente.js";
-import { buscaDireta, ementaAparentementeIncompleta } from "./busca.js";
+import { buscaDireta, conferirDadosDoAcordao, ementaAparentementeIncompleta } from "./busca.js";
 import { buscaAmpla, type ResultadoAmplo } from "./ampla.js";
 import {
   type CoordenacaoEmArquivo,
@@ -40,6 +40,7 @@ import {
   textoForaDaMemoria,
 } from "./leitura.js";
 import { Memoria, obtidoDoSite } from "./memoria.js";
+import { AVISO_DE_AMOSTRA, panorama } from "./panorama.js";
 import { ChaveDoDataJud, clienteDoDataJud, TERMO_DE_USO_DATAJUD } from "./datajud.js";
 import { clienteDoDjen, FonteDjen } from "./djen.js";
 import { julgamentosDoProcesso } from "./julgamentos.js";
@@ -1033,6 +1034,111 @@ export function criarServidor(
       inputSchema: {},
     },
     async () => json(await (coordenacao ?? coordenacaoPadrao()).diagnosticar()),
+  );
+
+  registrar(
+    "conferir_acordao_citado",
+    {
+      title: "Conferir os dados do acórdão citado",
+      description:
+        "Confere o número, o tribunal e, se informados, a data de julgamento (AAAA-MM-DD) e o órgão de um acórdão citado. " +
+        "Com o id que veio numa busca e o acórdão na memória do Garimpo, não chama o site; sem id, faz uma busca direta " +
+        "pelo número (a busca guardada da mesma conferência não chama o site de novo). Estados: \"confirmado\" (o " +
+        "registro bate em tudo o que foi informado), \"dados em conflito\" (cada divergência vem com o que foi informado " +
+        "e o que está no registro) e \"não verificado\" (a busca não trouxe o número: isso NÃO quer dizer que o " +
+        "acórdão não existe). Dado informado que o registro não traz vem em naoConferidos. Número com mais de um " +
+        "acórdão (recurso e embargos) lista os outros. Compara só com a base do JurisprudênciaIA; confira o acórdão " +
+        "no portal do tribunal antes de citar. Não vale para TRT. Busca com erro é erro, nunca \"não verificado\".",
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
+      inputSchema: {
+        tribunal,
+        numero: z.string().min(1).describe("Número do processo citado, como a citação traz (com ou sem pontos e classe)"),
+        data: z.string().optional().describe("Data de julgamento citada, AAAA-MM-DD"),
+        orgao: z.string().optional().describe("Órgão julgador citado (turma, câmara, seção)"),
+        id: z.string().optional().describe("Id do acórdão, como veio numa busca (tribunal:id): confere na memória, sem chamar o site"),
+        renovar,
+      },
+    },
+    async ({ renovar, id, ...citado }) => {
+      try {
+        const { tribunal: sigla } = citado;
+        conferirTribunais(sigla);
+        if (ehDoFalcao(sigla)) {
+          throw new Error(
+            "A conferência por número não foi verificada nos TRTs (Falcão). Use busca_direta no TRT com o número e " +
+              "confira na lista, ou confira no portal do tribunal.",
+          );
+        }
+        if (citado.data !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(citado.data)) {
+          throw new Error(`A data ("${citado.data}") está fora do formato: use AAAA-MM-DD, por exemplo 2024-03-15.`);
+        }
+        if (!/\d/.test(citado.numero)) {
+          throw new Error("O número citado não tem nenhum algarismo: informe o número do processo, como na citação.");
+        }
+        if (id !== undefined && id.split(":")[0].toLowerCase() !== sigla.toLowerCase()) {
+          throw new Error(`O id ${id} não é do tribunal ${sigla}: informe o id que a busca devolveu para este acórdão.`);
+        }
+        const aviso =
+          '"Não verificado" quer dizer só que o número não pôde ser conferido no registro: não que ele não exista. ' +
+          "Confira no portal do tribunal.";
+        const guardado = id !== undefined ? await memoria.obter(id) : undefined;
+        if (guardado) {
+          return comAvisoNaturezaJuridica({ ...conferirDadosDoAcordao(citado, [], guardado.acordao), consultaAoSite: false, aviso }, [sigla]);
+        }
+        const r = await buscaDireta(site, { tribunal: sigla, texto: citado.numero, limite: 10 }, memoria, { renovar, tabela, tabelaStf });
+        return comAvisoNaturezaJuridica(
+          {
+            ...conferirDadosDoAcordao(citado, r.acordaos),
+            consultaAoSite: !r.buscaGuardada,
+            aviso,
+          },
+          [sigla],
+        );
+      } catch (e) {
+        return erro(e);
+      }
+    },
+  );
+
+  registrar(
+    "panorama_da_amostra",
+    {
+      title: "Panorama da amostra",
+      description:
+        "Conta, por tribunal, por ano de julgamento e por órgão julgador, os acórdãos que uma busca já trouxe (informe " +
+        "os ids, de 1 a 200, como vieram na busca_direta ou na busca_ampla; o acórdão tem de estar na memória do " +
+        "Garimpo, que guarda por 24 h). Não chama o site. É contagem da amostra da busca, não estatística do tribunal: " +
+        "o aviso vem em toda resposta. Sem data, vai em \"sem data\"; sem órgão, em \"sem órgão informado\"; por " +
+        "tribunal, os 20 órgãos mais frequentes e \"outros\". Id repetido conta uma vez; id fora da memória vem em " +
+        "foraDaMemoria, sem entrar na conta.",
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+      inputSchema: {
+        ids: listaOuTexto(z.array(z.string())).describe("Ids dos acórdãos (tribunal:id), de 1 a 200"),
+      },
+    },
+    async ({ ids }) => {
+      try {
+        if (!ids.length || ids.length > 200) {
+          throw new Error(`São ${ids.length} ids; mande de 1 a 200 ids de acórdãos, como vieram na busca (ex.: "stj:12345").`);
+        }
+        const unicos = [...new Set(ids)];
+        const guardados = await Promise.all(unicos.map(async (id) => ({ id, guardado: await memoria.obter(id) })));
+        const foraDaMemoria = guardados.filter((g) => !g.guardado).map((g) => g.id);
+        return comAvisoNaturezaJuridica(
+          {
+            ...panorama(guardados.flatMap((g) => (g.guardado ? [g.guardado.acordao] : []))),
+            foraDaMemoria,
+            avisoDeAmostra: AVISO_DE_AMOSTRA,
+            ...(foraDaMemoria.length && {
+              aviso: "Os ids em foraDaMemoria não entraram na conta: refaça a busca que os trouxe e peça o panorama de novo.",
+            }),
+          },
+          [...new Set(guardados.flatMap((g) => (g.guardado ? [g.guardado.acordao.tribunal] : [])))],
+        );
+      } catch (e) {
+        return erro(e);
+      }
+    },
   );
 
   servidor.registerResource(
