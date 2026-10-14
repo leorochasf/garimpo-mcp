@@ -174,10 +174,10 @@ describe("trecho da ementa do próprio acórdão (dois sinais)", () => {
   it("saneia: CPF, telefone, CEP, e-mail e OAB mascarados; linha de parte/advogado cortada", () => {
     const texto =
       `<p>${CNJ_A}</p><p>EMENTA: Tema genérico.</p><p>Apelante: Fulano Fictício</p>` +
-      "<p>Advogado: Beltrano Fictício</p><p>Contato (62) 99999-8888, CEP 74000-000, 123.456.789-09, a@b.com, OAB/GO 12345.</p>";
+      "<p>Advogado: Beltrano Fictício</p><p>Contato (62) 99999-8888, CEP 74000-000, 123.456.789-09, fulano@exemplo.invalid, OAB/GO 12345.</p>";
     const t = (ementaDe(reduzirDjen(comunicacao("Acórdão", texto), DIGITOS_A)) as { trecho: string }).trecho;
     expect(t).toContain("Tema genérico.");
-    expect(t).not.toMatch(/Fulano|Beltrano|99999|74000|123\.456|a@b|12345/);
+    expect(t).not.toMatch(/Fulano|Beltrano|99999|74000|123\.456|fulano@|12345/);
   });
 
   it("mostra só o trecho: o texto bruto nunca sai nem fica na consulta", () => {
