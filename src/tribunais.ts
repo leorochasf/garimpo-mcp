@@ -189,7 +189,7 @@ export const TRIBUNAIS: InfoTribunal[] = [
   { ...tj("tjgo", "TJ de Goiás"), motivoLink: EXPLICA_TJGO },
   { ...tj("tjma", "TJ do Maranhão") },
   { ...tj("tjmg", "TJ de Minas Gerais"), inteiroTeor: "baixa", motivoLink: undefined },
-  { ...tj("tjms", "TJ de Mato Grosso do Sul") },
+  { ...tj("tjms", "TJ de Mato Grosso do Sul"), inteiroTeor: "baixa", motivoLink: undefined },
   { ...tj("tjmt", "TJ de Mato Grosso") },
   { ...tj("tjpa", "TJ do Pará") },
   { ...tj("tjpb", "TJ da Paraíba") },

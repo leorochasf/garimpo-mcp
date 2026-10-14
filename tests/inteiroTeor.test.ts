@@ -378,6 +378,55 @@ describe("inteiro teor — TJMG e TSE", () => {
   });
 });
 
+describe("inteiro teor — TJMS pelo getArquivo.do do eSAJ (I-14)", () => {
+  // Formato observado na prova PV-05 (2026-10-14): o endereço devolveu o PDF direto, sem redirect nem sessão. Números fictícios.
+  const LINK_TJMS = "https://esaj.tjms.jus.br/cjsg/getArquivo.do?cdAcordao=1&cdForo=0";
+
+  it("1 GET ao portal do TJMS: PDF reconhecido vira inteiro teor, com recibo do TJMS", async () => {
+    const { cliente, chamadas } = clienteFalso([pdf()]);
+    const r = await obterInteiroTeor({ tribunal: "tjms", link: LINK_TJMS, pasta }, () => cliente);
+
+    expect(r.baixado).toBe(true);
+    if (!r.baixado) return;
+    expect(chamadas.map((c) => c.url)).toEqual([LINK_TJMS]);
+    const recibo = await readFile(r.recibo, "utf8");
+    expect(recibo).toContain(`Link oficial final: ${LINK_TJMS}`);
+    expect(recibo).toContain("Tribunal: TJMS");
+  });
+
+  it("página no lugar do PDF: link + motivo do TJMS, nada salvo", async () => {
+    const { cliente } = clienteFalso([html("<html><body>Documento indisponível</body></html>")]);
+    const r = await obterInteiroTeor({ tribunal: "tjms", link: LINK_TJMS, pasta }, () => cliente);
+
+    expect(r).toMatchObject({ baixado: false, link: LINK_TJMS });
+    if (r.baixado) return;
+    expect(r.explicacao).toMatch(/^O TJMS devolveu uma página \(\d+ bytes\) no lugar do PDF; nada foi salvo\./);
+    expect(await readdir(pasta)).toEqual([]);
+  });
+
+  it("link fora de https no portal do TJMS é recusado antes de sair; o host do TJSP não vale para o TJMS", async () => {
+    for (const link of [
+      LINK_TJMS.replace("https://", "http://"),
+      LINK_TJMS.replace("esaj.tjms.jus.br", "falso-tjms.jus.br"),
+      LINK_TJMS.replace("esaj.tjms.jus.br", "esaj.tjsp.jus.br"),
+    ]) {
+      const { cliente, chamadas } = clienteFalso([]);
+      await expect(obterInteiroTeor({ tribunal: "tjms", link, pasta }, () => cliente)).rejects.toThrow(
+        /fora do portal oficial do TJMS/,
+      );
+      expect(chamadas).toHaveLength(0);
+    }
+  });
+
+  it("o TJSP continua recusando o host do TJMS", async () => {
+    const { cliente, chamadas } = clienteFalso([]);
+    await expect(
+      obterInteiroTeor({ tribunal: "tjsp", link: LINK_TJMS, pasta }, () => cliente),
+    ).rejects.toThrow(/fora do portal oficial do TJSP/);
+    expect(chamadas).toHaveLength(0);
+  });
+});
+
 describe("inteiro teor — TJSP pelo fallback anônimo da verificação de login", () => {
   // Formato observado na prova do B11 (2026-10-09), com números fictícios.
   const LINK_TJSP = "https://esaj.tjsp.jus.br/cjsg/getArquivo.do?cdAcordao=1&cdForo=0";

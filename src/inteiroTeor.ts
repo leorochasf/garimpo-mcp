@@ -1,6 +1,6 @@
 /**
  * Inteiro teor oficial: o PDF do acórdão baixado do portal do próprio tribunal.
- * Baixa só o que sai por HTTP comum (TJMG, TJSP, TSE). O STJ não: o robots.txt de processo.stj.jus.br veda o host
+ * Baixa só o que sai por HTTP comum (TJMG, TJMS, TJSP, TSE). O STJ não: o robots.txt de processo.stj.jus.br veda o host
  * inteiro (D-18), e o Garimpo devolve o link para conferência manual. No TJTO, o portal entrega o acórdão em HTML: vira o
  * texto do portal do tribunal, guardado na memória (ADR-0021). Para os demais devolve link + explicação:
  * nunca navegador automatizado, captcha ou contorno de proteção.
@@ -212,13 +212,14 @@ export async function obterInteiroTeor(
   let baixado: Baixado;
   if (tribunal === "tjmg") baixado = await baixarDireto(cliente, linkPdf, "www5.tjmg.jus.br", "TJMG");
   else if (tribunal === "tse") baixado = await baixarDireto(cliente, linkPdf, "sjur-servicos.tse.jus.br", "TSE");
-  else if (tribunal === "tjsp") {
-    const r = await baixarTjsp(cliente, linkPdf);
+  else if (tribunal === "tjsp" || tribunal === "tjms") {
+    const sigla = tribunal.toUpperCase();
+    const r = await baixarEsaj(cliente, linkPdf, sigla);
     if ("bytesDaPagina" in r) {
       return {
         baixado: false,
         link: linkPdf,
-        explicacao: `O TJSP devolveu uma página (${r.bytesDaPagina} bytes) no lugar do PDF; nada foi salvo. ${PONTE}`,
+        explicacao: `O ${sigla} devolveu uma página (${r.bytesDaPagina} bytes) no lugar do PDF; nada foi salvo. ${PONTE}`,
       };
     }
     baixado = r;
@@ -611,31 +612,33 @@ function desembrulhar(b: Uint8Array): Uint8Array {
 const MAX_REDIRECTS = 5;
 
 /**
- * TJSP (e-SAJ), numa mesma sessão de cookies do portal, como observado na prova do B11 (2026-10-09):
+ * TJSP e TJMS (e-SAJ), numa mesma sessão de cookies do portal, como observado na prova do B11 (2026-10-09):
  * 1. o link do PDF redireciona para a página de verificação de login (verificarLoginArquivo.jsp);
  * 2. essa página traz, no caminho de quem não está logado, o endereço seguinte como texto literal
  *    (window.location.href = '...casChecked=true'): lido do HTML, sem executar JavaScript;
  * 3. esse endereço devolve o PDF.
  * Página sem PDF em qualquer passo: devolve o tamanho dela, para virar link + motivo.
  */
-async function baixarTjsp(cliente: Cliente, link: string): Promise<Baixado | { bytesDaPagina: number }> {
-  const sessao = new Sessao(cliente, "TJSP", urlDoTjsp);
-  const corpo1 = await lerCorpo(await sessao.get(link), "TJSP");
+async function baixarEsaj(cliente: Cliente, link: string, sigla: string): Promise<Baixado | { bytesDaPagina: number }> {
+  const doPortal = (endereco: string, contexto: string) => urlDoEsaj(endereco, contexto, sigla);
+  const sessao = new Sessao(cliente, sigla, doPortal);
+  const corpo1 = await lerCorpo(await sessao.get(link), sigla);
   if (ehPdf(corpo1)) return { pdf: corpo1, urlFinal: sessao.urlFinal };
   const literal = latin1(corpo1).match(/window\.location\.href\s*=\s*'([^']*casChecked=true[^']*)'/)?.[1];
   if (!literal) return { bytesDaPagina: corpo1.length };
   const pagina = sessao.urlFinal;
-  const passo3 = urlDoTjsp(new URL(literal.replace(/&amp;/g, "&"), pagina).href, "O TJSP apontou o PDF").href;
-  const corpo3 = await lerCorpo(await sessao.get(passo3, pagina), "TJSP");
+  const passo3 = doPortal(new URL(literal.replace(/&amp;/g, "&"), pagina).href, `O ${sigla} apontou o PDF`).href;
+  const corpo3 = await lerCorpo(await sessao.get(passo3, pagina), sigla);
   return ehPdf(corpo3) ? { pdf: corpo3, urlFinal: sessao.urlFinal } : { bytesDaPagina: corpo3.length };
 }
 
-/** Só o portal do TJSP: HTTPS e host tjsp.jus.br ou subdomínio dele. */
-function urlDoTjsp(endereco: string, contexto: string): URL {
+/** Só o portal do tribunal do eSAJ: HTTPS e o domínio dele (tjsp.jus.br, tjms.jus.br) ou subdomínio. */
+function urlDoEsaj(endereco: string, contexto: string, sigla: string): URL {
   const url = new URL(endereco);
   const host = url.hostname.toLowerCase();
-  if (url.protocol !== "https:" || (host !== "tjsp.jus.br" && !host.endsWith(".tjsp.jus.br"))) {
-    throw new Error(`${contexto} fora do portal oficial do TJSP (só https em tjsp.jus.br): ${endereco}`);
+  const dominio = `${sigla.toLowerCase()}.jus.br`;
+  if (url.protocol !== "https:" || (host !== dominio && !host.endsWith(`.${dominio}`))) {
+    throw new Error(`${contexto} fora do portal oficial do ${sigla} (só https em ${dominio}): ${endereco}`);
   }
   return url;
 }
