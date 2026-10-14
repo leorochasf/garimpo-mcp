@@ -28,6 +28,7 @@
  */
 
 import { createHash } from "node:crypto";
+import { isUtf8 } from "node:buffer";
 import { existsSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -227,6 +228,9 @@ export function gerarTabelaStf(e: EntradaDoStf, geradaEm: string): TabelaDoStf {
 }
 
 function linhasDeRg(a: ArquivoDoMantenedor): LinhaDoStf[] {
+  if (!isUtf8(a.bytes)) {
+    throw new ParadaDoGerador(`${a.nome}: exportação com UTF-8 inválido; não é seguro ler os textos.`);
+  }
   const linhas = [...a.bytes.toString("utf8").matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)].map((m) =>
     [...m[1].matchAll(/<t([dh])\b[^>]*>([\s\S]*?)<\/t\1>/gi)].map((c) => textoDeHtml(c[2])),
   );

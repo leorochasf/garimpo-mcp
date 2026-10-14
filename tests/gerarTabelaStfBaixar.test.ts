@@ -107,6 +107,20 @@ describe("exportação de repercussão geral baixada pelo mantenedor (I-33 / G-5
     expect(JSON.parse(readFileSync(destino, "utf8")).linhas.some((l: { tipo: string; numero: number }) => l.tipo === "repercussão geral" && l.numero === 3)).toBe(false);
   });
 
+  it("download com UTF-8 inválido preserva a fotografia, mesmo com --revisado", async () => {
+    const pasta = pastaDeEntrada();
+    const destino = join(mkdtempSync(join(process.env.GARIMPO_DADOS!, "destino-")), "tabela.json");
+    gerarEGravarStf(pasta, destino, agora);
+    const antes = readFileSync(destino, "utf8");
+    const bytes = exportacao();
+    // Corrompe um byte da tese, mantendo o cabeçalho e todos os temas intactos.
+    bytes[bytes.indexOf(Buffer.from("Tese fictícia"))] = 0xff;
+    const { cliente } = clienteFalso([ok(bytes)]);
+    const baixada = await baixarExportacaoRg(cliente, agora);
+    expect(() => gerarEGravarStf(pasta, destino, agora, { revisado: true }, baixada)).toThrow(/UTF-8/);
+    expect(readFileSync(destino, "utf8")).toBe(antes);
+  });
+
   it("proveniência: URL, obtenção, hash e descartes — temas sem título mantidos e listados", () => {
     const bytes = Buffer.from(
       exportacao().toString("utf8").replace("<td>Título fictício do tema dois.</td>", "<td></td>"),
