@@ -699,8 +699,10 @@ export class Cliente {
 
   /** Só tentativa/prova mudam o disjuntor; aceitação e erro normais também atualizam a sequência do orçamento. */
   private async anotar(servico: string, chamada: Chamada, saida: Saida, r: Resultado): Promise<void> {
-    // Aceitação/erro normais só interessam à sequência do orçamento; o disjuntor os ignora.
-    const doOrcamento = (r.tipo === "aceita" || r.tipo === "erro") && this.orcamentoDe(servico);
+    // Aceitação/erro normais só interessam à sequência do orçamento; o disjuntor os ignora. O orçamento diário não
+    // tem sequência (nada muda com aceitação nem erro): sem trava nem disco.
+    const orcamento = this.orcamentoDe(servico);
+    const doOrcamento = (r.tipo === "aceita" || r.tipo === "erro") && orcamento && !orcamento.diario;
     if (saida.papel !== "normal" || doOrcamento) await this.vagas.anotar(servico, chamada, saida, r, this.agora);
   }
 
