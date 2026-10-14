@@ -1,6 +1,7 @@
 /**
  * Inteiro teor oficial: o PDF do acórdão baixado do portal do próprio tribunal.
- * Baixa só o que sai por HTTP comum (STJ, TJMG, TJSP, TSE). No TJTO, o portal entrega o acórdão em HTML: vira o
+ * Baixa só o que sai por HTTP comum (TJMG, TJSP, TSE). O STJ não: o robots.txt de processo.stj.jus.br veda o host
+ * inteiro (D-18), e o Garimpo devolve o link para conferência manual. No TJTO, o portal entrega o acórdão em HTML: vira o
  * texto do portal do tribunal, guardado na memória (ADR-0021). Para os demais devolve link + explicação:
  * nunca navegador automatizado, captcha ou contorno de proteção.
  */
@@ -208,8 +209,7 @@ export async function obterInteiroTeor(
 
   const cliente = clienteDe(tribunal);
   let baixado: Baixado;
-  if (tribunal === "stj") baixado = await baixarStj(cliente, linkPdf);
-  else if (tribunal === "tjmg") baixado = await baixarDireto(cliente, linkPdf, "www5.tjmg.jus.br", "TJMG");
+  if (tribunal === "tjmg") baixado = await baixarDireto(cliente, linkPdf, "www5.tjmg.jus.br", "TJMG");
   else if (tribunal === "tse") baixado = await baixarDireto(cliente, linkPdf, "sjur-servicos.tse.jus.br", "TSE");
   else if (tribunal === "tjsp") {
     const r = await baixarTjsp(cliente, linkPdf);
@@ -590,54 +590,6 @@ function desembrulhar(b: Uint8Array): Uint8Array {
   const fronteira = buf.subarray(0, fimLinha).toString("latin1");
   const fim = buf.lastIndexOf(`\r\n${fronteira}`);
   return new Uint8Array(buf.subarray(inicio + 4, fim > inicio ? fim : buf.length));
-}
-
-/**
- * STJ pela Revista Eletrônica, numa mesma sessão de cookies:
- * 1. página do inteiro teor (lista documentos em AbreDocumento('...'); o 1º é o inteiro teor);
- * 2. página "mediado" desse documento (traz o PDF num iframe);
- * 3. o PDF do iframe. Sem o cookie da sessão o passo 3 devolve um HTML curto.
- */
-async function baixarStj(cliente: Cliente, link: string): Promise<Baixado> {
-  const origem = urlDoStj(link, "Link do STJ");
-  const registro = origem.searchParams.get("num_registro");
-  const data = origem.searchParams.get("dt_publicacao");
-  if (!registro || !data) {
-    throw new Error(`Link do STJ sem número de registro e data de publicação: ${link}`);
-  }
-  const sessao = new Sessao(cliente, "STJ", urlDoStj);
-
-  const passo1 = `https://processo.stj.jus.br/processo/revista/inteiroteor/?num_registro=${registro}&dt_publicacao=${data}`;
-  const pagina = await sessao.texto(passo1);
-  const documento = pagina.match(/AbreDocumento\('([^']+)'\)/)?.[1];
-  if (!documento) {
-    throw new Error(
-      "A Revista Eletrônica do STJ não listou o inteiro teor deste acórdão (pode ainda não estar disponível). " +
-        `Confira no navegador: ${passo1}`,
-    );
-  }
-
-  const passo2 = urlDoStj(new URL(documento.replace(/&amp;/g, "&"), passo1).href, "O STJ apontou o documento").href;
-  const corpo2 = await lerCorpo(await sessao.get(passo2, passo1), "STJ");
-  if (ehPdf(corpo2)) return { pdf: corpo2, urlFinal: sessao.urlFinal };
-  const iframe = latin1(corpo2).match(/<iframe[^>]*\ssrc=['"]([^'"]+)['"]/i)?.[1];
-  const passo3 = urlDoStj(
-    iframe ? new URL(iframe.replace(/&amp;/g, "&"), passo2).href : passo2.replace("/mediado/", "/"),
-    "O STJ apontou o PDF",
-  ).href;
-
-  const corpo3 = await lerCorpo(await sessao.get(passo3, passo2), "STJ");
-  return { pdf: exigirPdf(corpo3, "STJ", passo1), urlFinal: sessao.urlFinal };
-}
-
-/** Só o portal do STJ: HTTPS e host stj.jus.br ou subdomínio dele (nunca "falso-stj.jus.br"). */
-function urlDoStj(endereco: string, contexto: string): URL {
-  const url = new URL(endereco);
-  const host = url.hostname.toLowerCase();
-  if (url.protocol !== "https:" || (host !== "stj.jus.br" && !host.endsWith(".stj.jus.br"))) {
-    throw new Error(`${contexto} fora do portal oficial do STJ (só https em stj.jus.br): ${endereco}`);
-  }
-  return url;
 }
 
 const MAX_REDIRECTS = 5;

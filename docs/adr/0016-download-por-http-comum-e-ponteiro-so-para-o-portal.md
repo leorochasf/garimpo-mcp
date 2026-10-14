@@ -19,3 +19,7 @@ cobertura que o caminho mais simples já dá.
   navegador, troca de User-Agent e outros caminhos ficam para o D2.
 - Aceitar a cópia do site como uma categoria separada (nunca chamada de oficial) é decisão do dono, fora do B11.
 - O uso contínuo da rota de íntegra depende de o dono confirmar que o combinado com a JAI cobre essa rota.
+- **Emenda de 2026-10-13 (D-18):** o download do STJ pela Revista Eletrônica, que passava por
+  `processo.stj.jus.br`, foi desligado: o `robots.txt` desse host veda o acesso automatizado por inteiro
+  (ver `docs/fontes.md`). O STJ passa a "só link" para conferência manual; PDFs já baixados com recibo seguem relidos
+  da pasta (ADR-0005/0011) e PDF trazido pelo usuário segue lido como origem não conferida.

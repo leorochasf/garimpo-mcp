@@ -1,7 +1,8 @@
 /**
- * Precedentes qualificados ao vivo (ADR-0020): o consultar_precedente busca o precedente no portal do tribunal, na
- * hora da pergunta, pelo cliente único (serviços próprios no disjuntor: stj-precedentes e stf-precedentes), e guarda o
- * resultado na memória por 24 h. Qualquer falha (recusa, pausa, rede, página que o Garimpo não reconhece) sobe como
+ * Precedentes qualificados do STF ao vivo (ADR-0020): o consultar_precedente busca o precedente no portal do tribunal,
+ * na hora da pergunta, pelo cliente único (serviço próprio no disjuntor: stf-precedentes), e guarda o resultado na
+ * memória por 24 h. O STJ não entra: o robots.txt de processo.stj.jus.br veda o host inteiro (D-18), e o STJ responde
+ * direto pela tabela empacotada. Qualquer falha (recusa, pausa, rede, página que o Garimpo não reconhece) sobe como
  * erro: quem chama usa a tabela empacotada como plano B. Página de verificação anti-robô ou de bloqueio com HTTP 200
  * (reconhecida pelo título, no cliente) é recusa: além do plano B, pausa o serviço em todas as janelas. Página só
  * estranha não pausa nada. Rotas e formato: docs/banco-de-provas/precedentes-ao-vivo-prova.md.
@@ -12,22 +13,13 @@ import { Cliente, FormatoInesperadoError, type OpcoesCliente } from "./cliente.j
 import { enquadrarQualificado } from "./enquadramento.js";
 import { htmlParaTexto } from "./html.js";
 import { dataEHora, type Memoria } from "./memoria.js";
-import type { LinhaDaTabela, TipoNaTabela } from "./tabelaDePrecedentes.js";
 import { type LinhaDoStf, PAGINAS_DO_STF, type TipoNoStf } from "./tabelaDoStf.js";
 
 /** Prazo de cada chamada: passado dele, a tabela responde (o usuário está esperando a resposta). */
 const PRAZO_MS = 30_000;
 
-export function clienteDosPrecedentes(tribunal: "stj" | "stf", extra: Partial<OpcoesCliente> = {}): Cliente {
-  return new Cliente({ nome: `O portal do ${tribunal.toUpperCase()}`, prazoMs: PRAZO_MS, ...extra });
-}
-
-/** A página de um tema repetitivo (T) ou IAC (I) no portal do STJ. */
-export function paginaDoStj(tipo: TipoNaTabela, numero: number): string {
-  return (
-    "https://processo.stj.jus.br/repetitivos/temas_repetitivos/pesquisa.jsp?novaConsulta=true" +
-    `&tipo_pesquisa=${tipo === "IAC" ? "I" : "T"}&cod_tema_inicial=${numero}&cod_tema_final=${numero}`
-  );
+export function clienteDosPrecedentes(extra: Partial<OpcoesCliente> = {}): Cliente {
+  return new Cliente({ nome: "O portal do STF", prazoMs: PRAZO_MS, ...extra });
 }
 
 const PORTAL_STF = "https://portal.stf.jus.br";
@@ -42,14 +34,12 @@ export interface DoPortal<L> {
   /** Instante (ms) da consulta ao portal; o da consulta original, se veio da memória. */
   consultadoEm: number;
   daMemoria: boolean;
-  /** STJ: "Última atualização" que a página informa. */
-  ultimaAtualizacao?: string;
   /** Súmulas: instante (ms) em que a lista, de onde vem a marca de situação, foi lida no portal. */
   listaObtidaEm?: number;
 }
 
 /**
- * Texto da resposta, no conjunto de caracteres que ela declara (o STJ responde em ISO-8859-1). Redirecionamento não é
+ * Texto da resposta, no conjunto de caracteres que ela declara (os portais respondem em ISO-8859-1 ou UTF-8). Redirecionamento não é
  * seguido: o salto sairia do disjuntor do destino, levaria o UA de navegador para fora do portal e seria uma chamada a
  * mais; vira erro e, portanto, plano B.
  */
@@ -77,42 +67,6 @@ function conteudoDoDiv(html: string, inicio: number): string | undefined {
     if (nivel === 0) return html.slice(abre + 1, m.index);
   }
   return undefined;
-}
-
-/** O texto do campo do STJ cujo rótulo (div titulo_campo…) é `rotulo`: o div dados_campo… que vem logo depois. */
-function campoDoStj(html: string, rotulo: string): string | undefined {
-  const r = new RegExp(`<div class="[^"]*titulo_campo[^"]*">\\s*${rotulo}\\s*</div>\\s*(<div class="[^"]*dados_campo)`, "i");
-  const m = r.exec(html);
-  if (!m) return undefined;
-  const conteudo = conteudoDoDiv(html, m.index + m[0].length - m[1].length);
-  return (conteudo && htmlParaTexto(conteudo)) || undefined;
-}
-
-/**
- * Lê a página de precedentes do STJ. Confere que o 1º documento é o tipo e o número pedidos (com código de tipo
- * errado, o portal devolve outro tipo sem erro) e que traz a situação; o resto entra se estiver lá.
- */
-export function lerPaginaDoStj(html: string, tipo: TipoNaTabela, numero: number) {
-  const onde = `A página do ${tipo} ${numero} no portal do STJ`;
-  const doc1 = html.indexOf("Documento 1");
-  const doc2 = html.indexOf("Documento 2");
-  const doc = doc1 < 0 ? "" : html.slice(doc1, doc2 < 0 ? undefined : doc2);
-  const letra = tipo === "IAC" ? "I" : "T";
-  if (!new RegExp(`copiarLinkTema\\(\\s*'${letra}',\\s*'${numero}'`).test(doc)) throw naoReconhecida(onde, `o ${tipo} ${numero}`);
-  const situacao = campoDoStj(doc, "Situação");
-  if (!situacao) throw naoReconhecida(onde, "a situação");
-  const paradigma = /title="Paradigma Principal"[\s\S]*?<b>([^<]+)<\/b>/.exec(doc)?.[1].trim();
-  const linha: LinhaDaTabela = {
-    tipo,
-    numero,
-    situacao,
-    ...opcional("teseFirmada", campoDoStj(doc, "Tese Firmada")),
-    ...opcional("questaoSubmetida", campoDoStj(doc, "Questão submetida a julgamento")),
-    ...opcional("orgaoJulgador", campoDoStj(doc, "Órgão julgador")),
-    ...(paradigma ? { processosParadigma: [paradigma] } : {}),
-  };
-  const ultimaAtualizacao = /Última atualização:\s*(\d{2}\/\d{2}\/\d{4})/.exec(doc)?.[1];
-  return { linha, ultimaAtualizacao };
 }
 
 /** O texto do <p> que vem logo depois do rótulo (div tema-campo) da ficha do tema. */
@@ -209,7 +163,6 @@ const chave = (...partes: (string | number)[]) =>
 interface Guardado<L> {
   linha: L;
   endereco: string;
-  ultimaAtualizacao?: string;
   listaObtidaEm?: number;
 }
 
@@ -227,21 +180,11 @@ export class PrecedentesAoVivo {
   private readonly agora: () => number;
 
   constructor(
-    private readonly stj: Cliente,
     private readonly stf: Cliente,
     private readonly memoria: Memoria,
     agora?: () => number,
   ) {
     this.agora = agora ?? Date.now;
-  }
-
-  /** O tema repetitivo ou IAC no portal do STJ (1 chamada), ou da memória de 24 h. */
-  async doStj(tipo: TipoNaTabela, numero: number): Promise<DoPortal<LinhaDaTabela>> {
-    return this.lembrado(chave("stj", tipo, numero), async () => {
-      const endereco = paginaDoStj(tipo, numero);
-      const { linha, ultimaAtualizacao } = lerPaginaDoStj(await textoDe(this.stj, endereco), tipo, numero);
-      return { linha, endereco, ...(ultimaAtualizacao ? { ultimaAtualizacao } : {}) };
-    });
   }
 
   /**
@@ -308,37 +251,10 @@ export class PrecedentesAoVivo {
   }
 }
 
-/** "consultado no portal do STJ em 09/10/2026 14:03 (hora local, UTC-03:00)", com a nota da memória, se for o caso. */
-function origem(tribunal: "stj" | "stf", d: DoPortal<unknown>): string {
-  const base = `consultado no portal do ${tribunal.toUpperCase()} em ${dataEHora(d.consultadoEm)}`;
+/** "consultado no portal do STF em 09/10/2026 14:03 (hora local, UTC-03:00)", com a nota da memória, se for o caso. */
+function origem(d: DoPortal<unknown>): string {
+  const base = `consultado no portal do STF em ${dataEHora(d.consultadoEm)}`;
   return d.daMemoria ? `${base}; da memória do Garimpo (consulta feita nas últimas 24 h)` : base;
-}
-
-/** Resposta do consultar_precedente com o tema ou IAC lido no portal do STJ. */
-export function respostaDoStj(d: DoPortal<LinhaDaTabela>) {
-  const { linha } = d;
-  const quando = dataEHora(d.consultadoEm);
-  return {
-    tribunal: "stj",
-    tipo: linha.tipo,
-    numero: linha.numero,
-    consta: true,
-    origem: origem("stj", d),
-    situacaoNaFonte: linha.situacao,
-    situacaoEm: `situação no portal do STJ em ${quando}, como a fonte a escreve: é situação processual, não vigência`,
-    teseFirmada: linha.teseFirmada ?? "sem tese firmada na página do portal",
-    ...(linha.questaoSubmetida
-      ? { questaoSubmetida: linha.questaoSubmetida, notaQuestaoSubmetida: "questão submetida a julgamento: é a pergunta afetada, não a tese" }
-      : {}),
-    ...(linha.orgaoJulgador ? { orgaoJulgador: linha.orgaoJulgador } : {}),
-    processoParadigma: linha.processosParadigma ?? "processo paradigma não identificado na página do portal",
-    ...(d.ultimaAtualizacao ? { ultimaAtualizacaoNoPortal: d.ultimaAtualizacao } : {}),
-    endereco: d.endereco,
-    enquadramento927: enquadrarQualificado(
-      { tribunal: "stj", tipo: linha.tipo, numero: String(linha.numero) },
-      { data: quando, linha, consulta: true, portal: `portal do STJ em ${quando}` },
-    ),
-  };
 }
 
 /** Resposta do consultar_precedente com a repercussão geral, súmula ou súmula vinculante lida no portal do STF. */
@@ -364,7 +280,7 @@ export function respostaDoStf(d: DoPortal<LinhaDoStf>) {
     tipo: linha.tipo,
     numero: linha.numero,
     consta: true,
-    origem: origem("stf", d),
+    origem: origem(d),
     ...situacao,
     ...(sumula
       ? { enunciado: linha.enunciado }

@@ -31,19 +31,9 @@ const pdfDe = (marca: string) =>
     ),
   );
 const resposta = (pdf: Buffer) => new Response(new Uint8Array(pdf), { headers: { "content-type": "application/pdf" } });
-const html = (texto: string, headers: Record<string, string> = {}) =>
-  new Response(texto, { headers: { "content-type": "text/html", ...headers } });
 
-/** As respostas de um download completo em cada tribunal falso (STJ em 3 passos; TSE em envelope multipart). */
+/** As respostas de um download completo em cada tribunal falso (TSE em envelope multipart). */
 function download(sigla: Sigla, pdf: Buffer): Parameters<typeof clienteFalso>[0] {
-  if (sigla === "stj") {
-    const passo3 = "https://processo.stj.jus.br/processo/julgamento/eletronico/documento/?documento_sequencial=1";
-    return [
-      html(`<a href="javascript:AbreDocumento('/processo/documento/mediado/?documento_sequencial=1')">REsp</a>`),
-      html(`<iframe src='${passo3}'></iframe>`),
-      resposta(pdf),
-    ];
-  }
   if (sigla === "tse") {
     const envelope = `--fronteiraXYZ\r\nContent-Type: application/octet-stream\r\n\r\n${pdf.toString("latin1")}\r\n--fronteiraXYZ--\r\n`;
     return [new Response(Buffer.from(envelope, "latin1"))];
@@ -133,14 +123,13 @@ async function camposDoRecibo(caminho: string) {
 }
 
 describe("PDF já baixado reaproveitado pelo recibo (pela porta)", () => {
-  it("2º pedido do mesmo acórdão (STJ, TJMG e TSE falsos): 0 chamadas, 1ª parte igual, data do download original e o aviso de que veio da pasta", async () => {
+  it("2º pedido do mesmo acórdão (TJMG e TSE falsos): 0 chamadas, 1ª parte igual, data do download original e o aviso de que veio da pasta", async () => {
     const j = await janela({
-      stj: [registro("11", LINKS.stj)],
       tjmg: [registro("12", LINKS.tjmg)],
       tse: [registro("13", LINKS.tse)],
     });
     vi.useFakeTimers({ toFake: ["Date"] });
-    for (const [sigla, idSite] of [["stj", "11"], ["tjmg", "12"], ["tse", "13"]] as const) {
+    for (const [sigla, idSite] of [["tjmg", "12"], ["tse", "13"]] as const) {
       await j.chamar("busca_direta", { tribunal: sigla, texto: "responsabilidade civil" });
       vi.setSystemTime(new Date("2026-03-01T12:00:00Z"));
       j.entregar(sigla, pdfDe(sigla));
@@ -175,7 +164,26 @@ describe("PDF já baixado reaproveitado pelo recibo (pela porta)", () => {
           "mova o PDF e o recibo para fora da pasta de destino.",
       );
     }
-    expect((await readdir(pasta)).filter((f) => f.endsWith(".pdf"))).toHaveLength(3);
+    expect((await readdir(pasta)).filter((f) => f.endsWith(".pdf"))).toHaveLength(2);
+  });
+
+  it("STJ (D-18): PDF baixado antes, com recibo válido, continua relido da pasta; o Garimpo não chama o tribunal", async () => {
+    const j = await janela({ tjmg: [registro("41", LINKS.tjmg)] });
+    await j.chamar("busca_direta", { tribunal: "tjmg", texto: "responsabilidade civil" });
+    j.entregar("tjmg", pdfDe("stj-antigo"));
+    const baixado = JSON.parse((await j.chamar("obter_inteiro_teor", { id: "tjmg:41" })).texto);
+    // O mesmo PDF e um recibo no formato do Garimpo, como o de um download do STJ feito antes da D-18.
+    const recibo = (await readFile(baixado.recibo, "utf8"))
+      .replace("Tribunal: TJMG", "Tribunal: STJ")
+      .replace("Id: tjmg:41", "Id: stj:41")
+      .replaceAll(LINKS.tjmg, LINKS.stj);
+    await writeFile(baixado.recibo, recibo);
+
+    const r = await j.chamar("obter_inteiro_teor", { tribunal: "stj", link: LINKS.stj });
+    expect(r.isError, r.texto).toBe(false);
+    expect(JSON.parse(r.texto)).toMatchObject({ baixado: true, arquivo: baixado.arquivo, sha256: baixado.sha256 });
+    expect(JSON.parse(r.texto).jaEstavaNaPasta).toMatch(/^O PDF já estava na pasta de destino/);
+    expect(j.falsos.stj.chamadas).toHaveLength(0);
   });
 
   it("pedido por tribunal + link (sem id) também reaproveita; texto: false traz o total de páginas, sem chamada", async () => {

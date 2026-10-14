@@ -34,8 +34,8 @@ async function conectar(tabela: TabelaDePrecedentes, agora = HOJE) {
   });
   const [ladoCliente, ladoServidor] = InMemoryTransport.createLinkedPair();
   const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "janela-"));
-  // O portal do STJ também falha (sem rede): a resposta é a da tabela, como plano B (ADR-0020).
-  await criarServidor(site, { dados, tabela, agora: () => agora, precedentesStj: site, precedentesStf: site }).connect(
+  // D-18: o STJ usa diretamente a tabela; só o STF ainda tem cliente de precedentes ao vivo.
+  await criarServidor(site, { dados, tabela, agora: () => agora, precedentesStf: site }).connect(
     ladoServidor,
   );
   const mcp = new Client({ name: "teste", version: "0" });
@@ -51,8 +51,8 @@ async function consultar(mcp: Client, args: Record<string, unknown>) {
   return { erro: r.isError === true, texto: r.content[0].text, dado: r.isError ? undefined : JSON.parse(r.content[0].text) };
 }
 
-describe("consultar_precedente — tabela de precedentes do STJ (plano B, portal sem rede)", () => {
-  it("só lê; sai para a internet (o portal do tribunal, ADR-0020)", async () => {
+describe("consultar_precedente — tabela de precedentes do STJ (D-18, sem consulta ao portal)", () => {
+  it("só lê; a ferramenta ainda declara rede porque também cobre o STF ao vivo", async () => {
     const mcp = await conectar(await tabelaPequena());
     const { tools } = await mcp.listTools();
     const t = tools.find((x) => x.name === "consultar_precedente")!;
@@ -134,7 +134,7 @@ describe("consultar_precedente — tabela de precedentes do STJ (plano B, portal
     const { erro, dado } = await consultar(mcp, { tribunal: "stj", tipo: "IAC", numero: 978 });
     expect(erro).toBe(false);
     expect(dado.consta).toBe(false);
-    expect(dado.resultado).toMatch(/^não consta na tabela de precedentes do STJ de 2026-10-09/);
+    expect(dado.resultado).toMatch(/^não consta na tabela de 2026-10-09/);
     expect(dado.resultado).not.toMatch(/não existe\b/);
     expect(dado.tabela.atribuicao).toMatch(/Precedentes qualificados/);
   });

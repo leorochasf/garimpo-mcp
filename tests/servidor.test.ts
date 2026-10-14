@@ -171,16 +171,6 @@ describe("obter inteiro teor pela porta (tribunal falso e pasta temporária)", (
   const html = (texto: string, headers: Record<string, string> = {}) =>
     new Response(texto, { headers: { "content-type": "text/html", ...headers } });
 
-  // STJ em 3 passos (página → mediado → PDF do iframe), o último só com o cookie da sessão.
-  const PDF_STJ = "https://processo.stj.jus.br/processo/julgamento/eletronico/documento/?documento_sequencial=1";
-  const stjFalso = () =>
-    clienteFalso([
-      html(`<a href="javascript:AbreDocumento('/processo/documento/mediado/?documento_sequencial=1')">REsp</a>`, {
-        "set-cookie": "JSESSIONID=abc; path=/processo",
-      }),
-      html(`<iframe src='${PDF_STJ}'></iframe>`),
-      (_url, init) => (new Headers(init.headers).get("Cookie")?.includes("JSESSIONID=abc") ? pdf() : html("<html></html>")),
-    ]);
   // O TSE entrega o PDF dentro de um envelope multipart.
   const tseFalso = () =>
     clienteFalso([
@@ -194,10 +184,10 @@ describe("obter inteiro teor pela porta (tribunal falso e pasta temporária)", (
     tse: "https://sjur-servicos.tse.jus.br/sjur-servicos/rest/download/pdf/1",
   };
 
-  /** Servidor com STJ, TJMG e TSE falsos e uma pasta temporária; o TJMG pode entregar outras respostas. */
+  /** Servidor com STJ (que não deve receber nenhuma chamada), TJMG e TSE falsos e uma pasta temporária; o TJMG pode entregar outras respostas. */
   async function montar(tjmg: Parameters<typeof clienteFalso>[0] = [pdf()], registros: unknown[] = []) {
     const pasta = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-porta-"));
-    const falsos = { stj: stjFalso(), tjmg: clienteFalso(tjmg), tse: tseFalso() };
+    const falsos = { stj: clienteFalso([]), tjmg: clienteFalso(tjmg), tse: tseFalso() };
     const mcp = await conectar(siteFalso(registros), {
       tribunais: (sigla) => falsos[sigla as keyof typeof falsos].cliente,
       pasta,
@@ -209,10 +199,10 @@ describe("obter inteiro teor pela porta (tribunal falso e pasta temporária)", (
     return { pasta, falsos, chamar };
   }
 
-  it("STJ, TJMG e TSE falsos: grava o PDF e devolve a 1ª parte, igual à do ler_inteiro_teor, com origem conferida e a chamada para a parte 2", async () => {
+  it("TJMG e TSE falsos: grava o PDF e devolve a 1ª parte, igual à do ler_inteiro_teor, com origem conferida e a chamada para a parte 2", async () => {
     const { pasta, falsos, chamar } = await montar();
 
-    for (const [tribunal, link] of Object.entries(LINKS)) {
+    for (const [tribunal, link] of Object.entries(LINKS).filter(([t]) => t !== "stj")) {
       const r = await chamar("obter_inteiro_teor", { tribunal, link });
       expect(r.isError, tribunal).toBeFalsy();
       expect(r.texto.length, tribunal).toBeLessThanOrEqual(TETO);
@@ -235,8 +225,16 @@ describe("obter inteiro teor pela porta (tribunal falso e pasta temporária)", (
       expect(segunda.isError).toBeFalsy();
       expect(JSON.parse(segunda.texto).cabecalho.paginasDoPdf).toMatch(/\(parte 2 de \d+\)$/);
     }
-    expect((await readdir(pasta)).filter((f) => f.endsWith(".pdf"))).toHaveLength(3);
-    expect(falsos.stj.chamadas).toHaveLength(3);
+    expect((await readdir(pasta)).filter((f) => f.endsWith(".pdf"))).toHaveLength(2);
+  });
+
+  it("STJ (D-18): devolve o link para conferência manual e a explicação, sem chamada nem arquivo", async () => {
+    const { pasta, falsos, chamar } = await montar();
+    const r = await chamar("obter_inteiro_teor", { tribunal: "stj", link: LINKS.stj });
+    expect(r.isError).toBeFalsy();
+    expect(JSON.parse(r.texto)).toMatchObject({ baixado: false, link: LINKS.stj, explicacao: expect.stringMatching(/robots\.txt/) });
+    expect(falsos.stj.chamadas).toHaveLength(0);
+    expect(await readdir(pasta)).toEqual([]);
   });
 
   it("link longo: a 1ª parte vem inteira e a resposta, com os dados do download, fica dentro do teto", async () => {

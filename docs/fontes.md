@@ -134,3 +134,36 @@ de rede para esta fonte existe ainda**; esta entrada precede o gerador (ADR-0017
 - **Cobertura (medida em amostra, não garantida):** classificação presente em 74% do histórico da Terceira Turma até
   05/2022, mas em 14–16% dos acórdãos de 2025–2026. Fração do total de acórdãos do STJ coberta: **não verificado**.
 - **Aviso obrigatório:** o literal está no ADR-0022.
+
+## STJ: `robots.txt` de `processo.stj.jus.br` (D-18)
+
+- **Verificado em:** 2026-10-13 (21:53 no horário de Brasília), somente leitura, UA honesto do Garimpo, 2 pedidos ao mesmo
+  host oficial, sem 429/503, sem página de bloqueio.
+- **Saltos:** `https://processo.stj.jus.br/robots.txt` → 302 para `https://processo.stj.jus.br/processo/robots.txt` → 200.
+  URL final: `https://processo.stj.jus.br/processo/robots.txt` (1454 bytes; `Last-Modified: Tue, 06 Oct 2026 16:59:31 GMT`;
+  SHA-256 dos bytes: `586668a6c9e81dc2ebb501a4de62239b268bd17ac095a5cc8ebbbda31023109a`). O arquivo alcançado por
+  redirecionamento vale para a autoridade inicial, `processo.stj.jus.br` (RFC 9309, §2.3.1.2).
+- **Linhas literais relevantes** (cabeçalho `# STJ BLOQUEIOS GERAIS PARA TODOS OS ROBÔS Rev 20250501`):
+
+  ```
+  User-agent: *              # Aplica as regras a todos os bots (Googlebot, Bingbot, etc.) bloqueando acesso em:
+  Disallow: /
+  Disallow: /processo/        
+  Disallow: /processo/pesquisa/  
+  Disallow: /SCON/           
+  Disallow: /repetitivos      
+  Disallow: /processo/dj/edital/  
+  Disallow: /portal_stj/teste/    
+  Disallow: /grucobranca/    
+  ```
+
+  Nenhum grupo cita o Garimpo e o arquivo não tem nenhuma linha `Allow`: pela RFC 9309 (§2.2.1), o grupo `*` vale. **O
+  host inteiro é vedado** ao Garimpo, inclusive `/repetitivos` (temas e IAC) e `/processo/` (inteiro teor).
+- **Ressalva de formato:** a resposta veio como `text/html;charset=ISO-8859-1` (a RFC pede `text/plain`), mas o corpo é texto
+  de robots puro, sem marcação; tratado como robots válido.
+- **O que o Garimpo faz (D-18):** nenhuma chamada automatizada a `processo.stj.jus.br`. Temas e IAC do STJ saem da tabela
+  empacotada (ADR-0015, emenda no ADR-0020); o inteiro teor do STJ é só link para conferência manual (emenda no
+  ADR-0016). Nem `www.stj.jus.br` nem outro subdomínio é usado como desvio.
+- **Duas restrições diferentes, em hosts diferentes:** o `/api/` vem do robots do Portal de Dados Abertos
+  (`dadosabertos.web.stj.jus.br`), que o gerador da tabela já respeita; o "nunca processo.stj.jus.br" vem do robots do
+  próprio `processo.stj.jus.br`. O robots de `www.stj.jus.br` vale só para `www` e não se aplica a `processo`.
