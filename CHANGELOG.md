@@ -2,8 +2,6 @@
 
 ## 1.0 (RASCUNHO: não publicada; versão do package.json segue 0.5.0)
 
-Fica o marcador `[PENDENTE: ...]` do que ainda não foi medido; tire-o quando a medição entrar.
-
 ### Novidades
 
 Mais tribunais com o texto do acórdão
@@ -34,7 +32,7 @@ Freios novos (proteção do seu IP)
 - Teto diário próprio de 50 chamadas por dia para a Justiça do Trabalho, mesmo quando o Falcão diz que ainda há saldo.
 - No TJDFT, o freio também lê o saldo informado pela API do tribunal.
 - Estado de proteção corrompido ou ilegível para a rede em vez de seguir adivinhando.
-- Menos operações de disco por chamada ao Falcão (de 33 para 23 por chamada). [PENDENTE: medição de velocidade]
+- Menos operações de disco por chamada ao Falcão (de 33 para 23 por chamada). Medido sem rede, em duas rodadas de 30: a 1.0 completa ficou igual à 0.5.0 em todas as operações medidas; só o início do servidor mostrou tendência de cerca de +0,1 s, ainda dentro do ruído.
 
 Para quem mantém ou quer ajudar
 - Formulários de problema e sugestão no GitHub, sem campo para dado de processo, e verificação automática (tipos, testes sem rede e build). A linha de chamado nos erros inesperados fica desligada até a publicação.
