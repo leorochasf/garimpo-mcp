@@ -52,6 +52,7 @@ import { clienteDosPrecedentes, PrecedentesAoVivo, respostaDoStf } from "./prece
 import {
   avisoDeLinkDoTjgo,
   ehDoFalcao,
+  ehDoTrf4,
   INTEIRO_TEOR_PORTAL,
   INTEIRO_TEOR_TRT,
   paginaDeTribunais,
@@ -245,17 +246,23 @@ const AVISO_FALCAO =
   "Resultado obtido do repositório oficial da Justiça do Trabalho (Falcão) por cliente não oficial (Garimpo); " +
   "confira no portal do tribunal antes de citar.";
 
+/** Aviso de natureza jurídica do TRF4: a fonte é o módulo de jurisprudência do tribunal, o Garimpo não é oficial. */
+const AVISO_TRF4 =
+  "Resultado obtido da busca oficial do e-Proc do TRF4 por cliente não oficial (Garimpo); o texto do acórdão é o do " +
+  "portal do tribunal, não o PDF oficial; confira no portal do tribunal antes de citar.";
+
 /**
- * O aviso das fontes usadas, pelos tribunais: só JurisprudênciaIA, só Falcão, ou os dois, cada um com o seu (a
- * oficialidade do Falcão não se estende ao JurisprudênciaIA).
+ * O aviso das fontes usadas, pelos tribunais: só JurisprudênciaIA, só Falcão, só e-Proc do TRF4, ou mais de uma, cada
+ * uma com o seu (a oficialidade de uma fonte não se estende às outras).
  */
 function avisoDasFontes(tribunais: readonly string[]): string {
-  const falcao = tribunais.some(ehDoFalcao);
-  const site = tribunais.some((t) => !ehDoFalcao(t));
-  if (falcao && site) {
-    return `Acórdãos do JurisprudênciaIA: ${AVISO_NATUREZA_JURIDICA} Acórdãos dos TRTs: ${AVISO_FALCAO}`;
-  }
-  return falcao ? AVISO_FALCAO : AVISO_NATUREZA_JURIDICA;
+  const partes = [
+    { existe: tribunais.some((t) => !ehDoFalcao(t) && !ehDoTrf4(t)), rotulo: "Acórdãos do JurisprudênciaIA", aviso: AVISO_NATUREZA_JURIDICA },
+    { existe: tribunais.some(ehDoTrf4), rotulo: "Acórdãos do TRF4", aviso: AVISO_TRF4 },
+    { existe: tribunais.some(ehDoFalcao), rotulo: "Acórdãos dos TRTs", aviso: AVISO_FALCAO },
+  ].filter((x) => x.existe);
+  if (partes.length === 0) return AVISO_NATUREZA_JURIDICA;
+  return partes.length === 1 ? partes[0].aviso : partes.map((x) => `${x.rotulo}: ${x.aviso}`).join(" ");
 }
 
 function comAvisoNaturezaJuridica<T extends object>(dado: T, tribunais: readonly string[] = []) {
@@ -647,7 +654,7 @@ export function criarServidor(
         "Acórdão que veio da busca sem link nenhum: pede o link oficial, uma vez, à rota de link do JurisprudênciaIA " +
         "(exceto TST) e diz que ele veio de lá; sem link também ali, diz como achar o acórdão pelo número CNJ. " +
         "Baixa do TJMG, TJMS, TJRR, TJSP e TSE. STJ: não baixa (o robots.txt de processo.stj.jus.br veda o acesso automatizado); devolve o link para conferência manual, e o PDF baixado antes com recibo, ou trazido pelo usuário, é lido normalmente. TRT (Falcão): não há PDF a baixar; explica e aponta o ler_inteiro_teor pelo " +
-        "id. TJPI e TJTO: o portal entrega o acórdão em HTML; o Garimpo o traz como texto do portal do tribunal (sem PDF " +
+        "id. TJPI, TJTO e TRF4: o portal entrega o acórdão em HTML; o Garimpo o traz como texto do portal do tribunal (sem PDF " +
         "nem recibo) para a memória e aponta o ler_inteiro_teor e o conferir_citacao pelo id. Para STF, TJGO e demais devolve o link e explica como obter no navegador " +
         "(o Garimpo não contorna captcha nem proteção anti-robô) e como ler o PDF baixado: passar o caminho do " +
         "arquivo ao ler_inteiro_teor. Informe o id que veio na busca ou tribunal + link.",

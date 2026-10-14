@@ -13,7 +13,8 @@ import { nomesDoFiltro, ressalvaSePoucos } from "./grafia.js";
 import { FalhaNaMemoriaError, fotografiaDaBusca, type Memoria } from "./memoria.js";
 import { buscaNoFalcao, clienteDoFalcao, lerBuscaGuardadaNoFalcao, type OrdenacaoNoFalcao } from "./falcao.js";
 import { avisoDeRecorridoAusente } from "./recorrido.js";
-import { avisoDeLinkDoTjgo, ehDoFalcao, infoTribunal, ROTULO_FALCAO } from "./tribunais.js";
+import { buscaNoTrf4, clienteDoTrf4, lerBuscaGuardadaNoTrf4 } from "./trf4.js";
+import { avisoDeLinkDoTjgo, ehDoFalcao, ehDoTrf4, infoTribunal, ROTULO_FALCAO } from "./tribunais.js";
 
 export const SITE = "https://www.jurisprudenciaia.com.br";
 
@@ -164,6 +165,8 @@ export interface OpcoesBuscaDireta {
   tabelaStf?: TabelaDoStf;
   /** Cliente do Falcão, para os TRTs (padrão: um novo, com os mesmos freios compartilhados). */
   falcao?: Cliente;
+  /** Cliente do e-Proc do TRF4 (padrão: um novo, com os mesmos freios compartilhados). */
+  eproc?: Cliente;
 }
 
 /** O pedido ao site: tudo o que afeta a resposta, na mesma ordem sempre (a chave da busca guardada sai daqui). */
@@ -199,6 +202,7 @@ export async function lerBuscaGuardada(
   { tabela, tabelaStf }: Pick<OpcoesBuscaDireta, "tabela" | "tabelaStf"> = {},
 ): Promise<{ resultado: ResultadoBusca; obtidoEm: number } | undefined> {
   if (ehDoFalcao(p.tribunal)) return lerBuscaGuardadaNoFalcao(memoria, p);
+  if (ehDoTrf4(p.tribunal)) return lerBuscaGuardadaNoTrf4(memoria, p);
   const { tribunal, chave, cobertura } = pedido(p);
   const guardada = await memoria.obterBusca(chave);
   // Sem as teses do site (gravada antes delas), o enquadramento não pode ser refeito com as tabelas desta janela: vale como ausente.
@@ -245,10 +249,13 @@ export async function buscaDiretaSemMarca(
   cliente: Cliente,
   p: ParametrosBusca,
   memoria?: Memoria,
-  { renovar = false, guardarAcordaos = true, tabela, tabelaStf, falcao }: OpcoesBuscaDireta = {},
+  { renovar = false, guardarAcordaos = true, tabela, tabelaStf, falcao, eproc }: OpcoesBuscaDireta = {},
 ): Promise<ResultadoBusca> {
   if (ehDoFalcao(p.tribunal)) {
     return buscaNoFalcao(falcao ?? clienteDoFalcao(), p, memoria, { renovar, guardarAcordaos });
+  }
+  if (ehDoTrf4(p.tribunal)) {
+    return buscaNoTrf4(eproc ?? clienteDoTrf4(), p, memoria, { renovar, guardarAcordaos });
   }
   const { tribunal, corpo, chave, cobertura } = pedido(p);
   // Falha ao ler a memória vira busca normal no site, com aviso; sem rede permitida, o erro da rede, como sempre.

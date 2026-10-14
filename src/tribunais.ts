@@ -11,7 +11,7 @@
 export type InteiroTeorModo = "baixa" | "link" | "texto" | "portal";
 
 /** De onde vem a busca do tribunal. */
-export type Fonte = "JurisprudênciaIA" | "Falcão (CSJT)";
+export type Fonte = "JurisprudênciaIA" | "Falcão (CSJT)" | "e-Proc do TRF4";
 
 /** O que a tabela diz dos TRTs: precedentes qualificados e inteiro teor. */
 export const QUALIFICADOS_TRT =
@@ -23,6 +23,9 @@ export const INTEIRO_TEOR_PORTAL = "texto do portal do tribunal, trazido pelo ob
 /** Rótulo de cada acórdão de TRT (ADR-0018). */
 export const ROTULO_FALCAO =
   "Falcão — repositório oficial de jurisprudência da Justiça do Trabalho (Res. CSJT 401/2024)";
+
+/** Rótulo de cada acórdão do TRF4 (ADR-0024). */
+export const ROTULO_TRF4 = "e-Proc do TRF4 — módulo de jurisprudência do tribunal (eproc-jur.trf4.jus.br)";
 
 export interface InfoTribunal {
   /** Sigla usada na rota da busca direta (minúscula). */
@@ -206,6 +209,14 @@ export const TRIBUNAIS: InfoTribunal[] = [
   { ...tj("tjse", "TJ de Sergipe") },
   { ...tj("tjsp", "TJ de São Paulo"), inteiroTeor: "baixa", motivoLink: undefined },
   { ...tj("tjto", "TJ do Tocantins"), inteiroTeor: "portal", motivoLink: undefined },
+  {
+    sigla: "trf4",
+    nome: "Tribunal Regional Federal da 4ª Região",
+    fonte: "e-Proc do TRF4",
+    qualificados: [],
+    tetoResultados: 10,
+    inteiroTeor: "portal",
+  },
   ...Array.from({ length: 24 }, (_, i): InfoTribunal => ({
     sigla: `trt${i + 1}`,
     nome: `TRT da ${i + 1}ª Região`,
@@ -222,6 +233,11 @@ export const TRTS = Array.from({ length: 24 }, (_, i) => `trt${i + 1}`);
 /** O tribunal vem do Falcão (um dos 24 TRTs). */
 export function ehDoFalcao(sigla: string): boolean {
   return TRTS.includes(sigla.toLowerCase());
+}
+
+/** O tribunal vem do e-Proc do TRF4 (ADR-0024). */
+export function ehDoTrf4(sigla: string): boolean {
+  return sigla.toLowerCase() === "trf4";
 }
 
 export const SIGLAS = TRIBUNAIS.map((t) => t.sigla);
@@ -255,7 +271,8 @@ export function paginaDeTribunais(): string {
       "portal do tribunal está funcionando agora: o registro pode ter mudado desde a última conferência.",
     "",
     "- **Fonte:** de onde vem a busca: a busca direta do JurisprudênciaIA (base não oficial) ou o Falcão (CSJT), " +
-      "repositório oficial de jurisprudência da Justiça do Trabalho (Res. CSJT 401/2024), para os 24 TRTs (só acórdãos).",
+      "repositório oficial de jurisprudência da Justiça do Trabalho (Res. CSJT 401/2024), para os 24 TRTs (só acórdãos); " +
+      "ou o e-Proc do TRF4 (módulo de jurisprudência do próprio tribunal; só acórdãos, até 10 por busca).",
     "- **Qualificados:** listas de precedentes qualificados que o site devolve em separado na busca.",
     "- **Teto por busca:** máximo de acórdãos observado por busca; só informa, não limita a busca. Nos TRTs, é o teto " +
       "da busca direta (3 páginas de 10 do Falcão), que limita a busca.",
