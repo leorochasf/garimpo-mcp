@@ -36,7 +36,7 @@ export interface ReferenciaLegislativa {
 type Detalhe = "paragrafo" | "inciso" | "alinea" | "item";
 
 const CABECALHO = /^LEG:(\S+)\s+(\S+?):(\S+)\s+ANO:(\S+)/;
-const TOKEN = /\b(ART|PAR|INC|LET|ITEM|SUM|NUM):(\S+)/g;
+const MARCA = /\b(ART|PAR|INC|LET|ITEM|SUM|NUM):(\S+)/g;
 /** Do mais alto ao mais fundo; um detalhe preenchido bloqueia ele mesmo e os mais fundos. */
 const DETALHES: Record<string, Detalhe> = { PAR: "paragrafo", INC: "inciso", LET: "alinea", ITEM: "item" };
 const ORDEM: Detalhe[] = ["paragrafo", "inciso", "alinea", "item"];
@@ -74,7 +74,7 @@ function lerUm(entrada: string): ReferenciaLegislativa[] {
 
   const pares: ReferenciaLegislativa[] = [];
   let atual: ReferenciaLegislativa | undefined;
-  for (const [, nome, bruto] of corpo.matchAll(TOKEN)) {
+  for (const [, nome, bruto] of corpo.matchAll(MARCA)) {
     const v = valor(bruto);
     if (nome === "ART") {
       pares.push((atual = { ...lei, artigo: v }));
