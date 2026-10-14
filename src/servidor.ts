@@ -40,6 +40,7 @@ import {
   textoForaDaMemoria,
 } from "./leitura.js";
 import { Memoria, obtidoDoSite } from "./memoria.js";
+import { AVISO_DE_AMOSTRA, panorama } from "./panorama.js";
 import { ChaveDoDataJud, clienteDoDataJud, TERMO_DE_USO_DATAJUD } from "./datajud.js";
 import { clienteDoDjen, FonteDjen } from "./djen.js";
 import { julgamentosDoProcesso } from "./julgamentos.js";
@@ -1091,6 +1092,47 @@ export function criarServidor(
               "Confira no portal do tribunal.",
           },
           [sigla],
+        );
+      } catch (e) {
+        return erro(e);
+      }
+    },
+  );
+
+  registrar(
+    "panorama_da_amostra",
+    {
+      title: "Panorama da amostra",
+      description:
+        "Conta, por tribunal, por ano de julgamento e por órgão julgador, os acórdãos que uma busca já trouxe (informe " +
+        "os ids, de 1 a 200, como vieram na busca_direta ou na busca_ampla; o acórdão tem de estar na memória do " +
+        "Garimpo, que guarda por 24 h). Não chama o site. É contagem da amostra da busca, não estatística do tribunal: " +
+        "o aviso vem em toda resposta. Sem data, vai em \"sem data\"; sem órgão, em \"sem órgão informado\"; por " +
+        "tribunal, os 20 órgãos mais frequentes e \"outros\". Id repetido conta uma vez; id fora da memória vem em " +
+        "foraDaMemoria, sem entrar na conta.",
+      annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+      inputSchema: {
+        ids: listaOuTexto(z.array(z.string())).describe("Ids dos acórdãos (tribunal:id), de 1 a 200"),
+      },
+    },
+    async ({ ids }) => {
+      try {
+        if (!ids.length || ids.length > 200) {
+          throw new Error(`São ${ids.length} ids; mande de 1 a 200 ids de acórdãos, como vieram na busca (ex.: "stj:12345").`);
+        }
+        const unicos = [...new Set(ids)];
+        const guardados = await Promise.all(unicos.map(async (id) => ({ id, guardado: await memoria.obter(id) })));
+        const foraDaMemoria = guardados.filter((g) => !g.guardado).map((g) => g.id);
+        return comAvisoNaturezaJuridica(
+          {
+            ...panorama(guardados.flatMap((g) => (g.guardado ? [g.guardado.acordao] : []))),
+            foraDaMemoria,
+            avisoDeAmostra: AVISO_DE_AMOSTRA,
+            ...(foraDaMemoria.length && {
+              aviso: "Os ids em foraDaMemoria não entraram na conta: refaça a busca que os trouxe e peça o panorama de novo.",
+            }),
+          },
+          [...new Set(guardados.flatMap((g) => (g.guardado ? [g.guardado.acordao.tribunal] : [])))],
         );
       } catch (e) {
         return erro(e);
