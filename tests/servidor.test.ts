@@ -2300,7 +2300,10 @@ describe("roteiro de pesquisa (prompt pesquisar_tese e instructions do servidor)
   it("D-15: o roteiro inteiro corresponde ao texto congelado separado para leitura humana", async () => {
     const mcp = await conectar(siteFalso([]));
     // Cópia independente do texto integral da D-15; não deriva de src/roteiro.ts durante o teste.
-    const aprovado = (await readFile(new URL("./fixtures/roteiro-d15-aprovado.txt", import.meta.url), "utf8")).trimEnd();
+    // O checkout Windows pode usar CRLF; só normaliza a quebra e retira o LF final do arquivo.
+    const aprovado = (await readFile(new URL("./fixtures/roteiro-d15-aprovado.txt", import.meta.url), "utf8"))
+      .replace(/\r\n/g, "\n")
+      .replace(/\n$/, "");
     const texto = await roteiro(mcp, { tese: "{tese}" });
 
     expect(texto).toBe(aprovado);
