@@ -2,8 +2,8 @@
  * TRF4: busca oficial do módulo de jurisprudência do e-Proc e o inteiro teor em HTML assinado (D-07 / G-31, ADR-0024).
  * Tudo pelo Cliente único (UA honesto, freios da regra 3). A busca é 1 GET do formulário (sessão) e 1 POST, uma página
  * de 10; o inteiro teor é 1 GET do formulário e 1 GET do documento. O link de acompanhamento processual
- * (www.trf4.jus.br/trf4/processos/, vedado no robots.txt) só é mostrado: nunca chamado. O formato HTML foi lido de uma
- * prova, não de HTML gravado: o que não bate vira erro de formato, nunca lista vazia.
+ * (www.trf4.jus.br/trf4/processos/, vedado no robots.txt) só é mostrado: nunca chamado. A estrutura HTML da lista é presumida
+ * por fixture fictícia, não foi conferida na resposta real: o que não bate vira erro de formato, nunca lista vazia.
  */
 
 import { createHash } from "node:crypto";
@@ -110,11 +110,52 @@ async function lerHtml(r: Response): Promise<string> {
   return decodificar(bytes, tipo, "iso-8859-1");
 }
 
-/** Total declarado no campo oculto; ausente = undefined (nunca "zero"). */
-function totalDaPagina(html: string): number | undefined {
-  const tag = /<input\b[^>]*\bhdnTotalResultado\b[^>]*>/i.exec(html)?.[0];
-  const v = tag && /\bvalue\s*=\s*["']?(\d+)/i.exec(tag)?.[1];
-  return v === undefined || v === "" ? undefined : Number(v);
+function formatoInesperado(): never {
+  throw new FormatoInesperadoError("Formato inesperado da lista do e-Proc do TRF4: a página não corresponde à estrutura presumida; nada foi guardado. Confira a fonte.");
+}
+
+function atributo(tag: string, nome: string): string | undefined {
+  return new RegExp(`(?:^|\\s)${nome}\\s*=\\s*(["'])(.*?)\\1`, "i").exec(tag)?.[2];
+}
+
+/** Só aceita um total inteiro completo no campo exato; total ausente ou ambíguo nunca vira zero. */
+function totalDaPagina(html: string): number {
+  const campos = [...html.matchAll(/<input\b[^>]*>/gi)].map((m) => m[0])
+    .filter((tag) => atributo(tag, "name") === "hdnTotalResultado" || atributo(tag, "id") === "hdnTotalResultado");
+  if (campos.length !== 1) return formatoInesperado();
+  const v = atributo(campos[0], "value");
+  if (!v || !/^\d+$/.test(v) || !Number.isSafeInteger(Number(v))) return formatoInesperado();
+  return Number(v);
+}
+
+/** Recorte conservador das divs presumidas: conta o aninhamento, nunca atravessa outro registro. */
+function divsDaClasse(html: string, classe: string): string[] {
+  const partes: string[] = [];
+  let inicio: number | undefined;
+  let profundidade = 0;
+  for (const m of html.matchAll(/<\/?div\b[^>]*>/gi)) {
+    const fecha = /^<\//.test(m[0]);
+    const alvo = !fecha && atributo(m[0], "class")?.split(/\s+/).includes(classe);
+    if (alvo) {
+      if (inicio !== undefined) return formatoInesperado();
+      inicio = m.index + m[0].length;
+      profundidade = 0;
+    }
+    if (inicio === undefined) continue;
+    profundidade += fecha ? -1 : 1;
+    if (profundidade === 0) {
+      partes.push(html.slice(inicio, m.index));
+      inicio = undefined;
+    }
+  }
+  if (inicio !== undefined) return formatoInesperado();
+  return partes;
+}
+
+function campoDoRegistro(html: string, classe: string): string {
+  const campos = divsDaClasse(html, classe);
+  if (campos.length !== 1) return formatoInesperado();
+  return campos[0];
 }
 
 const MARCA_DE_LINK = /⟦LINK:([^⟧]*)⟧/g;
@@ -155,6 +196,9 @@ function enderecoDoInteiroTeor(link: string): URL | undefined {
   if (
     url.protocol !== "https:" ||
     url.host !== HOST_TRF4 ||
+    url.username !== "" || url.password !== "" || url.hash !== "" ||
+    url.searchParams.getAll("acao").length !== 1 ||
+    url.searchParams.getAll("id_jurisprudencia").length !== 1 ||
     url.pathname !== ROTA ||
     url.searchParams.get("acao") !== ACAO_INTEIRO_TEOR ||
     !id ||
@@ -173,31 +217,35 @@ function limpar<T extends object>(o: T): T {
   return o;
 }
 
-/** Os resultados da página: acórdão (sem texto integral) por cabeçalho; sem o link do inteiro teor, descartado e contado. */
-export function lerResultadosDoTrf4(html: string): { acordaos: Acordao[]; blocos: number; descartados: number; repetidos: number } {
-  const texto = textoComLinks(html);
-  const cabecalhos = [...texto.matchAll(CABECALHO)];
+/** Cada registro e cada campo ficam isolados pela estrutura presumida; divergência aborta a lista inteira. */
+export function lerResultadosDoTrf4(html: string): { acordaos: Acordao[]; total: number; blocos: number; repetidos: number } {
+  html = html.replace(/<!--[\s\S]*?(?:-->|$)/g, "").replace(/<(script|style)\b[\s\S]*?(?:<\/\1\s*>|$)/gi, "");
+  const total = totalDaPagina(html);
+  const registros = divsDaClasse(html, "resultado");
+  if (registros.length !== Math.min(total, LIMITE_MAXIMO_TRF4)) return formatoInesperado();
+  for (const campo of ["cabecalho", "ementa", "links"]) {
+    if (divsDaClasse(html, campo).length !== registros.length) return formatoInesperado();
+  }
   const acordaos: Acordao[] = [];
-  const vistos = new Set<string>();
-  let descartados = 0;
+  const vistos = new Map<string, string>();
   let repetidos = 0;
-  cabecalhos.forEach((m, i) => {
+  for (const registro of registros) {
+    const cabecalho = htmlParaTexto(campoDoRegistro(registro, "cabecalho"));
+    const encontrados = [...cabecalho.matchAll(CABECALHO)];
+    if (encontrados.length !== 1) return formatoInesperado();
+    const m = encontrados[0];
+    if (cabecalho.slice(0, m.index).trim() !== "Acórdão" || cabecalho.slice(m.index + m[0].length).trim()) return formatoInesperado();
     const [, cnj, sigla, classe, orgao, julgamento, publicacao] = m;
-    const bloco = texto.slice(m.index + m[0].length, cabecalhos[i + 1]?.index ?? texto.length);
-    const links = [...bloco.matchAll(MARCA_DE_LINK)].map((l) => l[1].trim());
-    const doc = links.map(enderecoDoInteiroTeor).find((u) => u);
-    if (!doc) {
-      descartados++;
-      return;
-    }
+    // Campos intermediários não podem conter outro cabeçalho nem links deslocados.
+    if (/PROCESSO|ÓRGÃO JULGADOR|DATA DO|DATA DA|⟦LINK:/.test(classe + orgao)) return formatoInesperado();
+    const links = [...textoComLinks(campoDoRegistro(registro, "links")).matchAll(MARCA_DE_LINK)].map((l) => l[1].trim());
+    const docs = links.map(enderecoDoInteiroTeor).filter((u): u is URL => Boolean(u));
+    const consultas = links.filter(ehLinkDeConsulta);
+    if (links.length !== 2 || docs.length !== 1 || consultas.length !== 1) return formatoInesperado();
+    if ([...textoComLinks(registro).matchAll(MARCA_DE_LINK)].length !== 2) return formatoInesperado();
+    const doc = docs[0];
     const idDoc = doc.searchParams.get("id_jurisprudencia")!;
-    if (vistos.has(idDoc)) {
-      repetidos++;
-      return;
-    }
-    vistos.add(idDoc);
-    const fim = bloco.search(/\bDECISÃO\b|⟦LINK:/);
-    const ementa = (fim < 0 ? bloco : bloco.slice(0, fim)).replace(/^\s*EMENTA\s*:?\s*/i, "").trim();
+    const ementa = htmlParaTexto(campoDoRegistro(registro, "ementa")).replace(/^\s*EMENTA\s*:?\s*/i, "").trim();
     const acordao = limpar({
       id: `trf4:${idDoc}`,
       tribunal: "trf4",
@@ -211,12 +259,19 @@ export function lerResultadosDoTrf4(html: string): { acordaos: Acordao[]; blocos
       ementa,
       avisoDeEmenta: ementa ? undefined : "sem ementa no e-Proc do TRF4",
       link: doc.href,
-      linkConsulta: links.find(ehLinkDeConsulta),
+      linkConsulta: consultas[0],
       fonte: ROTULO_TRF4,
     });
+    const identidade = JSON.stringify(acordao);
+    if (vistos.has(idDoc)) {
+      if (vistos.get(idDoc) !== identidade) return formatoInesperado();
+      repetidos++;
+      continue;
+    }
+    vistos.set(idDoc, identidade);
     acordaos.push({ ...acordao, enquadramento927: enquadrarAcordao({ ...acordao, siglaClasse: sigla }) });
-  });
-  return { acordaos, blocos: cabecalhos.length, descartados, repetidos };
+  }
+  return { acordaos, total, blocos: registros.length, repetidos };
 }
 
 /** Chave da busca guardada: sha256 da fonte, do texto e do limite (o texto nunca vai em claro para o disco). */
@@ -300,28 +355,9 @@ export async function buscaNoTrf4(
     throw new FormatoInesperadoError("O e-Proc do TRF4 redirecionou a busca; o Garimpo não segue o redirecionamento.");
   }
   const html = await lerHtml(r);
-  const total = totalDaPagina(html);
-  const { acordaos: lidos, blocos, descartados, repetidos } = lerResultadosDoTrf4(html);
-  if (total === undefined && blocos === 0) {
-    throw new FormatoInesperadoError(
-      "A página do e-Proc do TRF4 não trouxe o total (hdnTotalResultado) nem resultados legíveis: não deu para saber se há " +
-        "acórdãos. O formato da fonte pode ter mudado.",
-    );
-  }
-  if (total !== undefined && total > 0 && blocos === 0) {
-    throw new FormatoInesperadoError(
-      `O e-Proc do TRF4 informou ${total} documentos, mas o Garimpo não leu nenhum resultado da página. O formato da fonte ` +
-        "pode ter mudado; a lista não é dada como vazia.",
-    );
-  }
+  const { acordaos: lidos, total, repetidos } = lerResultadosDoTrf4(html);
   const acordaos = lidos.slice(0, limite);
   const avisos: string[] = [];
-  if (descartados) {
-    avisos.push(
-      `${descartados} registro(s) do e-Proc descartado(s): sem link do inteiro teor que o Garimpo possa usar (o Garimpo ` +
-        "não completa dado por suposição).",
-    );
-  }
   if (repetidos) avisos.push(`${repetidos} acórdão(s) repetido(s) na página do e-Proc ficaram só uma vez.`);
   if (p.limite !== undefined && p.limite > LIMITE_MAXIMO_TRF4) {
     avisos.push(`O limite pedido (${p.limite}) vale ${LIMITE_MAXIMO_TRF4} no TRF4: o Garimpo lê uma página do e-Proc por busca (${LIMITE_MAXIMO_TRF4} por busca).`);
@@ -367,9 +403,12 @@ function lerLinkDoInteiroTeor(link: string): URL {
 export async function textoDoTrf4(
   cliente: Cliente,
   link: string,
-  acordao: { numeroCnj?: string },
+  acordao: { id?: string; numeroCnj?: string },
 ): Promise<Omit<TextoIntegral, "id"> | undefined> {
   const url = lerLinkDoInteiroTeor(link);
+  if (acordao.id && acordao.id !== `trf4:${url.searchParams.get("id_jurisprudencia")}`) {
+    throw new Error("Link do TRF4 fora do formato esperado para este id: o documento do link difere do acórdão pedido.");
+  }
   let cookie: string | undefined;
   try {
     cookie = await abrirSessao(cliente);

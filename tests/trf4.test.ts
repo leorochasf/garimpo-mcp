@@ -31,7 +31,7 @@ const formulario = () =>
 const comTotal = (total: string | undefined) =>
   total === undefined
     ? RESULTADOS.replace(/<input type="hidden" name="hdnTotalResultado"[^>]*>/, "")
-    : RESULTADOS.replace('value="213436"', `value="${total}"`);
+    : RESULTADOS.replace('value="2"', `value="${total}"`);
 
 describe("TRF4 — busca oficial do e-Proc (D-07 / G-31): o que o usuário vê na lista", () => {
   it("o TRF4 está na tabela de tribunais, fonte própria, inteiro teor como texto do portal", () => {
@@ -87,7 +87,7 @@ describe("TRF4 — busca oficial do e-Proc (D-07 / G-31): o que o usuário vê n
     expect(a.ementa).not.toMatch(/EMENTA:|DECISÃO|Inteiro teor|Acompanhamento/);
     expect(r.acordaos[1].classe).toBe("Remessa Necessária Cível");
     expect(r.acordaos[1].link).toMatch(/id_jurisprudencia=100000000000000000000000000002/);
-    expect(r.cabecalhoDeCobertura).toMatch(/213436/);
+    expect(r.cabecalhoDeCobertura).toMatch(/informou 2/);
     expect(r.cabecalhoDeCobertura).toMatch(/recebeu 2/);
     expect(r.qualificados).toEqual([]);
   });
@@ -135,6 +135,30 @@ describe("TRF4 — busca oficial do e-Proc (D-07 / G-31): o que o usuário vê n
     );
   });
 
+  it.each([
+    ["total ausente com registros", comTotal(undefined)],
+    ["total truncado", comTotal("0xyz")],
+    ["total contradiz a lista", comTotal("0")],
+    ["página incompleta", comTotal("50")],
+    ["total duplicado", RESULTADOS.replace('<form id="frmResultados">', '<form id="frmResultados"><input name="hdnTotalResultado" value="2">')],
+    ["zero com cabeçalhos fora dos blocos", comTotal("0").replaceAll('class="resultado"', 'class="outro"')],
+    ["id repetido para acórdãos diferentes", RESULTADOS.replaceAll('100000000000000000000000000002', '100000000000000000000000000001')],
+    ["ação ambígua", RESULTADOS.replace('&amp;id_jurisprudencia=', '&amp;acao=outra&amp;id_jurisprudencia=')],
+    ["host de terceiro", RESULTADOS.replace('https://eproc-jur.trf4.jus.br/', 'https://exemplo.invalid/')],
+    ["campo com nome apenas parecido", RESULTADOS.replaceAll('hdnTotalResultado', 'outrohdnTotalResultado')],
+    ["cabeçalho incompleto antes do seguinte", RESULTADOS.replace('<label>DATA DA PUBLICAÇÃO</label> <span>14/10/2026</span>', '')],
+    ["formato de um registro mudou", RESULTADOS.replace('<label>PROCESSO</label>', '<label>AUTOS</label>')],
+    ["ementa fora do campo previsto", RESULTADOS.replace('class="ementa"', 'class="outro"')],
+    ["links de registros juntos", RESULTADOS.replace('class="resultado"', 'class="outro"')],
+    ["campo de ementa duplicado", RESULTADOS.replace('<div class="ementa">', '<div class="ementa">texto</div><div class="ementa">')],
+  ])("formato presumido divergente (%s) = erro, sem guardar acórdãos", async (_caso, pagina) => {
+    const memoria = new Memoria();
+    const { cliente } = clienteFalso([formulario(), () => html(pagina)]);
+    await expect(buscaDireta(cliente, { tribunal: "trf4", texto: "x" }, memoria, { eproc: cliente }))
+      .rejects.toBeInstanceOf(FormatoInesperadoError);
+    expect(await memoria.obter("trf4:100000000000000000000000000001")).toBeUndefined();
+  });
+
   it("filtros e opções que o e-Proc não recebe dão erro que ensina, antes de qualquer chamada (nunca ignorados)", async () => {
     const { cliente, chamadas } = clienteFalso([]);
     for (const filtro of [{ de: "2026-01-01" }, { ate: "2026-02-01" }, { relator: "Fulano" }, { orgao: "Turma" }, { classe: "AC" }]) {
@@ -152,16 +176,15 @@ describe("TRF4 — busca oficial do e-Proc (D-07 / G-31): o que o usuário vê n
     const { cliente, chamadas } = clienteFalso([formulario(), () => html(RESULTADOS)]);
     const r = await buscaDireta(cliente, { tribunal: "trf4", texto: "x", limite: 100 }, undefined, { eproc: cliente });
     expect(chamadas).toHaveLength(2);
-    expect(r.cabecalhoDeCobertura).toMatch(/10/);
+    expect(r.acordaos).toHaveLength(2);
     expect(r.avisos.join(" ")).toMatch(/10 por busca|uma página/i);
   });
 
-  it("resultado sem o link do inteiro teor é descartado e contado (sem id o Garimpo não inventa)", async () => {
+  it("resultado sem o link do inteiro teor aborta a lista (sem id o Garimpo não inventa)", async () => {
     const sem = RESULTADOS.replace(/<a href="#" data-link="externo_controlador[^>]*>Inteiro teor<\/a>/, "");
     const { cliente } = clienteFalso([formulario(), () => html(sem)]);
-    const r = await buscaDireta(cliente, { tribunal: "trf4", texto: "x" }, undefined, { eproc: cliente });
-    expect(r.acordaos).toHaveLength(1);
-    expect(r.avisos.join(" ")).toMatch(/1 registro\(s\) do e-Proc descartado/);
+    await expect(buscaDireta(cliente, { tribunal: "trf4", texto: "x" }, undefined, { eproc: cliente }))
+      .rejects.toBeInstanceOf(FormatoInesperadoError);
   });
 
   it("link do inteiro teor que viria em http (ou de outro host) não é aceito nem trocado por https", async () => {
@@ -170,9 +193,8 @@ describe("TRF4 — busca oficial do e-Proc (D-07 / G-31): o que o usuário vê n
       'data-link="http://eproc-jur.trf4.jus.br/eproc2trf4/externo_controlador.php?acao=jurisprudencia@jurisprudencia/download_inteiro_teor',
     );
     const { cliente } = clienteFalso([formulario(), () => html(http)]);
-    const r = await buscaDireta(cliente, { tribunal: "trf4", texto: "x" }, undefined, { eproc: cliente });
-    expect(r.acordaos).toHaveLength(1);
-    expect(r.acordaos.every((a) => !a.link?.startsWith("http:"))).toBe(true);
+    await expect(buscaDireta(cliente, { tribunal: "trf4", texto: "x" }, undefined, { eproc: cliente }))
+      .rejects.toBeInstanceOf(FormatoInesperadoError);
   });
 
   it("busca repetida sai da memória, sem chamada; a busca guardada não leva o texto pesquisado", async () => {
@@ -265,6 +287,15 @@ describe("TRF4 — inteiro teor em HTML assinado: texto do portal do tribunal", 
     const r = await obterInteiroTeor({ id: ID }, () => cliente, memoria);
     expect(chamadas).toHaveLength(2);
     expect(r.baixado).toBe(false);
+    expect(await memoria.obterTexto(ID)).toBeUndefined();
+  });
+
+  it("link de outro acórdão do mesmo processo não é associado ao id pedido", async () => {
+    const memoria = await memoriaComBusca();
+    const { cliente, chamadas } = clienteFalso([]);
+    const outro = LINK_1.replace('100000000000000000000000000001', '100000000000000000000000000002');
+    await expect(obterInteiroTeor({ id: ID, link: outro }, () => cliente, memoria)).rejects.toThrow(/difere do acórdão/);
+    expect(chamadas).toHaveLength(0);
     expect(await memoria.obterTexto(ID)).toBeUndefined();
   });
 
