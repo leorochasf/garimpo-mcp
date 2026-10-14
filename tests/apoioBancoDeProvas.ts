@@ -258,12 +258,20 @@ export interface ParadigmaOficial {
   paradigma: string;
   /** Posição na busca pela tese, na rodada de 2026-10-10 (nas gravações cruas, fora do git). */
   posicaoNaRodada?: number;
+  /** Identidade do acórdão paradigma: classe e número do processo, como a tabela oficial os traz (D-02). */
+  acordao: { classe: string; numero: number };
+  /** Fotografia da linha da tabela oficial no dia do registro (D-02): a situação pode mudar; a data de julgamento e o hash da tese não. */
+  tabela: { situacao?: string; dataJulgamento?: string; teseSha256: string };
   /** Só nos que ficaram fora da régua. */
   motivo?: string;
+  /** Só nos que ficaram fora da régua (D-02). "Não indexado" é inferência até alguém verificar na fonte. */
+  situacaoNaRodada?: "nao-indexado-na-fonte" | "recuperado-fora-do-topo";
 }
 
 export interface ParadigmasOficiais {
+  /** O N do "topo-N", fixado antes de qualquer comparação nova (D-02). */
   topo: number;
+  topoFixadoEm: string;
   obrigatoriosOficiais: ParadigmaOficial[];
   foraDaRegua: ParadigmaOficial[];
 }
@@ -381,8 +389,64 @@ export function conferirParadigmasOficiais(
     if (!paradigmas) falhas.push(`${rotulo}: tema não está na tabela oficial`);
     else if (!paradigmas.includes(o.paradigma)) falhas.push(`${rotulo}: paradigma ${o.paradigma} não é mais o da tabela oficial`);
     const posicao = posicoes[chaveDoParadigma(o)];
-    if (posicao === undefined) falhas.push(`${rotulo}: paradigma ${o.paradigma} fora da lista da busca`);
-    else if (posicao > p.topo) falhas.push(`${rotulo}: paradigma ${o.paradigma} na posição ${posicao}, fora do topo ${p.topo}`);
+    if (posicao === undefined) falhas.push(`${rotulo}: não recuperado (paradigma ${o.paradigma} fora da lista da busca)`);
+    else if (posicao > p.topo) falhas.push(`${rotulo}: recuperado fora do topo-${p.topo} (paradigma ${o.paradigma} na posição ${posicao})`);
   }
   return falhas;
+}
+
+/**
+ * D-02: o que a busca de hoje fez com os obrigatórios oficiais, em três situações que não se misturam. Os obrigatórios
+ * medem RECUPERAÇÃO de um item conhecido, nunca relevância. "Não indexado na fonte" não sai desta conta (não recuperar
+ * não prova que o site não tem o acórdão): vem só do registro de `foraDaRegua`, e enquanto ninguém verificar na fonte
+ * é inferência.
+ */
+export interface RelatorioDosParadigmas {
+  topo: number;
+  obrigatorios: number;
+  recuperadosNoTopo: string[];
+  recuperadosForaDoTopo: { chave: string; posicao: number }[];
+  naoRecuperados: string[];
+  /** Registro de foraDaRegua: situações de uma rodada anterior, não desta busca. */
+  foraDaRegua: { naoIndexadosNaFonte: string[]; recuperadosForaDoTopo: string[] };
+}
+
+export function relatarParadigmas(p: ParadigmasOficiais, posicoes: Record<string, number | undefined>): RelatorioDosParadigmas {
+  const relatorio: RelatorioDosParadigmas = {
+    topo: p.topo,
+    obrigatorios: p.obrigatoriosOficiais.length,
+    recuperadosNoTopo: [],
+    recuperadosForaDoTopo: [],
+    naoRecuperados: [],
+    foraDaRegua: {
+      naoIndexadosNaFonte: p.foraDaRegua.filter((o) => o.situacaoNaRodada === "nao-indexado-na-fonte").map(chaveDoParadigma),
+      recuperadosForaDoTopo: p.foraDaRegua.filter((o) => o.situacaoNaRodada === "recuperado-fora-do-topo").map(chaveDoParadigma),
+    },
+  };
+  for (const o of p.obrigatoriosOficiais) {
+    const chave = chaveDoParadigma(o);
+    const posicao = posicoes[chave];
+    if (posicao === undefined) relatorio.naoRecuperados.push(chave);
+    else if (posicao > p.topo) relatorio.recuperadosForaDoTopo.push({ chave, posicao });
+    else relatorio.recuperadosNoTopo.push(chave);
+  }
+  return relatorio;
+}
+
+/** Uma tese da rodada de D-15, com as quatro formulações que se comparam (assunto × conclusão; técnica × leiga). */
+export interface TeseDaRodadaD15 {
+  tese: number;
+  tribunal: string;
+  variantes: { id: "tecnica-assunto" | "tecnica-conclusao" | "leiga-assunto" | "leiga-conclusao"; busca: string }[];
+}
+
+export interface RodadaD15 {
+  fixadoEm: string;
+  limiteDaBusca: number;
+  tetoDeChamadas: number;
+  teses: TeseDaRodadaD15[];
+}
+
+export function carregarRodadaD15(): RodadaD15 {
+  return JSON.parse(readFileSync(new URL("rodada-d15.json", PASTA), "utf8")) as RodadaD15;
 }
