@@ -2,8 +2,8 @@
  * TRF4: busca oficial do módulo de jurisprudência do e-Proc e o inteiro teor em HTML assinado (D-07 / G-31, ADR-0024).
  * Tudo pelo Cliente único (UA honesto, freios da regra 3). A busca é 1 GET do formulário (sessão) e 1 POST, uma página
  * de 10; o inteiro teor é 1 GET do formulário e 1 GET do documento. O link de acompanhamento processual
- * (www.trf4.jus.br/trf4/processos/, vedado no robots.txt) só é mostrado: nunca chamado. A estrutura HTML da lista é presumida
- * por fixture fictícia, não foi conferida na resposta real: o que não bate vira erro de formato, nunca lista vazia.
+ * (www.trf4.jus.br/trf4/processos/, vedado no robots.txt) só é mostrado: nunca chamado. A estrutura da lista foi conferida
+ * em 2026-10-14 e reproduzida em recorte saneado: o que não bate vira erro de formato, nunca lista vazia.
  */
 
 import { createHash } from "node:crypto";
@@ -19,7 +19,7 @@ const ROTA = `/eproc2trf4/externo_controlador.php`;
 export const FORMULARIO_TRF4 = `https://${HOST_TRF4}${ROTA}?acao=jurisprudencia@jurisprudencia/pesquisar`;
 const LISTAR_RESULTADOS = `https://${HOST_TRF4}${ROTA}?acao=jurisprudencia@jurisprudencia/listar_resultados`;
 const ACAO_INTEIRO_TEOR = "jurisprudencia@jurisprudencia/download_inteiro_teor";
-/** Resultados da única página que o Garimpo lê (o e-Proc mostra 10; o tamanho da página não foi verificado). */
+/** Resultados da única página que o Garimpo lê (10 na prova de 2026-10-14; não promete estabilidade desse tamanho). */
 export const LIMITE_MAXIMO_TRF4 = 10;
 /** Documento do e-Proc: o texto útil mínimo (uma página de aviso não chega perto) e o limite de leitura (bytes). */
 const MINIMO_TEXTO = 500;
@@ -138,13 +138,13 @@ function divsDaClasse(html: string, classe: string): string[] {
     const alvo = !fecha && atributo(m[0], "class")?.split(/\s+/).includes(classe);
     if (alvo) {
       if (inicio !== undefined) return formatoInesperado();
-      inicio = m.index + m[0].length;
+      inicio = m.index;
       profundidade = 0;
     }
     if (inicio === undefined) continue;
     profundidade += fecha ? -1 : 1;
     if (profundidade === 0) {
-      partes.push(html.slice(inicio, m.index));
+      partes.push(html.slice(inicio, m.index + m[0].length));
       inicio = undefined;
     }
   }
@@ -152,22 +152,25 @@ function divsDaClasse(html: string, classe: string): string[] {
   return partes;
 }
 
-function campoDoRegistro(html: string, classe: string): string {
-  const campos = divsDaClasse(html, classe);
-  if (campos.length !== 1) return formatoInesperado();
-  return campos[0];
-}
-
-const MARCA_DE_LINK = /⟦LINK:([^⟧]*)⟧/g;
-
-/** O texto da página com cada `data-link` escrito no ponto onde estava, para o link ficar junto do resultado dele. */
-function textoComLinks(html: string): string {
-  const comMarcas = html.replace(
-    /<([a-z][a-z0-9]*)\b([^>]*?)\sdata-link\s*=\s*(["'])(.*?)\3([^>]*)>/gis,
-    (_, tag: string, antes: string, _aspa: string, valor: string, depois: string) =>
-      `<${tag}${antes}${depois}> ⟦LINK:${htmlParaTexto(valor)}⟧ `,
-  );
-  return htmlParaTexto(comMarcas);
+/** Campo do card real: resLabel seguido de resValue; rótulo/valor ausente ou duplicado aborta a lista. */
+function campoDoRegistro(html: string, rotulos: string[]): string {
+  // Os rótulos ficam dentro de divs aninhadas: localiza as aberturas, sem englobar seus pais.
+  const labels = [...html.matchAll(/<div\b[^>]*>/gi)]
+    .filter((m) => atributo(m[0], "class")?.split(/\s+/).includes("resLabel"));
+  const encontrados = labels.filter((m) => {
+    const fim = html.indexOf("</div>", m.index + m[0].length);
+    return rotulos.includes(htmlParaTexto(html.slice(m.index + m[0].length, fim)).trim());
+  });
+  if (encontrados.length !== 1) return formatoInesperado();
+  const etiqueta = encontrados[0];
+  const fim = html.indexOf("</div>", etiqueta.index + etiqueta[0].length);
+  const seguinte = labels.find((m) => m.index > etiqueta.index)?.index ?? html.length;
+  const trecho = html.slice(fim + 6, seguinte);
+  const abertura = /^\s*(<div\b[^>]*>)/i.exec(trecho)?.[1];
+  if (!abertura || !atributo(abertura, "class")?.split(/\s+/).includes("resValue")) return formatoInesperado();
+  const valores = divsDaClasse(trecho, "resValue");
+  if (valores.length !== 1) return formatoInesperado();
+  return htmlParaTexto(valores[0]).replace(/\s+/g, " ").trim();
 }
 
 /** «PROCESSO <cnj>/TRF4 <sigla> - <classe> [UF <uf>] ÓRGÃO JULGADOR <órgão> DATA DO JULGAMENTO <d> DATA DA PUBLICAÇÃO <d>». */
@@ -217,35 +220,43 @@ function limpar<T extends object>(o: T): T {
   return o;
 }
 
-/** Cada registro e cada campo ficam isolados pela estrutura presumida; divergência aborta a lista inteira. */
+/** Cada registro fica isolado pelo card resultadoItem; links precedem os campos no HTML real. */
 export function lerResultadosDoTrf4(html: string): { acordaos: Acordao[]; total: number; blocos: number; repetidos: number } {
   html = html.replace(/<!--[\s\S]*?(?:-->|$)/g, "").replace(/<(script|style)\b[\s\S]*?(?:<\/\1\s*>|$)/gi, "");
   const total = totalDaPagina(html);
-  const registros = divsDaClasse(html, "resultado");
+  const registros = divsDaClasse(html, "resultadoItem");
   if (registros.length !== Math.min(total, LIMITE_MAXIMO_TRF4)) return formatoInesperado();
-  for (const campo of ["cabecalho", "ementa", "links"]) {
-    if (divsDaClasse(html, campo).length !== registros.length) return formatoInesperado();
+  for (const campo of ["resLabel", "resValueTipoJurisprudencia"]) {
+    if (divsDaClasse(html, campo).length !== registros.reduce((n, r) => n + divsDaClasse(r, campo).length, 0)) return formatoInesperado();
   }
   const acordaos: Acordao[] = [];
   const vistos = new Map<string, string>();
   let repetidos = 0;
   for (const registro of registros) {
-    const cabecalho = htmlParaTexto(campoDoRegistro(registro, "cabecalho"));
+    const tipo = divsDaClasse(registro, "resValueTipoJurisprudencia");
+    if (tipo.length !== 1 || htmlParaTexto(tipo[0]).trim() !== "Acórdão") return formatoInesperado();
+    const cabecalho = "PROCESSO " + campoDoRegistro(registro, ["PROCESSO"]) +
+      " UF " + campoDoRegistro(registro, ["UF"]) +
+      " ÓRGÃO JULGADOR " + campoDoRegistro(registro, ["ÓRGÃO JULGADOR"]) +
+      " DATA DO JULGAMENTO " + campoDoRegistro(registro, ["DATA DO JULGAMENTO"]) +
+      " DATA DA PUBLICAÇÃO " + campoDoRegistro(registro, ["DATA DA PUBLICAÇÃO"]);
     const encontrados = [...cabecalho.matchAll(CABECALHO)];
     if (encontrados.length !== 1) return formatoInesperado();
     const m = encontrados[0];
-    if (cabecalho.slice(0, m.index).trim() !== "Acórdão" || cabecalho.slice(m.index + m[0].length).trim()) return formatoInesperado();
+    if (m.index !== 0 || cabecalho.slice(m[0].length).trim()) return formatoInesperado();
     const [, cnj, sigla, classe, orgao, julgamento, publicacao] = m;
     // Campos intermediários não podem conter outro cabeçalho nem links deslocados.
     if (/PROCESSO|ÓRGÃO JULGADOR|DATA DO|DATA DA|⟦LINK:/.test(classe + orgao)) return formatoInesperado();
-    const links = [...textoComLinks(campoDoRegistro(registro, "links")).matchAll(MARCA_DE_LINK)].map((l) => l[1].trim());
+    const links = [...registro.matchAll(/<a\b[^>]*>/gi)]
+      .map((m) => atributo(m[0], "data-link")).filter((l): l is string => l !== undefined).map(htmlParaTexto);
     const docs = links.map(enderecoDoInteiroTeor).filter((u): u is URL => Boolean(u));
     const consultas = links.filter(ehLinkDeConsulta);
     if (links.length !== 2 || docs.length !== 1 || consultas.length !== 1) return formatoInesperado();
-    if ([...textoComLinks(registro).matchAll(MARCA_DE_LINK)].length !== 2) return formatoInesperado();
     const doc = docs[0];
     const idDoc = doc.searchParams.get("id_jurisprudencia")!;
-    const ementa = htmlParaTexto(campoDoRegistro(registro, "ementa")).replace(/^\s*EMENTA\s*:?\s*/i, "").trim();
+    const tagDoCard = /^<div\b[^>]*>/i.exec(registro)?.[0];
+    if (!tagDoCard || atributo(tagDoCard, "id") !== `resultado${idDoc}`) return formatoInesperado();
+    const ementa = campoDoRegistro(registro, ["EMENTA"]);
     const acordao = limpar({
       id: `trf4:${idDoc}`,
       tribunal: "trf4",
@@ -254,6 +265,7 @@ export function lerResultadosDoTrf4(html: string): { acordaos: Acordao[]; total:
       numeroCnj: cnj,
       classe: classe.trim(),
       orgao: orgao.trim(),
+      relator: campoDoRegistro(registro, ["RELATOR", "RELATORA"]),
       dataJulgamento: dataDoEproc(julgamento),
       dataPublicacao: dataDoEproc(publicacao),
       ementa,

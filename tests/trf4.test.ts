@@ -8,18 +8,21 @@ import { obterInteiroTeor } from "../src/inteiroTeor.js";
 import { lerTextoIntegral } from "../src/leitura.js";
 import { Memoria } from "../src/memoria.js";
 import { infoTribunal, SIGLAS } from "../src/tribunais.js";
+import { lerResultadosDoTrf4 } from "../src/trf4.js";
 import { clienteFalso } from "./apoio.js";
 
 const FORMULARIO = "https://eproc-jur.trf4.jus.br/eproc2trf4/externo_controlador.php?acao=jurisprudencia@jurisprudencia/pesquisar";
 const LISTAR = "https://eproc-jur.trf4.jus.br/eproc2trf4/externo_controlador.php?acao=jurisprudencia@jurisprudencia/listar_resultados";
 const LINK_1 =
-  "https://eproc-jur.trf4.jus.br/eproc2trf4/externo_controlador.php?acao=jurisprudencia@jurisprudencia/download_inteiro_teor&id_jurisprudencia=100000000000000000000000000001&termosPesquisados=YXBvc2VudGFkb3JpYQ==";
+  "https://eproc-jur.trf4.jus.br/eproc2trf4/externo_controlador.php?acao=jurisprudencia@jurisprudencia/download_inteiro_teor&id_jurisprudencia=10000000000000000000000000001&termosPesquisados=YXV4aWxpb3xkb2VuY2F8Y2FyZW5jaWE=";
 const ACOMPANHAMENTO_1 =
-  "http://www.trf4.jus.br/trf4/processos/acompanhamento/resultado_pesquisa.php?selForma=NU&txtValor=00000011120254049999";
+  "http://www.trf4.jus.br/trf4/processos/acompanhamento/resultado_pesquisa.php?selForma=NU&selOrigem=TRF&txtValor=00000011120254049999";
 const CNJ_1 = "0000001-11.2025.4.04.9999";
 
 const lido = (nome: string) => readFileSync(new URL(`./fixtures/${nome}`, import.meta.url), "utf8");
-const RESULTADOS = lido("trf4-resultados.html");
+// O recorte tem 2 dos 10 cards: só o total é ajustado para testar uma página completa de 2.
+const RESULTADOS = readFileSync(new URL("./fixtures/trf4-resultados.html", import.meta.url), "latin1")
+  .replace('name="hdnTotalResultado" type="hidden" value="30196"', 'name="hdnTotalResultado" type="hidden" value="2"');
 const INTEIRO_TEOR = lido("trf4-inteiro-teor.html");
 /** O e-Proc responde em ISO-8859-1: os bytes da fixture saem em latin1, como no portal. */
 const html = (texto: string, tipo = "text/html; charset=iso-8859-1") =>
@@ -30,10 +33,34 @@ const formulario = () =>
   });
 const comTotal = (total: string | undefined) =>
   total === undefined
-    ? RESULTADOS.replace(/<input type="hidden" name="hdnTotalResultado"[^>]*>/, "")
+    ? RESULTADOS.replace(/<input[^>]*name="hdnTotalResultado"[^>]*>/, "")
     : RESULTADOS.replace('value="2"', `value="${total}"`);
 
 describe("TRF4 — busca oficial do e-Proc (D-07 / G-31): o que o usuário vê na lista", () => {
+  it("regressão: cada processo recebe o id e o link do seu próprio card, nunca do vizinho", () => {
+    const { acordaos } = lerResultadosDoTrf4(RESULTADOS);
+    expect(acordaos.map((a) => [a.numeroCnj, a.id])).toEqual([
+      [CNJ_1, "trf4:10000000000000000000000000001"],
+      ["0000002-22.2024.4.04.7200", "trf4:10000000000000000000000000002"],
+    ]);
+    for (const a of acordaos) expect(new URL(a.link!).searchParams.get("id_jurisprudencia")).toBe(a.id.slice(5));
+  });
+
+  it("regressão: ementa é o campo EMENTA após DECISÃO, sem RELATOR/RELATORA nem dispositivo", () => {
+    const { acordaos } = lerResultadosDoTrf4(RESULTADOS);
+    expect(acordaos[0].ementa).toBe("DIREITO PREVIDENCIÁRIO. APELAÇÃO CÍVEL. AUXÍLIO-DOENÇA. EXEMPLO FICTÍCIO DE EMENTA. 1. Primeiro item fictício da ementa. 2. Segundo item fictício, sobre o período de carência exemplar.");
+    expect(acordaos[1].ementa).toBe("PREVIDENCIÁRIO. AUXÍLIO-DOENÇA. SEGUNDO EXEMPLO FICTÍCIO. 1. Item fictício. 2. Recurso desprovido.");
+    expect(acordaos.map((a) => a.relator)).toEqual(["JUIZ FICTÍCIO UM", "JUÍZA FICTÍCIA DOIS"]);
+  });
+
+  it("regressão: preserva o último card antes do modal de citação", () => {
+    const r = lerResultadosDoTrf4(RESULTADOS);
+    expect(r.blocos).toBe(2);
+    expect(r.acordaos).toHaveLength(2);
+    expect(r.acordaos.at(-1)?.id).toBe("trf4:10000000000000000000000000002");
+    expect(r.acordaos.at(-1)?.ementa).not.toMatch(/Citação|Copiar|Fechar/);
+  });
+
   it("o TRF4 está na tabela de tribunais, fonte própria, inteiro teor como texto do portal", () => {
     const info = infoTribunal("trf4");
     expect(info?.fonte).toBe("e-Proc do TRF4");
@@ -69,7 +96,7 @@ describe("TRF4 — busca oficial do e-Proc (D-07 / G-31): o que o usuário vê n
     expect(r.acordaos).toHaveLength(2);
     const a = r.acordaos[0];
     expect(a).toMatchObject({
-      id: "trf4:100000000000000000000000000001",
+      id: "trf4:10000000000000000000000000001",
       tribunal: "trf4",
       numero: `AC ${CNJ_1}`,
       numeroCnj: CNJ_1,
@@ -77,16 +104,16 @@ describe("TRF4 — busca oficial do e-Proc (D-07 / G-31): o que o usuário vê n
       classe: "Apelação Cível",
       orgao: "Turma Exemplar Fictícia",
       dataJulgamento: "2026-10-13",
-      dataPublicacao: "2026-10-14",
+      dataPublicacao: "2026-10-13",
       link: LINK_1,
       linkConsulta: ACOMPANHAMENTO_1,
     });
     expect(a.ementa).toMatch(/^DIREITO PREVIDENCIÁRIO\. APELAÇÃO CÍVEL/);
-    expect(a.ementa).toMatch(/Apelação desprovida\./);
+    expect(a.ementa).toMatch(/período de carência exemplar\./);
     // O que não é ementa (rótulo, dispositivo, botões) não entra nela.
     expect(a.ementa).not.toMatch(/EMENTA:|DECISÃO|Inteiro teor|Acompanhamento/);
-    expect(r.acordaos[1].classe).toBe("Remessa Necessária Cível");
-    expect(r.acordaos[1].link).toMatch(/id_jurisprudencia=100000000000000000000000000002/);
+    expect(r.acordaos[1].classe).toBe("Apelação Cível");
+    expect(r.acordaos[1].link).toMatch(/id_jurisprudencia=10000000000000000000000000002/);
     expect(r.cabecalhoDeCobertura).toMatch(/informou 2/);
     expect(r.cabecalhoDeCobertura).toMatch(/recebeu 2/);
     expect(r.qualificados).toEqual([]);
@@ -115,7 +142,7 @@ describe("TRF4 — busca oficial do e-Proc (D-07 / G-31): o que o usuário vê n
   });
 
   it("total 0 declarado = busca vazia (não é erro)", async () => {
-    const vazio = comTotal("0").replace(/<div class="resultado">[\s\S]*<\/div>\s*<\/body>/, "</body>");
+    const vazio = comTotal("0").replace(/<div class="card mb-3 resultadoItem"[\s\S]*<\/body>/, "</body>");
     const { cliente } = clienteFalso([formulario(), () => html(vazio)]);
     const r = await buscaDireta(cliente, { tribunal: "trf4", texto: "nada" }, undefined, { eproc: cliente });
     expect(r.acordaos).toEqual([]);
@@ -123,12 +150,12 @@ describe("TRF4 — busca oficial do e-Proc (D-07 / G-31): o que o usuário vê n
   });
 
   it("total ausente = erro de formato (nunca lista vazia); total acima de zero sem resultado legível também", async () => {
-    const semTotal = comTotal(undefined).replace(/<div class="resultado">[\s\S]*<\/div>\s*<\/body>/, "</body>");
+    const semTotal = comTotal(undefined).replace(/<div class="card mb-3 resultadoItem"[\s\S]*<\/body>/, "</body>");
     const a = clienteFalso([formulario(), () => html(semTotal)]);
     await expect(buscaDireta(a.cliente, { tribunal: "trf4", texto: "x" }, undefined, { eproc: a.cliente })).rejects.toBeInstanceOf(
       FormatoInesperadoError,
     );
-    const semBlocos = comTotal("50").replace(/<div class="resultado">[\s\S]*<\/div>\s*<\/body>/, "</body>");
+    const semBlocos = comTotal("50").replace(/<div class="card mb-3 resultadoItem"[\s\S]*<\/body>/, "</body>");
     const b = clienteFalso([formulario(), () => html(semBlocos)]);
     await expect(buscaDireta(b.cliente, { tribunal: "trf4", texto: "x" }, undefined, { eproc: b.cliente })).rejects.toThrow(
       /formato/i,
@@ -140,23 +167,26 @@ describe("TRF4 — busca oficial do e-Proc (D-07 / G-31): o que o usuário vê n
     ["total truncado", comTotal("0xyz")],
     ["total contradiz a lista", comTotal("0")],
     ["página incompleta", comTotal("50")],
-    ["total duplicado", RESULTADOS.replace('<form id="frmResultados">', '<form id="frmResultados"><input name="hdnTotalResultado" value="2">')],
-    ["zero com cabeçalhos fora dos blocos", comTotal("0").replaceAll('class="resultado"', 'class="outro"')],
-    ["id repetido para acórdãos diferentes", RESULTADOS.replaceAll('100000000000000000000000000002', '100000000000000000000000000001')],
-    ["ação ambígua", RESULTADOS.replace('&amp;id_jurisprudencia=', '&amp;acao=outra&amp;id_jurisprudencia=')],
-    ["host de terceiro", RESULTADOS.replace('https://eproc-jur.trf4.jus.br/', 'https://exemplo.invalid/')],
+    ["total duplicado", RESULTADOS.replace('<body>', '<body><input name="hdnTotalResultado" value="2">')],
+    ["zero com cabeçalhos fora dos blocos", comTotal("0").replaceAll('class="card mb-3 resultadoItem"', 'class="outro"')],
+    ["id repetido para acórdãos diferentes", RESULTADOS.replaceAll('10000000000000000000000000002', '10000000000000000000000000001')],
+    ["ação ambígua", RESULTADOS.replace('&id_jurisprudencia=', '&acao=outra&id_jurisprudencia=')],
+    ["host de terceiro", RESULTADOS.replace('data-link="externo_controlador.php', 'data-link="https://exemplo.invalid/externo_controlador.php')],
     ["campo com nome apenas parecido", RESULTADOS.replaceAll('hdnTotalResultado', 'outrohdnTotalResultado')],
-    ["cabeçalho incompleto antes do seguinte", RESULTADOS.replace('<label>DATA DA PUBLICAÇÃO</label> <span>14/10/2026</span>', '')],
-    ["formato de um registro mudou", RESULTADOS.replace('<label>PROCESSO</label>', '<label>AUTOS</label>')],
-    ["ementa fora do campo previsto", RESULTADOS.replace('class="ementa"', 'class="outro"')],
-    ["links de registros juntos", RESULTADOS.replace('class="resultado"', 'class="outro"')],
-    ["campo de ementa duplicado", RESULTADOS.replace('<div class="ementa">', '<div class="ementa">texto</div><div class="ementa">')],
+    ["cabeçalho incompleto antes do seguinte", RESULTADOS.replace('<div class="resLabel">DATA DA PUBLICAÇÃO</div>', '')],
+    ["formato de um registro mudou", RESULTADOS.replace('<div class="resLabel">PROCESSO</div>', '<div class="resLabel">AUTOS</div>')],
+    ["ementa fora do campo previsto", RESULTADOS.replace('class="resLabel">EMENTA', 'class="outro">EMENTA')],
+    ["links de registros juntos", RESULTADOS.replace('class="card mb-3 resultadoItem"', 'class="outro"')],
+    ["campo de ementa duplicado", RESULTADOS.replace('<div class="resLabel">EMENTA</div>', '<div class="resLabel">EMENTA</div><div class="resValue completo">texto</div><div class="resLabel">EMENTA</div>')],
+    ["link com id diferente do card", RESULTADOS.replace('id_jurisprudencia=10000000000000000000000000001', 'id_jurisprudencia=10000000000000000000000000002')],
+    ["último card truncado", RESULTADOS.slice(0, RESULTADOS.indexOf('<div class="modal mt-3"') - 15)],
+    ["relator ambíguo", RESULTADOS.replace('<div class="resLabel">RELATOR</div>', '<div class="resLabel">RELATORA</div><div class="resValue completo">outra pessoa fictícia</div><div class="resLabel">RELATOR</div>')],
   ])("formato presumido divergente (%s) = erro, sem guardar acórdãos", async (_caso, pagina) => {
     const memoria = new Memoria();
     const { cliente } = clienteFalso([formulario(), () => html(pagina)]);
     await expect(buscaDireta(cliente, { tribunal: "trf4", texto: "x" }, memoria, { eproc: cliente }))
       .rejects.toBeInstanceOf(FormatoInesperadoError);
-    expect(await memoria.obter("trf4:100000000000000000000000000001")).toBeUndefined();
+    expect(await memoria.obter("trf4:10000000000000000000000000001")).toBeUndefined();
   });
 
   it("filtros e opções que o e-Proc não recebe dão erro que ensina, antes de qualquer chamada (nunca ignorados)", async () => {
@@ -181,12 +211,12 @@ describe("TRF4 — busca oficial do e-Proc (D-07 / G-31): o que o usuário vê n
   });
 
   it("total acima de 10 aceita exatamente a primeira página de 10 e aplica o limite pedido", async () => {
-    const inicio = RESULTADOS.indexOf('<div class="resultado">');
-    const fim = RESULTADOS.indexOf('<div class="resultado">', inicio + 1);
+    const inicio = RESULTADOS.indexOf('<div class="card mb-3 resultadoItem"');
+    const fim = RESULTADOS.indexOf('<div class="card mb-3 resultadoItem"', inicio + 1);
     const primeiro = RESULTADOS.slice(inicio, fim);
     const pagina = comTotal("50").slice(0, inicio) + Array.from({ length: 10 }, (_, i) =>
       primeiro.replaceAll(CNJ_1, `${String(i + 1).padStart(7, "0")}-11.2025.4.04.9999`)
-        .replaceAll('100000000000000000000000000001', String(i + 1).padStart(30, "0")),
+        .replaceAll('10000000000000000000000000001', String(i + 1).padStart(30, "0")),
     ).join("") + '</body></html>';
     for (const [limite, quantidade] of [[100, 10], [1, 1]]) {
       const { cliente, chamadas } = clienteFalso([formulario(), () => html(pagina)]);
@@ -198,7 +228,7 @@ describe("TRF4 — busca oficial do e-Proc (D-07 / G-31): o que o usuário vê n
   });
 
   it("resultado sem o link do inteiro teor aborta a lista (sem id o Garimpo não inventa)", async () => {
-    const sem = RESULTADOS.replace(/<a href="#" data-link="externo_controlador[^>]*>Inteiro teor<\/a>/, "");
+    const sem = RESULTADOS.replace(/<a\b[^>]*class="text-dark inteiroTeor"[^>]*>[\s\S]*?<\/a>/, "");
     const { cliente } = clienteFalso([formulario(), () => html(sem)]);
     await expect(buscaDireta(cliente, { tribunal: "trf4", texto: "x" }, undefined, { eproc: cliente }))
       .rejects.toBeInstanceOf(FormatoInesperadoError);
@@ -237,7 +267,7 @@ describe("TRF4 — inteiro teor em HTML assinado: texto do portal do tribunal", 
     await buscaDireta(a.cliente, { tribunal: "trf4", texto: "aposentadoria especial" }, memoria, { eproc: a.cliente });
     return memoria;
   }
-  const ID = "trf4:100000000000000000000000000001";
+  const ID = "trf4:10000000000000000000000000001";
 
   it("2 chamadas (formulário para a sessão e o download), UA honesto; guarda como texto do portal e ensina a ler pelo id", async () => {
     const memoria = await memoriaComBusca();
@@ -310,7 +340,7 @@ describe("TRF4 — inteiro teor em HTML assinado: texto do portal do tribunal", 
   it("link de outro acórdão do mesmo processo não é associado ao id pedido", async () => {
     const memoria = await memoriaComBusca();
     const { cliente, chamadas } = clienteFalso([]);
-    const outro = LINK_1.replace('100000000000000000000000000001', '100000000000000000000000000002');
+    const outro = LINK_1.replace('10000000000000000000000000001', '10000000000000000000000000002');
     await expect(obterInteiroTeor({ id: ID, link: outro }, () => cliente, memoria)).rejects.toThrow(/difere do acórdão/);
     expect(chamadas).toHaveLength(0);
     expect(await memoria.obterTexto(ID)).toBeUndefined();
