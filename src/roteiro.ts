@@ -4,12 +4,13 @@
  * Mudar o texto exige reler: o teste de padrões é trava parcial.
  */
 
-/** Texto aprovado das instructions (ADR-0014; frase da leitura do acórdão aprovada em 2026-10-09), sem mudar uma vírgula. */
+/** Texto aprovado das instructions (ADR-0014; frases aprovadas em 2026-10-09 (leitura do acórdão) e 2026-10-13 (privacidade, D-14)), sem mudar uma vírgula. */
 export const INSTRUCTIONS =
   "O Garimpo pesquisa jurisprudência brasileira em base não oficial e baixa o inteiro teor oficial quando " +
   "disponível; use busca_ampla com 3 a 6 formulações, obter_ementa dos acórdãos que apresentar (até 10), " +
   "obter_inteiro_teor dos que citar (até 3, salvo pedido do usuário) e ler_inteiro_teor por partes, conferindo toda " +
-  "citação literal com conferir_citacao antes de entregá-la. Nunca afirme jurisprudência sem fonte devolvida pelas " +
+  "citação literal com conferir_citacao antes de entregá-la; formule a busca com a tese em abstrato, sem nome de " +
+  "parte nem dado do caso. Nunca afirme jurisprudência sem fonte devolvida pelas " +
   "ferramentas nem complete lacunas de memória: indique o que não foi verificado; diante de recusa ou rede parada, " +
   "cesse novas chamadas e avise, podendo continuar a consulta local. O roteiro completo está no prompt " +
   "pesquisar_tese. Ao ler um acórdão, comece pela certidão de julgamento e separe admissibilidade, ratio do voto " +
@@ -44,7 +45,8 @@ export function roteiroDePesquisa(tese: string, tribunais?: string): string {
     "",
     "1. Formule de 3 a 6 formulações da tese, com palavras diferentes para o mesmo conteúdo (por exemplo: instituto " +
       "jurídico + expressão alternativa; efeito pretendido + situação de fato). Não invente dispositivo de lei, número " +
-      "de precedente nem entendimento de tribunal para enriquecer a busca.",
+      "de precedente nem entendimento de tribunal para enriquecer a busca; formule a busca com a tese em abstrato, " +
+      "sem nome de parte nem dado do caso.",
     "2. Rode a busca_ampla com as formulações (lista) e os tribunais (lista).",
     "3. Separe o resultado pelo enquadramento no art. 927 (campo enquadramento927: nos precedentes qualificados já " +
       "vem na busca_ampla; nos acórdãos, vem no obter_ementa do passo seguinte). \"Não classificado\" quer dizer " +
