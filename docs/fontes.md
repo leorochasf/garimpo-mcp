@@ -337,5 +337,6 @@ O usuário baixa os anos que escolher, direto do TCU; a pesquisa é local. Leitu
   seguir redirecionamento sozinho.
 - **O que o Garimpo guarda:** `<pasta de dados>/tcu/acordao-completo-<ano>.csv` e um recibo ao lado (URL, bytes, sha256,
   `ETag`, `Last-Modified`, data do download). Só o que o usuário mandou baixar.
-- **Não verificado:** formato exato da lista de arquivos, `DATASESSAO`, link `pesquisa.apps.tcu.gov.br/redireciona/…`,
-  `If-Range`/304 no CDN, anos anteriores a 2025 (relatório e voto).
+- **Validado em 2026-10-14:** lista BASE|ANO|TAMANHO|ARQUIVO, `DATASESSAO` dd/mm/aaaa e renovação condicional 304.
+- **Não verificado:** link `pesquisa.apps.tcu.gov.br/redireciona/…`, retomada `If-Range` no CDN e anos anteriores a
+  2025 (relatório e voto).

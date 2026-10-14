@@ -217,3 +217,27 @@ describe("leitura de um acórdão do TCU", () => {
     expect(p1.texto!.length).toBeLessThanOrEqual(30_000);
   });
 });
+
+
+it("chave inexistente e identificação ausente mantêm a data do ano consultado", async () => {
+  const dados = await pastaComAnos();
+  for (const pedido of [{ ano: 2025, chave: "inexistente", parte: "acordao" as const }, { ano: 2025, parte: "voto" as const }]) {
+    expect((await lerAcordaoTcu(dados, pedido)).base).toMatchObject({ ano: 2025 });
+  }
+});
+
+it("leitor recusa registro incompleto e limita campo muito grande", async () => {
+  async function* entrada(texto: string) { yield texto; }
+  for (const csv of [csvDoTcu([acordaoFicticio(1)]).slice(0, -10), csvDoTcu([acordaoFicticio(1, { VOTO: "x".repeat(33 * 1024 * 1024) })])]) {
+    await expect(async () => { for await (const r of lerRegistrosTcu(entrada(csv))) void r; }).rejects.toThrow(/incompleto|limite/);
+  }
+});
+
+
+it("triagem não perde palavra dividida por tag nem entidade HTML sem acento", async () => {
+  const dados = await mkdtemp(join(tmpdir(), "garimpo-tcu-"));
+  await gravarAnoTcu(dados, 2025, [
+    acordaoFicticio(9, { SUMARIO: "", RELATORIO: "", VOTO: "", ACORDAO: "<p>Sobre<strong>preço</strong> e A&amp;B.</p>" }),
+  ]);
+  for (const consulta of ["sobrepreço", "A&B"]) expect((await pesquisarTcu(dados, { consulta })).total).toBe(1);
+});

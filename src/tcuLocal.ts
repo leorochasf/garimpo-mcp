@@ -76,7 +76,7 @@ const LIMITE_PADRAO = 10;
 const LIMITE_MAXIMO = 50;
 const CAMPOS_DE_TEXTO = ["TITULO", "ASSUNTO", "SUMARIO", "ACORDAO", "DECISAO", "RELATORIO", "VOTO"] as const;
 const SITUACAO_SEM_TEXTO = /invalidad|sigilos/;
-const ENTIDADE_ACENTUADA = /&(?:[a-zA-Z]+(?:acute|grave|circ|tilde|cedil|uml|ordm|ordf);|#\d+;|#x[0-9a-fA-F]+;)/;
+const ENTIDADE_HTML = /&(?:[a-zA-Z][a-zA-Z0-9]*;|#\d+;|#x[0-9a-fA-F]+;)/;
 const SEM_ACENTO =(t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 /** Aviso que o TCU grava no lugar de sumário, relatório ou voto classificados como sigilosos (art. 108, § 1º, Lei 8.443/1992). */
@@ -204,11 +204,11 @@ export async function pesquisarTcu(dados: string, f: FiltrosTcu): Promise<Result
       if (tipo && SEM_ACENTO(r.TIPO ?? "") !== tipo) continue;
       if (colegiado && !SEM_ACENTO(r.COLEGIADO ?? "").includes(colegiado)) continue;
       if (relator && !SEM_ACENTO(r.RELATOR ?? "").includes(relator)) continue;
-      // Triagem barata no texto bruto: palavra ausente descarta o registro sem limpar o HTML. Acento escrito como
-      // entidade (&ccedil;) engana a triagem: nesses registros vale só a conferência completa.
+      // Triagem barata: remove tags para não perder palavras divididas por marcação. Entidades HTML
+      // podem mudar as palavras: nesses registros vale só a conferência completa.
       const bruto = CAMPOS_DE_TEXTO.map((c) => r[c] ?? "").join("\n");
-      if (!ENTIDADE_ACENTUADA.test(bruto)) {
-        const baixo = SEM_ACENTO(bruto);
+      if (!ENTIDADE_HTML.test(bruto)) {
+        const baixo = SEM_ACENTO(bruto.replace(/<[^>]*>/g, ""));
         if (!palavras.every((p) => baixo.includes(p))) continue;
       }
       const sigilosas: ParteSigilosa[] = [];
@@ -302,7 +302,7 @@ function paginar(texto: string): string[] {
 }
 
 export async function lerAcordaoTcu(dados: string, p: PedidoDeLeituraTcu): Promise<LeituraTcu> {
-  const base = { parte: p.parte, atribuicao: ATRIBUICAO_TCU };
+  const base = { parte: p.parte, atribuicao: ATRIBUICAO_TCU, base: await baseDoAno(dados, p.ano) };
   if (!(await anosBaixadosTcu(dados)).includes(p.ano)) {
     return { ...base, encontrado: false, aviso: `O ano ${p.ano} do TCU não está baixado neste computador. Use baixar_anos_tcu.` };
   }
@@ -326,7 +326,7 @@ export async function lerAcordaoTcu(dados: string, p: PedidoDeLeituraTcu): Promi
       return {
         ...comum,
         aviso:
-          "Relatório, voto e sumário deste acórdão foram classificados como sigilosos pelo TCU: o arquivo traz só o aviso de " +
+          `Os dados desta parte (${p.parte}) foram classificados como sigilosos pelo TCU: o arquivo traz só o aviso de ` +
           'sigilo no lugar do texto. O texto do acórdão (parte "acordao") continua disponível.',
       };
     }
@@ -346,7 +346,7 @@ export async function lerAcordaoTcu(dados: string, p: PedidoDeLeituraTcu): Promi
       pagina,
       totalPaginas: paginas.length,
       texto: paginas[pagina - 1],
-      ...(p.parte === "voto" || p.parte === "relatorio" || p.parte === "acordao" ? { aviso: AVISO_NOMES } : {}),
+      aviso: AVISO_NOMES,
     };
   }
   return { ...base, encontrado: false, aviso: `Não achei esse acórdão no arquivo baixado de ${p.ano}.` };

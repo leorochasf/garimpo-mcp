@@ -1249,7 +1249,7 @@ export function criarServidor(
             aviso: "Nada foi baixado. Escolha os anos e chame de novo com anos: [...]; o Garimpo avisa o tamanho antes de baixar.",
           });
         }
-        const aviso = await avisoDeBaixaTcu(pastaTcu, lista, anos);
+        const aviso = await avisoDeBaixaTcu(pastaTcu, lista, anos, renovar);
         if (!confirmar) return json(aviso);
         const alvo = renovar ? aviso.anos : aviso.anos.filter((a) => !a.jaBaixado);
         const resultados: Awaited<ReturnType<typeof baixarAnoTcu>>[] = aviso.anos.filter((a) => a.jaBaixado && !renovar).map((a) => ({ ano: a.ano, situacao: "ja-baixado" as const }));
@@ -1263,6 +1263,11 @@ export function criarServidor(
         }
         return json({
           resultados: resultados.sort((x, y) => x.ano - y.ano),
+          listaDoTcuEm: lista.baseEm ?? "não informada",
+          bases: await Promise.all(aviso.anos.map(async ({ ano }) => {
+            const recibo = await lerReciboTcu(pastaTcu, ano);
+            return { ano, atualizadoNoTcuEm: recibo?.lastModified ?? "não informada", baixadoEm: recibo?.baixadoEm ?? "não informada" };
+          })),
           pasta: aviso.pasta,
           aviso: `Pronto para pesquisar_acordaos_tcu. Fonte: dados abertos do TCU, baixados direto do TCU para este computador. ${AVISO_DE_VELOCIDADE}`,
         });
