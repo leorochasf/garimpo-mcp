@@ -3,13 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Cliente } from "../src/cliente.js";
-import { CoordenacaoEmArquivo } from "../src/coordenacao.js";
+import { type ContaDeEspera, CoordenacaoEmArquivo } from "../src/coordenacao.js";
 
 /**
  * Custo de disco por chamada (ticket b17/16): conta as operações de arquivo que a coordenação faz do pedido à
  * liberação da vaga, sobre resposta falsa (sem rede). O teto trava o custo; não muda nenhum freio.
  */
-const contagem = vi.hoisted(() => ({ ops: 0 }));
+const contagem = vi.hoisted(() => ({ ops: 0, atrasoMs: 0 }));
 vi.mock("node:fs/promises", async (importOriginal) => {
   const real = await importOriginal<typeof import("node:fs/promises")>();
   const contar =
@@ -21,7 +21,12 @@ vi.mock("node:fs/promises", async (importOriginal) => {
   return {
     ...real,
     default: real,
-    readFile: contar(real.readFile),
+    readFile: contar(async (...args: Parameters<typeof real.readFile>) => {
+      if (contagem.atrasoMs && /vaga-\d+\.json$/.test(String(args[0]))) {
+        await new Promise((r) => setTimeout(r, contagem.atrasoMs));
+      }
+      return real.readFile(...args);
+    }),
     writeFile: contar(real.writeFile),
     rename: contar(real.rename),
     rm: contar(real.rm),
@@ -32,23 +37,35 @@ vi.mock("node:fs/promises", async (importOriginal) => {
 
 let pasta: string;
 beforeEach(async () => {
+  contagem.atrasoMs = 0;
   pasta = await mkdtemp(join(tmpdir(), "garimpo-disco-"));
 });
 afterEach(() => rm(pasta, { recursive: true, force: true }));
+
+/** Aguarda o fim real da liberação iniciada em segundo plano pelo cliente. */
+class CoordenacaoMedida extends CoordenacaoEmArquivo {
+  liberacao = Promise.resolve();
+
+  override async ocupar(conta: ContaDeEspera, sinal?: AbortSignal) {
+    const liberar = await super.ocupar(conta, sinal);
+    return () => (this.liberacao = liberar());
+  }
+}
 
 /** Operações de arquivo da chamada número `n` (a primeira cria o estado; a medida vale para as seguintes). */
 async function opsPorChamada(url: string): Promise<number[]> {
   // Relógio falso comum ao cliente e à coordenação: a pausa de 1 s entre chamadas ao Falcão passa sem espera real.
   const relogio = { agora: 1_700_000_000_000 };
+  const vagas = new CoordenacaoMedida({
+    pasta,
+    agora: () => relogio.agora,
+    dormir: async (ms) => {
+      relogio.agora += ms;
+    },
+  });
   const cliente = new Cliente({
     nome: "O servidor de teste",
-    vagas: new CoordenacaoEmArquivo({
-      pasta,
-      agora: () => relogio.agora,
-      dormir: async (ms) => {
-        relogio.agora += ms;
-      },
-    }),
+    vagas,
     agora: () => relogio.agora,
     esperar: async (ms) => {
       relogio.agora += ms;
@@ -63,7 +80,7 @@ async function opsPorChamada(url: string): Promise<number[]> {
     const antes = contagem.ops;
     await (await cliente.requisitar(url)).json();
     // A liberação da vaga termina em segundo plano.
-    await new Promise((r) => setTimeout(r, 50));
+    await vagas.liberacao;
     ops.push(contagem.ops - antes);
     relogio.agora += 5_000;
   }
@@ -83,18 +100,25 @@ describe("operações de arquivo por chamada", () => {
     expect(Math.max(...ops.slice(1))).toBeLessThanOrEqual(23);
   });
 
+  it("inclui a liberação mesmo quando o disco demora mais que a antiga espera fixa", async () => {
+    contagem.atrasoMs = 80;
+    const ops = await opsPorChamada("https://jurisprudenciaia.com.br/api/x");
+    expect(ops.slice(1)).toEqual([7, 7, 7]);
+  });
+
   it("pasta de proteção apagada no meio é recriada, como antes", async () => {
+    const vagas = new CoordenacaoMedida({ pasta });
     const cliente = new Cliente({
       nome: "O servidor de teste",
-      vagas: new CoordenacaoEmArquivo({ pasta }),
+      vagas,
       esperar: async () => {},
       fetch: (async () => new Response("{}", { headers: { "content-type": "application/json" } })) as typeof fetch,
     });
     await (await cliente.requisitar("https://jurisprudenciaia.com.br/api/x")).json();
-    await new Promise((r) => setTimeout(r, 50));
+    await vagas.liberacao;
     await rm(join(pasta, "protecao"), { recursive: true, force: true });
     await (await cliente.requisitar("https://jurisprudenciaia.com.br/api/x")).json();
-    await new Promise((r) => setTimeout(r, 50));
+    await vagas.liberacao;
     expect(await readdir(join(pasta, "protecao"))).toEqual(["estado.json"]);
   });
 });

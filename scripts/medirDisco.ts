@@ -22,6 +22,7 @@ const FONTES = {
 async function janela(url: string): Promise<void> {
   const real = new CoordenacaoEmArquivo();
   let gasto = 0;
+  let liberacao = Promise.resolve();
   const medir = async <T>(fazer: () => Promise<T>): Promise<T> => {
     const t0 = performance.now();
     try {
@@ -33,7 +34,7 @@ async function janela(url: string): Promise<void> {
   const vagas: Coordenacao = {
     ocupar: async (c, s) => {
       const liberar = await medir(() => real.ocupar(c, s));
-      return () => medir(liberar);
+      return () => (liberacao = medir(liberar));
     },
     conferir: (p, a) => medir(() => real.conferir(p, a)),
     reservarSaida: (p, a) => medir(() => real.reservarSaida(p, a)),
@@ -52,7 +53,7 @@ async function janela(url: string): Promise<void> {
   for (let i = 0; i < CHAMADAS; i++) {
     gasto = 0;
     await (await cliente.requisitar(url)).json();
-    await new Promise((r) => setTimeout(r, 30)); // a liberação da vaga termina em segundo plano
+    await liberacao; // inclui toda a liberação, mesmo com o disco lento
     ms.push(gasto);
   }
   process.stdout.write(`${JSON.stringify(ms)}\n`);
