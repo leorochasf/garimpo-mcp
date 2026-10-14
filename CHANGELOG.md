@@ -22,15 +22,15 @@ TRTs (Justiça do Trabalho)
 - Decisões monocráticas e sentenças dos TRTs: a opção `decisoes` (`monocraticas` ou `sentencas`) da `busca_direta` traz até 10 itens da coleção do Falcão, **só metadados**, em lista separada. Nunca o texto, e nunca como acórdão nem como precedente do art. 927 do CPC. Testado só no TRT2.
 
 Respostas melhores
-- Nova ferramenta `conferir_acordao_citado`: confere número, tribunal, data e órgão de um acórdão que você já tem citado. Diz "confirmado" ou aponta o que não bate.
+- Nova ferramenta `conferir_acordao_citado`: confere número, tribunal, data e órgão de um acórdão que você já tem citado. Diz "confirmado", aponta o que não bate ou diz "não verificado". Isso não prova que o acórdão não existe. Compara com a base do JurisprudênciaIA; não vale para TRT.
 - Nova ferramenta `panorama_da_amostra`: conta por tribunal, ano e órgão os acórdãos que uma busca já trouxe, sem nova chamada ao site. É contagem da amostra, não estatística do tribunal.
-- Âmbito do precedente: o enquadramento no art. 927 do CPC diz se o precedente vale em todo o país, no tribunal de origem ou nos juizados.
+- Âmbito do precedente: nos casos classificados do STF e do STJ, o enquadramento no art. 927 do CPC informa o alcance nacional do órgão que decidiu. No IRDR de outro tribunal, informa o âmbito de origem (incluindo os juizados da região) sob a condição de ter fixado tese, que o Garimpo não confirma. Sem regra, o âmbito fica ausente.
 - Agrupamento em série na busca ampla: acórdãos do mesmo tribunal, órgão e relator com a mesma ementa saem numa linha só, com a contagem, o período e os demais ids. Vem ligado; `agrupar: false` mostra cada acórdão.
-- DJEN: a comunicação de acórdão mostra um trecho da ementa, com dados pessoais retirados, só quando dois sinais confirmam que é uma ementa; com dúvida, "não verificado".
+- DJEN: a comunicação de acórdão mostra um trecho da ementa, saneado por regras de melhor esforço (sem garantia de detectar nomes livres), só quando o tipo do documento e o texto atendem aos critérios; com dúvida, "não verificado".
 - Frase de privacidade nas instruções e no roteiro: "formule a busca com a tese em abstrato, sem nome de parte nem dado do caso".
 
 Freios novos (proteção do seu IP)
-- Limite próprio por janela de tempo para as fontes que não informam quanto resta (precedentes do STF e do STJ, TSE).
+- Limite próprio por janela de tempo para as fontes que não informam quanto resta (precedentes do STF e TSE; o orçamento do STJ permanece definido, mas a consulta ao portal está desligada).
 - Teto diário próprio de 50 chamadas por dia para a Justiça do Trabalho, mesmo quando o Falcão diz que ainda há saldo.
 - No TJDFT, o freio também lê o saldo informado pela API do tribunal.
 - Estado de proteção corrompido ou ilegível para a rede em vez de seguir adivinhando.
@@ -44,7 +44,7 @@ Para quem mantém ou quer ajudar
 
 STJ
 - Temas repetitivos e IAC do STJ respondem só pela tabela datada que acompanha o pacote. O Garimpo não consulta mais o portal do STJ, e a resposta diz "tabela de <data>; consulta automática ao portal não realizada por restrição de acesso".
-- O inteiro teor do STJ é só link para conferir no navegador. O `robots.txt` do STJ, lido em 13/10/2026, veda o acesso automatizado ao site inteiro, e o Garimpo respeita. PDF do STJ já baixado com recibo, ou trazido por você, continua podendo ser lido com `ler_inteiro_teor`.
+- O inteiro teor do STJ é só link para conferir no navegador. O `robots.txt` de `processo.stj.jus.br`, lido em 13/10/2026, veda o acesso automatizado a esse host inteiro, e o Garimpo respeita. PDF do STJ já baixado com recibo, ou trazido por você, continua podendo ser lido com `ler_inteiro_teor`.
 - STF segue consultado ao vivo, sem mudança.
 
 Motivo do "só link"
@@ -60,7 +60,7 @@ Motivo do "só link"
 - O índice de dispositivo legal pelos Espelhos de Acórdãos do STJ (artigo → acórdãos) tem gerador e leitor prontos, mas o índice não é entregue no pacote desta versão: o portal do STJ respondeu 504 (erro do servidor) quando se tentou gerá-lo.
 - Súmulas do STJ, escolha do texto integral do TST, Jurisprudência em Teses, registros do chat do JurisprudênciaIA e situação de superação ficaram para depois.
 - A exportação de repercussão geral do STF por download é um modo opcional do script do mantenedor, não uma função da ferramenta.
-- TCU lento: cada ano baixado acrescenta de 7 a 19 segundos a cada pesquisa (a pesquisa varre o arquivo; não há índice nesta versão). Baixe poucos anos.
+- TCU lento: a medição do arquivo de 2025 levou de 7 a 19 segundos por pesquisa; pesquisar vários anos soma esse custo (a pesquisa varre os arquivos; não há índice nesta versão). Baixe poucos anos.
 - TRF4: a validação ao vivo cobriu a lista e um inteiro teor; o leitor depois corrigido só foi testado sem rede; a velocidade em relação ao STJ pelo JurisprudênciaIA não foi medida.
 
 ## 0.5.0
