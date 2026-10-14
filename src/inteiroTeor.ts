@@ -26,6 +26,7 @@ import {
 import { htmlComConteudoOculto, htmlComIndicioDeCorte, htmlParaTexto } from "./html.js";
 import type { Guardado, Memoria, TextoIntegral } from "./memoria.js";
 import { textoDoTjdft } from "./tjdft.js";
+import { textoDoTjpi } from "./tjpi.js";
 import { ehDoFalcao, infoTribunal } from "./tribunais.js";
 
 export interface PedidoInteiroTeor {
@@ -180,7 +181,7 @@ export async function obterInteiroTeor(
   const linkDaRota = link || acordao?.linkConsulta ? undefined : acordao?.linkDaRota;
   const origemDaRota = " Link pedido à rota de link do JurisprudênciaIA: não veio na busca.";
 
-  if (info.inteiroTeor === "portal") return textoDoPortal(info.nome, acordao, link ?? linkDaRota, clienteDe(tribunal), memoria);
+  if (info.inteiroTeor === "portal") return textoDoPortal(info.nome, acordao, link ?? (tribunal === "tjpi" ? acordao?.linkConsulta : undefined) ?? linkDaRota, clienteDe(tribunal), memoria);
 
   if (info.inteiroTeor === "link") {
     // Sem link do PDF (comum no STF), o link oficial de consulta serve para o usuário abrir no navegador.
@@ -211,6 +212,7 @@ export async function obterInteiroTeor(
   const cliente = clienteDe(tribunal);
   let baixado: Baixado;
   if (tribunal === "tjmg") baixado = await baixarDireto(cliente, linkPdf, "www5.tjmg.jus.br", "TJMG");
+  else if (tribunal === "tjrr") baixado = await baixarDireto(cliente, enderecoDoPdfDoTjrr(linkPdf), HOST_TJRR, "TJRR");
   else if (tribunal === "tse") baixado = await baixarDireto(cliente, linkPdf, "sjur-servicos.tse.jus.br", "TSE");
   else if (tribunal === "tjsp" || tribunal === "tjms") {
     const sigla = tribunal.toUpperCase();
@@ -281,12 +283,19 @@ async function textoDoPortal(
   let textoGuardado: TextoIntegral | undefined = await memoria.obterTexto(acordao.id);
   if (!textoGuardado) {
     const doTjdft = acordao.tribunal === "tjdft";
-    const trazido = doTjdft ? await textoDoTjdft(cliente, link, acordao) : await baixarTextoTjto(cliente, link);
+    const trazido =
+      doTjdft ? await textoDoTjdft(cliente, link, acordao)
+      : acordao.tribunal === "tjpi" ? await textoDoTjpi(cliente, link, acordao)
+      : await baixarTextoTjto(cliente, link);
     if (!trazido) {
       return {
         baixado: false,
         link,
-        explicacao: doTjdft
+        explicacao: acordao.tribunal === "tjpi"
+          ? `O portal do ${nomeTribunal} não entregou uma página com texto verificável deste acórdão ` +
+            "(formato ou processo divergente, seção Acórdão sem texto ou redirecionamento): texto não verificado, " +
+            "nada foi guardado. Abra o link no navegador para conferir o documento."
+          : doTjdft
           ? `A API do ${nomeTribunal} não devolveu o registro deste acórdão (identificador e uuid do link): texto não ` +
             "verificado, nada foi guardado. Abra o link no navegador para conferir o documento."
           : `O portal do ${nomeTribunal} respondeu, mas com uma página que não é a página do acórdão (aviso ou erro do ` +
@@ -595,6 +604,21 @@ async function baixarDireto(cliente: Cliente, link: string, host: string, sigla:
     }
     url = oficial(new URL(destino, url).href, `O ${sigla} redirecionou`);
   }
+}
+
+const HOST_TJRR = "jurisprudencia.tjrr.jus.br";
+
+/**
+ * TJRR (I-16 / G-23): o link da busca (inteiroTeor.xhtml?id=N) é uma página com o PDF embutido numa sessão do portal;
+ * o PDF está em /pdf?id=N, um GET sem sessão (prova de 2026-10-14). Só https no portal do TJRR, id numérico.
+ */
+function enderecoDoPdfDoTjrr(link: string): string {
+  const url = new URL(link);
+  const id = url.searchParams.get("id");
+  if (url.protocol !== "https:" || url.host !== HOST_TJRR || url.pathname !== "/inteiroTeor.xhtml" || !id || !/^\d+$/.test(id)) {
+    throw new Error(`Link do TJRR fora do formato esperado (só https em ${HOST_TJRR}/inteiroTeor.xhtml?id=<n>): ${link}`);
+  }
+  return `https://${HOST_TJRR}/pdf?id=${id}`;
 }
 
 /** O TSE entrega o PDF dentro de um envelope multipart ("--fronteira", cabeçalhos, PDF, "--fronteira--"). */
