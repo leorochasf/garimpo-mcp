@@ -117,12 +117,15 @@ inventário de acórdãos**.
 - **Linhas literais relevantes** (cabeçalho `# STJ BLOQUEIOS GERAIS PARA TODOS OS ROBÔS Rev 20250501`):
 
   ```
-  User-agent: *
+  User-agent: *              # Aplica as regras a todos os bots (Googlebot, Bingbot, etc.) bloqueando acesso em:
   Disallow: /
-  Disallow: /processo/
-  Disallow: /processo/pesquisa/
-  Disallow: /SCON/
-  Disallow: /repetitivos
+  Disallow: /processo/        
+  Disallow: /processo/pesquisa/  
+  Disallow: /SCON/           
+  Disallow: /repetitivos      
+  Disallow: /processo/dj/edital/  
+  Disallow: /portal_stj/teste/    
+  Disallow: /grucobranca/    
   ```
 
   Nenhum grupo cita o Garimpo e o arquivo não tem nenhuma linha `Allow`: pela RFC 9309 (§2.2.1), o grupo `*` vale. **O

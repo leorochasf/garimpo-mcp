@@ -191,7 +191,8 @@ computador** ([ADR-0020](docs/adr/0020-precedentes-qualificados-ao-vivo-tabela-c
 - **Plano B (STF):** se o portal recusar, estiver fora, pausado ou devolver uma página que o Garimpo não reconhece, a
   resposta vem da tabela do STF do pacote, com "tabela de <data>, o portal do STF não respondeu" e o motivo.
 - **Listas de qualificados das buscas** continuam pela tabela: conferir cada item ao vivo custaria dezenas de chamadas
-  por busca. Para o dado do dia, use o `consultar_precedente` no precedente que importa.
+  por busca. Para o dado do dia do STF, use o `consultar_precedente` no precedente que importa; no STJ, confira
+  manualmente no portal, pois a ferramenta usa a tabela datada.
 
 ### Tabela de precedentes do STJ
 
