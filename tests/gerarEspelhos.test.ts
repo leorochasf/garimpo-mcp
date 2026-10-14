@@ -462,6 +462,38 @@ describe("baixarConjuntos", () => {
 const jsonDe = (...registros: Record<string, unknown>[]) => Buffer.from(JSON.stringify(registros));
 
 describe("gerarEGravar", () => {
+  it("recusa índice acima de 3 MB gzip antes de gravar qualquer arquivo no destino", async () => {
+    // Ruído determinístico e pouco compressível; nenhum RNG ou acesso à rede.
+    const ruido = Buffer.alloc(4_000_000);
+    let estado = 123456789;
+    for (let i = 0; i < ruido.length; i++) {
+      estado ^= estado << 13; estado ^= estado >>> 17; estado ^= estado << 5;
+      ruido[i] = estado & 255;
+    }
+    const dir = novoCache();
+    const destino = join(dir, "indice.json");
+    const anterior = '{"contagens":{"acordaosIndexados":0}}';
+    writeFileSync(destino, anterior);
+    const dados = { "corte-especial": { "20220531.json": jsonDe(reg({ ministroRelator: ruido.toString("base64") })) } };
+    await expect(gerarEGravar(portal(dados).cliente, { cache: novoCache(), destino, orgaos: ["corte-especial"] })).rejects.toThrow(/3 MB/);
+    expect(readFileSync(destino, "utf8")).toBe(anterior);
+    expect(readdirSync(dir)).toEqual(["indice.json"]);
+  });
+
+  it("grava relatório de alterações no cache antes de substituir a fotografia", async () => {
+    const destino = join(novoCache(), "indice.json");
+    const dados = (id: string) => ({ "corte-especial": { "20220531.json": jsonDe(reg({ id })) } });
+    const opcoes = { destino, orgaos: ["corte-especial"] as const, agora: () => Date.parse("2026-10-14T01:00:00Z") };
+    await gerarEGravar(portal(dados("A")).cliente, { ...opcoes, cache: novoCache() });
+    const cache = novoCache();
+    await gerarEGravar(portal(dados("B")).cliente, { ...opcoes, cache });
+    const relatorio = JSON.parse(readFileSync(join(cache, "relatorio-alteracoes.json"), "utf8"));
+    expect(relatorio.acordaos.incluidos).toEqual(["B"]);
+    expect(relatorio.acordaos.removidos).toEqual(["A"]);
+    expect(relatorio.anterior.sha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(relatorio.nova.sha256).toBe(sha(readFileSync(destino)));
+  });
+
   const acervo = () => ({
     "corte-especial": {
       "20220508.zip": zip([

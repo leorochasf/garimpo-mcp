@@ -17,6 +17,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeF
 import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { gzipSync } from "node:zlib";
 import { Cliente, type OpcoesCliente } from "../src/cliente.js";
 import { lerReferenciasLegislativas } from "../src/referenciaLegislativa.js";
 import { lerZip } from "./lerZip.js";
@@ -544,6 +545,36 @@ export interface OpcoesDaGeracao extends OpcoesDeDownload {
 /** Abaixo desta fração dos acórdãos da fotografia anterior, o gerador para e pede revisão. */
 const QUEDA_ACEITA = 0.9;
 
+/** O relatório fica junto ao cache, fora do pacote; associa dispositivos a IDs, nunca a posições transitórias. */
+function relatarAlteracoes(anterior: IndiceEspelhos, nova: IndiceEspelhos) {
+  const linhas = (ix: IndiceEspelhos) => new Map((ix.acordaos ?? []).map((a) => [a[0], JSON.stringify(a)]));
+  const antes = linhas(anterior);
+  const depois = linhas(nova);
+  const vinculos = (ix: IndiceEspelhos) => {
+    const mapa: Record<string, (string | null)[]> = {};
+    for (const [lei, artigos] of Object.entries(ix.dispositivos ?? {})) {
+      for (const [artigo, detalhes] of Object.entries(artigos)) {
+        for (const [detalhe, posicoes] of Object.entries(detalhes)) {
+          mapa[`${lei} art ${artigo} ${detalhe}`.trim()] = posicoes.map((p) => ix.acordaos[p][0]).sort();
+        }
+      }
+    }
+    return mapa;
+  };
+  const a = vinculos(anterior);
+  const b = vinculos(nova);
+  return {
+    acordaos: {
+      incluidos: [...depois.keys()].filter((id) => !antes.has(id)),
+      removidos: [...antes.keys()].filter((id) => !depois.has(id)),
+      alterados: [...depois.keys()].filter((id) => antes.has(id) && antes.get(id) !== depois.get(id)),
+    },
+    dispositivos: [...new Set([...Object.keys(a), ...Object.keys(b)])].sort()
+      .filter((chave) => JSON.stringify(a[chave]) !== JSON.stringify(b[chave]))
+      .map((chave) => ({ chave, antes: a[chave] ?? [], depois: b[chave] ?? [] })),
+  };
+}
+
 /**
  * Baixa (ou retoma do cache), lê, monta o índice, compara com o anterior e só então grava (arquivo temporário + troca),
  * para nunca deixar o índice pela metade. Erro de rede ou parada nunca chegam a gravar.
@@ -561,8 +592,23 @@ export async function gerarEGravar(cliente: Cliente, opcoes: OpcoesDaGeracao = {
     fichas: fichas.map((f) => ({ orgao: f.orgao, licenca: f.licenca, atualizacaoDaFonte: f.atualizacaoDaFonte, url: paginaDaFicha(f.orgao) })),
     arquivos: arquivos.map(({ caminho: _caminho, ...resto }) => resto),
   });
+  const json = Buffer.from(`${JSON.stringify(indice)}\n`);
+  if (gzipSync(json).length > 3_000_000) {
+    throw new ParadaDoGerador("O índice ultrapassa 3 MB compactado (gzip). Nada foi gravado; o piloto precisa de decisão.");
+  }
   if (existsSync(destino)) {
-    const anterior = (JSON.parse(readFileSync(destino, "utf8")) as { contagens?: { acordaosIndexados?: number } }).contagens?.acordaosIndexados;
+    const bytesAnteriores = readFileSync(destino);
+    const fotografiaAnterior = JSON.parse(bytesAnteriores.toString("utf8")) as IndiceEspelhos;
+    const anterior = fotografiaAnterior.contagens?.acordaosIndexados;
+    const relatorio = {
+      anterior: { geradaEm: fotografiaAnterior.geradaEm, sha256: sha256(bytesAnteriores), leis: fotografiaAnterior.leis },
+      nova: { geradaEm: indice.geradaEm, sha256: sha256(json), leis: indice.leis },
+      ...relatarAlteracoes(fotografiaAnterior, indice),
+    };
+    const caminhoDoRelatorio = join(cache, "relatorio-alteracoes.json");
+    writeFileSync(`${caminhoDoRelatorio}.gravando`, `${JSON.stringify(relatorio, null, 1)}\n`);
+    renameSync(`${caminhoDoRelatorio}.gravando`, caminhoDoRelatorio);
+    opcoes.registrar?.(`relatório de alterações: ${caminhoDoRelatorio}`);
     if (!revisado && typeof anterior === "number" && indice.contagens.acordaosIndexados < anterior * QUEDA_ACEITA) {
       throw new ParadaDoGerador(
         `O índice novo tem ${indice.contagens.acordaosIndexados} acórdãos e o anterior tinha ${anterior}. ` +
@@ -571,7 +617,7 @@ export async function gerarEGravar(cliente: Cliente, opcoes: OpcoesDaGeracao = {
     }
   }
   const provisorio = `${destino}.gerando`;
-  writeFileSync(provisorio, `${JSON.stringify(indice)}\n`);
+  writeFileSync(provisorio, json);
   renameSync(provisorio, destino);
   return indice;
 }
