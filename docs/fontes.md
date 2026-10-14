@@ -303,7 +303,7 @@ Fonte pública do próprio tribunal, sem login nem captcha. Relatório de origem
 - **Rótulo:** «texto do portal do tribunal (TRF4)», sem recibo (não é o inteiro teor oficial, que é o PDF); fica 24 h na
   memória e é lido/conferido pelo id.
 - **Freios:** pelo cliente único (UA honesto, 2 chamadas simultâneas no total, 429/503 com uma nova tentativa, recusa final
-  abre o disjuntor `trf4`, 1 s entre chamadas); busca = 2 chamadas (formulário + POST); inteiro teor = 2 (formulário + GET);
+  abre o disjuntor `trf4`; sem intervalo mínimo próprio, limite de ritmo não verificado); busca = 2 chamadas (formulário + POST); inteiro teor = 2 (formulário + GET);
   redirecionamento não é seguido.
 - **Não verificado:** a marcação HTML real da lista e a ordem dos `data-link` (as fixtures são feitas à mão a partir do
   relatório); se a busca e o download dispensam o cookie; termo com acento no POST; filtros do formulário (por isso recusados);

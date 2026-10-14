@@ -47,8 +47,8 @@ continua sendo a fonte dos demais tribunais; o TRF4 não está na base dele para
 - **Identificação:** User-Agent honesto do Garimpo (a fonte o aceitou na prova); nenhum UA de navegador, login, captcha,
   proxy nem contorno. Host fora da tabela de identificação do cliente = UA honesto, sem mexer em `src/cliente.ts`.
 - **Freios (regra 3):** tudo pelo `Cliente` único; no máximo 2 chamadas simultâneas somadas a todas as fontes; 429/503 com
-  espera e uma nova tentativa; recusa final = para e avisa (disjuntor do serviço, em todas as janelas); intervalo mínimo
-  de 1 s entre chamadas ao host. Cada busca = 2 chamadas (formulário + POST); cada inteiro teor = 2 (formulário + GET).
+  espera e uma nova tentativa; recusa final = para e avisa (disjuntor do serviço `trf4`, em todas as janelas). Sem intervalo
+  mínimo próprio entre chamadas (a fonte não informa limite; não verificado), só as chamadas em série de um pedido. Cada busca = 2 chamadas (formulário + POST); cada inteiro teor = 2 (formulário + GET).
   A busca repetida em 24 h sai da memória, sem chamada. Redirecionamento não é seguido.
 - **Rótulo do inteiro teor: «texto do portal do tribunal»** (DQ-06 / `CONTEXT.md`), não «inteiro teor oficial». O
   oficial é o PDF com recibo (ADR-0005/0011); o TRF4 entrega HTML. O HTML vem com assinatura eletrônica e endereço de
