@@ -76,7 +76,8 @@ const LIMITE_PADRAO = 10;
 const LIMITE_MAXIMO = 50;
 const CAMPOS_DE_TEXTO = ["TITULO", "ASSUNTO", "SUMARIO", "ACORDAO", "DECISAO", "RELATORIO", "VOTO"] as const;
 const SITUACAO_SEM_TEXTO = /invalidad|sigilos/;
-const SEM_ACENTO = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const ENTIDADE_ACENTUADA = /&(?:[a-zA-Z]+(?:acute|grave|circ|tilde|cedil|uml|ordm|ordf);|#\d+;|#x[0-9a-fA-F]+;)/;
+const SEM_ACENTO =(t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 export const linkOficialTcu = (chave: string) => `https://pesquisa.apps.tcu.gov.br/redireciona/acordao-completo/${chave}`;
 
@@ -164,6 +165,7 @@ export async function pesquisarTcu(dados: string, f: FiltrosTcu): Promise<Result
   const termos = termosDe(f.consulta);
   if (!termos.length) return { ...vazio, anosUsados: await Promise.all(anos.map((a) => baseDoAno(dados, a))), aviso: "Consulta vazia." };
   const passa = filtroLocal({ deveConter: termos.map((t) => [t]) })!;
+  const palavras = termos.flatMap((t) => t.split(/\s+/)).map(SEM_ACENTO).filter(Boolean);
   const limite = Math.min(Math.max(f.limite ?? LIMITE_PADRAO, 1), LIMITE_MAXIMO);
   const tipo = f.tipo && SEM_ACENTO(f.tipo.trim());
   const colegiado = f.colegiado && SEM_ACENTO(f.colegiado.trim());
@@ -182,6 +184,13 @@ export async function pesquisarTcu(dados: string, f: FiltrosTcu): Promise<Result
       if (tipo && SEM_ACENTO(r.TIPO ?? "") !== tipo) continue;
       if (colegiado && !SEM_ACENTO(r.COLEGIADO ?? "").includes(colegiado)) continue;
       if (relator && !SEM_ACENTO(r.RELATOR ?? "").includes(relator)) continue;
+      // Triagem barata no texto bruto: palavra ausente descarta o registro sem limpar o HTML. Acento escrito como
+      // entidade (&ccedil;) engana a triagem: nesses registros vale só a conferência completa.
+      const bruto = CAMPOS_DE_TEXTO.map((c) => r[c] ?? "").join("\n");
+      if (!ENTIDADE_ACENTUADA.test(bruto)) {
+        const baixo = SEM_ACENTO(bruto);
+        if (!palavras.every((p) => baixo.includes(p))) continue;
+      }
       const texto = CAMPOS_DE_TEXTO.map((c) => htmlParaTexto(r[c] ?? "")).filter(Boolean).join("\n");
       if (!passa(texto)) continue;
       total++;

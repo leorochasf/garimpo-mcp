@@ -96,6 +96,17 @@ describe("pesquisa local no TCU", () => {
     expect((await pesquisarTcu(dados, { consulta: '"pregão eletrônico"' })).resultados.map((x) => x.numero)).toEqual(["1"]);
   });
 
+  it("acha palavra escrita com entidade HTML no arquivo (sobrepre&ccedil;o) e com tag no meio da frase", async () => {
+    const dados = await mkdtemp(join(tmpdir(), "garimpo-tcu-"));
+    await gravarAnoTcu(dados, 2025, [
+      acordaoFicticio(7, { SUMARIO: "", ACORDAO: "<p>Houve sobrepre&ccedil;o em obra.</p>", RELATORIO: "", VOTO: "" }),
+      acordaoFicticio(8, { SUMARIO: "", ACORDAO: "<p>Pregão</p><p>eletrônico sem disputa.</p>", RELATORIO: "", VOTO: "" }),
+    ]);
+    expect((await pesquisarTcu(dados, { consulta: "sobrepreco" })).resultados.map((x) => x.numero)).toEqual(["7"]);
+    expect((await pesquisarTcu(dados, { consulta: '"pregão eletrônico"' })).resultados.map((x) => x.numero)).toEqual(["8"]);
+    expect((await pesquisarTcu(dados, { consulta: "inexistente" })).resultados).toEqual([]);
+  });
+
   it("limita a quantidade, conta o total e avisa dos anos pedidos que não estão baixados", async () => {
     const dados = await pastaComAnos();
     const r = await pesquisarTcu(dados, { consulta: "sobrepreço", limite: 1, anos: [2025, 2024] });
