@@ -85,6 +85,10 @@ export interface Qualificado {
   orgao?: string;
   processoParadigma?: string;
   link?: string;
+  /** Só na coleção `precedentes` do Falcão: a questão submetida, que não é tese. */
+  questao?: string;
+  /** Só na coleção `precedentes` do Falcão: a situação como a fonte informa, com a data, ou "não verificado". Nunca vigência. */
+  situacaoNaFonte?: string;
   /** Inciso do art. 927 do CPC com a prova nos dados, ou "não classificado", com o motivo: o rótulo da lista não basta. */
   enquadramento927: Enquadramento927;
 }
@@ -128,6 +132,8 @@ export interface ParametrosBusca extends FiltrosBusca {
   somenteEmentas?: boolean;
   /** Só nos TRTs (Falcão): a ordem da lista; sem pedido, a relevância da fonte. */
   ordenacao?: OrdenacaoNoFalcao;
+  /** Só nos TRTs (Falcão): também a coleção `precedentes` do mesmo TRT (1 chamada a mais). */
+  precedentes?: boolean;
 }
 
 /** Listas de precedentes qualificados que o site devolve, com o rótulo mostrado ao usuário. */

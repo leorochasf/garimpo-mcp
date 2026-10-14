@@ -11,6 +11,26 @@ oficial de jurisprudência dos órgãos da Justiça do Trabalho de primeiro e se
 https://jurisprudencia.jt.jus.br/ (fonte: https://juslaboris.tst.jus.br/handle/20.500.12178/242856, lida em
 2026-10-09 na entrevista do B12).
 
+## Coleção `precedentes` (I-26, prova de 2026-10-14)
+
+A mesma rota pública de pesquisa aceita `colecao=precedentes`. A prova já registrada pelo executor fez duas
+chamadas pelo Cliente único, ambas HTTP 200: uma no TRT3 (IRDR de origem BNP) e uma no TST (IRR de origem BNP e
+súmula de origem TST). O Garimpo continua buscando o TST pelo JurisprudênciaIA. Este registro não é uma nova
+consulta à fonte.
+
+Na `busca_direta` de um TRT, `precedentes:true` pede uma página adicional de até 10 itens do mesmo tribunal, só
+com o texto da busca. Filtros, `somenteEmentas` e ordenação continuam restritos aos acórdãos. A chamada passa
+pelo mesmo Cliente e consome o mesmo teto diário. Sem a opção, o comportamento anterior continua.
+
+A origem BNP traz `categoria`, `numero`, `situacao.descricao`, `dataSituacao`, `questao`, `tese` e
+`processosParadigma`; a súmula observada traz `tipo: SUMULA` e `conteudoDecisao`. Questão submetida ou conteúdo
+de decisão de um incidente não é tese. A situação é literal, acompanhada da data quando informada; sem data,
+a ausência é declarada, e sem situação o resultado diz "não verificado". Não prova vigência ou aplicabilidade.
+Nenhum desses itens recebe inciso do art. 927 pela regra atual do ADR-0007; o âmbito do IRDR é condicional.
+
+Não foram observados ao vivo súmula, OJ nem IAC de TRT. Cobertura por TRT, frescor, filtros e paginação da
+coleção não foram verificados. A fixture dos testes é sintética e declara essas limitações.
+
 ## Termos de uso
 
 **Onde:** o rodapé da versão do sistema em produção em 2026-10-09 (**2.15.3**) tem um só item de termos,

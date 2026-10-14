@@ -106,7 +106,7 @@ export function enquadrarQualificado(q: QualificadoParaEnquadrar, reforco?: Refo
     q.tipo,
     doReforco,
   ).completo;
-  const comAmbito = comAmbitoNacional(completo, q.tribunal);
+  const comAmbito = comAmbitoDoIrdr(comAmbitoNacional(completo, q.tribunal), q);
   return doReforco ? { ...comAmbito, notas: notasDoReforco(q, doReforco) } : comAmbito;
 }
 
@@ -126,18 +126,29 @@ function comAmbitoNacional(e: Enquadramento927, tribunal: string): Enquadramento
   };
 }
 
+/** O âmbito do IRDR de tribunal que não seja o STF nem o STJ: o do tribunal de origem, condicional (CPC, art. 985, I). */
+function ambitoDoIrdrDeTribunal(tribunal: string, alvo: string): string {
+  return (
+    `tribunal de origem (se ${alvo} fixou a tese): ${tribunal.toUpperCase()}, na área de jurisdição do ` +
+    'respectivo tribunal (CPC, art. 985, I: "a todos os processos individuais ou coletivos que versem sobre idêntica ' +
+    "questão de direito e que tramitem na área de jurisdição do respectivo tribunal, inclusive àqueles que tramitem " +
+    `nos juizados especiais do respectivo Estado ou região;"); não confirmado que ${alvo} fixou a tese`
+  );
+}
+
 function ambitoDoIrdr(a: AcordaoParaEnquadrar): string | undefined {
   if (!a.tribunal.trim()) return undefined;
   if (incidenteDaClasse(a) !== "IRDR" || ["stf", "stj"].includes(a.tribunal)) return undefined;
   // A sigla e o nome por extenso, quando presentes, precisam identificar o mesmo incidente.
   if (a.siglaClasse && a.siglaClasse !== "IRDR") return undefined;
   if (a.classe && siglaPelaClasse(a.classe) !== "IRDR") return undefined;
-  return (
-    `tribunal de origem (se este acórdão fixou a tese): ${a.tribunal.toUpperCase()}, na área de jurisdição do ` +
-    'respectivo tribunal (CPC, art. 985, I: "a todos os processos individuais ou coletivos que versem sobre idêntica ' +
-    "questão de direito e que tramitem na área de jurisdição do respectivo tribunal, inclusive àqueles que tramitem " +
-    'nos juizados especiais do respectivo Estado ou região;"); não confirmado que este acórdão fixou a tese'
-  );
+  return ambitoDoIrdrDeTribunal(a.tribunal, "este acórdão");
+}
+
+/** IRDR que a lista de precedentes de um tribunal (que não o STF nem o STJ) informa: âmbito condicional, inciso nenhum. */
+function comAmbitoDoIrdr(e: Enquadramento927, q: Pick<QualificadoParaEnquadrar, "tribunal" | "tipo">): Enquadramento927 {
+  if (q.tipo !== "IRDR" || !q.tribunal.trim() || ["stf", "stj"].includes(q.tribunal)) return e;
+  return { ...e, ambito: ambitoDoIrdrDeTribunal(q.tribunal, "este incidente") };
 }
 
 /**
@@ -334,6 +345,15 @@ function regraDoQualificado(
     return curta(
       naoClassificado("súmula do STJ: o inciso IV exige matéria infraconstitucional, que os dados não informam"),
       "matéria infraconstitucional da súmula do STJ não informada",
+    );
+  }
+  if (tipo === "IRDR") {
+    return curta(
+      naoClassificado(
+        `IRDR de ${q.tribunal.toUpperCase()}: a regra fixa do ADR-0007 não prevê inciso para IRDR de tribunal regional ` +
+          "(só tema repetitivo e IAC do STJ); enquadramento não verificado, pendência de decisão do dono",
+      ),
+      "IRDR sem regra fixa",
     );
   }
   const semFundamento: Record<string, string> = { súmula: `súmula do ${q.tribunal.toUpperCase()}`, PUIL: "PUIL", IRR: "IRR", OJ: "OJ" };
