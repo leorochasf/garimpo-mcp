@@ -38,6 +38,7 @@
     "test": "vitest run",
     "test:vivo": "vitest run tests/vivo.test.ts",
     "gerar-tabela": "vite-node scripts/rodarGerador.ts",
+    "gerar-espelhos": "vite-node scripts/rodarGeradorEspelhos.ts",
     "prepack": "npm run build",
     "prepublishOnly": "npm test"
   },

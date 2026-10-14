@@ -290,6 +290,8 @@ export interface OpcoesCliente {
   vagas?: Coordenacao;
   /** Espera antes da nova tentativa quando não há Retry-After (ms). */
   esperaPadraoMs?: number;
+  /** Status adicionais que usam a mesma espera e única nova tentativa de 429/503 (gerador dos Espelhos: 504). */
+  statusAdicionaisDeEspera?: readonly number[];
   /** Teto da espera, mesmo que o servidor peça mais (ms). */
   esperaMaximaMs?: number;
   /** Pedido acima do teto adia o serviço (não é recusa) em vez de abrir o disjuntor (DJEN). */
@@ -460,7 +462,8 @@ function ler(
 }
 
 /** 429/503 ou aviso de excesso: o serviço pede para esperar. */
-const pedeEspera = (ida: Ida) => ida.resposta.status === 429 || ida.resposta.status === 503 || ida.excesso;
+const pedeEspera = (ida: Ida, adicionais: readonly number[] = []) =>
+  ida.resposta.status === 429 || ida.resposta.status === 503 || adicionais.includes(ida.resposta.status) || ida.excesso;
 
 export class Cliente {
   private readonly vagas: Coordenacao;
@@ -506,7 +509,7 @@ export class Cliente {
         await this.anotar(servico, chamada, saida, { tipo: "erro" });
         throw e;
       }
-      if (pedeEspera(ida)) {
+      if (pedeEspera(ida, this.opcoes.statusAdicionaisDeEspera)) {
         const { status } = ida.resposta;
         const pedidaMs = this.esperaPedida(ida.resposta);
         ida.encerrar();
@@ -791,7 +794,7 @@ export class Cliente {
       });
       await anotarFreio(lerRestante(ida.resposta.headers));
       await this.barrarBloqueio(ida, url);
-      if (!pedeEspera(ida)) {
+      if (!pedeEspera(ida, this.opcoes.statusAdicionaisDeEspera)) {
         const html = ida.resposta.ok && /html/i.test(ida.resposta.headers.get("content-type") ?? "");
         if (html && CONTEUDO_ESPERADO_POR_HOST[host]) await ida.lerAviso(LIMITE_PAGINA_DO_HOST, true);
         else await ida.lerAviso(html ? LIMITE_PAGINA_PEQUENA : LIMITE_AVISO);

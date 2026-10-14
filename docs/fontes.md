@@ -109,8 +109,8 @@ inventário de acórdãos**.
 ## Espelhos de Acórdãos do STJ (Portal de Dados Abertos)
 
 Fonte do **índice "dispositivo legal → acórdãos do STJ"** ([ADR-0022](adr/0022-indice-de-dispositivo-legal-pelos-espelhos-de-acordaos-do-stj.md)).
-Gerado só pelo mantenedor e levado no pacote como fotografia datada; o usuário nunca baixa o acervo. **Nenhum código
-de rede para esta fonte existe ainda**; esta entrada precede o gerador (ADR-0017).
+Gerado só pelo mantenedor e levado no pacote como fotografia datada; o usuário nunca baixa o acervo. O gerador é `scripts/gerarEspelhos.ts`
+(`npm run gerar-espelhos`, só do mantenedor); o pacote não tem código de rede para esta fonte.
 
 - **Conjuntos:** 10, `espelhos-de-acordaos-<órgão>` (corte-especial, primeira-secao, segunda-secao, terceira-secao,
   primeira-turma a sexta-turma), em https://dadosabertos.web.stj.jus.br/dataset/ (fichas lidas em 2026-10-13).
