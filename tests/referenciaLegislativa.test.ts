@@ -100,4 +100,32 @@ describe("lerReferenciasLegislativas", () => {
     expect(lerReferenciasLegislativas(undefined)).toEqual([]);
     expect(lerReferenciasLegislativas("ART:00001 PAR:00002 sem cabeçalho")).toEqual([]);
   });
+
+  it("não transforma cabeçalhos ou dispositivos malformados em referências", () => {
+    for (const texto of [
+      "LEG:FED LEI:desconhecida ANO:2015\nART:00001",
+      "LEG:FED LEI:013105 ANO:2015x\nART:00001",
+      "LEG:FED LEI:013105 ANO:2e3\nART:00001",
+      cpcCom("ART:desconhecido"),
+      cpcCom("ART:00085?"),
+      cpcCom("ART:00085 PAR:qualquer"),
+      cpcCom("ART:00085 INC:???"),
+    ]) expect(lerReferenciasLegislativas(texto)).toEqual([]);
+  });
+
+  it("não lê marcas de dispositivo dentro de observações aninhadas ou incompletas", () => {
+    expect(lerReferenciasLegislativas(`${cpcCom("ART:00085")}\n(NOTA (REDAÇÃO) ART:00999)`)).toEqual([
+      { ...CPC_LEI, artigo: "85", observacao: "NOTA (REDAÇÃO) ART:00999" },
+    ]);
+    expect(lerReferenciasLegislativas(`${cpcCom("ART:00085")}\n(NOTA ART:00999`)).toEqual([]);
+  });
+
+  it("lê dispositivos na mesma linha do cabeçalho sem reler o cabeçalho como corpo", () => {
+    expect(lerReferenciasLegislativas("LEG:FED LEI:013105 ANO:2015 ART:00085 PAR:00008")).toEqual([
+      { esfera: "FED", tipo: "LEI", numero: "13105", ano: 2015, sigla: null, artigo: "85", paragrafo: "8" },
+    ]);
+    expect(lerReferenciasLegislativas("LEG:FED SUM:000233 ANO:****")).toEqual([
+      { esfera: "FED", tipo: "SUM", numero: "233", ano: null, sigla: null },
+    ]);
+  });
 });

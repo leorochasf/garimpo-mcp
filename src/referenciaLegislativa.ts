@@ -29,14 +29,14 @@ export interface ReferenciaLegislativa {
   item?: string;
   /** Número de súmula ou enunciado (tokens SUM e NUM). */
   enunciado?: string;
-  /** Observação livre entre parênteses do texto da fonte, literal. */
+  /** Observação livre entre parênteses do texto da fonte, com espaços normalizados. */
   observacao?: string;
 }
 
 type Detalhe = "paragrafo" | "inciso" | "alinea" | "item";
 
-const CABECALHO = /^LEG:(\S+)\s+(\S+?):(\S+)\s+ANO:(\S+)/;
-const MARCA = /\b(ART|PAR|INC|LET|ITEM|SUM|NUM):(\S+)/g;
+const CABECALHO = /^LEG:([A-Z]+)\s+([A-Z]+):(\d+|\*+)\s+ANO:(\d{4}|\*+)(?=\s|$)/;
+const MARCA = /(?:^|\s)(ART|PAR|INC|LET|ITEM|SUM|NUM):([^\s]*)/g;
 /** Do mais alto ao mais fundo; um detalhe preenchido bloqueia ele mesmo e os mais fundos. */
 const DETALHES: Record<string, Detalhe> = { PAR: "paragrafo", INC: "inciso", LET: "alinea", ITEM: "item" };
 const ORDEM: Detalhe[] = ["paragrafo", "inciso", "alinea", "item"];
@@ -53,16 +53,30 @@ function lerUm(entrada: string): ReferenciaLegislativa[] {
   const observacoes: string[] = [];
   // A sigla pode ter parênteses (SUM(STJ)): sai antes da observação, que também usa parênteses.
   let sigla: string | null = null;
-  const corpo = texto
-    .slice(texto.indexOf("\n") + 1)
+  const comObservacoes = texto
+    .slice(cabecalho[0].length)
     .replace(/^\*{5}[ \t]+(\S+)/m, (_, s: string) => {
       sigla = s;
       return " ";
-    })
-    .replace(/\(([^)]*)\)/g, (_, dentro: string) => {
-      observacoes.push(dentro.replace(/\s+/g, " ").trim());
-      return " ";
     });
+  // Parênteses livres podem ser aninhados. Nunca interpretar seu conteúdo como dispositivo.
+  let corpo = "";
+  let inicio = 0;
+  let profundidade = 0;
+  for (let i = 0; i < comObservacoes.length; i++) {
+    const c = comObservacoes[i];
+    if (c === "(") {
+      if (profundidade === 0) inicio = i + 1;
+      profundidade++;
+    } else if (c === ")") {
+      if (profundidade === 0) return [];
+      if (--profundidade === 0) {
+        observacoes.push(comObservacoes.slice(inicio, i).replace(/\s+/g, " ").trim());
+        corpo += " ";
+      }
+    } else if (profundidade === 0) corpo += c;
+  }
+  if (profundidade !== 0) return [];
   const ano = Number(cabecalho[4]);
   const lei = {
     esfera: cabecalho[1],
@@ -75,6 +89,8 @@ function lerUm(entrada: string): ReferenciaLegislativa[] {
   const pares: ReferenciaLegislativa[] = [];
   let atual: ReferenciaLegislativa | undefined;
   for (const [, nome, bruto] of corpo.matchAll(MARCA)) {
+    const formato = nome === "LET" ? /^[A-Z]$/i : nome === "PAR" ? /^(?:\d+|[uú]nico)$/i : /^\d+[A-Z]?$/;
+    if (!formato.test(bruto)) return [];
     const v = valor(bruto);
     if (nome === "ART") {
       pares.push((atual = { ...lei, artigo: v }));
