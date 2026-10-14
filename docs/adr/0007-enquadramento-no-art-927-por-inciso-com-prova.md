@@ -47,9 +47,28 @@ o aviso "situação não verificada", com a data da tabela do STF; súmula sem m
 vigência; número fora da tabela → "não consta na tabela do STF de <data>". O inciso e o motivo ficam os da regra sem
 a tabela.
 
+## Âmbito do precedente
+
+_Emenda decidida pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-13 (DQ-14, aceita pelo dono em 2026-10-10) — sujeita a revisão do dono._
+
+O enquadramento ganha o campo `ambito`: o alcance de jurisdição do **órgão que decidiu**, por regra fixa de tribunal e
+classe, sem a palavra "persuasivo". Textos conferidos em 2026-10-13 (base de legislação do JusRatio, fonte Planalto):
+
+- enquadramento positivo (hoje só STF e STJ) → "nacional", pela CF, art. 92, § 2º ("O Supremo Tribunal Federal e os
+  Tribunais Superiores têm jurisdição em todo o território nacional."); a inclusão do STJ em "Tribunais Superiores" é a
+  leitura corrente, a confirmar pelo dono;
+- acórdão de classe IRDR em tribunal que não seja o STF nem o STJ → "tribunal de origem", **condicional** ("se este
+  acórdão fixou a tese"), pelo CPC, art. 985, I (inclui os juizados especiais do respectivo Estado ou região); o inciso
+  segue "não classificado";
+- todo o resto → sem âmbito. Não há âmbito "juizados" próprio (nenhum dado prova) nem âmbito de IAC de tribunal que
+  não o STJ (dispositivo não verificado).
+
+O âmbito descreve onde o órgão tem jurisdição; não prova vigência, vinculação do leitor nem aplicação ao caso.
+
 ## Opções consideradas
 
 - Escala doutrinária de 4 níveis: rejeitada; não se apoia no texto legal consultado.
 - Turma/câmara = "fora do rol": rejeitada; depende de regimento não verificado e é exclusão por falta de dado.
 - Classificar acórdão pela classe IRDR/IAC com aviso: rejeitada; o aviso pode ser omitido pela IA e o acórdão de
   admissão ganharia autoridade que não tem.
+- Âmbito deduzido do órgão (turma, câmara, "corte") ou de "juizados" sem dado: rejeitado; só tribunal e classe provam.
