@@ -15,14 +15,18 @@ async function comBusca(responder = () => pagina(PESQUISA.documentos)) {
   return { ...montado, falcao };
 }
 
-/** Espera a gravação por trás terminar: o texto de cada acórdão aparece em memoria/textos-1. */
-async function esperarTextosNoDisco(dados: string, quantos: number) {
+/**
+ * Espera a gravação por trás terminar: o texto de cada acórdão aparece em memoria/textos-1 e o próprio acórdão (a ementa)
+ * em memoria/acordaos-1. As duas pastas são gravadas em levas seguidas, não juntas; esperar só uma deixa a outra pela metade.
+ */
+async function esperarGravacaoNoDisco(dados: string, quantos: number) {
+  const gravados = async (pasta: string) =>
+    (await readdir(join(dados, "memoria", pasta)).catch(() => [] as string[])).filter((n) => n.endsWith(".json")).length;
   for (let i = 0; i < 200; i++) {
-    const nomes = await readdir(join(dados, "memoria", "textos-1")).catch(() => [] as string[]);
-    if (nomes.filter((n) => n.endsWith(".json")).length >= quantos) return;
+    if ((await gravados("textos-1")) >= quantos && (await gravados("acordaos-1")) >= quantos) return;
     await new Promise((r) => setTimeout(r, 20));
   }
-  throw new Error("os textos não chegaram ao disco");
+  throw new Error("os acórdãos e os textos não chegaram ao disco");
 }
 
 describe("ler o texto integral de um TRT pelo id", () => {
@@ -213,7 +217,7 @@ describe("conferir citação num acórdão de TRT", () => {
 
   it("texto integral fora da memória: no texto, \"não verificável\" (nunca \"não encontrado\"); a ementa segue", async () => {
     const { dados } = await comBusca();
-    await esperarTextosNoDisco(dados, 2);
+    await esperarGravacaoNoDisco(dados, 2);
     await rm(join(dados, "memoria", "textos-1"), { recursive: true, force: true });
     // Outra janela, com a mesma pasta de dados: a memória da janela que buscou não vale aqui.
     const outra = await conectar(siteFalso().cliente, falcaoFalso().cliente, { dados });
