@@ -25,6 +25,7 @@ import {
 } from "./leitura.js";
 import { htmlComConteudoOculto, htmlComIndicioDeCorte, htmlParaTexto } from "./html.js";
 import type { Guardado, Memoria, TextoIntegral } from "./memoria.js";
+import { textoDoTjdft } from "./tjdft.js";
 import { ehDoFalcao, infoTribunal } from "./tribunais.js";
 
 export interface PedidoInteiroTeor {
@@ -277,15 +278,26 @@ async function textoDoPortal(
     `Leia com o ler_inteiro_teor com o id ${acordao.id} (fica na memória do Garimpo por 24 h) e confira citações ` +
     "com o conferir_citacao pelo mesmo id.";
   if (!(await memoria.obterTexto(acordao.id))) {
-    const trazido = await baixarTextoTjto(cliente, link);
+    const doTjdft = acordao.tribunal === "tjdft";
+    const trazido = doTjdft ? await textoDoTjdft(cliente, link, acordao) : await baixarTextoTjto(cliente, link);
     if (!trazido) {
       return {
         baixado: false,
         link,
-        explicacao:
-          `O portal do ${nomeTribunal} respondeu, mas com uma página que não é a página do acórdão (aviso ou erro do ` +
-          "portal, como documento não encontrado): o Garimpo não guardou texto nenhum. Abra o link no navegador para " +
-          "conferir o documento.",
+        explicacao: doTjdft
+          ? `A API do ${nomeTribunal} não devolveu o registro deste acórdão (identificador e uuid do link): texto não ` +
+            "verificado, nada foi guardado. Abra o link no navegador para conferir o documento."
+          : `O portal do ${nomeTribunal} respondeu, mas com uma página que não é a página do acórdão (aviso ou erro do ` +
+            "portal, como documento não encontrado): o Garimpo não guardou texto nenhum. Abra o link no navegador para " +
+            "conferir o documento.",
+      };
+    }
+    if (trazido.motivoSemTexto) {
+      memoria.lembrarTextos([{ id: acordao.id, ...trazido }]);
+      return {
+        baixado: false,
+        link,
+        explicacao: `O ${nomeTribunal} não entregou o texto deste acórdão: ${trazido.motivoSemTexto}. Texto não verificado. Abra o link no navegador para conferir o documento.`,
       };
     }
     memoria.lembrarTextos([{ id: acordao.id, ...trazido }]);
@@ -294,8 +306,11 @@ async function textoDoPortal(
     baixado: false,
     link,
     explicacao:
-      `O portal do ${nomeTribunal} entrega o acórdão em HTML, não em PDF: o Garimpo o converteu em texto (texto do ` +
-      `portal do tribunal, sem recibo de origem; não é o PDF do tribunal). ${ler}`,
+      acordao.tribunal === "tjdft"
+        ? `A API do ${nomeTribunal} entrega o texto do acórdão, não o PDF: o Garimpo o guardou como texto do portal do ` +
+          `tribunal, sem recibo de origem; não é o PDF do tribunal. ${ler}`
+        : `O portal do ${nomeTribunal} entrega o acórdão em HTML, não em PDF: o Garimpo o converteu em texto (texto do ` +
+          `portal do tribunal, sem recibo de origem; não é o PDF do tribunal). ${ler}`,
   };
 }
 

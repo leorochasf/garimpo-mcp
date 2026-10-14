@@ -156,7 +156,12 @@ export const ROTULO_PORTAL_TJTO = "portal de jurisprudência do TJTO (jurisprude
 export const NATUREZA_DO_TEXTO_DO_PORTAL =
   "texto do portal do tribunal (TJTO), convertido de HTML pelo Garimpo: não é PDF e não tem recibo de origem";
 
-/** O tribunal do id entrega o texto do portal do tribunal (TJTO), não o do Falcão. */
+/** O texto do TJDFT, trazido pela API pública do tribunal (I-13 / G-17): a fonte e o que ele é. */
+export const ROTULO_PORTAL_TJDFT = "API pública de jurisprudência do TJDFT (jurisdf.tjdft.jus.br)";
+export const NATUREZA_DO_TEXTO_DO_PORTAL_TJDFT =
+  "texto do portal do tribunal (TJDFT), obtido pela API pública do tribunal: não é PDF e não tem recibo de origem";
+
+/** O tribunal do id entrega o texto do portal do tribunal (TJTO, TJDFT), não o do Falcão. */
 export function ehTextoDoPortal(id: string): boolean {
   return infoTribunal(id.split(":")[0])?.inteiroTeor === "portal";
 }
@@ -165,8 +170,9 @@ export function ehTextoDoPortal(id: string): boolean {
 export const NATUREZA_SEM_TEXTO_INTEGRAL = "sem texto integral: o Falcão não mandou o acórdão, só a ementa";
 
 /** O que o texto guardado na memória é: sem texto integral, texto do portal do tribunal (TJTO) ou texto do Falcão. */
-export function naturezaDoTexto(semTexto: boolean, doPortal: boolean): string {
+export function naturezaDoTexto(semTexto: boolean, doPortal: boolean, id = ""): string {
   if (semTexto) return NATUREZA_SEM_TEXTO_INTEGRAL;
+  if (doPortal && id.startsWith("tjdft:")) return NATUREZA_DO_TEXTO_DO_PORTAL_TJDFT;
   return doPortal ? NATUREZA_DO_TEXTO_DO_PORTAL : NATUREZA_DO_TEXTO_INTEGRAL;
 }
 
@@ -225,8 +231,8 @@ export async function lerTextoIntegral(id: string, parte = 1, memoria?: Memoria)
       julgadoEm: a?.dataJulgamento ?? NAO_INFORMADO,
       juntadoEm: a?.dataJuntada ?? NAO_INFORMADO,
       id,
-      fonte: doPortal ? ROTULO_PORTAL_TJTO : ROTULO_FALCAO,
-      natureza: naturezaDoTexto(Boolean(semTexto), doPortal),
+      fonte: doPortal ? (id.startsWith("tjdft:") ? ROTULO_PORTAL_TJDFT : ROTULO_PORTAL_TJTO) : ROTULO_FALCAO,
+      natureza: naturezaDoTexto(Boolean(semTexto), doPortal, id),
       partes,
       ...(semTexto
         ? { completo: `não: ${semTexto}` }

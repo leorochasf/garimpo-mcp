@@ -1259,8 +1259,8 @@ describe("textos honestos por tribunal: o observado, com data, ou \"ainda não t
     expect(m.get("tjrn")).toMatch(/JAI/);
     expect(m.get("tst")).toMatch(/^Testado em 2026-10-09 sem conclusão; o download automático não está disponível\./);
     expect(m.get("tst")).toMatch(/endereço encurtado da Justiça do Trabalho, fora do portal do TST/);
-    expect(m.get("tjdft")).toMatch(/^Testado em 2026-10-09 sem conclusão; o download automático não está disponível\./);
-    expect(m.get("tjdft")).toMatch(/página de aplicação no lugar do PDF/);
+    // TJDFT: a prova de 2026-10-09 foi superada pela API do tribunal (I-13 / G-17): texto do portal, não mais só link.
+    expect(m.has("tjdft")).toBe(false);
     // TJTO: 403 em 2026-10-09 com o UA do Garimpo; com o UA de navegador (ADR-0021) deixou de ser só link.
     expect(m.has("tjto")).toBe(false);
   });
@@ -1274,7 +1274,7 @@ describe("textos honestos por tribunal: o observado, com data, ou \"ainda não t
     });
     const r = (await mcp.callTool({
       name: "obter_inteiro_teor",
-      arguments: { tribunal: "tjdft", link: "https://exemplo.test/tjdft/acordao" },
+      arguments: { tribunal: "tjrn", link: "https://exemplo.test/tjrn/acordao" },
     })) as { content: { text: string }[] };
     const dado = JSON.parse(r.content[0].text);
     expect(dado.explicacao).toMatch(/^Testado em 2026-10-09 sem conclusão/);

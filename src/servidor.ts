@@ -827,7 +827,7 @@ export function criarServidor(
             const avisos = [(corte as { aviso?: string }).aviso, t?.conteudoOculto ? AVISO_CONTEUDO_OCULTO : undefined].filter(Boolean);
             fontes.push({
               fonte: "texto integral", id,
-              origem: naturezaDoTexto(Boolean(semTexto), doPortal),
+              origem: naturezaDoTexto(Boolean(semTexto), doPortal, id),
               ...noTexto,
               ...(avisos.length > 0 && { aviso: avisos.join(" ") }),
             });
