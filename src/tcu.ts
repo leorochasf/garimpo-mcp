@@ -26,8 +26,8 @@ export interface ListaDoTcu {
 const UNIDADE_EM_MB = { KB: 1 / 1024, MB: 1, GB: 1024 } as const;
 
 /**
- * Lê a lista oficial de arquivos. O formato das linhas não foi visto por inteiro (só a 1ª linha e os tamanhos como
- * "394.40 MB"): acha, em cada linha, o ano do `acordao-completo-<ano>.csv` e o tamanho; o resto da linha não importa.
+ * Lê a lista oficial (BASE|ANO|TAMANHO|ARQUIVO, validada em 2026-10-14): acha o ano do arquivo
+ * `acordao-completo-<ano>.csv` e seu tamanho; ignora o resumo por IA e as demais bases.
  */
 export function analisarListaTcu(texto: string): ListaDoTcu {
   const linhas = texto.replace(/^﻿/, "").split(/\r?\n/);
@@ -66,12 +66,20 @@ export async function* lerRegistrosTcu(blocos: AsyncIterable<string>): AsyncGene
   /** O bloco anterior terminou numa aspa dentro do campo: fecha o campo ou é metade de `""`. */
   let aspaPendente = false;
   let primeiro = true;
+  let tamanhoRegistro = 0;
+
+  function acrescentar(trecho: string): void {
+    tamanhoRegistro += trecho.length;
+    if (tamanhoRegistro > 32 * 1024 * 1024) throw new Error("O registro do TCU excede o limite de leitura de 32 MiB; formato não verificado.");
+    if (!cabecalho || !COLUNAS_VEDADAS.has(cabecalho[campos.length])) campo += trecho;
+  }
 
   function fimDaLinha(): RegistroDoTcu | undefined {
     campos.push(campo);
     const linha = campos;
     campos = [];
     campo = "";
+    tamanhoRegistro = 0;
     if (linha.length === 1 && linha[0] === "") return undefined;
     if (!cabecalho) {
       cabecalho = linha;
@@ -80,6 +88,7 @@ export async function* lerRegistrosTcu(blocos: AsyncIterable<string>): AsyncGene
       }
       return undefined;
     }
+    if (linha.length !== cabecalho.length) throw new Error("O CSV do TCU está incompleto ou tem colunas inesperadas.");
     const registro: RegistroDoTcu = {};
     cabecalho.forEach((nome, i) => {
       if (!COLUNAS_VEDADAS.has(nome)) registro[nome] = linha[i] ?? "";
@@ -88,6 +97,7 @@ export async function* lerRegistrosTcu(blocos: AsyncIterable<string>): AsyncGene
   }
 
   for await (let s of blocos) {
+    if (!s.length) continue;
     if (primeiro) {
       s = s.replace(/^﻿/, "");
       primeiro = false;
@@ -96,7 +106,7 @@ export async function* lerRegistrosTcu(blocos: AsyncIterable<string>): AsyncGene
     if (aspaPendente) {
       aspaPendente = false;
       if (s[0] === '"') {
-        campo += '"';
+        acrescentar('"');
         i = 1;
       } else entreAspas = false;
     }
@@ -104,16 +114,16 @@ export async function* lerRegistrosTcu(blocos: AsyncIterable<string>): AsyncGene
       if (entreAspas) {
         const j = s.indexOf('"', i);
         if (j < 0) {
-          campo += s.slice(i);
+          acrescentar(s.slice(i));
           break;
         }
-        campo += s.slice(i, j);
+        acrescentar(s.slice(i, j));
         if (j + 1 >= s.length) {
           aspaPendente = true;
           break;
         }
         if (s[j + 1] === '"') {
-          campo += '"';
+          acrescentar('"');
           i = j + 2;
         } else {
           entreAspas = false;
@@ -129,10 +139,11 @@ export async function* lerRegistrosTcu(blocos: AsyncIterable<string>): AsyncGene
       } else if (c === "\n") {
         const r = fimDaLinha();
         if (r) yield r;
-      } else if (c !== "\r") campo += c;
+      } else if (c !== "\r") acrescentar(c);
     }
   }
   if (aspaPendente) entreAspas = false;
+  if (entreAspas) throw new Error("O CSV do TCU está incompleto: campo sem fechar aspas.");
   if (campo !== "" || campos.length) {
     const r = fimDaLinha();
     if (r) yield r;

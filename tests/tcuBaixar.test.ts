@@ -119,7 +119,7 @@ describe("download dos arquivos anuais do TCU", () => {
   it("outra janela baixando o mesmo ano (trava recente) impede um segundo download", async () => {
     const dados = await pasta();
     await mkdir(join(dados, "tcu"), { recursive: true });
-    await writeFile(`${caminhoDoAnoTcu(dados, 2025)}.trava`, "outra janela");
+    await writeFile(join(dados, "tcu", "download.trava"), String(process.pid));
     const { cliente, chamadas } = clienteFalso([completa()]);
     await expect(baixarAnoTcu({ dados, cliente, ano: 2025 })).rejects.toThrow(/outra janela/i);
     expect(chamadas).toHaveLength(0);
@@ -181,4 +181,64 @@ describe("aviso antes de baixar", () => {
     const dados = await pasta();
     await expect(avisoDeBaixaTcu(dados, lista, [1900])).rejects.toThrow(/1900/);
   });
+});
+
+
+describe("proteções da revisão D-08/G-41", () => {
+  it("não aceita 206 sem retomada nem 304 sem cópia anterior", async () => {
+    for (const resposta of [cortada(0), new Response(null, { status: 304 })]) {
+      const dados = await pasta();
+      await expect(baixarAnoTcu({ dados, cliente: clienteFalso([resposta]).cliente, ano: 2025 })).rejects.toThrow(/inesperad/);
+      expect(existsSync(caminhoDoAnoTcu(dados, 2025))).toBe(false);
+    }
+  });
+
+  it("trava comum impede baixar outro ano enquanto uma janela está ativa", async () => {
+    const dados = await pasta();
+    await mkdir(join(dados, "tcu"), { recursive: true });
+    await writeFile(join(dados, "tcu", "download.trava"), String(process.pid));
+    const { cliente, chamadas } = clienteFalso([completa()]);
+    await expect(baixarAnoTcu({ dados, cliente, ano: 2024 })).rejects.toThrow(/outra janela/i);
+    expect(chamadas).toHaveLength(0);
+  });
+
+  it("CSV truncado sem content-length não substitui o arquivo anterior", async () => {
+    const dados = await pasta();
+    await baixarAnoTcu({ dados, cliente: clienteFalso([completa()]).cliente, ano: 2025 });
+    const truncado = new Response(BYTES.subarray(0, BYTES.length - 10), { headers: CABECALHOS });
+    await expect(baixarAnoTcu({ dados, cliente: clienteFalso([truncado]).cliente, ano: 2025, renovar: true })).rejects.toThrow();
+    expect(await readFile(caminhoDoAnoTcu(dados, 2025))).toEqual(BYTES);
+  });
+
+  it("falha ao preparar recibo mantém CSV e recibo anteriores", async () => {
+    const dados = await pasta();
+    await baixarAnoTcu({ dados, cliente: clienteFalso([completa()]).cliente, ano: 2025 });
+    await mkdir(`${caminhoDoAnoTcu(dados, 2025).replace(/\.csv$/, ".recibo.json")}.novo`);
+    const novo = Buffer.from(csvDoTcu([acordaoFicticio(9)]));
+    await expect(baixarAnoTcu({ dados, cliente: clienteFalso([new Response(novo, { headers: CABECALHOS })]).cliente, ano: 2025, renovar: true })).rejects.toThrow();
+    expect(await readFile(caminhoDoAnoTcu(dados, 2025))).toEqual(BYTES);
+    expect((await lerReciboTcu(dados, 2025))!.sha256).toBe(sha(BYTES));
+  });
+});
+
+
+it("renovação também avisa tamanho e tempo antes de baixar anos existentes", async () => {
+  const dados = await pasta();
+  await baixarAnoTcu({ dados, cliente: clienteFalso([completa()]).cliente, ano: 2025 });
+  const aviso = await avisoDeBaixaTcu(dados, analisarListaTcu(LISTA_REAL_TCU), [2025], true);
+  expect(aviso.precisaConfirmar).toBe(true);
+  expect(aviso.totalMb).toBe(394.4);
+  expect(aviso.listaDoTcuEm).toBe("02/10/2026");
+  expect(aviso.mensagem).toMatch(/10 a 20 s/);
+});
+
+it("faixa de retomada que não chega ao fim conserva o parcial e recusa a publicação", async () => {
+  const dados = await pasta();
+  const dest = caminhoDoAnoTcu(dados, 2025);
+  await mkdir(join(dados, "tcu"), { recursive: true });
+  await writeFile(`${dest}.parcial`, BYTES.subarray(0, 100));
+  await writeFile(`${dest}.parcial.json`, JSON.stringify({ etag: '"abc"' }));
+  const resposta = new Response(BYTES.subarray(100, 150), { status: 206, headers: { ...CABECALHOS, "content-range": `bytes 100-149/${BYTES.length}` } });
+  await expect(baixarAnoTcu({ dados, cliente: clienteFalso([resposta]).cliente, ano: 2025 })).rejects.toThrow(/faixa inesperada/);
+  expect(await readFile(`${dest}.parcial`)).toEqual(BYTES.subarray(0, 100));
 });

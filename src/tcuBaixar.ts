@@ -5,12 +5,11 @@
  */
 
 import { createHash } from "node:crypto";
-import { createReadStream, createWriteStream, existsSync } from "node:fs";
-import { mkdir, open, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
-import { once } from "node:events";
-import { Readable } from "node:stream";
+import { createReadStream, existsSync } from "node:fs";
+import { mkdir, open, readFile, rename, rm, rmdir, stat, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { Cliente, ErroHttp, FormatoInesperadoError, type OpcoesCliente } from "./cliente.js";
-import { analisarListaTcu, HOST_TCU, type ListaDoTcu, URL_LISTA_TCU, urlDoAnoTcu } from "./tcu.js";
+import { analisarListaTcu, blocosDoArquivo, lerRegistrosTcu, HOST_TCU, type ListaDoTcu, URL_LISTA_TCU, urlDoAnoTcu } from "./tcu.js";
 import { anosBaixadosTcu, caminhoDoAnoTcu, caminhoDoReciboTcu, lerReciboTcu, pastaDoTcu, type ReciboTcu } from "./tcuLocal.js";
 
 /** Um arquivo de 400 MB leva tempo: 30 min por chamada (o parcial fica guardado se estourar). 1 s entre chamadas ao TCU. */
@@ -31,6 +30,7 @@ export async function listarAnosDoTcu(cliente: Cliente): Promise<ListaDoTcu> {
 }
 
 export interface AvisoDeBaixaTcu {
+  listaDoTcuEm: string;
   precisaConfirmar: boolean;
   anos: { ano: number; tamanhoMb?: number; jaBaixado: boolean }[];
   /** Soma dos que ainda faltam baixar (os que têm tamanho na lista). */
@@ -47,23 +47,23 @@ export const AVISO_DE_VELOCIDADE =
 const mb = (n: number) => `${n.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} MB`;
 
 /** O aviso que vem antes de qualquer download: o que precisa baixar, quanto pesa e onde fica. Sem rede. */
-export async function avisoDeBaixaTcu(dados: string, lista: ListaDoTcu, anosPedidos: number[]): Promise<AvisoDeBaixaTcu> {
+export async function avisoDeBaixaTcu(dados: string, lista: ListaDoTcu, anosPedidos: number[], renovar = false): Promise<AvisoDeBaixaTcu> {
   const locais = await anosBaixadosTcu(dados);
   const anos = [...new Set(anosPedidos)].sort((a, b) => a - b).map((ano) => {
     const l = lista.anos.find((x) => x.ano === ano);
     if (!l) throw new Error(`O TCU não lista o ano ${ano} nos arquivos de acórdãos.`);
     return { ano, tamanhoMb: l.tamanhoMb, jaBaixado: locais.includes(ano) };
   });
-  const faltam = anos.filter((a) => !a.jaBaixado);
+  const faltam = renovar ? anos : anos.filter((a) => !a.jaBaixado);
   const totalMb = Math.round(faltam.reduce((s, a) => s + (a.tamanhoMb ?? 0), 0) * 100) / 100;
   const pasta = pastaDoTcu(dados);
   const mensagem = faltam.length
     ? "Para pesquisar o TCU, o Garimpo precisa baixar os arquivos anuais de acórdãos para este computador: " +
       `${faltam.map((a) => `${a.ano} (${a.tamanhoMb ? mb(a.tamanhoMb) : "tamanho não informado"})`).join(", ")}; ` +
       `total de cerca de ${mb(totalMb)}, guardados em ${pasta}. Cada arquivo vem direto do TCU, um por vez, e pode levar ` +
-      "vários minutos. " + AVISO_DE_VELOCIDADE + " Nada foi baixado: para baixar, chame de novo com confirmar: true."
+      "vários minutos. " + (renovar ? "Na renovação, só baixa novamente se o TCU informar mudança. " : "") + AVISO_DE_VELOCIDADE + " Nada foi baixado: para baixar, chame de novo com confirmar: true."
     : `Os anos pedidos já estão baixados em ${pasta}. Para conferir se o TCU atualizou algum, use renovar: true com confirmar: true.`;
-  return { precisaConfirmar: faltam.length > 0, anos, totalMb, pasta, mensagem };
+  return { listaDoTcuEm: lista.baseEm ?? "não informada", precisaConfirmar: faltam.length > 0, anos, totalMb, pasta, mensagem };
 }
 
 export type SituacaoDaBaixa = "baixado" | "retomado" | "atualizado" | "sem-mudanca" | "ja-baixado";
@@ -86,7 +86,6 @@ export interface ResultadoDaBaixaTcu {
   sha256?: string;
 }
 
-const TRAVA_VELHA_MS = 30 * 60_000;
 const CABECALHO_ESPERADO = /^﻿?"KEY"\|"TIPO"\|"TITULO"/;
 
 async function pegarTrava(trava: string, ano: number): Promise<void> {
@@ -96,11 +95,26 @@ async function pegarTrava(trava: string, ano: number): Promise<void> {
       return;
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
-      const idade = Date.now() - (await stat(trava).catch(() => ({ mtimeMs: 0 }))).mtimeMs;
-      if (tentativa > 0 || idade < TRAVA_VELHA_MS) {
-        throw new Error(`Outra janela do Garimpo está baixando o ano ${ano} do TCU agora. Espere ela terminar e tente de novo.`);
+      const pid = Number(await readFile(trava, "utf8").catch(() => ""));
+      let ativa = true;
+      if (Number.isSafeInteger(pid) && pid > 0) {
+        try { process.kill(pid, 0); }
+        catch (erro) { ativa = (erro as NodeJS.ErrnoException).code !== "ESRCH"; }
       }
-      await rm(trava, { force: true });
+      if (tentativa > 0 || ativa) {
+        throw new Error(`Outra janela do Garimpo está baixando um arquivo do TCU agora; o ano ${ano} deve esperar. Trava ilegível também bloqueia o download: confira a janela antes de remover a trava.`);
+      }
+      // Só um processo recupera a trava abandonada; outro não pode apagar a nova posse.
+      const recuperacao = `${trava}.recuperacao`;
+      await mkdir(recuperacao);
+      try {
+        if (Number(await readFile(trava, "utf8")) !== pid) continue;
+        await rm(trava);
+        await writeFile(trava, String(process.pid), { flag: "wx" });
+        return;
+      } finally {
+        await rmdir(recuperacao);
+      }
     }
   }
 }
@@ -110,19 +124,22 @@ async function tamanhoOuZero(caminho: string): Promise<number> {
 }
 
 /** Grava o corpo no arquivo; na queda, o que já chegou é descarregado no disco antes de devolver o erro (para retomar). */
-async function gravarCorpo(corpo: ReadableStream<Uint8Array> | null, caminho: string, flags: "a" | "w"): Promise<Error | undefined> {
-  const arquivo = createWriteStream(caminho, { flags });
-  let falha: Error | undefined;
+async function gravarCorpo(corpo: ReadableStream<Uint8Array> | null, caminho: string, flags: "a" | "w", preparar: () => Promise<void>): Promise<Error | undefined> {
+  const arquivo = await open(caminho, flags).catch(async (e) => {
+    await corpo?.cancel().catch(() => {});
+    throw e;
+  });
   try {
-    for await (const bloco of Readable.fromWeb(corpo as never) as AsyncIterable<Buffer>) {
-      if (!arquivo.write(bloco)) await once(arquivo, "drain");
-    }
+    if (!corpo) throw new Error("O TCU não trouxe o corpo do arquivo.");
+    await preparar();
+    for await (const bloco of corpo) await arquivo.writeFile(bloco);
+    return undefined;
   } catch (e) {
-    falha = e as Error;
+    await corpo?.cancel().catch(() => {});
+    return e as Error;
+  } finally {
+    await arquivo.close();
   }
-  arquivo.end();
-  await once(arquivo, "close");
-  return falha;
 }
 
 async function hashDe(caminho: string): Promise<string> {
@@ -152,7 +169,7 @@ export async function baixarAnoTcu(p: PedidoDeBaixaTcu): Promise<ResultadoDaBaix
   if (existente && !p.renovar) return { ano, situacao: "ja-baixado" };
 
   await mkdir(pastaDoTcu(dados), { recursive: true });
-  const trava = `${destino}.trava`;
+  const trava = join(pastaDoTcu(dados), "download.trava");
   await pegarTrava(trava, ano);
   try {
     const tamanhoParcial = await tamanhoOuZero(parcial);
@@ -182,6 +199,9 @@ export async function baixarAnoTcu(p: PedidoDeBaixaTcu): Promise<ResultadoDaBaix
     }
     if (resposta.status === 304) {
       await resposta.body?.cancel();
+      if (!existente || retomando || !Object.keys(cabecalhos).length) {
+        throw new FormatoInesperadoError(`O TCU respondeu 304 inesperado para ${ano}; nenhuma cópia foi alterada.`);
+      }
       return { ano, situacao: "sem-mudanca" };
     }
     if (resposta.status >= 300) {
@@ -189,21 +209,26 @@ export async function baixarAnoTcu(p: PedidoDeBaixaTcu): Promise<ResultadoDaBaix
       throw new Error(`O TCU redirecionou o arquivo de ${ano} (HTTP ${resposta.status}); o Garimpo não segue o desvio sozinho.`);
     }
 
+    if (resposta.status !== 200 && !(resposta.status === 206 && retomando)) {
+      await resposta.body?.cancel();
+      throw new FormatoInesperadoError(`O TCU respondeu HTTP ${resposta.status} inesperado para ${ano}; nenhuma cópia foi alterada.`);
+    }
     const emContinuacao = resposta.status === 206 && retomando;
     let esperado: number | undefined;
     if (emContinuacao) {
-      const faixa = resposta.headers.get("content-range")?.match(/^bytes (\d+)-\d+\/(\d+|\*)$/);
-      if (!faixa || Number(faixa[1]) !== tamanhoParcial) {
+      const faixa = resposta.headers.get("content-range")?.match(/^bytes (\d+)-(\d+)\/(\d+)$/);
+      if (!faixa || Number(faixa[1]) !== tamanhoParcial || Number(faixa[2]) !== Number(faixa[3]) - 1) {
         await resposta.body?.cancel();
         throw new Error(`O TCU respondeu à retomada de ${ano} com uma faixa inesperada. O parcial ficou guardado.`);
       }
-      esperado = faixa[2] === "*" ? undefined : Number(faixa[2]);
+      esperado = Number(faixa[3]);
     } else {
       const declarado = Number(resposta.headers.get("content-length"));
       esperado = declarado > 0 ? declarado : undefined;
     }
-    await writeFile(meta, JSON.stringify({ etag: resposta.headers.get("etag") ?? undefined, lastModified: resposta.headers.get("last-modified") ?? undefined }));
-    const falha = await gravarCorpo(resposta.body, parcial, emContinuacao ? "a" : "w");
+    const falha = await gravarCorpo(resposta.body, parcial, emContinuacao ? "a" : "w", () =>
+      writeFile(meta, JSON.stringify({ etag: resposta.headers.get("etag") ?? undefined, lastModified: resposta.headers.get("last-modified") ?? undefined })),
+    );
     if (falha) {
       throw new Error(`O download de ${ano} foi interrompido (${falha.message}). O que já chegou ficou guardado: chame de novo para retomar.`);
     }
@@ -216,6 +241,8 @@ export async function baixarAnoTcu(p: PedidoDeBaixaTcu): Promise<ResultadoDaBaix
       await rm(meta, { force: true });
       throw new FormatoInesperadoError(`O arquivo de ${ano} não tem o cabeçalho esperado do TCU (KEY, TIPO, TITULO…); o formato pode ter mudado. Nada foi guardado.`);
     }
+    // Também detecta truncamento sem Content-Length, sem carregar o ano na memória.
+    for await (const registro of lerRegistrosTcu(blocosDoArquivo(parcial))) void registro;
     const sha256 = await hashDe(parcial);
     const recibo: ReciboTcu = {
       ano, url, bytes, sha256,
@@ -224,11 +251,24 @@ export async function baixarAnoTcu(p: PedidoDeBaixaTcu): Promise<ResultadoDaBaix
       baixadoEm: new Date((p.agora ?? Date.now)()).toISOString(),
       ...(p.listaEm ? { listaEm: p.listaEm } : {}),
     };
-    await rename(parcial, destino);
     const reciboNovo = `${caminhoDoReciboTcu(dados, ano)}.novo`;
     await writeFile(reciboNovo, JSON.stringify(recibo, null, 2));
-    await rename(reciboNovo, caminhoDoReciboTcu(dados, ano));
-    await rm(meta, { force: true });
+    const anterior = `${destino}.anterior`;
+    if (existente) await rename(destino, anterior);
+    try {
+      await rename(parcial, destino);
+      try {
+        await rename(reciboNovo, caminhoDoReciboTcu(dados, ano));
+      } catch (e) {
+        await rename(destino, parcial);
+        throw e;
+      }
+    } catch (e) {
+      if (existente) await rename(anterior, destino);
+      throw e;
+    }
+    await rm(anterior, { force: true }).catch(() => {});
+    await rm(meta, { force: true }).catch(() => {});
     return { ano, situacao: existente ? "atualizado" : emContinuacao ? "retomado" : "baixado", bytes, sha256 };
   } finally {
     await rm(trava, { force: true });
