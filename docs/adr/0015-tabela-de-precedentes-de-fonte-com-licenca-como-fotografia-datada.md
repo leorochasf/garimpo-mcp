@@ -30,6 +30,16 @@ vivo no portal do tribunal, com memória de 24 h, e só usa esta tabela quando o
 dela. A decisão (c) acima foi tomada: o dono autorizou o User-Agent de navegador no STF. Ver
 [ADR-0020](0020-precedentes-qualificados-ao-vivo-tabela-como-plano-b.md).
 
+## Nota de 2026-10-14 (I-33 / G-57 / D-11): exportação de RG também pelo script
+
+A decisão (a) do STF segue valendo, com uma via a mais: `npx vite-node scripts/rodarGeradorStf.ts --baixar` faz o script
+do mantenedor obter **sozinho só a exportação de repercussão geral** (uma chamada a `portal.stf.jus.br`, pelo cliente
+único, UA de navegador do ADR-0020, 10 s entre chamadas, uma nova tentativa em 429/503, parada em recusa), no lugar do
+arquivo salvo à mão. É opcional e manual: nunca roda sozinho nem periodicamente. A exportação manual continua e é a via
+quando o download falha. O mantenedor não regera a tabela sem ler o relatório da trava de G-56. Registro de URL, data, hash e
+descartes em [`docs/fontes.md`](../fontes.md). Download inválido, recusa ou mudança inesperada param antes de gravar e
+a fotografia anterior continua, com a data dela. Súmulas e súmulas vinculantes seguem só pelas telas salvas.
+
 ## Opções consideradas
 
 - Download no computador do usuário: rejeitado agora; a licença permite redistribuir, e a fotografia cumpre a consulta
