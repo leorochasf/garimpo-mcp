@@ -43,14 +43,28 @@ describe("inteiro teor — STJ (D-18: o robots.txt de processo.stj.jus.br veda o
     expect(await readdir(pasta)).toEqual([]);
   });
 
-  it("nenhum caminho do Garimpo monta chamada a processo.stj.jus.br", async () => {
+  it("D-18: src/ e scripts/ não montam URLs de conteúdo do STJ, inclusive em outros subdomínios", async () => {
     const { readdir: ler, readFile: lerArquivo } = await import("node:fs/promises");
-    const pastaSrc = new URL("../src/", import.meta.url);
-    for (const nome of (await ler(pastaSrc)).filter((n) => n.endsWith(".ts"))) {
-      const codigo = await lerArquivo(new URL(nome, pastaSrc), "utf8");
-      expect(codigo, nome).not.toMatch(/https?:\/\/processo\.stj\.jus\.br/);
-      expect(codigo, nome).not.toMatch(/\$\{[^}]*\}processo\.stj\.jus\.br/);
+    async function conferir(pasta: URL): Promise<void> {
+      for (const entrada of await ler(pasta, { withFileTypes: true })) {
+        const arquivo = new URL(entrada.name + (entrada.isDirectory() ? "/" : ""), pasta);
+        if (entrada.isDirectory()) {
+          await conferir(arquivo);
+          continue;
+        }
+        const codigo = await lerArquivo(arquivo, "utf8");
+        const hosts = [...codigo.matchAll(/https?:\/\/((?:[\w-]+\.)*stj\.jus\.br)\b/gi)].map((m) => m[1]);
+        // O gerador já autorizado consulta o Portal de Dados Abertos, não o portal de conteúdo do STJ.
+        expect(hosts, arquivo.pathname).toEqual(
+          arquivo.pathname.endsWith("/scripts/gerarTabela.ts")
+            ? hosts.map(() => "dadosabertos.web.stj.jus.br")
+            : [],
+        );
+        expect(codigo, arquivo.pathname).not.toMatch(/\$\{[^}]*\}(?:[\w-]+\.)*stj\.jus\.br/);
+      }
     }
+    await conferir(new URL("../src/", import.meta.url));
+    await conferir(new URL("../scripts/", import.meta.url));
   });
 });
 
