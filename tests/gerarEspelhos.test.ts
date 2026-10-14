@@ -523,6 +523,15 @@ describe("baixarConjuntos", () => {
 const jsonDe = (...registros: Record<string, unknown>[]) => Buffer.from(JSON.stringify(registros));
 
 describe("gerarEGravar", () => {
+  it("para antes de gravar quando o ZIP histórico não contém JSON", async () => {
+    const dados = { "corte-especial": { "20220508.zip": zip([{ nome: "aviso.txt", dados: Buffer.from("formato mudou") }]) } };
+    const destino = join(novoCache(), "indice.json");
+    await expect(gerarEGravar(portal(dados).cliente, {
+      cache: novoCache(), destino, orgaos: ["corte-especial"],
+    })).rejects.toThrow(/nenhum JSON/);
+    expect(existsSync(destino)).toBe(false);
+  });
+
   it("a versão mais recente vence também quando as cópias vêm de órgãos diferentes", async () => {
     const dados = {
       "corte-especial": { "20220731.json": jsonDe(reg({ ministroRelator: "VERSAO NOVA" })) },

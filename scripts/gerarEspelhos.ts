@@ -531,8 +531,9 @@ function registrosDoArquivo(a: ArquivoNoCache): { origem: string; registros: unk
   const origem = `${a.orgao}/${a.nome}`;
   try {
     if (a.nome.endsWith(".zip")) {
-      return lerZip(bytes)
-        .filter((e) => e.nome.endsWith(".json"))
+      const entradas = lerZip(bytes).filter((e) => e.nome.endsWith(".json"));
+      if (entradas.length === 0) throw new Error("o histórico não contém nenhum JSON; o formato mudou");
+      return entradas
         .sort((x, y) => x.nome.localeCompare(y.nome))
         .map((e) => ({ origem: `${origem}:${e.nome}`, registros: JSON.parse(e.dados.toString("utf8")) }));
     }
