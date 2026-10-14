@@ -58,8 +58,8 @@ tribunal e se o precedente ainda vale. O Garimpo cuida dessa parte.
 | | TST | ✅ | súmula, IRR, OJ | 🔗 só link |
 | | STM | ✅ | não | 🔗 só link |
 | **Justiça Estadual** | TJMG, TJMS, TJSP | ✅ | não | 📄 PDF baixado, com recibo |
-| | TJTO | ✅ | não | 📝 texto do portal do tribunal, trazido pelo `obter_inteiro_teor` (sem PDF, sem recibo) |
-| | os outros 24 TJs | ✅ | não | 🔗 só link |
+| | TJDFT, TJTO | ✅ | não | 📝 texto do portal do tribunal, trazido pelo `obter_inteiro_teor` (sem PDF, sem recibo) |
+| | os outros 22 TJs | ✅ | não | 🔗 só link |
 | **Justiça do Trabalho** | TRT1 a TRT24, pelo Falcão (CSJT) | ✅ | ainda não | 📝 texto integral do repositório oficial (sem PDF, sem recibo) |
 
 <details>

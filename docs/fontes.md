@@ -223,7 +223,9 @@ técnica do TJSP (`baixarEsaj`), com o host do tribunal. Só PDF reconhecido vir
   link real; 2 GETs do mesmo `getArquivo.do?cdAcordao=…&cdForo=0` (o 2º só para gravar o PDF e conferir a identidade):
   HTTP 200 `application/pdf;charset=UTF-8`, `%PDF-1.4`, 356 422 bytes, 9 páginas, sem redirect, sem cookie exigido, sem
   429/503/403. Conferência: a 1ª página traz o mesmo número de processo do registro da busca (apelação cível, 2ª Câmara Cível) e a
-  data de criação do PDF (2026-04-27) é a da data de julgamento do registro. Nenhum PDF foi guardado no repositório.
+  data de criação do PDF (2026-04-27) coincide com a data de julgamento do registro. Essa coincidência de metadados
+  não confirma a data da sessão no texto do acórdão: essa conferência fica **não verificada**. Nenhum PDF foi guardado
+  no repositório.
 - **Freios:** serviço `tjms` no disjuntor (regra 3 do `CLAUDE.md`); 403 ou desafio = recusa final, sem recomeço
   (G-21: o «recomeça após 4 s» do projeto de terceiros não foi copiado).
 - **Não verificado:** que o TJMS aceita o endereço sem sessão em qualquer acórdão (visto em 1); o frescor e o formato do
