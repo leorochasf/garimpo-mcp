@@ -300,3 +300,16 @@ técnica do TJSP (`baixarEsaj`), com o host do tribunal. Só PDF reconhecido vir
   repetido, tabela ausente ou tema que some (trava de G-56) param antes de gravar: a tabela anterior continua e a via
   manual (arquivo salvo no navegador) segue valendo. Uma falha nunca atualiza `geradaEm` nem `conferidaEm`.
 
+
+## Motivo do «só link» com prova própria (I-23 / G-24, DQ-24b)
+
+O texto de `motivoLink` (src/tribunais.ts) só diz o motivo real onde o Garimpo tem prova própria, com a data; os demais
+seguem «ainda não testou». Provas registradas em 14/10/2026 (STJ em 13/10/2026, seção D-18 acima):
+
+- **TJRJ:** termo de uso do portal veda robôs e coleta automática sem permissão expressa por escrito.
+- **TJSE:** `robots.txt` com `Disallow: /` e só `/portal` liberado.
+- **TJPA:** a rota de documento devolveu só a casca do aplicativo, sem o acórdão.
+- **TJSC:** a leitura do `robots.txt` do eproc devolveu página de bloqueio (F5).
+- **STF:** `redir.stf.jus.br` respondeu 202 de WAF à leitura do `robots.txt`.
+
+TRF2 e TRF6 não constam da tabela de tribunais do Garimpo; não foram tratados.
