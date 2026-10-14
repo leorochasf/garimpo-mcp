@@ -348,6 +348,37 @@ const ACERVO = {
 };
 
 describe("baixarConjuntos", () => {
+  it.each([429, 503, 504])("HTTP %i tem só uma nova tentativa, espera e registra as duas respostas", async (status) => {
+    const cache = novoCache();
+    const log = join(cache, "chamadas.log");
+    const url = paginaDaFicha("corte-especial");
+    let chamadas = 0;
+    let relogio = 0;
+    const instantes: number[] = [];
+    const base = (async () => {
+      chamadas++;
+      instantes.push(relogio);
+      return new Response("indisponível", { status });
+    }) as typeof fetch;
+    const cliente = clienteDoGerador({ fetch: fetchComRegistro(log, base, () => relogio), vagas: new Vagas(2),
+      agora: () => relogio, esperar: async (ms) => { relogio += ms; } });
+    await expect(baixarConjuntos(cliente, cache, { orgaos: DOIS })).rejects.toThrow(/duas vezes/);
+    expect(chamadas).toBe(2);
+    expect(instantes[1] - instantes[0]).toBeGreaterThanOrEqual(10_000);
+    expect(readFileSync(log, "utf8").trim().split("\n")).toHaveLength(2);
+    expect(readFileSync(log, "utf8")).toContain(`${url} ${status}`);
+    expect(existsSync(join(cache, "fichas", "corte-especial.html"))).toBe(false);
+  });
+
+  it("continua depois de um único 504 se a nova tentativa for aceita", async () => {
+    let n = 0;
+    const p = portal(ACERVO, { [paginaDaFicha("corte-especial")]: () =>
+      ++n === 1 ? new Response("indisponível", { status: 504 }) : new Response(ficha(["20220531.json"]).toString().replace(/resource\/r-/g, "resource/rec-")) });
+    const r = await baixarConjuntos(p.cliente, novoCache(), { orgaos: DOIS });
+    expect(n).toBe(2);
+    expect(r.arquivos).toHaveLength(2);
+  });
+
   it("lê todas as fichas antes de baixar, depois um arquivo por vez em ordem de data, sem /api/ e sem seguir redirecionamento", async () => {
     const { cliente, chamadas } = portal(ACERVO);
     const r = await baixarConjuntos(cliente, novoCache(), { orgaos: DOIS });

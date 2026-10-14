@@ -5,7 +5,7 @@
  *
  * Rede: só as 10 páginas de ficha e os downloads AAAAMMDD.json/.zip desses conjuntos (nunca /api/, que o robots.txt
  * do portal proíbe; nunca processo.stj.jus.br), uma chamada por vez com 10 s entre elas (Crawl-Delay do robots.txt),
- * sem seguir redirecionamento, uma nova tentativa em 429/503 e parada em recusa. Cada arquivo baixado vai para um cache
+ * sem seguir redirecionamento, uma nova tentativa em 429/503/504 e parada em recusa. Cada arquivo baixado vai para um cache
  * FORA do repositório; a rodada é retomável: arquivo já no cache (com o mesmo sha256) não é baixado de novo.
  * Qualquer parada acontece antes da gravação: o índice anterior só é trocado no fim, de uma vez.
  *
@@ -390,7 +390,8 @@ export const DESTINO_PADRAO = fileURLToPath(new URL("../dados/indice-espelhos-st
 
 /** Cliente do gerador: identificação do Garimpo, freios compartilhados e 10 s entre chamadas ao portal de dados. */
 export function clienteDoGerador(extra: Partial<OpcoesCliente> = {}): Cliente {
-  return new Cliente({ nome: "O STJ", intervaloMinimoPorHost: { [HOST]: INTERVALO_MS }, prazoMs: 600_000, ...extra });
+  return new Cliente({ nome: "O STJ", intervaloMinimoPorHost: { [HOST]: INTERVALO_MS }, prazoMs: 600_000,
+    statusAdicionaisDeEspera: [504], ...extra });
 }
 
 export interface ArquivoNoCache extends ArquivoBaixado {
