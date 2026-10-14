@@ -301,6 +301,17 @@ describe("âmbito do precedente (ADR-0007, emenda do âmbito)", () => {
   });
 
   it.each([
+    { siglaClasse: "IRDR", classe: "Apelação Cível" },
+    { siglaClasse: "IAC", classe: "Incidente de resolução de demandas repetitivas" },
+    { siglaClasse: "REsp", classe: "Incidente de resolução de demandas repetitivas" },
+    { siglaClasse: "ADI", classe: "Incidente de resolução de demandas repetitivas" },
+  ])("classe contraditória $siglaClasse / $classe → sem âmbito", (dados) => {
+    const e = enquadrarAcordao(acordao({ tribunal: "tjgo", ...dados }));
+    expect(e.inciso).toBe("não classificado");
+    expect(e).not.toHaveProperty("ambito");
+  });
+
+  it.each([
     ["classe ausente", () => enquadrarAcordao(acordao({}))],
     ["REsp", () => enquadrarAcordao(acordao({ tribunal: "stj", siglaClasse: "REsp" }))],
     ["ADPF", () => enquadrarAcordao(acordao({ siglaClasse: "ADPF" }))],

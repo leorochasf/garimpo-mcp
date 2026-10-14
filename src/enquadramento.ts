@@ -128,6 +128,9 @@ function comAmbitoNacional(e: Enquadramento927, tribunal: string): Enquadramento
 
 function ambitoDoIrdr(a: AcordaoParaEnquadrar): string | undefined {
   if (incidenteDaClasse(a) !== "IRDR" || ["stf", "stj"].includes(a.tribunal)) return undefined;
+  // A sigla e o nome por extenso, quando presentes, precisam identificar o mesmo incidente.
+  if (a.siglaClasse && a.siglaClasse !== "IRDR") return undefined;
+  if (a.classe && siglaPelaClasse(a.classe) !== "IRDR") return undefined;
   return (
     `tribunal de origem (se este acórdão fixou a tese): ${a.tribunal.toUpperCase()}, na área de jurisdição do ` +
     'respectivo tribunal (CPC, art. 985, I: "a todos os processos individuais ou coletivos que versem sobre idêntica ' +
