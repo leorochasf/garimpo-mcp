@@ -102,7 +102,7 @@ export function conferirPedidoAoFalcao(p: ParametrosBusca, { limite = true } = {
         "corrija uma delas.",
     );
   }
-  if (p.ordenacao !== undefined && !(p.ordenacao in ORDENACOES)) {
+  if (p.ordenacao !== undefined && !Object.hasOwn(ORDENACOES, p.ordenacao)) {
     throw new Error(
       `A ordenacao no ${tribunal} (Falcão) aceita ${Object.keys(ORDENACOES).join(" ou ")}; recebeu "${p.ordenacao}".`,
     );

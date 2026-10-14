@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Cliente, PausaPreventivaError } from "../src/cliente.js";
 import { CoordenacaoEmArquivo } from "../src/coordenacao.js";
-import { buscaNoFalcao, chaveNoFalcao } from "../src/falcao.js";
+import { buscaNoFalcao, chaveNoFalcao, type OrdenacaoNoFalcao } from "../src/falcao.js";
 import { fixture } from "./apoio.js";
 import { chamar, conectar, pagina, siteFalso, falcaoFalso } from "./apoioFalcao.js";
 
@@ -71,6 +71,10 @@ describe("somenteEmentas e ordenacao nos TRTs (Falcão)", () => {
     expect(r.dado.avisos.join(" ")).toMatch(/mais recentes primeiro.*não por relevância/);
     const datas = r.dado.acordaos.map((a: { dataJuntada: string }) => a.dataJuntada);
     expect([...datas].sort().reverse()).toEqual(datas);
+    // A prova trouxe todas as datas iguais: só comparar datas não detecta inversão dos acórdãos.
+    expect(r.dado.acordaos.map((a: { id: string }) => a.id)).toEqual(
+      PV13.casos["mais-recente"].documentos.map((d) => `trt3:${d.idDocumentoAcordao}`),
+    );
   });
 
   it("ordenacao 'relevancia' é a ordem padrão da fonte: não manda parâmetro nenhum", async () => {
@@ -88,6 +92,17 @@ describe("somenteEmentas e ordenacao nos TRTs (Falcão)", () => {
     expect(r.isError).toBe(true);
     expect(falcao.pedidos).toHaveLength(0);
   });
+
+  it.each(["antigas", "toString", "constructor", "__proto__"])(
+    "a busca interna também recusa ordenacao %s antes de qualquer chamada",
+    async (ordenacao) => {
+      const falcao = falcaoPeloParametro();
+      await expect(buscaNoFalcao(falcao.cliente, {
+        tribunal: "trt3", texto: TEXTO, ordenacao: ordenacao as OrdenacaoNoFalcao,
+      })).rejects.toThrow(/ordenacao.*aceita relevancia ou recentes/);
+      expect(falcao.pedidos).toHaveLength(0);
+    },
+  );
 
   it("fora dos TRTs as duas opções são recusadas com erro que ensina, sem chamada ao site", async () => {
     const site = siteFalso();
