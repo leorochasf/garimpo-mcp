@@ -215,7 +215,16 @@ export const AGRUPADOR_TRT = "trt";
 export function expandirAgrupadorTrt(tribunais: string[]): string[] {
   if (!tribunais.some((t) => t.toLowerCase() === AGRUPADOR_TRT)) return tribunais;
   const nomeados = new Set(tribunais.map((t) => t.toLowerCase()));
-  return tribunais.flatMap((t) => (t.toLowerCase() === AGRUPADOR_TRT ? TRTS.filter((x) => !nomeados.has(x)) : [t]));
+  const vistos = new Set<string>();
+  return tribunais
+    .flatMap((t) => (t.toLowerCase() === AGRUPADOR_TRT ? TRTS.filter((x) => !nomeados.has(x)) : [t]))
+    .filter((t) => {
+      if (!ehDoFalcao(t)) return true;
+      const sigla = t.toLowerCase();
+      if (vistos.has(sigla)) return false;
+      vistos.add(sigla);
+      return true;
+    });
 }
 
 export async function buscaAmpla(
@@ -521,11 +530,15 @@ export async function buscaAmpla(
       "repita a mesma busca_ampla para executá-las (as já feitas voltam da memória) ou use menos formulações ou TRTs.";
   }
   if (comAgrupador) {
-    const feitasAgora = doFalcao.length - foraDoTeto;
+    const feitasAgora = doFalcao.filter((t) => t.resposta).length;
+    const pausadas = doFalcao.filter((t) => t.naoExecutada === "pausa").length;
+    const semResposta = doFalcao.length - feitasAgora - foraDoTeto - pausadas;
     cabecalho.agrupadorTrt =
-      `Agrupador "trt": ${TRTS.length} TRTs (trt1 a trt${TRTS.length}). Esta chamada usou ${feitasAgora} de ${PAGINAS_DO_FALCAO_POR_CHAMADA} páginas do Falcão ` +
+      `Agrupador "trt": ${TRTS.length} TRTs (trt1 a trt${TRTS.length}). Esta chamada recebeu ${feitasAgora} páginas novas do Falcão (teto de ${PAGINAS_DO_FALCAO_POR_CHAMADA} páginas) ` +
       `(as buscas guardadas não gastam página); ${foraDoTeto} buscas (formulação × TRT) ficaram foraDoTeto${foraDoTeto ? ": repita a mesma busca para executar as próximas (as já feitas voltam da memória)" : ""}. ` +
-      `Além do teto por chamada, o Falcão tem teto diário próprio do Garimpo de ${TETO_DIARIO_DO_FALCAO} chamadas.`;
+      `${pausadas} buscas não executadas por pausa preventiva; ${semResposta} buscas sem resposta (erro ou parada por recusa). ` +
+      `Cobrir uma página por TRT e formulação exige ${TRTS.length * p.formulacoes.length} chamadas sem memória nem novas tentativas; ` +
+      `novas tentativas também contam no teto diário próprio do Garimpo de ${TETO_DIARIO_DO_FALCAO} chamadas.`;
   }
   // Lista vazia por causa do filtro diz isso com todas as letras: não se lê como "os tribunais nunca decidiram".
   if (ordenados.length && !sobreviventes.length) {
