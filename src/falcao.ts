@@ -1,6 +1,6 @@
 /**
  * Busca direta num TRT pelo Falcão (CSJT), o repositório oficial de jurisprudência da Justiça do Trabalho
- * (ADR-0018; formato da rota em docs/banco-de-provas/b12-prova-ao-vivo.md). Só a coleção de acórdãos. Tudo pelo
+ * (ADR-0018; formato da rota em docs/banco-de-provas/b12-prova-ao-vivo.md). Acórdãos e, sob pedido, precedentes. Tudo pelo
  * Cliente único (UA de navegador, 1 s entre chamadas e freio preventivo valem lá). O texto integral vem na própria
  * busca: vai convertido para a memória (24 h), nunca para a lista, o cabeçalho ou a busca guardada.
  */
@@ -511,7 +511,7 @@ function situacaoDoPrecedente(d: Bruto): string {
   if (!descricao) return "não verificado: o Falcão não informou a situação";
   const data = dataDoFalcao(d.dataSituacao);
   const dia = data && `${data.slice(8)}/${data.slice(5, 7)}/${data.slice(0, 4)}`;
-  return `${descricao}${dia ? `, em ${dia}` : ""} (segundo o Falcão; é a situação ou marca da fonte, não prova vigência)`;
+  return `${descricao}${dia ? `, em ${dia}` : ""} (segundo o Falcão; ${dia ? "" : "data da situação não informada; "}é a situação ou marca da fonte, não prova vigência)`;
 }
 
 /**
@@ -530,7 +530,9 @@ export function normalizarPrecedentesDoFalcao(tribunal: string, documentos: unkn
     }
     const tipo = TIPOS_DA_COLECAO[rotulo] ?? rotulo;
     const numero = texto(d.numero);
-    const tese = htmlParaTexto(texto(d.tese) ?? texto(d.conteudoDecisao) ?? "");
+    // Conteúdo de decisão de admissão/mérito de incidente não prova tese firmada.
+    const enunciado = tipo === "súmula" || tipo === "OJ" ? texto(d.conteudoDecisao) : undefined;
+    const tese = htmlParaTexto(texto(d.tese) ?? enunciado ?? "");
     const paradigma = (d.processosParadigma as Bruto[] | null | undefined)?.[0];
     qualificados.push(
       limpar({

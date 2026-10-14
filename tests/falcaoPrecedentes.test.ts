@@ -49,8 +49,20 @@ describe("normalizarPrecedentesDoFalcao: cada tipo como a fonte rotula", () => {
   it("a situação é a da fonte, com a data; sem situação, \"não verificado\"; nunca vigência", () => {
     expect(porNumero(qualificados, "901").situacaoNaFonte).toMatch(/^Suscitado, em 19\/08\/2026 \(segundo o Falcão/);
     expect(porNumero(qualificados, "77").situacaoNaFonte).toMatch(/^Criada \(segundo o Falcão/);
+    expect(porNumero(qualificados, "77").situacaoNaFonte).toContain("data da situação não informada");
     expect(porNumero(qualificados, "903").situacaoNaFonte).toMatch(/^não verificado/);
     for (const q of qualificados) expect(q.situacaoNaFonte).not.toMatch(/vigente|em vigor/i);
+  });
+
+  it("decisão de IRDR/IAC sem tese informada não vira tese pelo conteúdo da decisão", () => {
+    for (const categoria of ["IRDR", "IAC"]) {
+      const { qualificados } = normalizarPrecedentesDoFalcao("trt3", [{
+        tribunal: "TRT3", categoria, numero: "999", tese: null,
+        conteudoDecisao: "<p>Admitido o incidente fictício.</p>", questao: "Questão fictícia.",
+      }]);
+      expect(qualificados[0].texto).toBe("");
+      expect(qualificados[0].questao).toBe("Questão fictícia.");
+    }
   });
 
   it("nenhum inciso do art. 927 sai sem prova: todos \"não classificado\", com motivo, sem base legal", () => {
