@@ -2296,6 +2296,17 @@ describe("roteiro de pesquisa (prompt pesquisar_tese e instructions do servidor)
     expect(texto.indexOf(FRASE_DE_PRIVACIDADE)).toBeLessThan(texto.indexOf("2. Rode a busca_ampla"));
   });
 
+  it("a frase da D-15 (G-66, forma fraca) aparece literal no passo 1, entre a lista de exemplos e o \"Não invente\"", async () => {
+    const mcp = await conectar(siteFalso([]));
+    const texto = await roteiro(mcp, { tese: "instituto jurídico X" });
+    const frase =
+      "Inclua formulações que descrevam o assunto ou o fato (o instituto e a situação), e não só a conclusão que se quer ver confirmada.";
+
+    expect(texto).toContain(`efeito pretendido + situação de fato). ${frase} Não invente dispositivo`);
+    expect(texto.indexOf(frase)).toBeLessThan(texto.indexOf("2. Rode a busca_ampla"));
+    expect(mcp.getInstructions()).not.toContain("Inclua formulações");
+  });
+
   it("o prompt aparece na lista como Pesquisar tese, com tese obrigatória e tribunais opcional", async () => {
     const mcp = await conectar(siteFalso([]));
     const { prompts } = await mcp.listPrompts();

@@ -48,3 +48,15 @@ citação) e no passo 1 do `pesquisar_tese`, em revisão mínima própria: nenhu
 e as demais mudanças do roteiro continuam reservadas à revisão única de D-15. O teste de igualdade das
 `instructions` e um teste de substring exata (nas duas peças) foram atualizados no mesmo conjunto; os padrões de
 afirmação de jurisprudência seguem passando. É orientação ao cliente de IA, não garantia técnica de anonimização.
+
+## Emenda de 2026-10-14: formulações pelo assunto ou fato (D-15 / G-66, forma fraca)
+
+Pela rodada D-15 de 2026-10-14 (`docs/banco-de-provas/rodada-d15-roteiro-2026-10-14.md`), o passo 1 do `pesquisar_tese`
+ganhou a frase literal "Inclua formulações que descrevam o assunto ou o fato (o instituto e a situação), e não só a
+conclusão que se quer ver confirmada.", entre a lista de exemplos e o "Não invente…". Só a forma fraca da G-66 foi
+aplicada: a frase acrescenta, não proíbe nada (a forma forte, "nunca pela conclusão", não passou). Base: a união das
+formulações de assunto e de conclusão achou mais relevantes que qualquer uma sozinha em 6 de 10 pares. Amostra
+declarada: 5 teses, 1 tribunal cada, gabarito provisório; a rodada não prova precisão nem melhora jurídica. Nenhuma
+outra alteração do texto congelado; as `instructions` não mudam. Teste de substring exata da frase e dos padrões de
+afirmação de jurisprudência atualizados/passando; texto integral para leitura humana em
+`TICKETS/b20-onda-2/15-roteiro-texto-integral.md`.

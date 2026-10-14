@@ -44,7 +44,8 @@ export function roteiroDePesquisa(tese: string, tribunais?: string): string {
     "Período: se o usuário pedir um período, use os filtros de data de julgamento (de, ate, em AAAA-MM-DD).",
     "",
     "1. Formule de 3 a 6 formulações da tese, com palavras diferentes para o mesmo conteúdo (por exemplo: instituto " +
-      "jurídico + expressão alternativa; efeito pretendido + situação de fato). Não invente dispositivo de lei, número " +
+      "jurídico + expressão alternativa; efeito pretendido + situação de fato). Inclua formulações que descrevam o assunto ou o fato (o instituto e a " +
+      "situação), e não só a conclusão que se quer ver confirmada. Não invente dispositivo de lei, número " +
       "de precedente nem entendimento de tribunal para enriquecer a busca; formule a busca com a tese em abstrato, " +
       "sem nome de parte nem dado do caso.",
     "2. Rode a busca_ampla com as formulações (lista) e os tribunais (lista).",
