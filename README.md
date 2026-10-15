@@ -138,6 +138,22 @@ substitui o inteiro teor." Nos TRTs, o aviso é o do Falcão: "Resultado obtido 
 Trabalho (Falcão) por cliente não oficial (Garimpo); confira no portal do tribunal antes de citar."; na busca ampla
 com as duas fontes, vêm os dois, cada um com a sua (a oficialidade do Falcão não se estende ao JurisprudênciaIA).
 
+### Roteiro de pesquisa
+
+O Garimpo traz um roteiro pronto, o prompt `pesquisar_tese`, que diz à IA como pesquisar uma tese do começo ao fim. Ele
+não afirma jurisprudência: só vale o que as ferramentas devolvem.
+
+- **Estratégia antes dos resultados:** a IA mostra a questão central e as formulações de busca que vai usar.
+- **Pergunta sobre súmula ou tema** tem resposta própria, em ordem fixa (S1 a S5): o texto e de onde veio; a situação
+  como a fonte informa, com data, ou "não verificado"; a força pelo art. 927 do CPC; a aplicação pelos tribunais
+  (mencionar não é aplicar); e o desgaste.
+- **Desgaste do entendimento em três caixas:** "a fonte indica" (literal, com data e origem), "indício" (algo no
+  material que sugere mudança, com o trecho e a frase "não prova superação") e "não verificado". "Vigente" e
+  "superado" só aparecem dentro de citação literal da fonte.
+- **"Onde a pesquisa está fraca":** formulações sem acórdão, tribunais com erro ou não pesquisados, lista cortada e
+  buscas vindas da memória, tirado só do que a busca devolveu.
+- **Privacidade:** a busca é formulada com a tese em abstrato, sem nome de parte nem dado do caso.
+
 ### TRTs pelo Falcão
 
 - **Busca direta** (`trt1` a `trt24`), sem `decisoes`: acórdãos; `limite` padrão 10, máximo 30 (3 páginas do Falcão). Cada
@@ -350,14 +366,17 @@ Toda chamada ao site passa por um cliente único que:
 - trata 403 e desafios anti-robô (Cloudflare, AWS WAF, reCAPTCHA) como recusa: devolve o link para abrir no
   navegador; no Falcão, a recusa do sistema traz a mensagem dele como texto externo (curta, sem HTML, sem dados
   pessoais);
+- no TJDFT, lê também o saldo de chamadas que a própria API do tribunal informa e, na reserva, pausa em todas as
+  janelas ([`docs/fontes.md`](docs/fontes.md));
 - depois de uma **recusa final** (a nova tentativa recusada de novo, 403, desafio anti-robô ou pedido de espera
   acima de 30 s), **pausa o serviço** em todas as janelas (abaixo);
-- identifica-se com um User-Agent honesto (`Garimpo/<versão> …`). **Exceções: o Falcão (CSJT) e o portal do STF**
-  recusam programas que não se apresentam como navegador (HTTP 403); por isso o Garimpo usa nesses dois, **e só
-  neles**, um User-Agent de navegador fixo por versão (no Falcão, com `Origin`/`Referer` do próprio site), sempre
-  dentro destes freios; no Falcão, com 1 s entre chamadas em todas as janelas. Termos do Falcão lidos e registrados
-  em [`docs/fonte-falcao.md`](docs/fonte-falcao.md); o uso no STF é decisão do dono
-  ([ADR-0020](docs/adr/0020-precedentes-qualificados-ao-vivo-tabela-como-plano-b.md)).
+- identifica-se com um User-Agent honesto (`Garimpo/<versão> …`). **Exceções: o Falcão (CSJT), o portal do STF e o
+  portal de jurisprudência do TJTO** recusam programas que não se apresentam como navegador (HTTP 403); por isso o
+  Garimpo usa nesses três, **e só neles**, um User-Agent de navegador fixo por versão (no Falcão, com `Origin`/`Referer`
+  do próprio site), sempre dentro destes freios; no Falcão, com 1 s entre chamadas em todas as janelas. Termos do
+  Falcão lidos e registrados em [`docs/fonte-falcao.md`](docs/fonte-falcao.md); o uso no STF é decisão do dono
+  ([ADR-0020](docs/adr/0020-precedentes-qualificados-ao-vivo-tabela-como-plano-b.md)), assim como o uso no TJTO
+  ([ADR-0021](docs/adr/0021-tjto-ua-de-navegador-e-texto-do-portal.md));
 
 Os termos de uso do site preveem limites por IP e bloqueio em caso de uso abusivo. Use com moderação.
 
@@ -637,26 +656,19 @@ civil do Estado por omissão."*
   de Brasília, somadas em todas as janelas: no teto, pára até a meia-noite mesmo que o Falcão diga que ainda há saldo
   (número inicial conservador, sem prova). Os freios reduzem esse risco, sem garanti-lo: outros usos do mesmo IP não
   são vistos pelo Garimpo.
-- **Fontes que não informam o restante** (precedentes do STF e do STJ, TSE): limite próprio de 30 chamadas por janela
+- **Fontes que não informam o restante** (precedentes do STF e TSE; o STJ tem orçamento definido, mas o portal dele não
+  é mais consultado): limite próprio de 30 chamadas por janela
   de 5 min, somado em todas as janelas; cada recusa alarga a janela e 20 chamadas aceitas seguidas a afrouxam. No
   limite a chamada não sai até o fim da janela (não é recusa); o `diagnostico_dos_freios` explica.
 
 ## Histórico de versões
 
-- **1.0 e seguintes:** veja o [`CHANGELOG.md`](CHANGELOG.md).
-- **0.3.4**
-  - `consultar_precedente` consulta os precedentes qualificados do STJ e do STF **ao vivo no portal**, na hora da
-    pergunta, com memória de 24 h; a tabela do pacote vira plano B datado
-    ([ADR-0020](docs/adr/0020-precedentes-qualificados-ao-vivo-tabela-como-plano-b.md)).
-  - Tabela do STF no pacote com os temas de repercussão geral; súmulas e súmulas vinculantes ao vivo.
-  - Prompt `pesquisar_tese`: método de leitura do acórdão no passo 8; frase nova nas instructions.
-  - Correções das revisões.
-- Versões anteriores: ver as mensagens dos commits `chore: versão …` no repositório.
+Todas as versões, da mais nova para a mais antiga, estão no [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Problemas e sugestões
 
 O repositório tem formulários de problema e sugestão no GitHub, sem campo para dado de processo. Não coloque nome de
-parte, número de processo nem dado do caso. A linha de chamado nos erros inesperados fica desligada até a publicação.
+parte, número de processo nem dado do caso. A linha de chamado nos erros inesperados fica desligada até o repositório ser público.
 
 ## Desenvolvimento
 
