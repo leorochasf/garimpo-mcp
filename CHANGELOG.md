@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0 (2026-10-14; ainda não publicada)
+## 1.0 (2026-10-14)
 
 ### Novidades
 
