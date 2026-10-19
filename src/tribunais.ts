@@ -11,7 +11,7 @@
 export type InteiroTeorModo = "baixa" | "link" | "texto" | "portal";
 
 /** De onde vem a busca do tribunal. */
-export type Fonte = "JurisprudênciaIA" | "Falcão (CSJT)" | "e-Proc do TRF4" | "e-Proc da TNU";
+export type Fonte = "JurisprudênciaIA" | "Falcão (CSJT)" | "e-Proc do TRF2" | "e-Proc do TRF4" | "e-Proc da TNU";
 
 /** O que a tabela diz dos TRTs: precedentes qualificados e inteiro teor. */
 export const QUALIFICADOS_TRT =
@@ -23,6 +23,9 @@ export const INTEIRO_TEOR_PORTAL = "texto do portal do tribunal, trazido pelo ob
 /** Rótulo de cada acórdão de TRT (ADR-0018). */
 export const ROTULO_FALCAO =
   "Falcão — repositório oficial de jurisprudência da Justiça do Trabalho (Res. CSJT 401/2024)";
+
+/** Rótulo de cada acórdão do TRF2 (ADR-0028). */
+export const ROTULO_TRF2 = "e-Proc do TRF2 — módulo de jurisprudência do tribunal (eproc.trf2.jus.br)";
 
 /** Rótulo de cada acórdão do TRF4 (ADR-0024). */
 export const ROTULO_TRF4 = "e-Proc do TRF4 — módulo de jurisprudência do tribunal (eproc-jur.trf4.jus.br)";
@@ -232,6 +235,14 @@ export const TRIBUNAIS: InfoTribunal[] = [
   { ...tj("tjsp", "TJ de São Paulo"), inteiroTeor: "baixa", motivoLink: undefined },
   { ...tj("tjto", "TJ do Tocantins"), inteiroTeor: "portal", motivoLink: undefined },
   {
+    sigla: "trf2",
+    nome: "Tribunal Regional Federal da 2ª Região",
+    fonte: "e-Proc do TRF2",
+    qualificados: [],
+    tetoResultados: 10,
+    inteiroTeor: "portal",
+  },
+  {
     sigla: "trf4",
     nome: "Tribunal Regional Federal da 4ª Região",
     fonte: "e-Proc do TRF4",
@@ -263,6 +274,11 @@ export const TRTS = Array.from({ length: 24 }, (_, i) => `trt${i + 1}`);
 /** O tribunal vem do Falcão (um dos 24 TRTs). */
 export function ehDoFalcao(sigla: string): boolean {
   return TRTS.includes(sigla.toLowerCase());
+}
+
+/** O tribunal vem do e-Proc do TRF2 (ADR-0028). */
+export function ehDoTrf2(sigla: string): boolean {
+  return sigla.toLowerCase() === "trf2";
 }
 
 /** O tribunal vem do e-Proc do TRF4 (ADR-0024). */
@@ -307,7 +323,7 @@ export function paginaDeTribunais(): string {
     "",
     "- **Fonte:** de onde vem a busca: a busca direta do JurisprudênciaIA (base não oficial) ou o Falcão (CSJT), " +
       "repositório oficial de jurisprudência da Justiça do Trabalho (Res. CSJT 401/2024), para os 24 TRTs (só acórdãos); " +
-      "o e-Proc do TRF4 (módulo de jurisprudência do próprio tribunal; só acórdãos, até 10 por busca); ou o e-Proc da " +
+      "o e-Proc do TRF2 ou do TRF4 (módulo de jurisprudência do próprio tribunal; só acórdãos, até 10 por busca); ou o e-Proc da " +
       "TNU (mesmo módulo, no CJF; só acórdãos, até 10 por busca).",
     "- **Qualificados:** listas de precedentes qualificados que o site devolve em separado na busca.",
     "- **Teto por busca:** máximo de acórdãos observado por busca; só informa, não limita a busca. Nos TRTs, é o teto " +

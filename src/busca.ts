@@ -14,8 +14,9 @@ import { FalhaNaMemoriaError, fotografiaDaBusca, type Memoria } from "./memoria.
 import { buscaDecisoesNoFalcao, buscaNoFalcao, clienteDoFalcao, lerBuscaGuardadaNoFalcao, type OrdenacaoNoFalcao } from "./falcao.js";
 import { avisoDeRecorridoAusente } from "./recorrido.js";
 import { buscaNaTnu, clienteDaTnu, lerBuscaGuardadaNaTnu } from "./tnu.js";
+import { buscaNoTrf2, clienteDoTrf2, lerBuscaGuardadaNoTrf2 } from "./trf2.js";
 import { buscaNoTrf4, clienteDoTrf4, lerBuscaGuardadaNoTrf4 } from "./trf4.js";
-import { avisoDeLinkDoTjgo, ehDoFalcao, ehDoTnu, ehDoTrf4, infoTribunal, ROTULO_FALCAO } from "./tribunais.js";
+import { avisoDeLinkDoTjgo, ehDoFalcao, ehDoTnu, ehDoTrf2, ehDoTrf4, infoTribunal, ROTULO_FALCAO } from "./tribunais.js";
 
 export const SITE = "https://www.jurisprudenciaia.com.br";
 
@@ -193,7 +194,7 @@ export interface OpcoesBuscaDireta {
   tabelaStf?: TabelaDoStf;
   /** Cliente do Falcão, para os TRTs (padrão: um novo, com os mesmos freios compartilhados). */
   falcao?: Cliente;
-  /** Cliente do e-Proc (TRF4 ou TNU; padrão: um novo da fonte do pedido, com os mesmos freios compartilhados). */
+  /** Cliente do e-Proc (TRF2, TRF4 ou TNU; padrão: um novo da fonte do pedido, com os mesmos freios compartilhados). */
   eproc?: Cliente;
 }
 
@@ -230,6 +231,7 @@ export async function lerBuscaGuardada(
   { tabela, tabelaStf }: Pick<OpcoesBuscaDireta, "tabela" | "tabelaStf"> = {},
 ): Promise<{ resultado: ResultadoBusca; obtidoEm: number } | undefined> {
   if (ehDoFalcao(p.tribunal)) return lerBuscaGuardadaNoFalcao(memoria, p);
+  if (ehDoTrf2(p.tribunal)) return lerBuscaGuardadaNoTrf2(memoria, p);
   if (ehDoTrf4(p.tribunal)) return lerBuscaGuardadaNoTrf4(memoria, p);
   if (ehDoTnu(p.tribunal)) return lerBuscaGuardadaNaTnu(memoria, p);
   const { tribunal, chave, cobertura } = pedido(p);
@@ -283,6 +285,9 @@ export async function buscaDiretaSemMarca(
   if (ehDoFalcao(p.tribunal)) {
     if (p.decisoes) return buscaDecisoesNoFalcao(falcao ?? clienteDoFalcao(), p);
     return buscaNoFalcao(falcao ?? clienteDoFalcao(), p, memoria, { renovar, guardarAcordaos });
+  }
+  if (ehDoTrf2(p.tribunal)) {
+    return buscaNoTrf2(eproc ?? clienteDoTrf2(), p, memoria, { renovar, guardarAcordaos });
   }
   if (ehDoTrf4(p.tribunal)) {
     return buscaNoTrf4(eproc ?? clienteDoTrf4(), p, memoria, { renovar, guardarAcordaos });

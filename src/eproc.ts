@@ -1,5 +1,5 @@
 /**
- * Módulo de jurisprudência do e-Proc, o mesmo software no TRF4 (ADR-0024) e na TNU (ADR-0027): busca oficial e inteiro
+ * Módulo de jurisprudência do e-Proc, o mesmo software no TRF4 (ADR-0024), na TNU (ADR-0027) e no TRF2 (ADR-0028): busca oficial e inteiro
  * teor em HTML. Cada fonte é uma `FonteEproc`; o que muda entre elas (host, rota, campos do card, marca do documento) fica
  * na configuração, nunca em ramos soltos.
  * Tudo pelo Cliente único (UA honesto, freios da regra 3). A busca é 1 GET do formulário (sessão) e 1 POST, uma página
@@ -15,11 +15,11 @@ import type { Acordao, ParametrosBusca, ResultadoBusca } from "./busca.js";
 import { enquadrarAcordao } from "./enquadramento.js";
 import { htmlComConteudoOculto, htmlComIndicioDeCorte, htmlParaTexto } from "./html.js";
 import { fotografiaDaBusca, type Memoria, type TextoIntegral } from "./memoria.js";
-import { ROTULO_TNU, ROTULO_TRF4 } from "./tribunais.js";
+import { ROTULO_TNU, ROTULO_TRF2, ROTULO_TRF4 } from "./tribunais.js";
 
 /** O que muda de um e-Proc para outro; o resto do adaptador é comum. */
 export interface FonteEproc {
-  sigla: "trf4" | "tnu";
+  sigla: "trf2" | "trf4" | "tnu";
   /** Como o órgão aparece no número do processo («<cnj>/TRF4»). */
   nomeNoCnj: string;
   /** «O e-Proc do TRF4»: nome usado nas mensagens e no Cliente. */
@@ -47,6 +47,20 @@ export const TRF4: FonteEproc = {
   prefixoCookie: "TRF4_Eproc_",
   comOrgao: true,
   linkDeConsulta: /^https?:\/\/www\.trf4\.jus\.br\//i,
+  marcaDoDocumento: /Documento eletrônico assinado por/i,
+};
+
+export const TRF2: FonteEproc = {
+  sigla: "trf2",
+  nomeNoCnj: "TRF2",
+  nome: "O e-Proc do TRF2",
+  host: "eproc.trf2.jus.br",
+  rota: "/eproc/externo_controlador.php",
+  rotulo: ROTULO_TRF2,
+  prefixoCookie: "TRF2_Eproc_",
+  comOrgao: true,
+  // A consulta processual pública do próprio e-Proc: só mostrada, nunca chamada (como no TRF4).
+  linkDeConsulta: /^https:\/\/eproc\.trf2\.jus\.br\/eproc\/externo_controlador\.php\?acao=processo_seleciona_publica&/i,
   marcaDoDocumento: /Documento eletrônico assinado por/i,
 };
 
