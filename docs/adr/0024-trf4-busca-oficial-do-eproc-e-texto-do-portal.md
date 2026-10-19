@@ -89,7 +89,8 @@ continua sendo a fonte dos demais tribunais; o TRF4 não está na base dele para
 - Gravar o HTML em arquivo com recibo: rejeitada agora, como na ADR-0021.
 - UA de navegador: desnecessário (a prova passou com o UA honesto).
 - Entrar com TRF2 e TRF6 pelo mesmo adaptador: fora; vedados por termos próprios (TRF2 art. 13 § 1º; TRF6 «Automação
-  indevida»), sem transferir a aprovação de um host para outro.
+  indevida»), sem transferir a aprovação de um host para outro. (O TRF2 entrou depois, por decisão do dono sobre o
+  alcance do termo: [ADR-0028](0028-trf2-pelo-eproc-do-tribunal.md).)
 
 ## Consequências
 

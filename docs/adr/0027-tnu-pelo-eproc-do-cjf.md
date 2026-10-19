@@ -14,6 +14,8 @@ que podia estar parada desde 2025, **não** é usada.
 - `https://eproctnu-jur.cjf.jus.br/robots.txt`: 404, sem regras. Termos de uso do CJF para esse host: **não achados**
   (busca na web e `www.cjf.jus.br/cjf/termos-de-uso` = 404; `www.cjf.jus.br` e `www2` derrubaram a conexão em 2026-10-14).
   Sem vedação encontrada não equivale a autorização: o termo fica **não verificado quanto a uso automatizado**, como no TRF4.
+  **Decisão do dono (2026-10-19): «aceito o risco da TNU».** A TNU fica no Garimpo com o termo de uso do host não
+  encontrado, risco assumido pelo dono, como no TRF4; o termo segue não verificado.
 - Formulário (GET, 200, 38 KB, sem login nem captcha, cookie `PHPSESSID`); origem `selOrigem[]=1` = TNU; tipo `1` = Acórdão;
   `hdnInfraPrefixoCookie=TRF4_Eproc_` (valor que o próprio formulário traz).
 - Busca de prova (POST, 2 chamadas no total, UA honesto): 200, HTML ISO-8859-1, 817 documentos para «aposentadoria
@@ -40,15 +42,15 @@ que podia estar parada desde 2025, **não** é usada.
 
 ## Fora desta decisão
 
-- **TRF2:** não entra. A Resolução TRF2-RSP-2022/00032, art. 13, § 1º, diz «É proibida a utilização de robôs ou qualquer
-  programa automatizado nos Portais sem expressa autorização» (lida em 2026-10-14, relatório `trfs-eproc-cjf.md`). Para
-  entrar: autorização expressa do TRF2 (canal da resolução: encarregado da LGPD) ou decisão do dono de que o termo não
-  alcança `eproc.trf2.jus.br`. Nenhuma busca foi feita no TRF2.
+- **TRF2:** ficou fora desta decisão pela Resolução TRF2-RSP-2022/00032, art. 13, § 1º («É proibida a utilização de
+  robôs ou qualquer programa automatizado nos Portais sem expressa autorização»). Atualização de 2026-10-19: o dono
+  decidiu que «a proibição não alcança o sistema de consulta de jurisprudência dele do TRF2», e o TRF2 entrou pela
+  [ADR-0028](0028-trf2-pelo-eproc-do-tribunal.md).
 - **TRF1 pela base antiga do CJF:** continua fora (conexão derrubada; frescor não verificado).
 
 ## Consequências
 
 - Sigla `tnu` em `src/tribunais.ts` (fonte «e-Proc da TNU»), inteiro teor `portal`, teto 10.
-- **Não verificado:** termos de uso de `eproctnu-jur.cjf.jus.br`; limite de ritmo; estabilidade dos ids; velocidade; filtros
+- **Não verificado:** termos de uso de `eproctnu-jur.cjf.jus.br` (risco aceito pelo dono em 2026-10-19); limite de ritmo; estabilidade dos ids; velocidade; filtros
   avançados; PDF (`gerarPDFDocumento`). Se o formato mudar, o leitor dá erro de formato, nunca lista vazia; se o CJF
   recusar, o disjuntor do serviço abre e o usuário recebe o aviso.

@@ -3,7 +3,8 @@
 ## Não publicado
 
 - TNU (nova): a busca vem da busca oficial do e-Proc da TNU (CJF), com a ementa inteira, 10 acórdãos por busca, e o `obter_inteiro_teor` traz o acórdão como "texto do portal do tribunal" (HTML, sem PDF e sem recibo). Sem órgão julgador na lista e sem precedentes qualificados da TNU. O termo de uso do host não foi achado (não verificado).
-- TRF2 segue fora: a Resolução TRF2-RSP-2022/00032, art. 13, § 1º, proíbe robôs sem autorização expressa.
+- TNU: o dono aceitou o risco do termo de uso não achado (2026-10-19), como no TRF4.
+- TRF2 (novo): a busca vem da busca oficial do e-Proc do TRF2, com a ementa inteira e o órgão julgador, 10 acórdãos por busca, e o `obter_inteiro_teor` traz o acórdão como "texto do portal do tribunal" (HTML assinado, sem PDF e sem recibo). Entra por decisão do dono de que a proibição de robôs da Resolução TRF2-RSP-2022/00032 (art. 13, § 1º) não alcança o sistema de consulta de jurisprudência; não há autorização expressa do TRF2.
 
 ## 1.0 (2026-10-14)
 

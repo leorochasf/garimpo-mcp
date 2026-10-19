@@ -333,8 +333,28 @@ Mesmo módulo de jurisprudência do e-Proc do TRF4, em outro host; adaptador com
   teor: 200, HTML, 143 KB, com «Conferência de autenticidade emitida em …».
 - **Diferenças para o TRF4:** card sem «ÓRGÃO JULGADOR» e sem link de acompanhamento processual; pode ter «RELATOR PARA
   ACÓRDÃO»; o documento não traz «Documento eletrônico assinado por».
-- **TRF2** (não integrado): Res. TRF2-RSP-2022/00032, art. 13, § 1º: «É proibida a utilização de robôs ou qualquer
-  programa automatizado nos Portais sem expressa autorização.»
+- **Termo de uso não achado: risco aceito pelo dono em 2026-10-19** («aceito o risco da TNU»), como no TRF4.
+
+## Busca oficial do e-Proc do TRF2 (ementa e texto do portal do tribunal)
+
+Usada por `busca_direta` com `tribunal: "trf2"` e por `obter_inteiro_teor` ([ADR-0028](adr/0028-trf2-pelo-eproc-do-tribunal.md)).
+Mesmo módulo de jurisprudência do e-Proc do TRF4, no host do próprio TRF2; adaptador comum em `src/eproc.ts`. Leituras de 2026-10-19:
+
+- **Host:** `eproc.trf2.jus.br` (serviço próprio no disjuntor). Rotas: `GET /eproc/externo_controlador.php?acao=jurisprudencia@jurisprudencia/pesquisar`
+  (formulário e cookie `PHPSESSID`), `POST …/listar_resultados` (mesmo corpo do TRF4: `txtPesquisa` em ISO-8859-1,
+  `rdoCampo=E`, `selOrigem[]=1` = TRF2, `selTipoDocumento[]=1` = Acórdão, `chkAgruparResultados=on`,
+  `hdnInfraPrefixoCookie=TRF2_Eproc_`), `GET …/download_inteiro_teor&id_jurisprudencia=<id>`.
+- **robots.txt:** 404 (sem regras; lido em 2026-10-14). A pesquisa traz `X-Robots-Tag: noindex` (não veda acesso).
+- **Termo de uso:** Res. TRF2-RSP-2022/00032, art. 13, § 1º: «É proibida a utilização de robôs ou qualquer programa
+  automatizado nos Portais sem expressa autorização.» **Decisão do dono (2026-10-19):** «a proibição não alcança o sistema
+  de consulta de jurisprudência dele do TRF2». Sem autorização expressa do TRF2 (não pedida).
+- **Prova:** busca «aposentadoria especial»: 200, HTML ISO-8859-1, 21122 documentos, 10 cards, julgados de 27/08/2026;
+  inteiro teor: 200, HTML, 131 KB, com «Documento eletrônico assinado por …». Pelo Garimpo: busca em 0,9 s e inteiro
+  teor em 0,6 s (uma medida só).
+- **Diferenças para o TRF4:** host, rota e prefixo do cookie; o link de consulta processual é do próprio e-Proc
+  (`acao=processo_seleciona_publica`) e **só é mostrado** (`linkConsulta`), nunca chamado. Card com «ÓRGÃO JULGADOR» e
+  documento assinado, como no TRF4.
+- **Não verificado:** limite de ritmo; estabilidade dos ids; TRU2 e Turmas Recursais; filtros avançados; PDF.
 
 ## Exportação de repercussão geral do STF (script do mantenedor, I-33 / D-11)
 
@@ -371,7 +391,7 @@ seguem «ainda não testou». Provas registradas em 14/10/2026 (STJ em 13/10/202
 - **TJSC:** a leitura do `robots.txt` do eproc devolveu página de bloqueio (F5).
 - **STF:** `redir.stf.jus.br` respondeu 202 de WAF à leitura do `robots.txt`.
 
-TRF2 e TRF6 não constam da tabela de tribunais do Garimpo; não foram tratados.
+TRF6 não consta da tabela de tribunais do Garimpo; não foi tratado. O TRF2 entrou pelo e-Proc (ADR-0028).
 
 ## TCU (arquivos anuais de acórdãos, dados abertos)
 
