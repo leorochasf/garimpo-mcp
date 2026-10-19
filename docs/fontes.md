@@ -318,6 +318,24 @@ Fonte pública do próprio tribunal, sem login nem captcha. Relatório de origem
   filtros do formulário (por isso recusados);
   TRU4, Turmas Recursais, varas; busca no inteiro teor; PDF oficial e rota `gerarPDFDocumento`; limite de ritmo; estabilidade do `id_jurisprudencia`;
   Política de Cookies; frescor além dos 10 itens de 13/10/2026; velocidade em relação ao STJ pelo JurisprudênciaIA (não medida).
+## Busca oficial do e-Proc da TNU (ementa e texto do portal do tribunal)
+
+Usada por `busca_direta` com `tribunal: "tnu"` e por `obter_inteiro_teor` ([ADR-0027](adr/0027-tnu-pelo-eproc-do-cjf.md)).
+Mesmo módulo de jurisprudência do e-Proc do TRF4, em outro host; adaptador comum em `src/eproc.ts`. Leituras de 2026-10-19:
+
+- **Host:** `eproctnu-jur.cjf.jus.br` (serviço próprio no disjuntor). Rotas: `GET /eproc/externo_controlador.php?acao=jurisprudencia@jurisprudencia/pesquisar`
+  (formulário e cookie `PHPSESSID`), `POST …/listar_resultados` (mesmo corpo do TRF4: `txtPesquisa` em ISO-8859-1,
+  `rdoCampo=E`, `selOrigem[]=1` = TNU, `selTipoDocumento[]=1` = Acórdão, `chkAgruparResultados=on`,
+  `hdnInfraPrefixoCookie=TRF4_Eproc_`), `GET …/download_inteiro_teor&id_jurisprudencia=<id>`.
+- **robots.txt:** 404 (sem regras). **Termos de uso:** não achados para este host (busca na web; `www.cjf.jus.br/cjf/termos-de-uso`
+  = 404). Não verificado quanto a uso automatizado.
+- **Prova:** busca «aposentadoria especial»: 200, HTML ISO-8859-1, 817 documentos, 10 cards, julgados de 30/09/2026; inteiro
+  teor: 200, HTML, 143 KB, com «Conferência de autenticidade emitida em …».
+- **Diferenças para o TRF4:** card sem «ÓRGÃO JULGADOR» e sem link de acompanhamento processual; pode ter «RELATOR PARA
+  ACÓRDÃO»; o documento não traz «Documento eletrônico assinado por».
+- **TRF2** (não integrado): Res. TRF2-RSP-2022/00032, art. 13, § 1º: «É proibida a utilização de robôs ou qualquer
+  programa automatizado nos Portais sem expressa autorização.»
+
 ## Exportação de repercussão geral do STF (script do mantenedor, I-33 / D-11)
 
 - **Rota:** `https://portal.stf.jus.br/jurisprudenciaRepercussao/exportarDados.asp?` (o botão "Exportar Dados" de

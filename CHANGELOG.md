@@ -1,5 +1,10 @@
 # Changelog
 
+## Não publicado
+
+- TNU (nova): a busca vem da busca oficial do e-Proc da TNU (CJF), com a ementa inteira, 10 acórdãos por busca, e o `obter_inteiro_teor` traz o acórdão como "texto do portal do tribunal" (HTML, sem PDF e sem recibo). Sem órgão julgador na lista e sem precedentes qualificados da TNU. O termo de uso do host não foi achado (não verificado).
+- TRF2 segue fora: a Resolução TRF2-RSP-2022/00032, art. 13, § 1º, proíbe robôs sem autorização expressa.
+
 ## 1.0 (2026-10-14)
 
 ### Novidades
