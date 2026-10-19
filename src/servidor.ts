@@ -55,6 +55,7 @@ import { clienteDosPrecedentes, PrecedentesAoVivo, respostaDoStf } from "./prece
 import {
   avisoDeLinkDoTjgo,
   ehDoFalcao,
+  ehDoTnu,
   ehDoTrf4,
   INTEIRO_TEOR_PORTAL,
   INTEIRO_TEOR_TRT,
@@ -263,12 +264,20 @@ const AVISO_TRF4 =
   "Resultado obtido da busca oficial do e-Proc do TRF4 por cliente não oficial (Garimpo); o texto do acórdão é o do " +
   "portal do tribunal, não o PDF oficial; confira no portal do tribunal antes de citar.";
 
+/** Aviso de natureza jurídica da TNU: a fonte é o módulo de jurisprudência do e-Proc do CJF, o Garimpo não é oficial. */
+const AVISO_TNU =
+  "Resultado obtido da busca oficial do e-Proc da TNU (CJF) por cliente não oficial (Garimpo); o texto do acórdão é o " +
+  "do portal do tribunal, não o PDF oficial; confira no portal do tribunal antes de citar.";
+
 const SOBRE_A_BUSCA_TRF4 =
   "TRF4 vem da busca oficial do e-Proc do tribunal: só acórdãos, pesquisa nas ementas, uma página de até 10 acórdãos " +
   "por formulação, na ordem do portal; limite acima de 10 vale 10 com aviso. No TRF4, filtros de, ate, relator, orgao " +
   "e classe, somenteEmentas:true, precedentes:true e ordenacao diferente de relevancia são recusados; precedentes qualificados " +
   "do TRF4 não são pesquisados (lista vazia por isso). O inteiro teor é trazido por obter_inteiro_teor como texto do " +
-  "portal do tribunal, sem PDF nem recibo, para ler e conferir pelo id. ";
+  "portal do tribunal, sem PDF nem recibo, para ler e conferir pelo id. " +
+  "TNU vem do e-Proc do CJF (mesmo módulo): só acórdãos, pesquisa nas ementas, uma página de até 10 por formulação, na " +
+  "ordem do portal; as mesmas recusas de filtros e opções do TRF4 valem na TNU; precedentes qualificados da TNU não são " +
+  "pesquisados (lista vazia por isso); sem órgão julgador na lista. O inteiro teor é texto do portal, como no TRF4. ";
 
 /**
  * O aviso das fontes usadas, pelos tribunais: só JurisprudênciaIA, só Falcão, só e-Proc do TRF4, ou mais de uma, cada
@@ -276,8 +285,9 @@ const SOBRE_A_BUSCA_TRF4 =
  */
 function avisoDasFontes(tribunais: readonly string[]): string {
   const partes = [
-    { existe: tribunais.some((t) => !ehDoFalcao(t) && !ehDoTrf4(t)), rotulo: "Acórdãos do JurisprudênciaIA", aviso: AVISO_NATUREZA_JURIDICA },
+    { existe: tribunais.some((t) => !ehDoFalcao(t) && !ehDoTrf4(t) && !ehDoTnu(t)), rotulo: "Acórdãos do JurisprudênciaIA", aviso: AVISO_NATUREZA_JURIDICA },
     { existe: tribunais.some(ehDoTrf4), rotulo: "Acórdãos do TRF4", aviso: AVISO_TRF4 },
+    { existe: tribunais.some(ehDoTnu), rotulo: "Acórdãos da TNU", aviso: AVISO_TNU },
     { existe: tribunais.some(ehDoFalcao), rotulo: "Acórdãos dos TRTs", aviso: AVISO_FALCAO },
   ].filter((x) => x.existe);
   if (partes.length === 0) return AVISO_NATUREZA_JURIDICA;
@@ -684,7 +694,7 @@ export function criarServidor(
         "Acórdão que veio da busca sem link nenhum: pede o link oficial, uma vez, à rota de link do JurisprudênciaIA " +
         "(exceto TST) e diz que ele veio de lá; sem link também ali, diz como achar o acórdão pelo número CNJ. " +
         "Baixa do TJMG, TJMS, TJRR, TJSP e TSE. STJ: não baixa (o robots.txt de processo.stj.jus.br veda o acesso automatizado); devolve o link para conferência manual, e o PDF baixado antes com recibo, ou trazido pelo usuário, é lido normalmente. TRT (Falcão): não há PDF a baixar; explica e aponta o ler_inteiro_teor pelo " +
-        "id. TJPI, TJTO e TRF4: o portal entrega o acórdão em HTML; o Garimpo o traz como texto do portal do tribunal (sem PDF " +
+        "id. TJPI, TJTO, TRF4 e TNU: o portal entrega o acórdão em HTML; o Garimpo o traz como texto do portal do tribunal (sem PDF " +
         "nem recibo) para a memória e aponta o ler_inteiro_teor e o conferir_citacao pelo id. Para STF, TJGO e demais devolve o link e explica como obter no navegador " +
         "(o Garimpo não contorna captcha nem proteção anti-robô) e como ler o PDF baixado: passar o caminho do " +
         "arquivo ao ler_inteiro_teor. Informe o id que veio na busca ou tribunal + link.",

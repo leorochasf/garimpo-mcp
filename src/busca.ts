@@ -13,8 +13,9 @@ import { nomesDoFiltro, ressalvaSePoucos } from "./grafia.js";
 import { FalhaNaMemoriaError, fotografiaDaBusca, type Memoria } from "./memoria.js";
 import { buscaDecisoesNoFalcao, buscaNoFalcao, clienteDoFalcao, lerBuscaGuardadaNoFalcao, type OrdenacaoNoFalcao } from "./falcao.js";
 import { avisoDeRecorridoAusente } from "./recorrido.js";
+import { buscaNaTnu, clienteDaTnu, lerBuscaGuardadaNaTnu } from "./tnu.js";
 import { buscaNoTrf4, clienteDoTrf4, lerBuscaGuardadaNoTrf4 } from "./trf4.js";
-import { avisoDeLinkDoTjgo, ehDoFalcao, ehDoTrf4, infoTribunal, ROTULO_FALCAO } from "./tribunais.js";
+import { avisoDeLinkDoTjgo, ehDoFalcao, ehDoTnu, ehDoTrf4, infoTribunal, ROTULO_FALCAO } from "./tribunais.js";
 
 export const SITE = "https://www.jurisprudenciaia.com.br";
 
@@ -192,7 +193,7 @@ export interface OpcoesBuscaDireta {
   tabelaStf?: TabelaDoStf;
   /** Cliente do Falcão, para os TRTs (padrão: um novo, com os mesmos freios compartilhados). */
   falcao?: Cliente;
-  /** Cliente do e-Proc do TRF4 (padrão: um novo, com os mesmos freios compartilhados). */
+  /** Cliente do e-Proc (TRF4 ou TNU; padrão: um novo da fonte do pedido, com os mesmos freios compartilhados). */
   eproc?: Cliente;
 }
 
@@ -230,6 +231,7 @@ export async function lerBuscaGuardada(
 ): Promise<{ resultado: ResultadoBusca; obtidoEm: number } | undefined> {
   if (ehDoFalcao(p.tribunal)) return lerBuscaGuardadaNoFalcao(memoria, p);
   if (ehDoTrf4(p.tribunal)) return lerBuscaGuardadaNoTrf4(memoria, p);
+  if (ehDoTnu(p.tribunal)) return lerBuscaGuardadaNaTnu(memoria, p);
   const { tribunal, chave, cobertura } = pedido(p);
   const guardada = await memoria.obterBusca(chave);
   // Sem as teses do site (gravada antes delas), o enquadramento não pode ser refeito com as tabelas desta janela: vale como ausente.
@@ -284,6 +286,9 @@ export async function buscaDiretaSemMarca(
   }
   if (ehDoTrf4(p.tribunal)) {
     return buscaNoTrf4(eproc ?? clienteDoTrf4(), p, memoria, { renovar, guardarAcordaos });
+  }
+  if (ehDoTnu(p.tribunal)) {
+    return buscaNaTnu(eproc ?? clienteDaTnu(), p, memoria, { renovar, guardarAcordaos });
   }
   const { tribunal, corpo, chave, cobertura } = pedido(p);
   // Falha ao ler a memória vira busca normal no site, com aviso; sem rede permitida, o erro da rede, como sempre.
