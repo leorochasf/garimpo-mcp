@@ -356,6 +356,32 @@ Mesmo módulo de jurisprudência do e-Proc do TRF4, no host do próprio TRF2; ad
   documento assinado, como no TRF4.
 - **Não verificado:** limite de ritmo; estabilidade dos ids; TRU2 e Turmas Recursais; filtros avançados; PDF.
 
+## Consulta pública de processo do Projudi do TJGO (texto do portal do tribunal)
+
+Usada por `obter_inteiro_teor` com acórdão do TJGO
+([ADR-0029](adr/0029-tjgo-inteiro-teor-pela-pagina-do-processo-no-projudi.md); estudo
+[`estudos/2026-10-22-tjgo-inteiro-teor-pelo-projudi.md`](estudos/2026-10-22-tjgo-inteiro-teor-pelo-projudi.md)).
+A busca segue no JurisprudênciaIA. Leituras de 2026-10-22:
+
+- **Hosts:** `projudi.tjgo.jus.br` e o armazenamento `projudi-<ano>-prd.s3.tjgo.jus.br` (os dois no serviço `tjgo` do
+  disjuntor). Rotas: `GET /BuscaProcesso?PaginaAtual=2&ProcessoNumero=<CNJ>` (página «Dados Processo», ISO-8859-1,
+  cookie `JSESSIONID`), `GET /MovimentacaoArquivo?AJAX=ajax&PaginaAtual=8&Id_Movimentacao=<id>` (lista JSON dos
+  arquivos da movimentação, com o cookie), `GET /BuscaProcesso?PaginaAtual=6&Id_MovimentacaoArquivo=<id>&hash=<hash>&id_proc=undefined`
+  (302 para endereço assinado e temporário no armazenamento; o Garimpo segue esse salto só para lá).
+- **robots.txt:** 404 (sem regras). **Termo de uso:** nenhum achado. **Verificação anti-robô:** Cloudflare Turnstile
+  só no formulário de consulta pública (`PaginaAtual=4&TipoConsultaProcesso=24`), que o Garimpo não usa.
+  **Decisão do dono (2026-10-22):** «pode seguir, prepara o ADR pra baixar pelo Projudi, se há como baixar, isso não é
+  driblar, é uma parte sem robô uai». Sem autorização do TJGO (não pedida).
+- **Vínculo com a busca:** o `Id_Arquivo` do `link_pdf` do site é o arquivo «Ementa» (tipo 124) da movimentação do
+  julgamento; o «Relatório e Voto» (tipo 125) é outro arquivo da mesma movimentação. O «julgado em» que fecha a ementa
+  do site coincide com a data e a hora da movimentação ou fica um segundo depois.
+- **Formato:** arquivos em HTML (sem charset no cabeçalho); de 2020 a 2024 também `.html.p7s` (envelope de assinatura,
+  200 direto, não lido pelo Garimpo). Processo em segredo abre noutro leiaute, sem movimentações.
+- **Prova pelo código:** 27 acórdãos distintos, 13 baixados (todos o julgamento certo), 14 com motivo; cerca de 1 s por
+  acórdão. Erros esparsos do Projudi (500, 504, 555) sem recusa.
+- **Não verificado:** limite de ritmo; arquivo bloqueado ao vivo; estabilidade do vínculo `Id_Arquivo` = «Ementa» fora
+  da amostra.
+
 ## Exportação de repercussão geral do STF (script do mantenedor, I-33 / D-11)
 
 - **Rota:** `https://portal.stf.jus.br/jurisprudenciaRepercussao/exportarDados.asp?` (o botão "Exportar Dados" de

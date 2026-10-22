@@ -1,5 +1,14 @@
 # Changelog
 
+## Em aberto
+
+- TJGO: o `obter_inteiro_teor` passa a trazer o texto do acórdão pela consulta pública do processo no Projudi (a
+  «Ementa» e o «Relatório e Voto» do julgamento), como "texto do portal do tribunal" (HTML, sem PDF e sem recibo). Só o
+  julgado exato que a busca achou: data e hora do julgamento, o arquivo que o site apontou e a ementa conferidos; sem
+  casamento seguro, não baixa e diz o motivo. Entra por decisão do dono de que o caminho do link direto do processo é
+  público e não passa pela verificação anti-robô, que fica só no formulário de busca do portal; não há autorização do
+  TJGO (ADR-0029).
+
 ## 1.1.0 (2026-10-19)
 
 - TNU (nova): a busca vem da busca oficial do e-Proc da TNU (CJF), com a ementa inteira, 10 acórdãos por busca, e o `obter_inteiro_teor` traz o acórdão como "texto do portal do tribunal" (HTML, sem PDF e sem recibo). Sem órgão julgador na lista e sem precedentes qualificados da TNU. O termo de uso do host não foi achado (não verificado).
