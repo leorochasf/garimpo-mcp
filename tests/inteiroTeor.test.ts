@@ -104,7 +104,7 @@ describe("inteiro teor — link + explicação", () => {
     expect(chamadas).toHaveLength(0);
   });
 
-  it("TJGO devolve link, explicação e o número CNJ para pesquisar no portal", async () => {
+  it("TJGO com ementa sem data e hora do julgamento: não chama o Projudi, devolve o link do processo e o motivo (ADR-0029)", async () => {
     const busca = clienteFalso([respostaJson(fixture("tjgo.json"))]);
     const memoria = new Memoria();
     await buscaDireta(busca.cliente, { tribunal: "tjgo", texto: "exemplo" }, memoria);
@@ -112,11 +112,9 @@ describe("inteiro teor — link + explicação", () => {
     const r = await obterInteiroTeor({ id: "tjgo:301", pasta }, () => cliente, memoria);
     expect(r.baixado).toBe(false);
     if (r.baixado) return;
-    expect(r.link).toMatch(/^https:\/\/projudi\.tjgo\.jus\.br/);
-    expect(r.explicacao).toMatch(/anti-robô \(Cloudflare\)/);
-    expect(r.explicacao).not.toMatch(/reCAPTCHA/);
-    expect(r.explicacao).toMatch(/Sem Permissão/);
-    expect(r.explicacao).toMatch(/0000001-11\.2025\.8\.09\.0001/);
+    expect(r.link).toBe("https://projudi.tjgo.jus.br/BuscaProcesso?PaginaAtual=2&ProcessoNumero=0000001-11.2025.8.09.0001");
+    expect(r.explicacao).toMatch(/sem a data e a hora do julgamento/);
+    expect(r.explicacao).toMatch(/nada foi guardado/);
     expect(chamadas).toHaveLength(0);
   });
 });

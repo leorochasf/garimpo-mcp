@@ -86,14 +86,6 @@ const PESQUISA_TJGO = "https://projudi.tjgo.jus.br/ConsultaJurisprudencia";
 /** Consulta pública de processo do Projudi do TJGO: o número CNJ no fim abre o processo, sem login (vista em 2026-10-22). */
 const PROCESSO_TJGO = "https://projudi.tjgo.jus.br/BuscaProcesso?PaginaAtual=2&ProcessoNumero=";
 
-const EXPLICA_TJGO =
-  "Quando há número CNJ, o link do TJGO abre a página pública do processo no Projudi (sem login; conferido em " +
-  "2026-10-22), não o arquivo do acórdão. O Garimpo não baixa o acórdão: na pesquisa de jurisprudência do portal, o " +
-  "arquivo só abre dentro da sessão dela, e o Garimpo não contorna a verificação anti-robô (Cloudflare); fora da " +
-  "sessão, o link da pesquisa costuma mostrar «Sem Permissão para o Usuário (nº 78)». Para o acórdão: procure-o nas " +
-  `movimentações do processo ou abra ${PESQUISA_TJGO}, cole o número CNJ do processo no campo «Número do ` +
-  "Processo», passe pela verificação anti-robô no navegador e clique em Buscar.";
-
 /** Link de acórdão do Projudi do TJGO: não abre o acórdão fora de uma sessão do portal. */
 const LINK_PROJUDI_TJGO = /projudi\.tjgo\.jus\.br\/ConsultaJurisprudencia/i;
 const LINK_PROCESSO_TJGO = /projudi\.tjgo\.jus\.br\/BuscaProcesso/i;
@@ -105,13 +97,17 @@ export function linkDoProcessoNoTjgo(numero: string | undefined): string | undef
   return `${PROCESSO_TJGO}${d.slice(0, 7)}-${d.slice(7, 9)}.${d.slice(9, 13)}.${d[13]}.${d.slice(14, 16)}.${d.slice(16)}`;
 }
 
-/** Acórdão do TJGO guardado na memória antes do link do processo: troca o link da pesquisa pelo do processo. */
-export function comLinkDoProcessoNoTjgo<T extends { tribunal: string; numero?: string; numeroCnj?: string; link?: string }>(
-  a: T,
-): T {
+/**
+ * Acórdão do TJGO guardado na memória antes do link do processo: troca o link da pesquisa pelo do processo e guarda o
+ * Id_Arquivo dele, que amarra o arquivo «Ementa» do julgamento (ADR-0029).
+ */
+export function comLinkDoProcessoNoTjgo<
+  T extends { tribunal: string; numero?: string; numeroCnj?: string; link?: string; idArquivoProjudi?: string },
+>(a: T): T {
   if (a.tribunal !== "tjgo" || !LINK_PROJUDI_TJGO.test(a.link ?? "")) return a;
   const link = linkDoProcessoNoTjgo(a.numeroCnj) ?? linkDoProcessoNoTjgo(a.numero);
-  return link ? { ...a, link } : a;
+  const idArquivoProjudi = /[?&]Id_Arquivo=(\d+)/.exec(a.link ?? "")?.[1];
+  return link ? { ...a, link, ...(idArquivoProjudi && { idArquivoProjudi }) } : a;
 }
 
 /**
@@ -137,8 +133,8 @@ export function avisoDeLinkDoTjgo(
   if (doProjudi.some((a) => LINK_PROCESSO_TJGO.test(linkDe(a)))) {
     partes.push(
       "o link da consulta de processo (BuscaProcesso) abre a página pública do processo (dados e movimentações), sem " +
-        "login, não o arquivo do acórdão; procure o acórdão nas movimentações (o Garimpo não verificou se o documento " +
-        "abre sem login)",
+        "login, não o arquivo do acórdão; o obter_inteiro_teor traz o texto do acórdão por ela quando acha o julgamento " +
+        "exato (mesma data e hora), senão diz o motivo",
     );
   }
   if (doProjudi.some((a) => LINK_PROJUDI_TJGO.test(linkDe(a)))) {
@@ -249,7 +245,7 @@ export const TRIBUNAIS: InfoTribunal[] = [
   { ...tj("tjce", "TJ do Ceará") },
   { ...tj("tjdft", "TJ do Distrito Federal e Territórios"), inteiroTeor: "portal", motivoLink: undefined },
   { ...tj("tjes", "TJ do Espírito Santo") },
-  { ...tj("tjgo", "TJ de Goiás"), motivoLink: EXPLICA_TJGO },
+  { ...tj("tjgo", "TJ de Goiás"), inteiroTeor: "portal", motivoLink: undefined },
   { ...tj("tjma", "TJ do Maranhão") },
   { ...tj("tjmg", "TJ de Minas Gerais"), inteiroTeor: "baixa", motivoLink: undefined },
   { ...tj("tjms", "TJ de Mato Grosso do Sul"), inteiroTeor: "baixa", motivoLink: undefined },

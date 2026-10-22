@@ -26,6 +26,7 @@ import {
 import { htmlComConteudoOculto, htmlComIndicioDeCorte, htmlParaTexto } from "./html.js";
 import type { Guardado, Memoria, TextoIntegral } from "./memoria.js";
 import { textoDoTjdft } from "./tjdft.js";
+import { textoDoTjgo } from "./tjgo.js";
 import { textoDoTjpi } from "./tjpi.js";
 import { textoDaTnu } from "./tnu.js";
 import { textoDoTrf2 } from "./trf2.js";
@@ -198,7 +199,6 @@ export async function obterInteiroTeor(
     }
     let explicacao = motivo;
     if (linkDaRota) explicacao += origemDaRota;
-    if (tribunal === "tjgo" && acordao?.numeroCnj) explicacao += ` Número CNJ para pesquisar: ${acordao.numeroCnj}.`;
     explicacao += ` ${PONTE}`;
     return { baixado: false, link: linkOficial, explicacao: explicacao.trim() };
   }
@@ -286,8 +286,20 @@ async function textoDoPortal(
   let textoGuardado: TextoIntegral | undefined = await memoria.obterTexto(acordao.id);
   if (!textoGuardado) {
     const doTjdft = acordao.tribunal === "tjdft";
+    const doTjgo = acordao.tribunal === "tjgo" ? await textoDoTjgo(cliente, acordao) : undefined;
+    if (doTjgo && "motivo" in doTjgo) {
+      return {
+        baixado: false,
+        link,
+        explicacao:
+          `O Garimpo não trouxe o texto deste acórdão do Projudi do ${nomeTribunal}: ${doTjgo.motivo}. Texto não ` +
+          "verificado, nada foi guardado. O link abre a página pública do processo; procure o acórdão nas " +
+          "movimentações de julgamento.",
+      };
+    }
     const trazido =
-      doTjdft ? await textoDoTjdft(cliente, link, acordao)
+      doTjgo ? doTjgo
+      : doTjdft ? await textoDoTjdft(cliente, link, acordao)
       : acordao.tribunal === "tjpi" ? await textoDoTjpi(cliente, link, acordao)
       : acordao.tribunal === "trf2" ? await textoDoTrf2(cliente, link, acordao)
       : acordao.tribunal === "trf4" ? await textoDoTrf4(cliente, link, acordao)

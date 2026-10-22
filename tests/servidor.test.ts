@@ -1220,7 +1220,7 @@ describe("inteiro teor trazido pelo usuário (pela porta)", () => {
 });
 
 describe("ponte: resposta \"só link\" ensina a ler o PDF baixado no navegador (pela porta)", () => {
-  it("STF, TJGO e um tribunal genérico: a explicação traz a instrução de baixar e passar o caminho ao ler_inteiro_teor, sem chamar o tribunal", async () => {
+  it("STF, TJRJ e um tribunal genérico: a explicação traz a instrução de baixar e passar o caminho ao ler_inteiro_teor, sem chamar o tribunal", async () => {
     const chamadas: string[] = [];
     const mcp = await conectar(siteFalso([]), {
       tribunais: (sigla) => {
@@ -1229,7 +1229,7 @@ describe("ponte: resposta \"só link\" ensina a ler o PDF baixado no navegador (
       },
       pasta: await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-ponte-")),
     });
-    for (const tribunal of ["stf", "tjgo", "tjrs"]) {
+    for (const tribunal of ["stf", "tjrj", "tjrs"]) {
       const r = (await mcp.callTool({
         name: "obter_inteiro_teor",
         arguments: { tribunal, link: `https://exemplo.test/${tribunal}/acordao` },

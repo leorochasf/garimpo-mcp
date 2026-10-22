@@ -59,6 +59,8 @@ export interface Acordao {
   fonte?: string;
   /** Só no Falcão: por que não há texto integral (ex.: o "texto integral" veio igual à ementa); só a ementa vale. */
   motivoSemTextoIntegral?: string;
+  /** Só no TJGO: o Id_Arquivo do link_pdf do site, que é o arquivo «Ementa» do julgamento no Projudi (ADR-0029). */
+  idArquivoProjudi?: string;
   /** Link oficial que o Garimpo pediu à rota de link do site, porque a busca não trouxe nenhum (obter_inteiro_teor). */
   linkDaRota?: string;
   relevancia?: number;
@@ -578,6 +580,7 @@ function paraAcordao(tribunal: string, x: Bruto, paradigmas: readonly ParadigmaD
         (linkDoProcessoNoTjgo(texto(x.numero_processo_cnj)) ?? linkDoProcessoNoTjgo(texto(x.numero_processo)))) ||
       texto(x.link_pdf),
     linkConsulta: texto(x.link_consulta) ?? texto(x.url_acordao) ?? texto(x.link_processo),
+    idArquivoProjudi: tribunal === "tjgo" ? /[?&]Id_Arquivo=(\d+)/.exec(texto(x.link_pdf) ?? "")?.[1] : undefined,
     relevancia: numeroOuNada(x.rerank_score) ?? numeroOuNada(x.score),
   });
   const enquadramento927 = enquadrarAcordao(

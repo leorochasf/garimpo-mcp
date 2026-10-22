@@ -173,13 +173,19 @@ export const NATUREZA_DO_TEXTO_DO_PORTAL_TRF2 =
   "texto do portal do tribunal (TRF2), convertido de HTML pelo Garimpo: não é PDF, não tem recibo de origem e a " +
   "assinatura eletrônica do documento não é verificada pelo Garimpo";
 
+/** O texto do TJGO, trazido pela consulta pública do processo no Projudi (ADR-0029): a fonte e o que ele é. */
+export const ROTULO_PORTAL_TJGO = "consulta pública de processo do Projudi do TJGO (projudi.tjgo.jus.br)";
+export const NATUREZA_DO_TEXTO_DO_PORTAL_TJGO =
+  "texto do portal do tribunal (TJGO), convertido de HTML pelo Garimpo: não é PDF, não tem recibo de origem e a " +
+  "assinatura do documento não é verificada pelo Garimpo";
+
 /** O texto da TNU, trazido pelo e-Proc do CJF (ADR-0027): a fonte e o que ele é. */
 export const ROTULO_PORTAL_TNU = "e-Proc da TNU — módulo de jurisprudência da Turma Nacional de Uniformização (eproctnu-jur.cjf.jus.br)";
 export const NATUREZA_DO_TEXTO_DO_PORTAL_TNU =
   "texto do portal do tribunal (TNU), convertido de HTML pelo Garimpo: não é PDF, não tem recibo de origem e a " +
   "autenticidade do documento não é verificada pelo Garimpo";
 
-/** O tribunal do id entrega o texto do portal do tribunal (TJTO, TJDFT, TJPI, TRF2, TRF4, TNU), não o do Falcão. */
+/** O tribunal do id entrega o texto do portal do tribunal (TJTO, TJDFT, TJGO, TJPI, TRF2, TRF4, TNU), não o do Falcão. */
 export function ehTextoDoPortal(id: string): boolean {
   return infoTribunal(id.split(":")[0])?.inteiroTeor === "portal";
 }
@@ -193,11 +199,13 @@ export function naturezaDoTexto(semTexto: boolean, doPortal: boolean, id = ""): 
   if (semTexto && doPortal && id.startsWith("trf2:")) return "sem texto integral: texto do TRF2 não verificado";
   if (semTexto && doPortal && id.startsWith("trf4:")) return "sem texto integral: texto do TRF4 não verificado";
   if (semTexto && doPortal && id.startsWith("tnu:")) return "sem texto integral: texto da TNU não verificado";
+  if (semTexto && doPortal && id.startsWith("tjgo:")) return "sem texto integral: texto do TJGO não verificado";
   if (semTexto) return NATUREZA_SEM_TEXTO_INTEGRAL;
   if (doPortal && id.startsWith("tjdft:")) return NATUREZA_DO_TEXTO_DO_PORTAL_TJDFT;
   if (doPortal && id.startsWith("trf2:")) return NATUREZA_DO_TEXTO_DO_PORTAL_TRF2;
   if (doPortal && id.startsWith("trf4:")) return NATUREZA_DO_TEXTO_DO_PORTAL_TRF4;
   if (doPortal && id.startsWith("tnu:")) return NATUREZA_DO_TEXTO_DO_PORTAL_TNU;
+  if (doPortal && id.startsWith("tjgo:")) return NATUREZA_DO_TEXTO_DO_PORTAL_TJGO;
   return doPortal ? NATUREZA_DO_TEXTO_DO_PORTAL : NATUREZA_DO_TEXTO_INTEGRAL;
 }
 
@@ -257,7 +265,7 @@ export async function lerTextoIntegral(id: string, parte = 1, memoria?: Memoria)
       juntadoEm: a?.dataJuntada ?? NAO_INFORMADO,
       id,
       fonte: doPortal
-        ? (id.startsWith("tjdft:") ? ROTULO_PORTAL_TJDFT : id.startsWith("trf2:") ? ROTULO_PORTAL_TRF2 : id.startsWith("trf4:") ? ROTULO_PORTAL_TRF4 : id.startsWith("tnu:") ? ROTULO_PORTAL_TNU : ROTULO_PORTAL_TJTO)
+        ? (id.startsWith("tjdft:") ? ROTULO_PORTAL_TJDFT : id.startsWith("trf2:") ? ROTULO_PORTAL_TRF2 : id.startsWith("trf4:") ? ROTULO_PORTAL_TRF4 : id.startsWith("tnu:") ? ROTULO_PORTAL_TNU : id.startsWith("tjgo:") ? ROTULO_PORTAL_TJGO : ROTULO_PORTAL_TJTO)
         : ROTULO_FALCAO,
       natureza: naturezaDoTexto(Boolean(semTexto), doPortal, id),
       partes,
