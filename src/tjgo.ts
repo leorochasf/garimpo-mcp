@@ -176,13 +176,19 @@ async function pelaPaginaDoProcesso(
     return { motivo: `o julgamento de ${julgadoEm} não tem um só «Relatório e Voto» e no máximo uma «Ementa»` };
   }
   const [relatorio] = relatorios;
-  if (relatorio.AcessoArquivo !== "1" || relatorio.valido !== "true") {
-    return { motivo: "o «Relatório e Voto» do julgamento não é de acesso público (bloqueado, restrito ou inválido)" };
-  }
-  if (relatorio.nome_arquivo !== "relatorio_voto_acordao.html") {
-    return {
-      motivo: `o «Relatório e Voto» do julgamento está em formato que o Garimpo não lê (${relatorio.nome_arquivo.endsWith(".p7s") ? "envelope de assinatura .p7s" : "não é o HTML esperado"})`,
-    };
+  // Os dois arquivos que o Garimpo pede: só de acesso público, válidos e no HTML esperado.
+  for (const [a, nome, html] of [
+    [relatorio, "«Relatório e Voto»", "relatorio_voto_acordao.html"],
+    ...ementas.map((e) => [e, "«Ementa»", "ementa.html"] as const),
+  ] as const) {
+    if (a.AcessoArquivo !== "1" || a.valido !== "true") {
+      return { motivo: `o arquivo ${nome} do julgamento não é de acesso público (bloqueado, restrito ou inválido)` };
+    }
+    if (a.nome_arquivo !== html) {
+      return {
+        motivo: `o arquivo ${nome} do julgamento está em formato que o Garimpo não lê (${a.nome_arquivo.endsWith(".p7s") ? "envelope de assinatura .p7s" : "não é o HTML esperado"})`,
+      };
+    }
   }
   const arquivo = (a: ArquivoDaLista) =>
     `${PROJUDI}BuscaProcesso?PaginaAtual=6&Id_MovimentacaoArquivo=${encodeURIComponent(a.id)}&hash=${encodeURIComponent(a.hash)}&id_proc=undefined`;
@@ -216,9 +222,13 @@ async function pelaPaginaDoProcesso(
 
   // A ementa do julgamento antes do relatório e voto: os dois documentos do acórdão, cada um como veio.
   const texto = [htmlParaTexto(ementa), htmlParaTexto(doc)].filter(Boolean).join("\n\n");
-  if (htmlParaTexto(doc).length < MINIMO_TEXTO) return { motivo: "o «Relatório e Voto» veio curto demais" };
+  const relatorioEVoto = htmlParaTexto(doc);
+  if (relatorioEVoto.length < MINIMO_TEXTO) return { motivo: "o «Relatório e Voto» veio curto demais" };
+  // O número vale no próprio relatório e voto: a ementa certa não pode cobrir um relatório de outro processo.
   const numero = soLetrasEAlgarismos(acordao.numeroCnj ?? acordao.numero);
-  if (!soLetrasEAlgarismos(texto).includes(numero)) return { motivo: "o texto baixado não traz o número do processo da busca" };
+  if (!soLetrasEAlgarismos(relatorioEVoto).includes(numero)) {
+    return { motivo: "o «Relatório e Voto» não traz o número do processo da busca" };
+  }
   if (parteDaEmentaNoTexto(acordao.ementa, texto) < PARTE_MINIMA) {
     return { motivo: "a ementa e o relatório e voto baixados não trazem a ementa da busca; pode ser outro acórdão do mesmo processo" };
   }

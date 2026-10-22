@@ -342,6 +342,38 @@ describe("inteiro teor — TJGO pela página pública do processo no Projudi (AD
       expect(explicacao).toMatch(/não é de acesso público/);
     });
 
+    it("«Ementa» bloqueada, inválida ou em .p7s: não pede nenhum arquivo", async () => {
+      for (const ementa of [
+        { ...EMENTA, acesso: "3" },
+        { ...EMENTA, valido: "false" },
+        { ...EMENTA, nome: "ementa.html.p7s" },
+      ]) {
+        const { explicacao, chamadas } = await tentar([paginaDoProcesso([JULGAMENTO]), listaDeArquivos([ementa, RELATORIO])]);
+        expect(chamadas).toHaveLength(2);
+        expect(explicacao).toMatch(/«Ementa»/);
+      }
+    });
+
+    it("relatório e voto sem o número do processo, mesmo com a ementa certa: não entrega", async () => {
+      const semNumero = () =>
+        new Response(
+          readFileSync(new URL("./fixtures/tjgo-relatorio-voto.html", import.meta.url), "utf8")
+            .replaceAll("0000001-11.2024.8.09.0001", "0000009-99.2024.8.09.0001")
+            .replace("{{EMENTA}}", EMENTA_DA_BUSCA)
+            .replace("{{CLASSE}}", "APELAÇÃO CÍVEL"),
+          { headers: { "content-type": "text/html" } },
+        );
+      const { explicacao } = await tentar([
+        paginaDoProcesso([JULGAMENTO]),
+        listaDeArquivos(),
+        ementaRedireciona(),
+        arquivoDeEmenta(),
+        relatorioRedireciona(),
+        semNumero,
+      ]);
+      expect(explicacao).toMatch(/«Relatório e Voto» não traz o número do processo/);
+    });
+
     it("relatório e voto em .p7s (envelope de assinatura): formato que o Garimpo não lê", async () => {
       const { explicacao, chamadas } = await tentar([
         paginaDoProcesso([JULGAMENTO]),
