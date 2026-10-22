@@ -15,6 +15,9 @@ a pesquisa de jurisprudência do TJGO, `TICKETS/vigia/tjgo-caminho-publico-2026-
 decisão do dono, como no TRF2 (ADR-0028), e mais pesada que a do TRF2: lá a dúvida era o alcance de um termo de uso;
 aqui há uma barreira técnica posta pelo próprio tribunal no caminho oficial.
 
+**Decisão do dono (2026-10-22):** seguir; baixar pela consulta pública do processo no Projudi. Registro e regras em
+[ADR-0029](../adr/0029-tjgo-inteiro-teor-pela-pagina-do-processo-no-projudi.md).
+
 ## O que foi visto (2026-10-22)
 
 | # | Chamada | Resultado |
