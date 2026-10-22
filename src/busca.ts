@@ -16,7 +16,17 @@ import { avisoDeRecorridoAusente } from "./recorrido.js";
 import { buscaNaTnu, clienteDaTnu, lerBuscaGuardadaNaTnu } from "./tnu.js";
 import { buscaNoTrf2, clienteDoTrf2, lerBuscaGuardadaNoTrf2 } from "./trf2.js";
 import { buscaNoTrf4, clienteDoTrf4, lerBuscaGuardadaNoTrf4 } from "./trf4.js";
-import { avisoDeLinkDoTjgo, ehDoFalcao, ehDoTnu, ehDoTrf2, ehDoTrf4, infoTribunal, ROTULO_FALCAO } from "./tribunais.js";
+import {
+  avisoDeLinkDoTjgo,
+  comLinkDoProcessoNoTjgo,
+  ehDoFalcao,
+  ehDoTnu,
+  ehDoTrf2,
+  ehDoTrf4,
+  infoTribunal,
+  linkDoProcessoNoTjgo,
+  ROTULO_FALCAO,
+} from "./tribunais.js";
 
 export const SITE = "https://www.jurisprudenciaia.com.br";
 
@@ -36,7 +46,7 @@ export interface Acordao {
   /** Só no Falcão: data de juntada do acórdão aos autos ("juntado em"), que não é data de publicação. */
   dataJuntada?: string;
   ementa: string;
-  /** Link do PDF do inteiro teor (link_pdf). */
+  /** Link do PDF do inteiro teor (link_pdf); no TJGO com número CNJ, a página pública do processo no Projudi. */
   link?: string;
   /** Página oficial de consulta do processo/acórdão (link_consulta, url_acordao ou, no TJPA, link_processo), quando há. */
   linkConsulta?: string;
@@ -248,7 +258,7 @@ export async function lerBuscaGuardada(
         "para dado novo, repita com renovar",
       tribunal,
       cabecalhoDeCobertura: cobertura(busca.registrosDoSite),
-      acordaos: busca.acordaos.map((a) => a.registro),
+      acordaos: busca.acordaos.map((a) => comLinkDoProcessoNoTjgo(a.registro)),
       // O enquadramento é refeito com as tabelas desta janela, como na busca nova.
       qualificados: busca.qualificados.map((q, i) => ({
         ...q,
@@ -562,7 +572,11 @@ function paraAcordao(tribunal: string, x: Bruto, paradigmas: readonly ParadigmaD
     dataPublicacao: data(x.data_publicacao_extraida),
     ementa: texto(x.texto_ementa) ?? "",
     avisoDeEmenta: ementaAparentementeIncompleta(texto(x.texto_ementa) ?? "") ? AVISO_EMENTA_INCOMPLETA : undefined,
-    link: texto(x.link_pdf),
+    // No TJGO, o link_pdf do site não abre fora da sessão do portal; o processo abre pelo número CNJ.
+    link:
+      (tribunal === "tjgo" &&
+        (linkDoProcessoNoTjgo(texto(x.numero_processo_cnj)) ?? linkDoProcessoNoTjgo(texto(x.numero_processo)))) ||
+      texto(x.link_pdf),
     linkConsulta: texto(x.link_consulta) ?? texto(x.url_acordao) ?? texto(x.link_processo),
     relevancia: numeroOuNada(x.rerank_score) ?? numeroOuNada(x.score),
   });

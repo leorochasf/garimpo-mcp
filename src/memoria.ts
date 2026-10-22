@@ -24,6 +24,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { link, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Acordao, Qualificado } from "./busca.js";
+import { comLinkDoProcessoNoTjgo } from "./tribunais.js";
 
 /** Validade de um acórdão ou de uma busca na memória, contada da obtenção no site; a leitura não renova. */
 const VALIDADE_MS = 24 * 3_600_000;
@@ -184,7 +185,9 @@ export class Memoria {
       // Outra janela pode ter gravado uma versão nova no meio: o descarte a devolve ao lugar.
       lido = await ler();
     }
-    if (lido && lido.id === id && this.valido(lido.obtidoEm)) return { acordao: lido.acordao, obtidoEm: lido.obtidoEm };
+    if (lido && lido.id === id && this.valido(lido.obtidoEm)) {
+      return { acordao: comLinkDoProcessoNoTjgo(lido.acordao), obtidoEm: lido.obtidoEm };
+    }
     return daJanela && this.valido(daJanela.obtidoEm) ? daJanela : undefined;
   }
 

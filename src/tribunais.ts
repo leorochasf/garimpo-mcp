@@ -83,15 +83,36 @@ const EXPLICA_STJ =
 /** Pesquisa pública de jurisprudência do TJGO (prova B11, docs/banco-de-provas/b11-prova-ao-vivo.md). */
 const PESQUISA_TJGO = "https://projudi.tjgo.jus.br/ConsultaJurisprudencia";
 
+/** Consulta pública de processo do Projudi do TJGO: o número CNJ no fim abre o processo, sem login (vista em 2026-10-22). */
+const PROCESSO_TJGO = "https://projudi.tjgo.jus.br/BuscaProcesso?PaginaAtual=2&ProcessoNumero=";
+
 const EXPLICA_TJGO =
-  "O link do Projudi do TJGO não abre o acórdão fora da sessão de pesquisa do portal: o download só vale dentro " +
-  "dela, e o Garimpo não contorna a verificação anti-robô (Cloudflare). Há um caminho público, sem login: abra " +
-  `${PESQUISA_TJGO}, cole o número CNJ do processo no campo «Número do Processo», passe pela verificação ` +
-  "anti-robô no navegador e clique em Buscar. Fora da sessão, o link da busca costuma mostrar «Sem Permissão " +
-  "para o Usuário (nº 78)» em vez do acórdão.";
+  "Quando há número CNJ, o link do TJGO abre a página pública do processo no Projudi (sem login; conferido em " +
+  "2026-10-22), não o arquivo do acórdão. O Garimpo não baixa o acórdão: na pesquisa de jurisprudência do portal, o " +
+  "arquivo só abre dentro da sessão dela, e o Garimpo não contorna a verificação anti-robô (Cloudflare); fora da " +
+  "sessão, o link da pesquisa costuma mostrar «Sem Permissão para o Usuário (nº 78)». Para o acórdão: procure-o nas " +
+  `movimentações do processo ou abra ${PESQUISA_TJGO}, cole o número CNJ do processo no campo «Número do ` +
+  "Processo», passe pela verificação anti-robô no navegador e clique em Buscar.";
 
 /** Link de acórdão do Projudi do TJGO: não abre o acórdão fora de uma sessão do portal. */
 const LINK_PROJUDI_TJGO = /projudi\.tjgo\.jus\.br\/ConsultaJurisprudencia/i;
+const LINK_PROCESSO_TJGO = /projudi\.tjgo\.jus\.br\/BuscaProcesso/i;
+
+/** Link da página pública do processo no Projudi, com o número CNJ pontuado; sem número CNJ do TJGO, nada. */
+export function linkDoProcessoNoTjgo(numero: string | undefined): string | undefined {
+  const d = numero?.replace(/\D/g, "") ?? "";
+  if (d.length !== 20 || d.slice(13, 16) !== "809") return undefined;
+  return `${PROCESSO_TJGO}${d.slice(0, 7)}-${d.slice(7, 9)}.${d.slice(9, 13)}.${d[13]}.${d.slice(14, 16)}.${d.slice(16)}`;
+}
+
+/** Acórdão do TJGO guardado na memória antes do link do processo: troca o link da pesquisa pelo do processo. */
+export function comLinkDoProcessoNoTjgo<T extends { tribunal: string; numero?: string; numeroCnj?: string; link?: string }>(
+  a: T,
+): T {
+  if (a.tribunal !== "tjgo" || !LINK_PROJUDI_TJGO.test(a.link ?? "")) return a;
+  const link = linkDoProcessoNoTjgo(a.numeroCnj) ?? linkDoProcessoNoTjgo(a.numero);
+  return link ? { ...a, link } : a;
+}
 
 /**
  * Aviso fixo, uma vez por resposta (nunca por acórdão), quando algum link é do Projudi do TJGO. Com um só resultado
@@ -100,20 +121,33 @@ const LINK_PROJUDI_TJGO = /projudi\.tjgo\.jus\.br\/ConsultaJurisprudencia/i;
 export function avisoDeLinkDoTjgo(
   acordaos: ReadonlyArray<{ link?: string; linkConsulta?: string; numeroCnj?: string }>,
 ): string[] {
-  const doProjudi = acordaos.filter((a) => LINK_PROJUDI_TJGO.test(a.link ?? a.linkConsulta ?? ""));
+  const linkDe = (a: { link?: string; linkConsulta?: string }) => a.link ?? a.linkConsulta ?? "";
+  const doProjudi = acordaos.filter((a) => LINK_PROJUDI_TJGO.test(linkDe(a)) || LINK_PROCESSO_TJGO.test(linkDe(a)));
   if (doProjudi.length === 0) return [];
   const numeros = doProjudi.flatMap((a) => (a.numeroCnj ? [a.numeroCnj] : []));
   const qual =
     doProjudi.length === 1 && numeros.length === 1
       ? `o número do processo deste resultado: ${numeros[0]}`
       : "o número do processo de cada resultado do TJGO";
-  return [
-    "Link do Projudi do TJGO: aberto fora da sessão de pesquisa do portal, não abre o acórdão e pode mostrar " +
-      "«Sem Permissão para o Usuário (nº 78)». Caminho público, sem login: abra " +
-      `${PESQUISA_TJGO}, cole no campo «Número do Processo» ${qual}, passe pela verificação anti-robô (Cloudflare) ` +
-      "no navegador, clique em Buscar e abra o resultado (procure pelo número; o Garimpo não garante que " +
-      "a busca por número encontre o acórdão).",
-  ];
+  const pesquisa =
+    `abra ${PESQUISA_TJGO}, cole no campo «Número do Processo» ${qual}, passe pela verificação anti-robô (Cloudflare) ` +
+    "no navegador, clique em Buscar e abra o resultado (procure pelo número; o Garimpo não garante que " +
+    "a busca por número encontre o acórdão).";
+  const partes: string[] = [];
+  if (doProjudi.some((a) => LINK_PROCESSO_TJGO.test(linkDe(a)))) {
+    partes.push(
+      "o link da consulta de processo (BuscaProcesso) abre a página pública do processo (dados e movimentações), sem " +
+        "login, não o arquivo do acórdão; procure o acórdão nas movimentações (o Garimpo não verificou se o documento " +
+        "abre sem login)",
+    );
+  }
+  if (doProjudi.some((a) => LINK_PROJUDI_TJGO.test(linkDe(a)))) {
+    partes.push(
+      "o link da pesquisa de jurisprudência (ConsultaJurisprudencia), aberto fora da sessão de pesquisa do portal, " +
+        "não abre o acórdão e pode mostrar «Sem Permissão para o Usuário (nº 78)»",
+    );
+  }
+  return [`Link do Projudi do TJGO: ${partes.join("; ")}. Caminho público para o acórdão, sem login: ${pesquisa}`];
 }
 
 const EXPLICA_GENERICO =

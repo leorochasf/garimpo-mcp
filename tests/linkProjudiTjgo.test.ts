@@ -1,8 +1,10 @@
+import { mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { describe, expect, it } from "vitest";
 import { buscaAmpla } from "../src/ampla.js";
-import { buscaDireta } from "../src/busca.js";
+import { buscaDireta, normalizar } from "../src/busca.js";
 import { Cliente } from "../src/cliente.js";
 import { Memoria } from "../src/memoria.js";
 import { criarServidor } from "../src/servidor.js";
@@ -10,6 +12,87 @@ import { avisoDeLinkDoTjgo } from "../src/tribunais.js";
 import { clienteFalso, fixture, respostaJson } from "./apoio.js";
 
 const LINK = "https://projudi.tjgo.jus.br/ConsultaJurisprudencia?PaginaAtual=78&Id_Arquivo=999001";
+const PROCESSO = "https://projudi.tjgo.jus.br/BuscaProcesso?PaginaAtual=2&ProcessoNumero=";
+
+describe("link do TJGO abre o processo no Projudi", () => {
+  const tjgo = (item: Record<string, unknown>) =>
+    normalizar("tjgo", { results: [{ id: 1, texto_ementa: "EMENTA. EXEMPLO FICTÍCIO.", link_pdf: LINK, ...item }] }).acordaos[0];
+
+  it("com número CNJ, o link é a página pública do processo, com o número pontuado no fim", () => {
+    const [a] = normalizar("tjgo", fixture("tjgo.json")).acordaos;
+    expect(a.link).toBe(`${PROCESSO}0000001-11.2025.8.09.0001`);
+  });
+
+  it("número CNJ sem pontuação é formatado", () => {
+    expect(tjgo({ numero_processo_cnj: "00000011120258090001" }).link).toBe(`${PROCESSO}0000001-11.2025.8.09.0001`);
+  });
+
+  it("sem número CNJ, só no número do processo, ele também serve", () => {
+    expect(tjgo({ numero_processo: "0000001-11.2025.8.09.0001" }).link).toBe(`${PROCESSO}0000001-11.2025.8.09.0001`);
+  });
+
+  it("sem número no formato CNJ, fica o link que veio do site", () => {
+    expect(tjgo({ numero_processo: "1/GO" }).link).toBe(LINK);
+  });
+
+  it("CNJ inválido num campo e válido no outro: vale o válido", () => {
+    expect(tjgo({ numero_processo_cnj: "não disponível", numero_processo: "0000001-11.2025.8.09.0001" }).link).toBe(
+      `${PROCESSO}0000001-11.2025.8.09.0001`,
+    );
+  });
+
+  it("resposta mista: um aviso só, que distingue o link do processo do link da pesquisa", () => {
+    const avisos = avisoDeLinkDoTjgo([
+      { link: `${PROCESSO}0000001-11.2025.8.09.0001`, numeroCnj: "0000001-11.2025.8.09.0001" },
+      { link: LINK },
+    ]);
+    expect(avisos).toHaveLength(1);
+    expect(avisos[0]).toMatch(/página pública do processo/);
+    expect(avisos[0]).toMatch(/Sem Permissão/);
+  });
+
+  it("acórdão e busca guardados na memória antes da troca também saem com o link do processo", async () => {
+    const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "garimpo-tjgo-"));
+    const { cliente } = clienteFalso([respostaJson(fixture("tjgo.json"))]);
+    await buscaDireta(cliente, { tribunal: "tjgo", texto: "exemplo" }, new Memoria({ dados }));
+    // A gravação no disco corre por trás da resposta: espera o acórdão e a busca chegarem lá.
+    const memoria = join(dados, "memoria");
+    const gravados = async () =>
+      (await readdir(memoria, { recursive: true }).catch(() => [])).filter((n) => n.endsWith(".json")).length;
+    for (let i = 0; i < 100 && (await gravados()) < 2; i++) await new Promise((r) => setTimeout(r, 20));
+    // Volta os arquivos gravados ao formato de antes: o link da pesquisa do site.
+    for (const pasta of await readdir(memoria)) {
+      for (const nome of await readdir(join(memoria, pasta))) {
+        const arquivo = join(memoria, pasta, nome);
+        const texto = await readFile(arquivo, "utf8");
+        await writeFile(arquivo, texto.split(`${PROCESSO}0000001-11.2025.8.09.0001`).join(LINK));
+      }
+    }
+    const nova = new Memoria({ dados });
+    expect((await nova.obter("tjgo:301"))?.acordao.link).toBe(`${PROCESSO}0000001-11.2025.8.09.0001`);
+    const semRede = clienteFalso([]);
+    const r = await buscaDireta(semRede.cliente, { tribunal: "tjgo", texto: "exemplo" }, nova);
+    expect(r.buscaGuardada).toBeDefined();
+    expect(r.acordaos[0].link).toBe(`${PROCESSO}0000001-11.2025.8.09.0001`);
+    expect(r.avisos.filter((a) => /Sem Permissão/.test(a))).toHaveLength(0);
+    expect(semRede.chamadas).toHaveLength(0);
+  });
+
+  it("o padrão vale só no TJGO", () => {
+    const [a] = normalizar("tjmg", {
+      results: [{ id: 1, texto_ementa: "EMENTA.", numero_processo_cnj: "0000001-11.2025.8.13.0001", link_pdf: "https://exemplo.test/x" }],
+    }).acordaos;
+    expect(a.link).toBe("https://exemplo.test/x");
+  });
+
+  it("o aviso diz que o link abre o processo, não o arquivo do acórdão, e não fala em «Sem Permissão»", () => {
+    const avisos = avisoDeLinkDoTjgo([{ link: `${PROCESSO}0000001-11.2025.8.09.0001`, numeroCnj: "0000001-11.2025.8.09.0001" }]);
+    expect(avisos).toHaveLength(1);
+    expect(avisos[0]).toMatch(/página pública do processo/);
+    expect(avisos[0]).toMatch(/não o arquivo do acórdão/);
+    expect(avisos[0]).not.toMatch(/Sem Permissão/);
+  });
+});
 
 describe("link do Projudi do TJGO", () => {
   it("avisa uma vez, com o endereço público da pesquisa, quando algum link é do Projudi", () => {
@@ -55,10 +138,12 @@ describe("link do Projudi do TJGO", () => {
     expect(avisoDeLinkDoTjgo([{ link: "https://exemplo.test/x" }, { linkConsulta: "https://outro.test/y" }, {}])).toEqual([]);
   });
 
-  it("busca direta no TJGO traz o aviso", async () => {
+  it("busca direta no TJGO traz o link do processo e o aviso de que ele abre o processo", async () => {
     const { cliente } = clienteFalso([respostaJson(fixture("tjgo.json"))]);
     const r = await buscaDireta(cliente, { tribunal: "tjgo", texto: "exemplo" }, new Memoria());
-    expect(r.avisos.filter((a) => /Sem Permissão/.test(a))).toHaveLength(1);
+    expect(r.acordaos[0].link).toBe(`${PROCESSO}0000001-11.2025.8.09.0001`);
+    expect(r.avisos.filter((a) => /página pública do processo/.test(a))).toHaveLength(1);
+    expect(r.avisos.filter((a) => /Sem Permissão/.test(a))).toHaveLength(0);
   });
 
   it("busca ampla traz o aviso uma só vez, mesmo com vários acórdãos do Projudi", async () => {
@@ -101,7 +186,8 @@ describe("link do Projudi do TJGO", () => {
         })) as unknown as typeof fetch,
     });
     const r = await buscaAmpla(cliente, { formulacoes: ["dano moral coletivo"], tribunais: ["tjgo"] });
-    const avisos = r.avisos.filter((a) => /Sem Permissão/.test(a));
+    expect(r.acordaos[0].link).toBe(`${PROCESSO}${cnj}`);
+    const avisos = r.avisos.filter((a) => /página pública do processo/.test(a));
     expect(avisos).toHaveLength(1);
     expect(avisos[0]).toContain(cnj);
   });
@@ -178,6 +264,7 @@ describe("obter_ementa com acórdão do TJGO", () => {
 
   it("traz o aviso do link do Projudi uma vez", async () => {
     const e = await ementaDe("tjgo.json", "tjgo", "tjgo:301");
-    expect(JSON.stringify(e).match(/Sem Permissão/g) ?? []).toHaveLength(1);
+    expect(e.link).toBe(`${PROCESSO}0000001-11.2025.8.09.0001`);
+    expect(JSON.stringify(e).match(/página pública do processo/g) ?? []).toHaveLength(1);
   });
 });
