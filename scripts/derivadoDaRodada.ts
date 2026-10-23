@@ -180,12 +180,13 @@ function conferir(caminho: string, valor: unknown, regras: Record<string, Regra>
     problemas.push(`${caminho || "raiz"}: precisa ser um objeto`);
     return;
   }
+  // Object.hasOwn, não `in`: `in` aceitaria constructor, toString e __proto__, herdados de Object.prototype.
   for (const campo of Object.keys(valor))
-    if (!(campo in regras) && !(caminho === "" && (campo === "rodada" || campo === "consultas")))
+    if (!Object.hasOwn(regras, campo) && !(caminho === "" && (campo === "rodada" || campo === "consultas")))
       problemas.push(`${caminho ? `${caminho}.` : ""}${campo}: campo fora do esquema`);
   for (const [campo, regra] of Object.entries(regras)) {
     const nome = `${caminho ? `${caminho}.` : ""}${campo}`;
-    if (!(campo in valor)) {
+    if (!Object.hasOwn(valor, campo)) {
       if (regra.obrigatorio) problemas.push(`${nome}: obrigatório`);
     } else if (!regra.valida(valor[campo])) problemas.push(`${nome}: precisa ser ${regra.descricao}`);
   }
@@ -196,7 +197,7 @@ export function validarDerivado(d: unknown): string[] {
   const problemas: string[] = [];
   conferir("", d, RAIZ, problemas);
   if (!objeto(d)) return problemas;
-  if (!("rodada" in d)) problemas.push("rodada: obrigatório");
+  if (!Object.hasOwn(d, "rodada")) problemas.push("rodada: obrigatório");
   else conferir("rodada", d.rodada, RODADA, problemas);
   if (!Array.isArray(d.consultas)) problemas.push("consultas: precisa ser uma lista");
   else d.consultas.forEach((c, i) => conferir(`consultas[${i}]`, c, CONSULTA, problemas));

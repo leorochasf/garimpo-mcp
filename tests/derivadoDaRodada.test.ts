@@ -137,6 +137,21 @@ describe("validarDerivado (esquema fechado)", () => {
     expect(problemas).toMatch(/consultas\[1\]\.acordaos/);
   });
 
+  it("nome herdado de Object.prototype (constructor, toString, __proto__) não passa por campo do esquema", () => {
+    const vazamento = { numero: NUMERO, relator: RELATOR, ementa: EMENTA };
+    for (const nome of ["constructor", "toString", "__proto__"]) {
+      for (const [onde, caminho] of [["raiz", ""], ["rodada", "rodada."], ["consulta", "consultas[0]."]] as const) {
+        const d = JSON.parse(JSON.stringify(bom()));
+        const alvo = onde === "raiz" ? d : onde === "rodada" ? d.rodada : d.consultas[0];
+        // Propriedade própria, como JSON.parse cria ("__proto__" por atribuição trocaria o protótipo).
+        Object.defineProperty(alvo, nome, { value: vazamento, enumerable: true, configurable: true, writable: true });
+        const problemas = validarDerivado(d).join("\n");
+        expect(problemas, `${onde}.${nome}`).toContain(`${caminho}${nome}: campo fora do esquema`);
+        expect(problemas).not.toContain(RELATOR);
+      }
+    }
+  });
+
   it("aceita só o esquema e a versão declarados", () => {
     const d = bom();
     d.esquema = "outro";
