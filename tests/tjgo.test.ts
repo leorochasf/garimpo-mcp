@@ -638,8 +638,12 @@ describe("TJGO — arquivos assinados (.p7s): o documento embutido, com as mesma
       envelope("tjgo-relatorio-voto-pdf.p7s"),
     ]);
     expect(explicacao).not.toMatch(/entrega o acórdão em HTML, não em PDF/);
-    expect(explicacao).toMatch(/PDF embutido/);
-    expect(explicacao).toMatch(/texto do portal do tribunal, sem recibo de origem/);
+    // Redação decidida no rito D12 (revisao-b2.2.md, item 5), literal.
+    const frase =
+      "O Garimpo guardou o texto do julgamento trazido do Projudi do TJ de Goiás. O documento pode vir em HTML ou " +
+      "dentro de um arquivo assinado (.p7s), inclusive como PDF embutido. É texto do portal do tribunal, sem recibo de " +
+      "origem; o Garimpo não verifica a assinatura. ";
+    expect(explicacao.startsWith(frase), explicacao).toBe(true);
     expect(explicacao).toMatch(/ler_inteiro_teor com o id tjgo:77/);
   });
 

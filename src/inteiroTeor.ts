@@ -111,24 +111,36 @@ function numeroDoAcordao(acordao: Acordao | undefined): string | undefined {
 }
 
 /**
- * Fim comum dos caminhos sem download automático (U52, AC-A29): a leitura local do PDF que o usuário baixou, que não
- * contorna nada, com a chamada pronta pelo id e o aviso de que o PDF trazido pode ser de outro acórdão.
+ * Fim comum dos caminhos sem download automático (U52, AC-A29): o aviso de que o PDF trazido pode ser de outro acórdão.
+ * Redação decidida no rito D12 (revisão do B2.2, item 2).
  */
-function leituraPeloUsuario(id: string | undefined, acordao: Acordao | undefined): string {
-  const comId = id
-    ? `com o id ${id} (a chamada vem pronta em chamadaPronta; falta só o caminho)`
-    : "(com o id que veio na busca, ou tribunal + número, se quiser o cabeçalho preenchido como vínculo declarado)";
+function avisoDeIdentidade(acordao: Acordao | undefined): string {
   const numero = numeroDoAcordao(acordao);
-  const confira = numero ? ` (o ler_inteiro_teor só informa se o número ${numero} aparece no texto)` : "";
   return (
-    `passe o caminho do arquivo ao ler_inteiro_teor ${comId}. Ele sai como inteiro teor trazido pelo usuário, de ` +
-    `origem declarada, não conferida: o PDF pode ser de outro acórdão, e o Garimpo não confere que é este${confira}.`
+    "O PDF será lido como inteiro teor trazido pelo usuário, de origem declarada, não conferida. Ele pode ser de " +
+    "outro acórdão; o Garimpo não confirma essa identidade." +
+    (numero
+      ? ` A leitura informa se o número ${numero} aparece no texto; isso não confirma que seja o mesmo acórdão.`
+      : "")
   );
 }
 
+/** A leitura local do PDF que o usuário baixou, que não contorna nada: pela chamada pronta com o id (D12, item 1). */
+function leituraPeloId(id: string): string {
+  return `Para ler pelo Garimpo, preencha o caminho do PDF em chamadaPronta e use ler_inteiro_teor com o id ${id}.`;
+}
+
+/** Sem id: o caminho do arquivo ao ler_inteiro_teor, com o id ou tribunal + número opcionais para o vínculo declarado. */
+const LEITURA_SEM_ID =
+  "passe o caminho do arquivo ao ler_inteiro_teor (com o id que veio na busca, ou tribunal + número, se quiser o " +
+  "cabeçalho preenchido como vínculo declarado).";
+
 /** O caminho para ler um acórdão sem download automático, a partir do link. */
 function ponte(id: string | undefined, acordao: Acordao | undefined): string {
-  return `Para ler pelo Garimpo: abra o link no navegador, baixe o PDF e ${leituraPeloUsuario(id, acordao)}`;
+  const leitura = id
+    ? `Abra o link no navegador e baixe o PDF. ${leituraPeloId(id)}`
+    : `Para ler pelo Garimpo: abra o link no navegador, baixe o PDF e ${LEITURA_SEM_ID}`;
+  return `${leitura} ${avisoDeIdentidade(acordao)}`;
 }
 
 /**
@@ -141,10 +153,11 @@ function caminhoSemLink(nomeTribunal: string, acordao: Acordao | undefined, id: 
     : acordao && !acordao.semNumero
       ? `o número ${acordao.numero}`
       : "o acórdão";
-  return (
-    `Pesquise ${numero} no portal de jurisprudência do ${nomeTribunal}, baixe lá o PDF e, para ler pelo Garimpo, ` +
-    leituraPeloUsuario(id, acordao)
-  );
+  const pesquise = `Pesquise ${numero} no portal de jurisprudência do ${nomeTribunal}`;
+  const leitura = id
+    ? `${pesquise} e baixe lá o PDF. ${leituraPeloId(id)}`
+    : `${pesquise}, baixe lá o PDF e, para ler pelo Garimpo, ${LEITURA_SEM_ID}`;
+  return `${leitura} ${avisoDeIdentidade(acordao)}`;
 }
 
 export function pastaPadrao(): string {
@@ -399,9 +412,10 @@ async function textoDoPortal(
         ? `A API do ${nomeTribunal} entrega o texto do acórdão, não o PDF: o Garimpo o guardou como texto do portal do ` +
           `tribunal, sem recibo de origem; não é o PDF do tribunal. ${ler}`
         : acordao.tribunal === "tjgo"
-        ? `O Projudi do ${nomeTribunal} entrega o documento do julgamento em HTML ou num arquivo assinado (.p7s), que ` +
-          "pode trazer um PDF embutido: o Garimpo o converteu em texto (texto do portal do tribunal, sem recibo de " +
-          `origem; a assinatura não é verificada pelo Garimpo). ${ler}`
+        ? // Redação decidida no rito D12 (revisão do B2.2, item 5).
+          `O Garimpo guardou o texto do julgamento trazido do Projudi do ${nomeTribunal}. O documento pode vir em HTML ` +
+          "ou dentro de um arquivo assinado (.p7s), inclusive como PDF embutido. É texto do portal do tribunal, sem " +
+          `recibo de origem; o Garimpo não verifica a assinatura. ${ler}`
         : `O portal do ${nomeTribunal} entrega o acórdão em HTML, não em PDF: o Garimpo o converteu em texto (texto do ` +
           `portal do tribunal, sem recibo de origem; não é o PDF do tribunal). ${ler}`,
   };

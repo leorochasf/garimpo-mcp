@@ -40,7 +40,11 @@ describe("ponte do só link: chamada pronta pelo id", () => {
         argumentos: { caminho: "<caminho do PDF que você baixou>", id: "tjba:901" },
       },
     });
-    if (!r.baixado) expect(r.explicacao).toMatch(/ler_inteiro_teor com o id tjba:901/);
+    if (!r.baixado) {
+      expect(r.explicacao).toContain(
+        "Para ler pelo Garimpo, preencha o caminho do PDF em chamadaPronta e use ler_inteiro_teor com o id tjba:901.",
+      );
+    }
     expect(chamadas).toHaveLength(0);
   });
 
@@ -49,9 +53,12 @@ describe("ponte do só link: chamada pronta pelo id", () => {
     const r = await obterInteiroTeor({ id: "tjba:902", pasta }, () => clienteFalso([]).cliente, memoria);
     expect(r.baixado).toBe(false);
     if (r.baixado) return;
-    expect(r.explicacao).toMatch(/pode ser de outro acórdão/);
-    expect(r.explicacao).toContain(CNJ);
-    expect(r.explicacao).toMatch(/declarada, não conferida/);
+    // Redação decidida no rito D12 (revisao-b2.2.md, item 2), literal.
+    expect(r.explicacao).toContain(
+      "O PDF será lido como inteiro teor trazido pelo usuário, de origem declarada, não conferida. Ele pode ser de " +
+        "outro acórdão; o Garimpo não confirma essa identidade. A leitura informa se o número " +
+        `${CNJ} aparece no texto; isso não confirma que seja o mesmo acórdão.`,
+    );
   });
 
   it("sem link na busca (só link e tribunal que baixa): a mesma chamada pronta, sem mandar abrir link nenhum", async () => {

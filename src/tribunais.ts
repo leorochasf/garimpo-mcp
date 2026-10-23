@@ -363,7 +363,7 @@ export function paginaDeTribunais(): string {
           ? INTEIRO_TEOR_TRT
           : t.inteiroTeor === "portal"
             ? INTEIRO_TEOR_PORTAL
-            : `só link (${t.classeDoMotivo}; ${t.dataDaProva ? `prova de ${t.dataDaProva}` : "sem prova própria"}): ${t.motivoLink}`;
+            : `só link (${t.classeDoMotivo}; ${t.dataDaProva ? `registro de ${t.dataDaProva}, sem nova conferência` : "sem prova própria"}): ${t.motivoLink}`;
     return `| ${t.sigla.toUpperCase()} | ${t.nome} | ${t.fonte} | ${qualificados} | ${t.tetoResultados} | ${inteiroTeor} |`;
   });
   return [

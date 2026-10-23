@@ -49,8 +49,8 @@ describe("motivo do só link classificado e datado (fotografia B0.1)", () => {
 
   it("a página garimpo://tribunais diz a classe e a data, ou que não há prova própria", () => {
     const pagina = paginaDeTribunais();
-    expect(pagina).toMatch(/\| TJRJ \|.*só link \(vedação escrita; prova de 2026-10-14\): .*termo de uso/);
-    expect(pagina).toMatch(/\| TJPA \|.*só link \(rota quebrada; prova de 2026-10-14\)/);
+    expect(pagina).toMatch(/\| TJRJ \|.*só link \(vedação escrita; registro de 2026-10-14, sem nova conferência\): .*termo de uso/);
+    expect(pagina).toMatch(/\| TJPA \|.*só link \(rota quebrada; registro de 2026-10-14, sem nova conferência\)/);
     expect(pagina).toMatch(/\| TJAP \|.*só link \(não testado; sem prova própria\)/);
   });
 
