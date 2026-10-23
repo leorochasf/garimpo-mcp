@@ -1,10 +1,12 @@
 import { createHash } from "node:crypto";
+import { readFileSync, utimesSync, writeFileSync } from "node:fs";
 import { mkdtemp, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { COMPOSICAO_TCU, CONSULTAS_TCU, gravarTcuSintetico } from "../scripts/tcuSintetico.js";
 import { caminhoDoAnoTcu, caminhoDoIndiceTcu, caminhoDoReciboTcu, criarIndiceTcu, type FiltrosTcu, pesquisarTcu, type ResultadoTcu } from "../src/tcuLocal.js";
+import { IndiceTcu } from "../src/tcuIndice.js";
 import { acordaoFicticio, gravarAnoTcu, type RegistroTcu } from "./apoioTcu.js";
 
 /** As mesmas frações da composição da bateria (B0.3), com menos registros e textos curtos. */
@@ -227,5 +229,79 @@ describe("índice local do TCU: índice velho, ausente ou estragado nunca muda a
     await expect(criarIndiceTcu(dados, 2025)).rejects.toThrow(/não confere com o recibo/);
     await rm(caminhoDoReciboTcu(dados, 2025));
     await expect(criarIndiceTcu(dados, 2025)).rejects.toThrow(/não tem recibo/);
+  });
+});
+
+// Troca do arquivo DEPOIS de o índice ser validado e ANTES de a resposta ser montada (revisão M1): a consulta não pode
+// misturar o índice velho com o texto novo.
+describe("índice local do TCU: troca do arquivo entre a validação e o uso (M1)", () => {
+  const DATA = new Date("2026-10-01T12:00:00Z");
+  const sigilo = (t: string, chave: string) => t.replace(new RegExp(`("${chave}"[\\s\\S]*?)"OFICIALIZADO"`), '$1"SIGILOSO    "');
+
+  async function pasta(lista: RegistroTcu[]) {
+    const dados = await mkdtemp(join(tmpdir(), "garimpo-tcu-indice-janela-"));
+    const csv = await gravarComRecibo(dados, 2025, lista);
+    await utimes(csv, DATA, DATA);
+    await criarIndiceTcu(dados, 2025);
+    return { dados, csv };
+  }
+
+  /** Na 1ª abertura do leitor do índice (depois da validação), troca o arquivo mantendo tamanho e data. */
+  function trocarNaPrimeiraLeitura(csv: string, trocar: (t: string) => string) {
+    const original = IndiceTcu.prototype.leitor;
+    let trocou = false;
+    const espiao = vi.spyOn(IndiceTcu.prototype, "leitor").mockImplementation(async function (this: IndiceTcu) {
+      if (!trocou) {
+        trocou = true;
+        const antes = readFileSync(csv);
+        const depois = Buffer.from(trocar(antes.toString("utf8")), "utf8");
+        expect(depois.length).toBe(antes.length);
+        expect(depois.equals(antes)).toBe(false);
+        writeFileSync(csv, depois);
+        utimesSync(csv, DATA, DATA);
+      }
+      return original.call(this);
+    });
+    return { foiTrocado: () => trocou, restaurar: () => espiao.mockRestore() };
+  }
+
+  it("texto trocado: o índice velho acha, o texto novo não — a resposta é a da varredura", async () => {
+    const lista = [1, 2, 3, 4, 5].map((n) => acordaoFicticio(n, { DATASESSAO: `0${n}/12/2025`, ...(n === 5 ? { ACORDAO: "<p>abacate</p>" } : {}) }));
+    const { dados, csv } = await pasta(lista);
+    expect((await pesquisarTcu(dados, { consulta: "abacate" })).indiceLocal?.comIndice).toEqual([2025]); // o índice já valeu antes
+    const troca = trocarNaPrimeiraLeitura(csv, (t) => t.replace("<p>abacate</p>", "<p>laranja</p>"));
+    try {
+      const r = await pesquisarTcu(dados, { consulta: "abacate" });
+      expect(troca.foiTrocado()).toBe(true);
+      troca.restaurar();
+      const varredura = await pesquisarTcu(dados, { consulta: "abacate" }, { indice: false });
+      expect(r).toMatchObject({ total: 0, resultados: [] });
+      expect(semTempo(r)).toEqual(semTempo(varredura));
+      expect(r.indiceLocal?.comIndice).toEqual([]);
+      expect(r.indiceLocal?.semIndice[0].motivo).toMatch(/mudou/);
+    } finally {
+      troca.restaurar();
+    }
+  });
+
+  it("registro que passou a sigiloso: as contagens também são as da varredura", async () => {
+    const lista = [1, 2].map((n) => acordaoFicticio(n, { DATASESSAO: `0${n}/12/2025`, VOTO: "<p>banana</p>" }));
+    const { dados, csv } = await pasta(lista);
+    const troca = trocarNaPrimeiraLeitura(csv, (t) => sigilo(t, "ACORDAO-COMPLETO-100001"));
+    try {
+      const r = await pesquisarTcu(dados, { consulta: "banana", limite: 1 });
+      expect(troca.foiTrocado()).toBe(true);
+      troca.restaurar();
+      const varredura = await pesquisarTcu(dados, { consulta: "banana", limite: 1 }, { indice: false });
+      expect(r).toMatchObject({ total: 1, excluidosPorSituacao: 1 });
+      expect(semTempo(r)).toEqual(semTempo(varredura));
+    } finally {
+      troca.restaurar();
+    }
+  });
+
+  it("sem troca: o índice continua valendo (a conferência extra não derruba o caminho rápido)", async () => {
+    const { dados } = await pasta([1, 2, 3].map((n) => acordaoFicticio(n)));
+    for (let i = 0; i < 3; i++) expect((await pesquisarTcu(dados, { consulta: "sobrepreço" })).indiceLocal).toEqual({ comIndice: [2025], semIndice: [] });
   });
 });

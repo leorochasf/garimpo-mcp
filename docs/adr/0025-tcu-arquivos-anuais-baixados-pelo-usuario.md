@@ -90,6 +90,12 @@ sem arquivo; muda só o tempo, e a resposta ganha `indiceLocal` (por ano: pelo �
   o colegiado e o relator que o índice registrou e não pode estar INVALIDADO nem sigiloso; senão a pesquisa inteira é
   refeita lendo os arquivos. Nunca resposta pela metade. Limite: dentro de um mesmo processo, uma troca que forje
   também a data de alteração do sistema (exige ferramenta de baixo nível) só é pega pela segunda defesa.
+  Terceira defesa, a janela entre validar e responder (revisão do B1.2, M1: CSV trocado depois do sha256 e antes de a
+  resposta ser montada misturava índice velho com texto novo): ao terminar de montar a resposta (contagens, seleção e
+  texto dos acórdãos), cada ano que usou o índice tem a identidade do arquivo conferida de novo por um `stat` (tamanho,
+  datas, ctime e inode contra a marca da validação, sem reler nem refazer o hash); se mudou, a pesquisa inteira é
+  refeita lendo os arquivos. Limite: escrita no mesmo instante do `stat` final, ou depois dele, equivale a escrita
+  depois da resposta; e sistema de arquivos com relógio grosso pode não distinguir duas escritas do mesmo tique.
 - **Quando nasce (D14, recomendação "sob pedido, ao baixar o ano"):** ao baixar, retomar ou atualizar um ano; e
   `renovar: true` com `confirmar: true`, quando o TCU diz que não mudou (304), cria o índice que falta sem baixar de
   novo — é o caminho para anos baixados pela 1.1. Falha ao criar o índice não desfaz o download. O aviso antes de baixar

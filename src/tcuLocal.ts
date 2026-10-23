@@ -398,8 +398,18 @@ const marcaDoArquivo = (s: { size: number; mtimeMs: number; ctimeMs: number; ino
 
 const RECRIAR = "Para criar o índice, use baixar_anos_tcu com renovar: true e confirmar: true.";
 
-/** O índice do ano, se existe e vale para o arquivo baixado agora; senão, o motivo (e a pesquisa varre o ano). */
-export async function indiceDoAnoTcu(dados: string, ano: number): Promise<{ indice: IndiceTcu<MetaDoIndice> } | { motivo: string }> {
+/** O índice do ano validado agora e a conferência barata de que o arquivo continua o mesmo que foi validado (revisão M1). */
+interface IndiceValidado {
+  indice: IndiceTcu<MetaDoIndice>;
+  /** Confere (só um stat: tamanho, datas, ctime e inode contra a marca da validação) que ninguém tocou o arquivo desde então. */
+  mesmoArquivo: () => Promise<boolean>;
+}
+
+/**
+ * O índice do ano, se existe e vale para o arquivo baixado agora; senão, o motivo (e a pesquisa varre o ano).
+ * Quem usa o índice confere `mesmoArquivo` ao terminar de montar a resposta: arquivo trocado no meio = pesquisa refeita.
+ */
+export async function indiceDoAnoTcu(dados: string, ano: number): Promise<IndiceValidado | { motivo: string }> {
   const caminho = caminhoDoIndiceTcu(dados, ano);
   const [recibo, doIndice, doCsv] = await Promise.all([
     lerReciboTcu(dados, ano),
@@ -441,7 +451,10 @@ export async function indiceDoAnoTcu(dados: string, ano: number): Promise<{ indi
     }
     conferidos.set(csv, marcaCsv!);
   }
-  return aberto;
+  return {
+    indice: aberto.indice,
+    mesmoArquivo: async () => marcaDoArquivo(await stat(csv).catch(() => undefined), m.csv.sha256) === marcaCsv,
+  };
 }
 
 /**
@@ -546,25 +559,37 @@ export async function pesquisarTcu(dados: string, f: FiltrosTcu, opcoes: OpcoesD
   const tentar = async (usarIndice: boolean, recusa?: string) => {
     const melhores = new Melhores(limite);
     const indiceLocal: IndiceLocalTcu = { comIndice: [], semIndice: [] };
+    const usados: IndiceValidado[] = [];
+    // Arquivo trocado entre a validação do índice e o fim da resposta: o índice velho não se mistura com o texto novo.
+    const mudou = async () => !(await Promise.all(usados.map((u) => u.mesmoArquivo()))).every(Boolean);
+    const trocado = () => new IndiceInvalidoError("o arquivo do ano mudou enquanto a pesquisa usava o índice");
     let total = 0;
     let excluidos = 0;
-    for (const ano of anos) {
-      const achado = usarIndice ? await indiceDoAnoTcu(dados, ano) : { motivo: recusa ?? "Pesquisa pedida sem o índice: o arquivo do ano foi lido inteiro." };
-      const doIndice = "indice" in achado ? await pesquisarNoIndice(dados, ano, achado.indice, c, melhores) : undefined;
-      if (doIndice) indiceLocal.comIndice.push(ano);
-      else {
-        indiceLocal.semIndice.push({
-          ano,
-          motivo: "motivo" in achado ? achado.motivo : "Consulta com termo sem letra nem número: o índice não ajuda e o arquivo do ano foi lido inteiro.",
-        });
+    try {
+      for (const ano of anos) {
+        const achado = usarIndice ? await indiceDoAnoTcu(dados, ano) : { motivo: recusa ?? "Pesquisa pedida sem o índice: o arquivo do ano foi lido inteiro." };
+        if ("indice" in achado) usados.push(achado);
+        const doIndice = "indice" in achado ? await pesquisarNoIndice(dados, ano, achado.indice, c, melhores) : undefined;
+        if (doIndice) indiceLocal.comIndice.push(ano);
+        else {
+          indiceLocal.semIndice.push({
+            ano,
+            motivo: "motivo" in achado ? achado.motivo : "Consulta com termo sem letra nem número: o índice não ajuda e o arquivo do ano foi lido inteiro.",
+          });
+        }
+        const parcial = doIndice ?? (await varrerAno(dados, ano, c, melhores));
+        total += parcial.total;
+        excluidos += parcial.excluidos;
       }
-      const parcial = doIndice ?? (await varrerAno(dados, ano, c, melhores));
-      total += parcial.total;
-      excluidos += parcial.excluidos;
+      const resultados: AcordaoTcu[] = [];
+      for (const { achado } of melhores.itens) resultados.push(typeof achado === "function" ? await achado() : achado);
+      if (await mudou()) throw trocado();
+      return { total, excluidos, resultados, indiceLocal };
+    } catch (e) {
+      // Leitura de arquivo trocado pode falhar de outro jeito que não o do índice: se o arquivo mudou, é a mesma causa.
+      if (!(e instanceof IndiceInvalidoError) && (await mudou())) throw trocado();
+      throw e;
     }
-    const resultados: AcordaoTcu[] = [];
-    for (const { achado } of melhores.itens) resultados.push(typeof achado === "function" ? await achado() : achado);
-    return { total, excluidos, resultados, indiceLocal };
   };
   let r: Awaited<ReturnType<typeof tentar>>;
   try {
