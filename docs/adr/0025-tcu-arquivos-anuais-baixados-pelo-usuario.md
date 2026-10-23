@@ -65,3 +65,55 @@ Mantém-se a **varredura por arquivo**, sem índice local: com 10 anos baixados 
 Para a 1.0 o custo é **dito, não escondido**: o aviso de baixar diz que cada ano baixado acrescenta cerca de 10 a 20 s a
 cada pesquisa e recomenda poucos anos; a pesquisa devolve `anosPercorridos` e `tempoSegundos`. O índice local fica para
 o ticket de cache forte e índice local (b19-velocidade), que recebe estes números como caso de uso.
+
+## Decisão de velocidade 1.2 (B1.2, 2026-10-23)
+
+Substitui a da 1.0 no que diz respeito à pesquisa: cada ano baixado ganha um **índice textual local** ao lado do CSV
+(`acordao-completo-<ano>.indice`), e a pesquisa usa o índice quando ele vale. A resposta é **a mesma** da varredura —
+ids, total, ordem, todos os campos (inclusive `trechos` e `partesSigilosas`), exclusões por situação, anos usados e
+sem arquivo; muda só o tempo, e a resposta ganha `indiceLocal` (por ano: pelo índice ou lido inteiro, e por quê).
+
+- **O que o índice guarda:** as palavras do mesmo texto que a pesquisa compara (normalizado como o filtro local), com
+  documentos e posições, e por acórdão só onde ele está no CSV, chave, tipo, colegiado, relator, data e número. Nada de
+  INTERESSADOS/ADVOGADO, nenhum texto novo, nenhum resumo por IA. Sem dependência nativa (`src/tcuIndice.ts`).
+- **Mesma resposta por construção:** o índice decide sozinho só palavra solta e frase de palavras separadas por espaço;
+  termo com pontuação e acórdão que a triagem barata recusaria (marcado ao criar o índice) são conferidos no texto pelo
+  mesmo caminho da varredura; os acórdãos mostrados são relidos do CSV e montados pelo mesmo código. Termo sem letra
+  nem número: o ano é lido inteiro.
+- **Amarrado ao arquivo:** o índice nasce só de CSV com recibo e que confere com o sha256 dele, e guarda sha256,
+  tamanho e data do arquivo. CSV trocado, recibo ausente, índice ausente, de outra versão ou estragado (sha256 do
+  índice inteiro) → aquele ano é lido inteiro, com o motivo em `indiceLocal`; registro que não é o que o índice aponta →
+  a pesquisa inteira é refeita lendo os arquivos. Nunca resposta pela metade.
+- **Quando nasce (D14, recomendação "sob pedido, ao baixar o ano"):** ao baixar, retomar ou atualizar um ano; e
+  `renovar: true` com `confirmar: true`, quando o TCU diz que não mudou (304), cria o índice que falta sem baixar de
+  novo — é o caminho para anos baixados pela 1.1. Falha ao criar o índice não desfaz o download. O aviso antes de baixar
+  estima o disco do índice (`indiceEstimadoMb`, 35 % do arquivo).
+
+**Medição** (sem rede; TCU sintético da composição registrada em B0.3; servidor compilado chamado por MCP no stdio,
+processo novo por bloco; N = 30 por braço, varredura e índice alternados na mesma rodada, respostas comparadas campo a
+campo: idênticas nas 30 rodadas; `scripts/medirIndiceTcu.ts`, 2026-10-23, mesma máquina da linha de base):
+
+| Pesquisa quente, mediana (p95), ms | 1 ano | 5 anos | 10 anos |
+|---|---|---|---|
+| seletiva | 256 → 6,5 (7,6) | 1.351 → 19,1 (24,2) | 3.010 → 21,8 (24,0) |
+| comum | 411 → 16,7 (20,0) | 2.597 → 20,4 (23,7) | 5.272 → 23,3 (25,8) |
+| vazia | 245 → 2,8 (5,4) | 1.464 → 5,7 (8,2) | 2.989 → 8,4 (9,5) |
+| sem acento | 290 → 39,5 (43,8) | 1.615 → 41,7 (49,9) | 3.403 → 47,2 (53,2) |
+| entre aspas | 447 → 51,4 (56,2) | 2.520 → 59,9 (66,3) | 5.188 → 68,6 (75,8) |
+| com filtros | 102 → 9,4 (11,8) | 569 → 37,3 (41,5) | 1.179 → 41,8 (44,7) |
+| 1ª do processo (comum) | 446 → 38,7 (42,7) | 2.035 → 63,4 (66,3) | 4.606 → 92,8 (98,0) |
+
+Ganho na mediana de 7,3× (sem acento, 1 ano) a 354× (vazia, 10 anos); com 10 anos, p95 de no máximo 98 ms, dentro da
+meta de D11 (≥ 5× e ≤ 2 s no p95 com 10 anos sintéticos). O braço varredura reproduz a linha de base da 1.1.1
+(`docs/banco-de-provas/velocidade-base-1.1.1.md`: comum de 10 anos 5.236 ms lá, 5.272 ms aqui). Vale para esta
+composição; o tempo absoluto no arquivo real não sai daqui.
+
+**Criação do índice** (processo próprio, servidor compilado): 1 / 5 / 10 anos sintéticos (9,8 / 46,9 / 95,5 MB de CSV)
+→ 3,4 / 16,7 / 33,9 MB de índice (35,1 a 35,7 % do CSV), 2,7 / 14,2 / 21,5 s e RAM de pico de 135 / 149 / 161 MB (42 MB
+do processo vazio), medidos com a suíte de testes rodando ao mesmo tempo. **Um ano sintético do tamanho do real**
+(18.588 registros, 388 MB; `scripts/medirIndiceTcuAnoReal.ts`): índice de 131 MB (33,9 %), cerca de 50 s e 377 MB de
+RAM de pico para criar; a pesquisa comum caiu de 20,8 s (varredura) para 33 ms (índice; 178 ms a 1ª do processo), com o
+mesmo total (16.316). **Não medido:** a fração e o tempo no arquivo real do TCU, que tem mais marcação HTML por palavra.
+
+**Fica para depois:** as descrições das ferramentas no `servidor.ts` ainda falam em 10 a 20 s por ano (B2.1); o teto
+de disco aceitável é decisão do dono (D14), com os 35 % acima na mão.
