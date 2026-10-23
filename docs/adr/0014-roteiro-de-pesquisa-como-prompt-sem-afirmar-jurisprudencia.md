@@ -189,3 +189,14 @@ servidor, as condições que o texto nomeia (busca vencida e falha de leitura, a
 cliente MCP nos testes, sugerida como opcional, não foi feita: montar no próprio arquivo é o padrão do projeto (25
 arquivos de teste), a única ajuda comum exige o cliente do Falcão, e uma terceira forma só para estes arquivos não
 tiraria a repetição do resto.
+
+## Emenda de 2026-10-23: abertura das instructions (decisões públicas e freios)
+
+O dono aprovou trocar a 1ª frase das `instructions` (R1 de `TICKETS/plano-1.2/redacao-sem-falso-alarme.md`). A
+frase antiga não dizia que o objeto é decisão judicial pública nem que há freios, e um assistente cauteloso podia ler
+"baixa PDF de base não oficial" como coleta duvidosa. Texto novo da abertura, literal: "O Garimpo é ferramenta de
+pesquisa jurídica: busca decisões judiciais públicas (jurisprudência) em base não oficial e baixa o inteiro teor
+oficial que os próprios tribunais publicam, quando disponível; toda chamada passa por um cliente único com freios (no
+máximo 2 chamadas simultâneas, espera e uma única nova tentativa em 429/503, parada e aviso em recusa). Use
+busca_ampla…". O resto das `instructions` não muda uma vírgula, inclusive as frases do B1.1. Os freios citados são os
+da regra 3 do `CLAUDE.md`, e o código não muda. O teste de igualdade foi atualizado no mesmo conjunto.

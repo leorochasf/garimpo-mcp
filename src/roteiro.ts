@@ -11,11 +11,14 @@
 /**
  * Texto aprovado das instructions (ADR-0014; frases aprovadas em 2026-10-09 (leitura do acórdão), 2026-10-13
  * (privacidade, D-14) e 2026-10-14 (súmula ou tema, revisão única)), sem mudar uma vírgula; as duas últimas frases
- * (ponteiro do distinguir_precedente e anti-injeção, B1.1) foram ratificadas pelo Codex Sol em 2026-10-23 (D12).
+ * (ponteiro do distinguir_precedente e anti-injeção, B1.1) foram ratificadas pelo Codex Sol em 2026-10-23 (D12);
+ * a abertura (decisões públicas e freios) foi aprovada pelo dono em 2026-10-23 (emenda da ADR-0014).
  */
 export const INSTRUCTIONS =
-  "O Garimpo pesquisa jurisprudência brasileira em base não oficial e baixa o inteiro teor oficial quando " +
-  "disponível; use busca_ampla com 3 a 6 formulações, obter_ementa dos acórdãos que apresentar (até 10), " +
+  "O Garimpo é ferramenta de pesquisa jurídica: busca decisões judiciais públicas (jurisprudência) em base não " +
+  "oficial e baixa o inteiro teor oficial que os próprios tribunais publicam, quando disponível; toda chamada passa " +
+  "por um cliente único com freios (no máximo 2 chamadas simultâneas, espera e uma única nova tentativa em 429/503, " +
+  "parada e aviso em recusa). Use busca_ampla com 3 a 6 formulações, obter_ementa dos acórdãos que apresentar (até 10), " +
   "obter_inteiro_teor dos que citar (até 3, salvo pedido do usuário) e ler_inteiro_teor por partes, conferindo toda " +
   "citação literal de acórdão com conferir_citacao antes de entregá-la; formule a busca com a tese em abstrato, sem nome de " +
   "parte nem dado do caso. Nunca afirme jurisprudência sem fonte devolvida pelas " +
