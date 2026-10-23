@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { type OpcoesCliente, Vagas } from "../src/cliente.js";
 import { clienteDaLegislacao, type RespostaTextoDeLei, textoDeLei } from "../src/legislacao.js";
 
 // Teste ao vivo opcional: 1 chamada ao normas.leg.br (a norma inteira, ~4 MB). Só com GARIMPO_VIVO=1.
@@ -15,27 +16,85 @@ describe.skipIf(process.env.GARIMPO_VIVO !== "1")("texto_de_lei — ao vivo", ()
 });
 
 /**
- * Um GET por endereço nesta execução: cada diploma sai uma vez (o JSON da norma e o HTML da compilação, 2 chamadas
- * pelo cliente com os freios), e as outras consultas ao mesmo diploma leem os bytes dessa ida.
+ * Um GET aceito por endereço nesta execução: cada diploma sai uma vez (o JSON da norma e o HTML da compilação, 2
+ * chamadas pelo cliente com os freios), e as outras consultas ao mesmo diploma leem os bytes dessa ida. Só a resposta
+ * aceita (2xx) fica guardada: recusa (429/503), outro erro HTTP e falha de rede passam como vieram, e a nova tentativa
+ * do cliente (regra 3) vai de fato à rede.
  */
-function umaIdaPorEndereco() {
-  const idas = new Map<string, Promise<{ status: number; headers: Headers; corpo: ArrayBuffer }>>();
-  const rede: string[] = [];
+function umaIdaPorEndereco(transporte: typeof fetch = fetch, extra: Partial<OpcoesCliente> = {}) {
+  const aceitas = new Map<string, { status: number; headers: Headers; corpo: ArrayBuffer }>();
+  /** Todas as idas à rede, com as novas tentativas. */
+  const idas: string[] = [];
   const buscar = (async (url: string, init?: RequestInit) => {
-    let ida = idas.get(url);
-    if (!ida) {
-      rede.push(url);
-      ida = fetch(url, init).then(async (r) => ({ status: r.status, headers: r.headers, corpo: await r.arrayBuffer() }));
-      idas.set(url, ida);
+    let aceita = aceitas.get(url);
+    if (!aceita) {
+      idas.push(url);
+      const resposta = await transporte(url, init);
+      if (!resposta.ok) return resposta;
+      aceita = { status: resposta.status, headers: resposta.headers, corpo: await resposta.arrayBuffer() };
+      aceitas.set(url, aceita);
     }
-    const { status, headers, corpo } = await ida;
-    return new Response(status >= 300 && status < 400 ? null : corpo.slice(0), { status, headers });
+    return new Response(aceita.corpo.slice(0), { status: aceita.status, headers: aceita.headers });
   }) as typeof fetch;
-  return { cliente: clienteDaLegislacao({ fetch: buscar }), rede };
+  return { cliente: clienteDaLegislacao({ ...extra, fetch: buscar }), aceitas, idas };
 }
 
+describe("texto_de_lei — o auxiliar do teste ao vivo, sem rede", () => {
+  const ENDERECO = "https://normas.leg.br/api/public/binario/1cc33b77-e5a0-4723-b7fa-ec501fd65c46/texto";
+
+  /** Transporte falso: entrega as respostas (ou falhas) na ordem e conta as idas. */
+  function transporteFalso(...respostas: (Response | Error)[]) {
+    const falso = { idas: 0 };
+    const transporte = (async () => {
+      falso.idas++;
+      const r = respostas.shift();
+      if (!r) throw new Error("sem resposta gravada");
+      if (r instanceof Error) throw r;
+      return r;
+    }) as unknown as typeof fetch;
+    return { transporte, falso };
+  }
+
+  /** Freios do cliente com relógio falso: a espera depois da recusa e o 1 s entre chamadas não dormem de verdade. */
+  function freiosDeTeste(): Partial<OpcoesCliente> {
+    const relogio = { agora: 1_000_000 };
+    return {
+      vagas: new Vagas(2),
+      agora: () => relogio.agora,
+      esperar: async (ms) => {
+        relogio.agora += ms;
+      },
+    };
+  }
+
+  it.each([429, 503])("a recusa %i não fica guardada: a nova tentativa do cliente vai à rede, e só a aceita é reaproveitada", async (status) => {
+    const { transporte, falso } = transporteFalso(new Response("recusa", { status }), new Response("texto da norma", { status: 200 }));
+    const { cliente, aceitas, idas } = umaIdaPorEndereco(transporte, freiosDeTeste());
+
+    const primeira = await cliente.requisitar(ENDERECO);
+    expect(primeira.status).toBe(200);
+    expect(await primeira.text()).toBe("texto da norma");
+    expect(falso.idas).toBe(2);
+
+    expect(await (await cliente.requisitar(ENDERECO)).text()).toBe("texto da norma");
+    expect(falso.idas).toBe(2);
+    expect(idas).toEqual([ENDERECO, ENDERECO]);
+    expect(aceitas.size).toBe(1);
+  });
+
+  it("falha de rede não fica guardada: a consulta seguinte vai à rede de novo", async () => {
+    const { transporte, falso } = transporteFalso(new TypeError("fetch failed"), new Response("texto da norma", { status: 200 }));
+    const { cliente } = umaIdaPorEndereco(transporte, freiosDeTeste());
+
+    await expect(cliente.requisitar(ENDERECO)).rejects.toThrow(/Não foi possível falar com o normas\.leg\.br/i);
+    expect(await (await cliente.requisitar(ENDERECO)).text()).toBe("texto da norma");
+    expect(falso.idas).toBe(2);
+  });
+});
+
 // Teste ao vivo opcional do B1.4: CP, CPP, CLT e CDC lidos da compilação "Current", um caso de cada armadilha.
-// 8 chamadas (2 por diploma), ~4,3 MB. Só com GARIMPO_VIVO=1.
+// 8 endereços (2 por diploma), ~4,3 MB; a nova tentativa depois de 429/503, se houver, é uma ida a mais. Só com
+// GARIMPO_VIVO=1.
 describe.skipIf(process.env.GARIMPO_VIVO !== "1")("texto_de_lei — compilação ao vivo (B1.4)", () => {
   // Nasce no primeiro teste, depois do preparo (pasta de dados temporária), nunca na coleta: a coordenação padrão
   // guarda a pasta quando nasce.
@@ -126,7 +185,7 @@ describe.skipIf(process.env.GARIMPO_VIVO !== "1")("texto_de_lei — compilação
     expect((await encontrado("CLT", "art. 922")).partes.map((p) => p.dispositivo)).toEqual(["art. 922, caput"]);
   });
 
-  it("CDC: texto de outra lei entre aspas abertas, pena e fim no fecho; 8 chamadas no total", { timeout: 180_000 }, async () => {
+  it("CDC: texto de outra lei entre aspas abertas, pena e fim no fecho; 8 endereços, cada um aceito uma vez", { timeout: 180_000 }, async () => {
     const citado = await encontrado("CDC", "art. 113");
     marcaDaFonte(citado, "urn:lex:br:federal:lei:1990-09-11;8078");
     expect(citado.partes).toHaveLength(1);
@@ -138,6 +197,8 @@ describe.skipIf(process.env.GARIMPO_VIVO !== "1")("texto_de_lei — compilação
       { dispositivo: "art. 119, caput", rotuloNaFonte: "Art. 119.", texto: "Revogam-se as disposições em contrário." },
     ]);
 
-    expect(ida?.rede).toHaveLength(8);
+    // 8 endereços, cada um aceito uma vez (2 por diploma); a nova tentativa depois de 429/503, se houver, conta à parte.
+    expect(ida?.aceitas.size).toBe(8);
+    expect(new Set(ida?.idas).size).toBe(8);
   });
 });
