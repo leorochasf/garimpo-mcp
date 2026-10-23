@@ -231,7 +231,8 @@ export interface ConsultaAmbigua {
   diploma: { sigla: string; nome: string };
   dispositivo: string;
   motivo: string;
-  candidatos: { dispositivo: string; urlOficial: string }[];
+  /** Na compilação, a URL é a da norma: o rótulo e o primeiro parágrafo de cada um, literais, os distinguem. */
+  candidatos: { dispositivo: string; urlOficial: string; rotuloNaFonte?: string; textoNaFonte?: string }[];
   urlDaConsulta: string;
   arquivoDaFonte?: ArquivoDaFonte;
 }
@@ -699,26 +700,48 @@ async function consultarNaCompilacao(
   const arquivo = arquivoDaCompilacao(corpo);
   const linhas = linhasDaCompilacao(await htmlDaCompilacao(cliente, arquivo.url), diploma.inicioNaCompilacao!);
   const urlOficial = urlOficialDoNo(corpo);
-  const base = {
-    diploma: { sigla: diploma.sigla, nome: nomeDaNorma },
-    dispositivo: citar(pedido.chave),
-    urlDaConsulta: urlDaFonte(diploma),
-    urlOficial,
-  };
+  const base = { diploma: { sigla: diploma.sigla, nome: nomeDaNorma }, dispositivo: citar(pedido.chave), urlDaConsulta: urlDaFonte(diploma) };
   const segmentos = pedido.chave.split("_");
-  let doPedido = linhas.filter((l) => segmentos.every((s, k) => l.caminho[k]?.segmento === s));
-  // Artigo inteiro, sem letra, que a fonte só traz dentro de uma faixa ("Arts. 498 a 502.").
+  // Artigo inteiro, sem letra, que a fonte pode trazer dentro de uma faixa ("Arts. 498 a 502.").
   const numero = Number(/^art(\d+)$/.exec(pedido.chave)?.[1]);
-  if (!doPedido.length && numero) {
-    doPedido = linhas.filter(({ caminho: [no] }) => no.faixa && no.faixa[0] <= numero && numero <= no.faixa[1]);
+  const naFaixa = ({ faixa }: No) => !!faixa && !!numero && faixa[0] <= numero && numero <= faixa[1];
+  /** As linhas com os k + 1 primeiros pedaços do pedido (no nível do artigo, também a faixa que o contém). */
+  const ate = (k: number) => (l: Linha) =>
+    (k === 0 && naFaixa(l.caminho[0])) || segmentos.slice(0, k + 1).every((s, j) => l.caminho[j]?.segmento === s);
+  // Mais de uma ocorrência em algum nível do pedido (dois arts. 2º, dois §§ 1º no artigo): o Garimpo não escolhe.
+  for (let k = 0; k < segmentos.length; k++) {
+    const primeiras = new Map<number, Linha>();
+    for (const l of linhas.filter(ate(k))) if (!primeiras.has(l.caminho[k].id)) primeiras.set(l.caminho[k].id, l);
+    if (primeiras.size > 1) {
+      return {
+        resultado: "identificação necessária",
+        ...base,
+        motivo: "Mais de um dispositivo da fonte tem esta identificação; informe qual deles.",
+        candidatos: [...primeiras.values()].map((l) => ({
+          dispositivo: citar(segmentos.slice(0, k + 1).join("_")),
+          urlOficial,
+          rotuloNaFonte: l.caminho[k].rotulo,
+          ...(l.texto && { textoNaFonte: l.texto }),
+        })),
+        arquivoDaFonte: arquivo,
+      };
+    }
   }
-  if (!doPedido.length) {
-    return { resultado: "não verificado", ...base, motivo: "A fonte não traz este dispositivo; confira o número no texto oficial.", arquivoDaFonte: arquivo };
+  const doPedido = linhas.filter(ate(segmentos.length - 1));
+  if (!doPedido.some((l) => l.texto)) {
+    return {
+      resultado: "não verificado",
+      ...base,
+      urlOficial,
+      motivo: doPedido.length ? "A fonte não traz texto para este dispositivo." : "A fonte não traz este dispositivo; confira o número no texto oficial.",
+      arquivoDaFonte: arquivo,
+    };
   }
   const faixa = doPedido[0].caminho[0].faixa;
   return {
     resultado: "encontrado",
     ...base,
+    urlOficial,
     partes: faixa
       ? [
           {

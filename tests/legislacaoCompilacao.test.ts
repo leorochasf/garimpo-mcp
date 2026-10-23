@@ -1,7 +1,10 @@
 import { readFileSync } from "node:fs";
+import { mkdtemp } from "node:fs/promises";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { FormatoInesperadoError } from "../src/cliente.js";
-import { textoDeLei } from "../src/legislacao.js";
+import { FormatoInesperadoError, Vagas } from "../src/cliente.js";
+import { clienteDaLegislacao, textoDeLei } from "../src/legislacao.js";
+import { Memoria } from "../src/memoria.js";
 import { clienteFalso, fixture, respostaJson } from "./apoio.js";
 
 // Gravações do normas.leg.br obtidas em 23/10/2026 (B1.4): a resposta da norma (`<sigla>-norma.json`, maior-detalhe) e o
@@ -483,6 +486,78 @@ describe("texto_de_lei — linhas sem rótulo que são texto do dispositivo", ()
     const r = await encontrado("cp", "art. 359-T");
     expect(r.partes).toHaveLength(1);
     expect(r.partes[0].texto).toMatch(/com propósitos sociais\. \(Artigo acrescido pela Lei nº 14\.197.*\)\n\(VETADO na Lei nº 14\.197, de 1º\/9\/2021\)$/s);
+  });
+});
+
+describe("texto_de_lei — compilação: identificação repetida, dispositivo sem texto, memória e freios", () => {
+  it("dois artigos com a mesma identificação: identificação necessária, com o começo de cada um, sem escolher", async () => {
+    // Variante sintética: o art. 2º do recorte repetido depois do art. 3º.
+    const art2 = /<p[^>]*><span>Art\. 2º Consumidor[\s\S]*?<\/p>/.exec(html("cdc"))![0];
+    const texto = html("cdc").replace(/(<p[^>]*><span>CAPÍTULO II<\/span><\/p>)/, `${art2}\n$1`);
+
+    for (const dispositivo of ["art. 2º", "art. 2º, parágrafo único"]) {
+      const { r } = await consultar("cdc", dispositivo, { texto });
+      expect(r.resultado).toBe("identificação necessária");
+      if (r.resultado !== "identificação necessária") return;
+      expect(r.candidatos).toEqual([
+        expect.objectContaining({ dispositivo: "art. 2º", rotuloNaFonte: "Art. 2º", urlOficial: "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1990-09-11;8078" }),
+        expect.objectContaining({ dispositivo: "art. 2º", rotuloNaFonte: "Art. 2º" }),
+      ]);
+      expect(r.candidatos[0]).toMatchObject({ textoNaFonte: expect.stringMatching(/^Consumidor é toda pessoa física/) });
+    }
+  });
+
+  it("dispositivo que a fonte rotula sem texto nenhum: não verificado", async () => {
+    const texto = html("cdc").replace("Art. 119. Revogam-se as disposições em contrário.", "Art. 119.");
+    const { r } = await consultar("cdc", "art. 119", { texto });
+    expect(r).toMatchObject({ resultado: "não verificado", motivo: "A fonte não traz texto para este dispositivo." });
+  });
+
+  it("a consulta repetida volta da memória, com o arquivo e a data da primeira obtenção, sem nova chamada", async () => {
+    const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "legislacao-compilacao-"));
+    let relogio = AGORA;
+    const memoria = new Memoria({ dados, agora: () => relogio });
+    const { cliente, chamadas } = clienteFalso([respostaJson(fixture("legislacao/cdc-norma.json")), respostaHtml(html("cdc"))]);
+    const fontes = { cliente, memoria, agora: () => relogio };
+
+    const primeira = await textoDeLei({ diploma: "CDC", dispositivo: "art. 1º" }, fontes);
+    relogio = new Date(2026, 9, 24, 9, 0).getTime();
+    const segunda = await textoDeLei({ diploma: "Código de Defesa do Consumidor", dispositivo: "Art. 1º" }, fontes);
+
+    expect(chamadas).toHaveLength(2);
+    expect(segunda.obtido).toMatch(/^consulta guardada: fotografia da consulta feita no normas\.leg\.br em 23\/10\/2026/);
+    if (segunda.resultado !== "encontrado" || primeira.resultado !== "encontrado") throw new Error("esperava encontrado");
+    expect(segunda.partes).toEqual(primeira.partes);
+    expect(segunda.arquivoDaFonte).toEqual(primeira.arquivoDaFonte);
+  });
+
+  it("as duas chamadas saem pelo cliente do normas.leg.br, com 1 s entre elas", async () => {
+    const relogio = { agora: 1_000_000 };
+    const esperas: number[] = [];
+    const respostas = [respostaJson(fixture("legislacao/cdc-norma.json")), respostaHtml(html("cdc"))];
+    const cliente = clienteDaLegislacao({
+      vagas: new Vagas(2),
+      agora: () => relogio.agora,
+      esperar: async (ms) => {
+        esperas.push(ms);
+        relogio.agora += ms;
+      },
+      fetch: (async () => respostas.shift()!) as typeof fetch,
+    });
+
+    const r = await textoDeLei({ diploma: "CDC", dispositivo: "art. 1º" }, { cliente });
+
+    expect(r.resultado).toBe("encontrado");
+    expect(respostas).toHaveLength(0);
+    expect(esperas).toEqual([1_000]);
+  });
+
+  it("diploma desconhecido: o erro lista os sete diplomas, sem chamada", async () => {
+    const { cliente, chamadas } = clienteFalso([]);
+    await expect(textoDeLei({ diploma: "ECA", dispositivo: "art. 1º" }, { cliente })).rejects.toThrow(
+      /Diplomas que sabe buscar: CPC, CC, CF, CP, CPP, CLT, CDC\./,
+    );
+    expect(chamadas).toHaveLength(0);
   });
 });
 
