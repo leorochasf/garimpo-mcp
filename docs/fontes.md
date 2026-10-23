@@ -514,5 +514,75 @@ Usada por `texto_de_lei`: o texto literal de um dispositivo de lei, sem afirmar 
   metadados (sem `hasPart` nem texto) — **não provado, fora da lista**; com o teto de 3 chamadas não houve nova
   tentativa. Alguns textos trazem marcação da fonte embutida (ex.: `<span ... xlink:href=...>Constituição</span>` em CF
   art. 5º, I), repassada como veio.
-- **Não verificado:** CDC e demais diplomas (cada um pede uma prova ao vivo curta e uma linha na tabela); atualidade da
-  compilação (a fonte informa `dateModified`; CPC 2025-03-13, CC 2024-06-28, CF 2026-05-05).
+- **Ampliação do B1.4 (2026-10-23): CP, CPP, CLT e CDC, lidos da compilação "Current".** A resposta da norma desses
+  quatro vem sem `hasPart` (sem a árvore de dispositivos), mas traz em `encoding` os arquivos de texto da norma, cada um
+  com a versão que a fonte marca.
+  - **Prova de levantamento (2026-10-23, 11:55:54–11:56:37 UTC),** cliente único com os freios, UA honesto, uma chamada
+    por vez: 8 chamadas, todas 200, sem 429/503 e sem redirecionamento.
+
+    | Diploma | URN | JSON `maior-detalhe` | HTML "Current" (`/api/public/binario/<uuid>/texto`) |
+    |---|---|---|---|
+    | CP | `urn:lex:br:federal:decreto.lei:1940-12-07;2848` | 4.087 B | `412689ff-f565-494a-9adb-8301e314f40d`, 836.969 B |
+    | CPP | `urn:lex:br:federal:decreto.lei:1941-10-03;3689` | 5.887 B | `f673d457-87d9-45cb-b467-a3d59aaaad4e`, 1.690.323 B |
+    | CLT | `urn:lex:br:federal:decreto.lei:1943-05-01;5452` | 12.865 B | `5e35b26e-26a7-44d7-8a95-b8f0852cabe1`, 1.600.591 B |
+    | CDC | `urn:lex:br:federal:lei:1990-09-11;8078` | 8.090 B | `1cc33b77-e5a0-4723-b7fa-ec501fd65c46`, 181.767 B |
+
+  - **Rota:** a mesma resposta da norma (`.../normas?urn=<URN>&&tipo_documento=maior-detalhe`) e, nela, o item de
+    `encoding` com `version: "Current"` (`additionalType: "CompilacaoMonoVigenteNaCD"`, `encodingFormat` text/html,
+    `contentUrl` absoluto `https://normas.leg.br/api/binario/<uuid>/texto`). O arquivo é baixado pela forma pública do
+    mesmo endereço, `https://normas.leg.br/api/public/binario/<uuid>/texto` (200 `text/html`, sem charset no cabeçalho;
+    o `<meta>` declara UTF-8); a forma sem `public` não foi testada. São **2 chamadas por consulta**, 1 s entre elas.
+    O Garimpo só segue com **uma** versão "Current", em HTML, com `contentUrl` https no `normas.leg.br` e caminho
+    `/api/binario/<uuid>/texto`; não segue redirecionamento, decodifica pelo charset declarado e exige a identidade da
+    URN e a URL da norma antes de baixar o arquivo. Outra coisa é formato inesperado, nunca texto.
+  - **Marca de valor legal:** todas as versões listadas em `encoding` trazem `legislationLegalValue:
+    "UnofficialLegalValue"`; só o `isBasedOn` da publicação original (o DOU) diz `OfficialLegalValue`. A resposta repete a
+    marca **literal** (`arquivoDaFonte.valorLegalMarcadoPelaFonte`), com a URL do arquivo, `versaoNaFonte: "Current"` e o
+    `tipoNaFonte`. A URL oficial é a **da norma** (`https://normas.leg.br/?urn=<URN>`), não a do dispositivo, e não há
+    `versoesNaFonte`: a compilação traz só o texto compilado, com as notas de alteração dentro dele ("(Inciso acrescido
+    pela Lei nº ...)"), repassadas como vieram.
+  - **Leitura do HTML (regra fixa, sem IA):** o arquivo é gerado pelo Aspose.Words; cada `<p>`, `<h1>`–`<h6>` ou célula é
+    um parágrafo, e o `<br>` fica dentro dele como quebra de linha. O texto vai do parágrafo exato de início, único no
+    arquivo (o título da norma; na CLT, "CONSOLIDAÇÃO DAS LEIS DO TRABALHO"), ao fecho ("Rio de Janeiro|Brasília,
+    <data>; ...º da Independência ..."); o que vem depois (as assinaturas) fica de fora, e sem início ou sem fecho é
+    formato inesperado. Rótulos: "Art.", "Arts. X a Y." (faixa), "§", "Parágrafo único.", inciso romano com travessão e
+    alínea "a)", inclusive alínea direto no caput ou no § (CLT). Cabeçalho estrutural (PARTE, LIVRO, TÍTULO, CAPÍTULO,
+    Seção ou Subseção com o número) encerra o artigo. **Título solto** (a rubrica, o nome jurídico): linha sem rótulo,
+    com maiúscula no começo, sem pontuação no fim e até 200 caracteres (sem os parênteses do fim), seguida de rótulo, de
+    cabeçalho, do fecho ou de outro título solto; ela e a nota só entre parênteses logo depois ficam fora do texto.
+    "Pena -" é do caput ou do § (não do inciso) e, depois dos incisos, vem numa parte própria, na ordem da fonte.
+    Parágrafo que abre aspas no começo e não fecha é texto de outra norma até as aspas fecharem (artigo novo ou cabeçalho
+    também fecham). Rótulo com número ilegível separa os dispositivos, mas o pedido pelo número fica "não verificado".
+    Duas ocorrências da mesma identificação: "identificação necessária", com o rótulo e o primeiro parágrafo de cada.
+  - **Armadilhas da fonte (todas com teste sobre recorte saneado):** a CLT começa pelo decreto-lei, com arts. 1º e 2º
+    próprios, e por isso só é aceita pela sigla e pelo nome; faixas "Arts. 22 a 24. (Revogados ...)" (11 na CLT, 4 no
+    CPP); sufixo duplo no CP ("Art. 359-M-A."); erros de digitação da fonte ("Art. l97." no CP, "§ lº" no art. 682 da
+    CLT); hífen invisível (U+00AD) antes de "I - na admissão;" (CLT, art. 168); tabela no art. 580 da CLT, com `<br>`
+    dentro das células; texto de outra lei entre aspas no CDC (arts. 110 a 117, aspas abertas do § 4º ao § 6º no
+    art. 113); rubricas em `<h1>`–`<h6>`; linhas sem rótulo que **são** texto (juramento do art. 472 e quesito do
+    art. 483 do CPP, as 24 regiões do art. 674 e o parágrafo partido do art. 791-A da CLT, "(VETADO ...)" solto no CP).
+    O `<head>` traz nome de pessoa (autor do documento) e o fim do arquivo, as assinaturas: nenhum dos dois vai para
+    fixture nem para a resposta.
+  - **Prova offline nos textos inteiros** (os mesmos arquivos, com o código do B1.4 e sem rede): todo rótulo de artigo
+    legível foi achado pelo número (CP 433; CPP 832, mais as 4 faixas; CLT 933, mais as 11 faixas; CDC 131), sem
+    identificação repetida; ilegível, só o "Art. l97." do CP. Ficaram fora do texto 399 parágrafos no CP, todos rubricas
+    ou a nota delas, e 1 no CPP ("Juiz das Garantias (Denominação acrescida ...)"); ficaram dentro, sem rótulo e fora as
+    penas, exatamente as linhas das armadilhas acima (CP 3, CPP 4, CLT 47, CDC 10). Leitura local de uma consulta fria:
+    7 ms (CDC) a 38 ms (CLT), mediana de 7 rodadas; o tempo real é o das 2 chamadas.
+  - **Teste ao vivo final (`GARIMPO_VIVO=1`, 2026-10-23, 13:11:53–13:12:43 UTC):** 9 chamadas (1 do CPC e 2 de cada
+    diploma novo, cada arquivo baixado uma vez para as várias consultas), todas aceitas; os 5 testes passaram. Os uuids
+    dessa rodada não foram registrados.
+  - **Freios e guarda:** os mesmos da rota da norma (serviço `normas.leg.br`, 1 s entre chamadas, 2 vagas somadas, 429/503
+    pela regra geral); a consulta repetida volta da memória (24 h), só o dispositivo reduzido, com a data da obtenção
+    original. Datas da fonte: os quatro vêm sem `dateModified`; `sdDatePublished` CP 2026-10-02, CPP 2026-08-18, CLT
+    2026-04-16, CDC 2026-10-09.
+  - **Referência de técnica (regra 1):** o repositório `github.com/ctresb/leis` (scripts em Python; o LICENSE traz o texto
+    da MIT, que vale "ao código em scripts/", e uma nota de que os textos das normas são atos oficiais; o GitHub o
+    classifica como "Other") foi lido como referência de técnica no parecer do plano 1.2, em 2026-10-23: o caminho
+    `encoding` → `contentUrl` → `/api/public/binario/`. Nada foi copiado: o código do Garimpo é escrito do zero, e a rota
+    foi conferida de forma independente nas provas acima.
+- **Não verificado:** os demais diplomas (cada um pede uma prova ao vivo curta e uma linha na tabela); atualidade da
+  compilação (a fonte informa `dateModified` na rota da norma: CPC 2025-03-13, CC 2024-06-28, CF 2026-05-05; ausente
+  nos quatro da compilação); se o texto compilado confere com a publicação oficial, que a fonte não afirma
+  (`UnofficialLegalValue`); a pena depois de inciso que seja só daquele inciso (no CP, só no art. "l97", ilegível), que
+  o Garimpo põe no caput ou no §.
