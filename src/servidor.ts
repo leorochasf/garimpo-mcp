@@ -47,7 +47,7 @@ import { julgamentosDoProcesso } from "./julgamentos.js";
 import { avisoRecorridoDoAcordao } from "./recorrido.js";
 import { clienteDaLegislacao, diplomasSuportados, textoDeLei } from "./legislacao.js";
 import { CHAMADO_LIGADO, comLinhaDeChamado, ERRO_DE_ORIGEM } from "./chamado.js";
-import { INSTRUCTIONS, roteiroDePesquisa } from "./roteiro.js";
+import { INSTRUCTIONS, roteiroDeDistincao, roteiroDePesquisa } from "./roteiro.js";
 import { clienteDoFalcao } from "./falcao.js";
 import { AVISO_DE_VELOCIDADE, avisoDeBaixaTcu, baixarAnoTcu, clienteDoTcu, listarAnosDoTcu } from "./tcuBaixar.js";
 import { anosBaixadosTcu, lerAcordaoTcu, lerReciboTcu, pastaDoTcu, pesquisarTcu } from "./tcuLocal.js";
@@ -1454,6 +1454,31 @@ export function criarServidor(
     },
     ({ tese, tribunais }) => ({
       messages: [{ role: "user", content: { type: "text", text: roteiroDePesquisa(tese, tribunais) } }],
+    }),
+  );
+
+  servidor.registerPrompt(
+    "distinguir_precedente",
+    {
+      title: "Distinguir precedente",
+      description:
+        "Roteiro de distinção: compara um acórdão com os fatos do caso, fato a fato, com a ficha do acórdão e uma " +
+        "matriz em quatro estados, cada um com o trecho lido. Não afirma jurisprudência nem decide se o caso é diferente.",
+      argsSchema: {
+        precedente: z
+          .string()
+          .describe(
+            "O acórdão a comparar: o id que veio na busca (ex.: stj:12345), o tribunal e o número do processo, ou o " +
+              "caminho do PDF que você baixou",
+          ),
+        fatos: z
+          .string()
+          .optional()
+          .describe("Os fatos do caso, em palavras suas, um por linha (opcional; sem eles, o roteiro manda pedir)"),
+      },
+    },
+    ({ precedente, fatos }) => ({
+      messages: [{ role: "user", content: { type: "text", text: roteiroDeDistincao(precedente, fatos) } }],
     }),
   );
 
