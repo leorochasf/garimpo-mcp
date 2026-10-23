@@ -3,6 +3,29 @@
 Pergunta: quanto tempo o Garimpo 1.1.1 gasta **por dentro** em cada operação, quantas requisições faria e quantos
 bytes trocaria, para que a 1.2 seja comparada depois com a mesma régua.
 
+## Leitura (2026-10-23)
+
+- **30 rodadas × (1 e 2 janelas), zero erro, zero chamada sem resposta gravada.** O commit medido (`c780162`) tem
+  `src/` idêntico ao da 1.1.1 (`cc956b4`; `git diff cc956b4 -- src` vazio): só mudaram scripts, testes e docs.
+- **TCU é o gargalo interno**, como previsto (DV04/U25): varredura linear de ~0,3 a 0,5 s por ano sintético
+  (~10 MB/ano). Mediana (p95), 1 janela: 1 ano 101–439 ms; 5 anos 561–2.578 ms (p95 até 2.699); 10 anos
+  1.163–5.236 ms (p95 até 5.398). "Fria" e "quente" quase iguais na 1.1.1 (a comum fria de 10 anos dá 4.467 ms; a
+  quente, 5.236 ms): sem índice, nada aquece além do cache de arquivos do sistema. Com filtros é a mais rápida
+  (o filtro corta antes da triagem de texto); comum e entre aspas, as mais lentas (muitos registros passam para a
+  conversão completa). Escala: o arquivo real tem ~40× os registros por ano; o tempo absoluto do real não sai daqui.
+- **Fontes, 1 janela (mediana):** busca simples fria 32 ms, repetida 3 ms; ampla 5 × 3 fria 135 ms, repetida 38 ms;
+  união da 2ª rodada com memória quente 308 ms (10 requisições: só as 2 formulações novas × 5 tribunais) contra
+  memória fria 187 ms, falha de leitura 204 ms e `renovar` 669 ms (25 requisições cada); Falcão 140 ms; PDF já baixado
+  222 ms; `texto_de_lei` frio 23 ms, repetido 2 ms; Projudi `.p7s` 153 ms (4 requisições, 7 KB).
+- **Custo interno por tese** (a bateria inteira da 1ª janela): 108 requisições, 15,6 KB enviados, 1.975,5 KB
+  recebidos, iguais em todas as rodadas (determinístico).
+- **2 janelas:** as medianas sobem pouco, mas o p95 das operações que vão às fontes salta (ampla fria 160 → 1.557 ms;
+  união quente 370 → 1.383 ms; `texto_de_lei` frio 50 → 910 ms): é a espera pelas vagas e freios divididos entre as
+  janelas (no máximo 2 chamadas simultâneas no total, regra 3), não custo de CPU. Na comparação futura, olhar 1 e 2
+  janelas separadas.
+- **Carga da máquina:** CPU ocupada 33 % antes e 20 % depois; outro trabalho rodava em paralelo no mesmo computador
+  (outro agente da Onda 0), então a comparação com a 1.2 deve ser pareada (`--antes`), não contra estes números soltos.
+
 ## Resultado bruto (N = 30, saída da medição)
 
 Medição de 2026-10-23T05:15:10.535Z a 2026-10-23T06:08:42.688Z · N = 30 por nº de janelas
