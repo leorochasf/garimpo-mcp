@@ -54,7 +54,15 @@ export interface InteiroTeorBaixado {
   jaEstavaNaPasta?: string;
 }
 
-export type ResultadoInteiroTeor = InteiroTeorBaixado | { baixado: false; link?: string; explicacao: string };
+/** A chamada do ler_inteiro_teor para o PDF que o usuário baixar: pelo id, quando há; senão, pelo tribunal. */
+export interface ChamadaPronta {
+  ferramenta: "ler_inteiro_teor";
+  argumentos: { caminho: string; id?: string; tribunal?: string };
+}
+
+export type ResultadoInteiroTeor =
+  | InteiroTeorBaixado
+  | { baixado: false; link?: string; explicacao: string; chamadaPronta?: ChamadaPronta };
 
 export type ClientePorTribunal = (sigla: string) => Cliente;
 
@@ -79,21 +87,46 @@ export const clientePadrao: ClientePorTribunal = (sigla) => {
   return c;
 };
 
-/** Fim comum dos caminhos sem download automático: a leitura local do PDF que o usuário baixou não contorna nada. */
-const LEITURA_PELO_USUARIO =
-  "passe o caminho do arquivo ao ler_inteiro_teor " +
-  "(com o id que veio na busca, ou tribunal + número, se quiser o cabeçalho preenchido como vínculo declarado). " +
-  "Ele sai como inteiro teor " +
-  "trazido pelo usuário, de origem declarada e não conferida.";
+/** O único argumento da chamada pronta que o Garimpo não tem: onde o usuário salvou o PDF. */
+const CAMINHO_A_PREENCHER = "<caminho do PDF que você baixou>";
+
+/** A chamada pronta do ler_inteiro_teor: com o id, o cabeçalho sai como vínculo declarado; sem ele, só o tribunal. */
+function chamadaPronta(id: string | undefined, tribunal: string): { chamadaPronta: ChamadaPronta } {
+  const alvo = id ? { id } : tribunal ? { tribunal } : {};
+  return { chamadaPronta: { ferramenta: "ler_inteiro_teor", argumentos: { caminho: CAMINHO_A_PREENCHER, ...alvo } } };
+}
+
+/** O número do acórdão como a busca o trouxe (o CNJ, se houver); sem número, nada. */
+function numeroDoAcordao(acordao: Acordao | undefined): string | undefined {
+  return acordao?.numeroCnj ?? (acordao && !acordao.semNumero ? acordao.numero : undefined);
+}
+
+/**
+ * Fim comum dos caminhos sem download automático (U52, AC-A29): a leitura local do PDF que o usuário baixou, que não
+ * contorna nada, com a chamada pronta pelo id e o aviso de que o PDF trazido pode ser de outro acórdão.
+ */
+function leituraPeloUsuario(id: string | undefined, acordao: Acordao | undefined): string {
+  const comId = id
+    ? `com o id ${id} (a chamada vem pronta em chamadaPronta; falta só o caminho)`
+    : "(com o id que veio na busca, ou tribunal + número, se quiser o cabeçalho preenchido como vínculo declarado)";
+  const numero = numeroDoAcordao(acordao);
+  const confira = numero ? ` (o ler_inteiro_teor só informa se o número ${numero} aparece no texto)` : "";
+  return (
+    `passe o caminho do arquivo ao ler_inteiro_teor ${comId}. Ele sai como inteiro teor trazido pelo usuário, de ` +
+    `origem declarada, não conferida: o PDF pode ser de outro acórdão, e o Garimpo não confere que é este${confira}.`
+  );
+}
 
 /** O caminho para ler um acórdão sem download automático, a partir do link. */
-const PONTE = `Para ler pelo Garimpo: abra o link no navegador, baixe o PDF e ${LEITURA_PELO_USUARIO}`;
+function ponte(id: string | undefined, acordao: Acordao | undefined): string {
+  return `Para ler pelo Garimpo: abra o link no navegador, baixe o PDF e ${leituraPeloUsuario(id, acordao)}`;
+}
 
 /**
  * O caminho quando não há link nenhum: o número do processo e o portal de jurisprudência do tribunal. Sem endereço
  * do portal: o projeto não tem fonte para ele, e link inventado é pior que nenhum.
  */
-function caminhoSemLink(nomeTribunal: string, acordao: Acordao | undefined): string {
+function caminhoSemLink(nomeTribunal: string, acordao: Acordao | undefined, id: string | undefined): string {
   const numero = acordao?.numeroCnj
     ? `o número CNJ ${acordao.numeroCnj}`
     : acordao && !acordao.semNumero
@@ -101,7 +134,7 @@ function caminhoSemLink(nomeTribunal: string, acordao: Acordao | undefined): str
       : "o acórdão";
   return (
     `Pesquise ${numero} no portal de jurisprudência do ${nomeTribunal}, baixe lá o PDF e, para ler pelo Garimpo, ` +
-    LEITURA_PELO_USUARIO
+    leituraPeloUsuario(id, acordao)
   );
 }
 
@@ -184,8 +217,10 @@ export async function obterInteiroTeor(
   if (!pedido.link) acordao = await comLinkDaRota(guardado, site, memoria);
   const linkDaRota = link || acordao?.linkConsulta ? undefined : acordao?.linkDaRota;
   const origemDaRota = " Link pedido à rota de link do JurisprudênciaIA: não veio na busca.";
+  const id = acordao?.id ?? pedido.id;
+  const pronta = chamadaPronta(id, tribunal);
 
-  if (info.inteiroTeor === "portal") return textoDoPortal(info.nome, acordao, link ?? (tribunal === "tjpi" ? acordao?.linkConsulta : undefined) ?? linkDaRota, clienteDe(tribunal), memoria);
+  if (info.inteiroTeor === "portal") return textoDoPortal(info.nome, acordao, link ?? (tribunal === "tjpi" ? acordao?.linkConsulta : undefined) ?? linkDaRota, clienteDe(tribunal), memoria, pronta);
 
   if (info.inteiroTeor === "link") {
     // Sem link do PDF (comum no STF), o link oficial de consulta serve para o usuário abrir no navegador.
@@ -194,13 +229,13 @@ export async function obterInteiroTeor(
     if (!linkOficial) {
       // Sem link, o "abra o link no navegador" do texto de tribunal não testado não tem o que abrir.
       const semLink = motivo.replace(/; abra o link no navegador\.$/, ".");
-      const explicacao = `${semLink} O JurisprudênciaIA não trouxe link para este acórdão. ${caminhoSemLink(info.nome, acordao)}`;
-      return { baixado: false, explicacao: explicacao.trim() };
+      const explicacao = `${semLink} O JurisprudênciaIA não trouxe link para este acórdão. ${caminhoSemLink(info.nome, acordao, id)}`;
+      return { baixado: false, explicacao: explicacao.trim(), ...pronta };
     }
     let explicacao = motivo;
     if (linkDaRota) explicacao += origemDaRota;
-    explicacao += ` ${PONTE}`;
-    return { baixado: false, link: linkOficial, explicacao: explicacao.trim() };
+    explicacao += ` ${ponte(id, acordao)}`;
+    return { baixado: false, link: linkOficial, explicacao: explicacao.trim(), ...pronta };
   }
   const linkPdf = link ?? linkDaRota;
   if (!linkPdf) {
@@ -208,7 +243,8 @@ export async function obterInteiroTeor(
       baixado: false,
       explicacao:
         "O JurisprudênciaIA não trouxe link do inteiro teor para este acórdão; não há de onde baixar. " +
-        caminhoSemLink(info.nome, acordao),
+        caminhoSemLink(info.nome, acordao, id),
+      ...pronta,
     };
   }
 
@@ -224,7 +260,8 @@ export async function obterInteiroTeor(
       return {
         baixado: false,
         link: linkPdf,
-        explicacao: `O ${sigla} devolveu uma página (${r.bytesDaPagina} bytes) no lugar do PDF; nada foi salvo. ${PONTE}`,
+        explicacao: `O ${sigla} devolveu uma página (${r.bytesDaPagina} bytes) no lugar do PDF; nada foi salvo. ${ponte(id, acordao)}`,
+        ...pronta,
       };
     }
     baixado = r;
@@ -264,11 +301,14 @@ async function textoDoPortal(
   link: string | undefined,
   cliente: Cliente,
   memoria: Memoria | undefined,
+  pronta: { chamadaPronta: ChamadaPronta },
 ): Promise<ResultadoInteiroTeor> {
+  const id = pronta.chamadaPronta.argumentos.id;
   if (!link) {
     return {
       baixado: false,
-      explicacao: `O JurisprudênciaIA não trouxe link para este acórdão. ${caminhoSemLink(nomeTribunal, acordao)}`,
+      explicacao: `O JurisprudênciaIA não trouxe link para este acórdão. ${caminhoSemLink(nomeTribunal, acordao, id)}`,
+      ...pronta,
     };
   }
   if (!acordao || !memoria) {
@@ -277,7 +317,8 @@ async function textoDoPortal(
       link,
       explicacao:
         "O texto do portal do tribunal fica na memória do Garimpo pelo id do acórdão: chame o obter_inteiro_teor com " +
-        `o id que veio na busca. ${PONTE}`,
+        `o id que veio na busca. ${ponte(id, acordao)}`,
+      ...pronta,
     };
   }
   const ler =
