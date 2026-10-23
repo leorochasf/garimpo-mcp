@@ -1,6 +1,6 @@
 # Changelog
 
-## Em aberto
+## 1.1.1 (2026-10-22)
 
 - TJGO: o `obter_inteiro_teor` passa a trazer o texto do acórdão pela consulta pública do processo no Projudi (a
   «Ementa» e o «Relatório e Voto» do julgamento), como "texto do portal do tribunal" (HTML, sem PDF e sem recibo). Só o
