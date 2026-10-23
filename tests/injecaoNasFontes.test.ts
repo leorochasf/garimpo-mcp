@@ -174,7 +174,7 @@ describe("injeção no texto do acórdão (I03, I05): o texto integral volta com
   });
 });
 
-describe("a orientação anti-injeção (B1.1 (f); PENDENTE ratificação Codex Sol, D12)", () => {
+describe("a orientação anti-injeção (B1.1 (f); ratificada pelo Codex Sol, D12)", () => {
   it("vai nas instructions, para quem não abre o prompt, e no fecho dos dois roteiros; é orientação, não trava", async () => {
     const mcp = await janela(siteComEmenta(CONTROLE.I01, "0000000-00.0000.0.00.0000").cliente);
     const instructions = mcp.getInstructions() ?? "";

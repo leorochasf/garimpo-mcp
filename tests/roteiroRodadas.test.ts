@@ -7,10 +7,10 @@ import { Cliente } from "../src/cliente.js";
 import { criarServidor } from "../src/servidor.js";
 
 /**
- * Roteiro 1.2 do pesquisar_tese (B1.1 (b) a (e); texto PENDENTE de ratificação do Codex Sol, D12): o contrário sempre,
- * a regra dos TRTs, a 2ª rodada pela união das formulações e o orçamento orientador. Travas de frase, como as do
- * ADR-0014: não provam que uma IA siga o roteiro. O que o servidor faz com o que o roteiro manda está em
- * rodadasNoServidor.test.ts.
+ * Roteiro 1.2 do pesquisar_tese (B1.1 (b) a (e); texto ratificado pelo Codex Sol em 2026-10-23, D12, com os ajustes E1
+ * e E2 da revisão): o contrário sempre, a regra dos TRTs, a 2ª rodada pela união das formulações e o orçamento
+ * orientador. Travas de frase, como as do ADR-0014: não provam que uma IA siga o roteiro. O que o servidor faz com o que
+ * o roteiro manda está em rodadasNoServidor.test.ts.
  */
 
 /** Números de D11 (aprovados pelo dono em 2026-10-23) que o roteiro tem de trazer. */
@@ -64,9 +64,10 @@ const REGRAS: [string, string[]][] = [
       "cada formulação em cada TRT gasta uma das 5 páginas do Falcão por chamada, primeiro a 1ª formulação em cada TRT, na ordem dada, depois as seguintes",
       "o que não couber sai no cabecalhoDeCobertura como foraDoTeto, que não é busca vazia",
       "deixe-a em 2º lugar com até 2 TRTs; com 3 TRTs ou mais, ponha-a em 1º lugar",
-      "Repetir a mesma chamada, sem renovar, executa o foraDoTeto e traz as já feitas da memória do Garimpo só se ela estiver ligada e legível",
-      "com renovar ou com a memória desligada, a repetição refaz no site as páginas já feitas: avise o usuário desse custo antes de repetir",
-      "as páginas foram refeitas: não repita de novo",
+      "Para executar o foraDoTeto, repita a mesma chamada no máximo uma vez na pesquisa inteira, somente com a memória ligada e legível, buscas guardadas ainda válidas e sem renovar",
+      "As já feitas podem voltar da memória; confira as guardadas no cabecalhoDeCobertura",
+      "Com renovar, memória desligada ou sem buscas válidas guardadas, repetir refaz no site as páginas já feitas e gasta orçamento novamente: avise desse custo e não repita para tentar executar o foraDoTeto",
+      "Se a memória falhar na repetição e as já feitas não voltarem como guardadas, não repita de novo",
       "diga ao usuário quais formulações não rodaram em quais TRTs e que a busca do contrário ficou incompleta neles",
     ],
   ],
@@ -79,8 +80,10 @@ const REGRAS: [string, string[]][] = [
       `Mande numa só busca_ampla a união das formulações (até ${D11.formulacoes})`,
       "as da primeira rodada na mesma ordem e grafia, seguidas das novas, com os mesmos tribunais, filtros e limite por busca",
       "mostre ao usuário, antes dos resultados, os termos novos e de onde saiu cada um",
-      "voltam da memória do Garimpo se ela estiver ligada e legível e a busca tiver menos de 24 h; senão, vão ao site de novo e gastam orçamento",
-      `sem passar de ${D11.ementas} ementas apresentadas`,
+      "As da primeira rodada podem voltar da memória do Garimpo, sem renovar, se ela estiver ligada e legível e as buscas estiverem guardadas e válidas por menos de 24 h",
+      "com renovar ou sem busca válida guardada, vão ao site de novo e gastam orçamento",
+      "Confira no cabecalhoDeCobertura quais voltaram como guardadas",
+      `refaça os passos 3 e 4 dentro do saldo do orçamento de até ${D11.ementas} ementas obtidas, somando as rodadas; não zere a contagem ao mudar de rodada`,
     ],
   ],
   [
@@ -123,12 +126,17 @@ describe("pesquisar_tese 1.2: o texto (B1.1)", () => {
     const variantes = [
       texto.replace(", mesmo que a tese pareça pacífica", ""),
       texto.replace("com 3 TRTs ou mais, ponha-a em 1º lugar", "com 3 TRTs ou mais, deixe-a em 2º lugar"),
-      texto.replace("só se ela estiver ligada e legível", "sempre"),
-      texto.replace(": avise o usuário desse custo antes de repetir", ""),
+      texto.replace("somente com a memória ligada e legível, buscas guardadas ainda válidas e sem renovar", "sempre"),
+      texto.replace("no máximo uma vez na pesquisa inteira", "quantas vezes precisar"),
+      texto.replace(" e não repita para tentar executar o foraDoTeto", ""),
+      texto.replace("Se a memória falhar na repetição e as já feitas não voltarem como guardadas, não repita de novo", ""),
       texto.replace("e que a busca do contrário ficou incompleta neles", ""),
       texto.replace(`menos de ${D11.gatilho} das ementas`, "menos de 3 das ementas"),
       texto.replace("na mesma ordem e grafia", "em qualquer ordem"),
       texto.replace("nunca nome de parte, número de processo, termo de memória nem dado do caso", "à vontade"),
+      texto.replace(", sem renovar, se ela estiver", " se ela estiver"),
+      texto.replace(" Confira no cabecalhoDeCobertura quais voltaram como guardadas.", ""),
+      texto.replace("; não zere a contagem ao mudar de rodada", ""),
       texto.replace(`até ${D11.formulacoes} formulações por tese`, "até 12 formulações por tese"),
       texto.replace("é orientação, não trava", "é trava"),
       texto.replace(", não que ele não existe", ""),
@@ -138,6 +146,38 @@ describe("pesquisar_tese 1.2: o texto (B1.1)", () => {
       expect(v).not.toBe(texto);
       expect(regrasFaltando(v).length).toBeGreaterThan(0);
     }
+  });
+
+  it("E1 da revisão: a 2ª rodada não promete a memória; com renovar ou sem busca válida guardada, as antigas gastam orçamento", async () => {
+    const texto = await roteiro();
+    const segunda = linha(texto, "Segunda rodada, ");
+    // O texto anterior prometia que as antigas voltam da memória, sem ressalvar renovar nem a busca válida guardada.
+    const anterior =
+      "As da primeira rodada voltam da memória do Garimpo se ela estiver ligada e legível e a busca tiver menos de 24 h; " +
+      "senão, vão ao site de novo e gastam orçamento. Com a lista nova, refaça os passos 3 e 4, sem passar de 10 ementas " +
+      "apresentadas.";
+    expect(segunda).not.toMatch(/\bvoltam da memória/);
+    const comOAnterior = texto.replace(segunda.slice(segunda.indexOf("As da primeira rodada")), anterior);
+    expect(comOAnterior).not.toBe(texto);
+    expect(regrasFaltando(comOAnterior)).not.toEqual([]);
+  });
+
+  it("E2 da revisão: no TRT, repetir só com a memória valendo e sem renovar; nos outros casos, avisar o custo e não repetir", async () => {
+    const texto = await roteiro();
+    const trt = linha(texto, "Com TRT: ");
+    // O texto anterior deixava repetir com renovar ou sem memória depois do aviso: a repetição só refazia as páginas.
+    const anterior =
+      "Repetir a mesma chamada, sem renovar, executa o foraDoTeto e traz as já feitas da memória do Garimpo só se ela " +
+      "estiver ligada e legível; com renovar ou com a memória desligada, a repetição refaz no site as páginas já feitas: " +
+      "avise o usuário desse custo antes de repetir. Se, na repetição, as já feitas não voltarem como guardadas no " +
+      "cabecalhoDeCobertura, as páginas foram refeitas: não repita de novo.";
+    expect(trt).not.toContain("antes de repetir");
+    const comOAnterior = texto.replace(
+      trt.slice(trt.indexOf("Para executar o foraDoTeto"), trt.indexOf(" Contrária sem rodar")),
+      anterior,
+    );
+    expect(comOAnterior).not.toBe(texto);
+    expect(regrasFaltando(comOAnterior)).not.toEqual([]);
   });
 
   it("as linhas novas não trazem número de precedente nem de processo: os números são de D11, passos, páginas e TRTs", async () => {

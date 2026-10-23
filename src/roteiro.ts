@@ -4,13 +4,14 @@
  * força do precedente ("vincula" só entre aspas, como palavra proibida); exemplos só abstratos.
  * Mudar o texto exige reler: o teste de padrões é trava parcial.
  * Frases do roteiro 1.2 (B1.1, 2026-10-23: distinguir_precedente, contrário, 2ª rodada, orçamento, anti-injeção e
- * ponteiro): PENDENTE ratificação Codex Sol (D12); o dono lê o texto integral antes de publicar.
+ * ponteiro): ratificadas pelo Codex Sol em 2026-10-23 (D12), com os ajustes da revisão na regra dos TRTs e na 2ª
+ * rodada; o dono pode vetar e lê o texto integral antes de publicar.
  */
 
 /**
  * Texto aprovado das instructions (ADR-0014; frases aprovadas em 2026-10-09 (leitura do acórdão), 2026-10-13
  * (privacidade, D-14) e 2026-10-14 (súmula ou tema, revisão única)), sem mudar uma vírgula; as duas últimas frases
- * (ponteiro do distinguir_precedente e anti-injeção, B1.1) estão PENDENTES de ratificação do Codex Sol (D12).
+ * (ponteiro do distinguir_precedente e anti-injeção, B1.1) foram ratificadas pelo Codex Sol em 2026-10-23 (D12).
  */
 export const INSTRUCTIONS =
   "O Garimpo pesquisa jurisprudência brasileira em base não oficial e baixa o inteiro teor oficial quando " +
@@ -66,22 +67,26 @@ const CONTRARIO_SEMPRE =
 
 /**
  * Contrária com TRT (B1.1 (b) e (e)): o Falcão dá as páginas por formulação, depois por TRT, 5 por chamada
- * (src/ampla.ts), e a repetição só executa o foraDoTeto sem refazer o já feito com a memória ligada e legível.
+ * (src/ampla.ts). A repetição só executa o foraDoTeto sem refazer o já feito com a memória ligada e legível, as buscas
+ * guardadas válidas (24 h) e sem renovar; fora disso, o roteiro manda avisar o custo e não repetir (revisão B1.1, E2).
  */
 const CONTRARIO_COM_TRT =
   "Com TRT: cada formulação em cada TRT gasta uma das 5 páginas do Falcão por chamada, primeiro a 1ª formulação em " +
   "cada TRT, na ordem dada, depois as seguintes; o que não couber sai no cabecalhoDeCobertura como foraDoTeto, que " +
   "não é busca vazia. Para a contrária rodar já na 1ª chamada, deixe-a em 2º lugar com até 2 TRTs; com 3 TRTs ou " +
-  "mais, ponha-a em 1º lugar. Repetir a mesma chamada, sem renovar, executa o foraDoTeto e traz as já feitas da " +
-  "memória do Garimpo só se ela estiver ligada e legível; com renovar ou com a memória desligada, a repetição refaz " +
-  "no site as páginas já feitas: avise o usuário desse custo antes de repetir. Se, na repetição, as já feitas não " +
-  "voltarem como guardadas no cabecalhoDeCobertura, as páginas foram refeitas: não repita de novo. Contrária sem " +
-  "rodar em algum TRT (foraDoTeto ou pausaPreventiva; as páginas seguem a ordem da lista): diga ao usuário quais " +
-  "formulações não rodaram em quais TRTs e que a busca do contrário ficou incompleta neles.";
+  "mais, ponha-a em 1º lugar. Para executar o foraDoTeto, repita a mesma chamada no máximo uma vez na pesquisa " +
+  "inteira, somente com a memória ligada e legível, buscas guardadas ainda válidas e sem renovar. As já feitas podem " +
+  "voltar da memória; confira as guardadas no cabecalhoDeCobertura. Com renovar, memória desligada ou sem buscas " +
+  "válidas guardadas, repetir refaz no site as páginas já feitas e gasta orçamento novamente: avise desse custo e não " +
+  "repita para tentar executar o foraDoTeto. Se a memória falhar na repetição e as já feitas não voltarem como " +
+  "guardadas, não repita de novo. Contrária sem rodar em algum TRT (foraDoTeto ou pausaPreventiva; as páginas seguem " +
+  "a ordem da lista): diga ao usuário quais formulações não rodaram em quais TRTs e que a busca do contrário ficou " +
+  "incompleta neles.";
 
 /**
  * Segunda rodada lexical (B1.1 (c)), só com o gatilho de D11: a união das formulações numa só busca_ampla, com os
- * mesmos parâmetros, para as antigas poderem voltar da memória (src/ampla.ts; src/memoria.ts, 24 h).
+ * mesmos parâmetros, para as antigas poderem voltar da memória (src/ampla.ts; src/memoria.ts, 24 h), sem prometer que
+ * voltem (revisão B1.1, E1); o teto de 10 ementas obtidas soma as rodadas.
  */
 const SEGUNDA_RODADA =
   "Segunda rodada, uma só e só com gatilho: se menos de 5 das ementas lidas no passo 4 servirem à tese (leitura " +
@@ -89,9 +94,11 @@ const SEGUNDA_RODADA =
   "instituto, à situação ou ao dispositivo), cada termo com o id da ementa de onde saiu; nunca nome de parte, número " +
   "de processo, termo de memória nem dado do caso. Mande numa só busca_ampla a união das formulações (até 8), as da " +
   "primeira rodada na mesma ordem e grafia, seguidas das novas, com os mesmos tribunais, filtros e limite por busca, e mostre " +
-  "ao usuário, antes dos resultados, os termos novos e de onde saiu cada um. As da primeira rodada voltam da memória " +
-  "do Garimpo se ela estiver ligada e legível e a busca tiver menos de 24 h; senão, vão ao site de novo e gastam " +
-  "orçamento. Com a lista nova, refaça os passos 3 e 4, sem passar de 10 ementas apresentadas.";
+  "ao usuário, antes dos resultados, os termos novos e de onde saiu cada um. As da primeira rodada podem voltar da " +
+  "memória do Garimpo, sem renovar, se ela estiver ligada e legível e as buscas estiverem guardadas e válidas por " +
+  "menos de 24 h; com renovar ou sem busca válida guardada, vão ao site de novo e gastam orçamento. Confira no " +
+  "cabecalhoDeCobertura quais voltaram como guardadas. Com a lista nova, refaça os passos 3 e 4 dentro do saldo do " +
+  "orçamento de até 10 ementas obtidas, somando as rodadas; não zere a contagem ao mudar de rodada.";
 
 /** Fecho comum aos dois roteiros: o que fazer diante de recusa ou rede parada. */
 const DIANTE_DE_RECUSA =
@@ -219,7 +226,7 @@ function passoDosFatos(fatos: string | undefined): string {
 /**
  * O roteiro de distinção (B1.1 (a), U12/U13): ficha do acórdão e matriz fato a fato em quatro estados, cada um com
  * prova no material lido. A ferramenta não decide se o caso é diferente nem se o precedente caiu; os fatos do caso
- * nunca vão às formulações. PENDENTE ratificação Codex Sol (D12).
+ * nunca vão às formulações. Ratificado sem ajustes pelo Codex Sol em 2026-10-23 (D12).
  */
 export function roteiroDeDistincao(precedente: string, fatos?: string): string {
   return [

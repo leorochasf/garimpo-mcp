@@ -7,7 +7,7 @@ import { Cliente } from "../src/cliente.js";
 import { criarServidor } from "../src/servidor.js";
 
 /**
- * O prompt distinguir_precedente (B1.1 (a); texto PENDENTE de ratificação do Codex Sol, D12), pela porta do servidor
+ * O prompt distinguir_precedente (B1.1 (a); texto ratificado pelo Codex Sol em 2026-10-23, D12), pela porta do servidor
  * montado, sem rede: o site falso reprova o teste se for chamado. Trava de texto, não prova de que uma IA siga o
  * roteiro: a resistência do agente se mede na amostra com agente (banco de provas), não aqui.
  */
@@ -110,7 +110,7 @@ describe("prompt distinguir_precedente (B1.1, roteiro de distinção)", () => {
     ]);
   });
 
-  it("o roteiro inteiro corresponde à cópia congelada para leitura humana (D12: pendente de ratificação)", async () => {
+  it("o roteiro inteiro corresponde à cópia congelada para leitura humana (D12: ratificado)", async () => {
     // Cópia independente do texto integral; não deriva de src/roteiro.ts durante o teste. Checkout Windows: CRLF.
     const congelado = (await readFile(new URL("./fixtures/distinguir-precedente-aprovado.txt", import.meta.url), "utf8"))
       .replace(/\r\n/g, "\n")

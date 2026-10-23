@@ -10,16 +10,20 @@ import { respostaJson } from "./apoio.js";
 import { chamar, conectar as conectarComFalcao, documento, falcaoFalso, pagina } from "./apoioFalcao.js";
 
 /**
- * O que o servidor faz com o que o roteiro 1.2 manda (B1.1; P02, P04), sem rede: com memória fria, falha de leitura
- * ou renovar, as formulações antigas da união da 2ª rodada vão ao site e o cabeçalho as conta como feitas, não como
- * guardadas; 5 TRTs × 2 formulações deixam a contrária foraDoTeto, e repetir só a executa com a memória valendo. Isso
- * prova o que o servidor envia e faz, não a resistência do agente (essa se mede na amostra com agente).
+ * O que o servidor faz com o que o roteiro 1.2 manda (B1.1; P02, P04), sem rede: com memória fria, falha de leitura,
+ * busca guardada vencida (24 h) ou renovar, as formulações antigas da união da 2ª rodada vão ao site e o cabeçalho as
+ * conta como feitas, não como guardadas; 5 TRTs × 2 formulações deixam a contrária foraDoTeto, e repetir só a executa
+ * com a memória valendo. São as condições que o roteiro ratificado nomeia (revisão B1.1, E1 e E2). Isso prova o que o
+ * servidor envia e faz, não a resistência do agente (essa se mede na amostra com agente).
  */
 
-/** Uma janela do Garimpo com esta pasta de dados (a mesma pasta = a mesma memória em disco). */
-async function janela(site: Cliente, dados: string) {
+/** Validade da busca guardada (src/memoria.ts), contada da obtenção no site. */
+const DIA = 24 * 3_600_000;
+
+/** Uma janela do Garimpo com esta pasta de dados (a mesma pasta = a mesma memória em disco) e, se vier, este relógio. */
+async function janela(site: Cliente, dados: string, agora?: () => number) {
   const [ladoCliente, ladoServidor] = InMemoryTransport.createLinkedPair();
-  await criarServidor(site, { dados }).connect(ladoServidor);
+  await criarServidor(site, { dados, agora }).connect(ladoServidor);
   const mcp = new Client({ name: "teste", version: "0" });
   await mcp.connect(ladoCliente);
   return mcp;
@@ -138,6 +142,27 @@ describe("2ª rodada: a união das formulações numa só busca_ampla (P02)", ()
     for (const l of cabecalho(r)) {
       expect(l.buscasFeitas).toBe(UNIAO.length);
       expect(l.guardadas).toBeUndefined();
+    }
+  });
+
+  it("busca guardada vencida: com menos de 24 h as antigas voltam como guardadas; com 24 h vão ao site e contam como feitas", async () => {
+    for (const [passou, guardadas] of [
+      [DIA - 1, PRIMEIRA.length],
+      [DIA, undefined],
+    ] as const) {
+      let agora = Date.UTC(2026, 0, 1);
+      const site = siteContado();
+      const mcp = await janela(site.cliente, await novaPasta(), () => agora);
+      expect((await chamar(mcp, "busca_ampla", { formulacoes: PRIMEIRA, tribunais: TRIBUNAIS })).isError).toBe(false);
+      agora += passou;
+      site.buscas.length = 0;
+      const r = await chamar(mcp, "busca_ampla", { formulacoes: UNIAO, tribunais: TRIBUNAIS });
+      expect(r.isError).toBe(false);
+      expect(site.buscas).toHaveLength((UNIAO.length - (guardadas ?? 0)) * TRIBUNAIS.length);
+      for (const l of cabecalho(r)) {
+        expect(l.buscasFeitas).toBe(UNIAO.length);
+        expect(l.guardadas).toBe(guardadas);
+      }
     }
   });
 
@@ -260,6 +285,49 @@ describe("TRT: a contrária cabe no teto do Falcão ou a busca do contrário é 
     const r = await chamar(mcp, "busca_ampla", pedido);
     expect(falcao.paginas).toHaveLength(10);
     expect(rodouEm(falcao.paginas, CONTRARIA)).toEqual([]);
+    for (const l of cabecalho(r)) {
+      expect(l).toMatchObject({ buscasFeitas: 1, foraDoTeto: 1 });
+      expect(l.guardadas).toBeUndefined();
+    }
+  });
+
+  it("5 TRTs × 2 com as buscas guardadas vencidas (24 h): a repetição refaz as 5 páginas da tese e a contrária continua sem rodar", async () => {
+    let agora = Date.UTC(2026, 0, 1);
+    const falcao = falcaoContado();
+    const { mcp } = await conectarComFalcao(siteContado().cliente, falcao.cliente, { agora: () => agora });
+    const pedido = { formulacoes: [TESE, CONTRARIA], tribunais: CINCO_TRTS };
+    await chamar(mcp, "busca_ampla", pedido);
+    agora += DIA;
+    const r = await chamar(mcp, "busca_ampla", pedido);
+    expect(r.isError).toBe(false);
+    expect(falcao.paginas).toHaveLength(10);
+    expect(rodouEm(falcao.paginas, TESE)).toEqual(ordenados([...CINCO_TRTS, ...CINCO_TRTS]));
+    expect(rodouEm(falcao.paginas, CONTRARIA)).toEqual([]);
+    for (const l of cabecalho(r)) {
+      expect(l).toMatchObject({ buscasFeitas: 1, foraDoTeto: 1 });
+      expect(l.guardadas).toBeUndefined();
+    }
+  });
+
+  it("5 TRTs × 2 com falha ao ler a memória na repetição: as já feitas não voltam como guardadas, são refeitas, e a contrária continua sem rodar", async () => {
+    const falcao = falcaoContado();
+    const { mcp, dados } = await conectarComFalcao(siteContado().cliente, falcao.cliente);
+    const pedido = { formulacoes: [TESE, CONTRARIA], tribunais: CINCO_TRTS };
+    await chamar(mcp, "busca_ampla", pedido);
+    // Cada busca guardada vira uma pasta com o mesmo nome: ler dá erro, não "ausente". Outra janela não a tem consigo.
+    for (const f of await buscasNoDisco(dados, CINCO_TRTS.length)) {
+      await rm(f);
+      await mkdir(f);
+    }
+    falcao.paginas.length = 0;
+    const { mcp: outra } = await conectarComFalcao(siteContado().cliente, falcao.cliente, { dados });
+    const r = await chamar(outra, "busca_ampla", pedido);
+    expect(r.isError).toBe(false);
+    expect(rodouEm(falcao.paginas, TESE)).toEqual(ordenados(CINCO_TRTS));
+    expect(rodouEm(falcao.paginas, CONTRARIA)).toEqual([]);
+    expect(r.dado.avisos.join("\n")).toContain(
+      `Memória do Garimpo falhou ao ler ${CINCO_TRTS.length} de ${2 * CINCO_TRTS.length} buscas: tratadas como buscas novas.`,
+    );
     for (const l of cabecalho(r)) {
       expect(l).toMatchObject({ buscasFeitas: 1, foraDoTeto: 1 });
       expect(l.guardadas).toBeUndefined();
