@@ -31,7 +31,7 @@ import { textoDoTjpi } from "./tjpi.js";
 import { textoDaTnu } from "./tnu.js";
 import { textoDoTrf2 } from "./trf2.js";
 import { textoDoTrf4 } from "./trf4.js";
-import { ehDoFalcao, infoTribunal } from "./tribunais.js";
+import { type ClasseDoMotivo, ehDoFalcao, infoTribunal } from "./tribunais.js";
 
 export interface PedidoInteiroTeor {
   /** Id composto devolvido pela busca ("stj:12345"). */
@@ -62,7 +62,15 @@ export interface ChamadaPronta {
 
 export type ResultadoInteiroTeor =
   | InteiroTeorBaixado
-  | { baixado: false; link?: string; explicacao: string; chamadaPronta?: ChamadaPronta };
+  | {
+      baixado: false;
+      link?: string;
+      explicacao: string;
+      chamadaPronta?: ChamadaPronta;
+      /** Só link: a classe e a data da prova do motivo, como na tabela de tribunais. */
+      classeDoMotivo?: ClasseDoMotivo;
+      dataDaProva?: string;
+    };
 
 export type ClientePorTribunal = (sigla: string) => Cliente;
 
@@ -226,16 +234,17 @@ export async function obterInteiroTeor(
     // Sem link do PDF (comum no STF), o link oficial de consulta serve para o usuário abrir no navegador.
     const linkOficial = link ?? acordao?.linkConsulta ?? linkDaRota;
     const motivo = info.motivoLink ?? "";
+    const classificado = { classeDoMotivo: info.classeDoMotivo, ...(info.dataDaProva && { dataDaProva: info.dataDaProva }) };
     if (!linkOficial) {
       // Sem link, o "abra o link no navegador" do texto de tribunal não testado não tem o que abrir.
       const semLink = motivo.replace(/; abra o link no navegador\.$/, ".");
       const explicacao = `${semLink} O JurisprudênciaIA não trouxe link para este acórdão. ${caminhoSemLink(info.nome, acordao, id)}`;
-      return { baixado: false, explicacao: explicacao.trim(), ...pronta };
+      return { baixado: false, explicacao: explicacao.trim(), ...classificado, ...pronta };
     }
     let explicacao = motivo;
     if (linkDaRota) explicacao += origemDaRota;
     explicacao += ` ${ponte(id, acordao)}`;
-    return { baixado: false, link: linkOficial, explicacao: explicacao.trim(), ...pronta };
+    return { baixado: false, link: linkOficial, explicacao: explicacao.trim(), ...classificado, ...pronta };
   }
   const linkPdf = link ?? linkDaRota;
   if (!linkPdf) {
