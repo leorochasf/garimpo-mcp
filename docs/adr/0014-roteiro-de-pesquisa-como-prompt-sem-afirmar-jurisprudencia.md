@@ -108,3 +108,63 @@ Lido e aprovado pelo dono em 2026-10-14.
 
 Testes de igualdade e das ressalvas atualizados no mesmo conjunto. São travas de texto, não prova de que uma IA siga
 as instruções; a leitura semântica continua necessária.
+
+## Emenda de 2026-10-23: roteiro 1.2 (B1.1) — PENDENTE de ratificação do Codex Sol (D12)
+
+Plano 1.2, bloco B1.1 (U03, U12, U13, U15, U16, U24). Os números são os de D11, aprovados pelo dono em 2026-10-23.
+As frases novas são proposta do executor e ficam **pendentes da ratificação do Codex Sol** (D12: o Sol decide a
+redação, o dono pode vetar e lê o texto integral antes de publicar). Situação: **implementado, não medido**. A
+medição (banco de provas, amostra de distinção com agente, 2ª rodada, custo e tempo até a matriz) depende de rede e do
+júri (B0.2, B4.1).
+
+- **Novo prompt `distinguir_precedente`** (argumentos `precedente`, obrigatório, e `fatos`, opcional, ambos texto).
+  Não há ferramenta nova, pela mesma razão da decisão original. O prompt pede uma ficha do acórdão: identificação e
+  origem do texto lido; depois certidão, quadro fático, admissibilidade, tese literal, ratio como leitura do agente,
+  dispositivo, votos, o que veio depois e o `enquadramento927` como a ferramenta o devolveu. Pede também uma matriz
+  fato a fato, em quatro estados, cada um provado pelo material lido. "Presente" e "diferente" exigem trecho e posição,
+  e "diferente" só vale com o fato **contrário** reconhecido: a falta do fato nunca basta. "Não informado" exige a
+  leitura integral das partes pertinentes. "Não localizado" é a leitura que não alcançou o fato. Alegação de parte e
+  voto vencido não são fato reconhecido, e fato que o acórdão nega não é "presente". O texto traz a regra "a
+  ferramenta não decide se o caso é diferente nem se o precedente caiu". Os fatos do caso não vão aos portais (a frase
+  de privacidade de D-14 vem literal), o desgaste usa as três caixas do passo 11, e "vincula" e "só convence" aparecem
+  só como palavras proibidas, entre aspas (AC-A03).
+- **`pesquisar_tese`**: o texto aprovado não muda uma vírgula; só ganha acréscimos.
+  - Linha de orçamento antes do passo 1, como orientação, não trava: até 8 formulações por tese, somando as rodadas;
+    uma `busca_ampla` por rodada e, com TRT, no máximo uma repetição; até 10 ementas e até 3 inteiros teores. Gasta
+    orçamento a busca que foi ao site, a ementa e o inteiro teor obtidos, e uma operação pode custar mais de uma
+    chamada ao site.
+  - No passo 1, sempre ao menos uma formulação contrária ou de exceção, em 2º lugar (U16, DV15).
+  - Logo abaixo do passo 2, a regra dos TRTs. Cada formulação em cada TRT gasta uma página do Falcão; com até 2 TRTs,
+    a contrária vai em 2º lugar e, com 3 ou mais, em 1º. Repetir a chamada só vale com a memória ligada e legível, com
+    aviso do custo; senão, o agente diz onde a busca do contrário ficou incompleta.
+  - Logo abaixo do passo 4, a 2ª rodada: uma só e só com o gatilho de D11 (menos de 5 das ementas lidas servindo à
+    tese). Usa termos técnicos copiados das ementas devolvidas, cada um com o id de origem, e a união das formulações
+    numa só chamada, com as antigas na mesma ordem e grafia e os mesmos parâmetros.
+  - No passo 5, o agente diz se a contrária rodou em cada tribunal; busca sem acórdão contrário não prova que ele não
+    exista.
+
+  A numeração dos passos não mudou.
+- **`instructions`**: duas frases no fim, para quem não abre os prompts. Uma aponta o `distinguir_precedente`, com as
+  três regras críticas; a outra é a orientação anti-injeção (DV12, AC-A11, AC-A29). As duas ampliam o alcance da
+  **orientação**, não são trava (Consequências, acima).
+
+Testes no mesmo conjunto:
+
+- igualdade exata das `instructions`;
+- cópias independentes congeladas dos dois roteiros: `tests/fixtures/roteiro-aprovado.txt`, atualizada, e
+  `tests/fixtures/distinguir-precedente-aprovado.txt`;
+- travas de frase das regras novas, que rejeitam remoção, troca e inversão;
+- padrões de afirmação de jurisprudência e "vincula" fora de aspas, em todos os textos.
+
+Do lado do servidor, sem rede:
+
+- as cinco fixtures de injeção do B0.2 (`tests/fixtures/banco-de-provas-1.2/injecao.json`) chegam pelo fetch falso;
+  a resposta só muda no texto copiado da fonte, com as mesmas chamadas e o mesmo link, e o trecho oculto do HTML fica,
+  com aviso;
+- na união da 2ª rodada com memória fria (`GARIMPO_SEM_MEMORIA=1`), falha de leitura ou `renovar`, as formulações
+  antigas vão ao site e o cabeçalho as conta como feitas, não como guardadas;
+- com 5 TRTs e 2 formulações, a contrária fica `foraDoTeto`; a repetição a executa com a memória valendo, e refaz as
+  páginas da tese com `renovar` ou sem memória.
+
+Isso prova o que o servidor envia e faz, não que a IA do usuário siga o roteiro. Texto integral para leitura humana:
+`TICKETS/plano-1.2/b1.1-roteiro-texto-integral.md`.
