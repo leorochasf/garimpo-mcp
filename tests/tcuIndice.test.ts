@@ -167,17 +167,57 @@ describe("índice local do TCU: índice velho, ausente ou estragado nunca muda a
     expect(await motivo(dados)).toMatch(/recusado/);
   });
 
-  it("registro que não é o que o índice aponta (mesmo tamanho e data do arquivo): a pesquisa inteira é refeita lendo o arquivo", async () => {
+  // Troca local que preserva tamanho, data e recibo (revisão G1): só o conteúdo denuncia a mudança.
+  it.each([
+    ["chave trocada", "sobrepreço", (t: string) => t.replace("ACORDAO-COMPLETO-100005", "ACORDAO-COMPLETO-900005")],
+    ["texto trocado (abacate → laranja)", "laranja", (t: string) => t.replace("<p>abacate</p>", "<p>laranja</p>")],
+    ["acórdão que passou a sigiloso", "abacate", (t: string) => t.replace(/("ACORDAO-COMPLETO-100005"[\s\S]*?)"OFICIALIZADO"/, '$1"SIGILOSO    "')],
+  ])("conteúdo do arquivo mudou com o mesmo tamanho, data e recibo (%s): o índice não vale", async (_, termo, trocar) => {
     const dados = await mkdtemp(join(tmpdir(), "garimpo-tcu-indice-seguro-"));
-    const csv = await gravarComRecibo(dados, 2025, registros());
+    const lista = registros().map((r, i) => (i === 4 ? { ...r, ACORDAO: "<p>abacate</p>" } : r));
+    const csv = await gravarComRecibo(dados, 2025, lista);
     const data = new Date("2026-10-01T12:00:00Z"); // segundo redondo: volta exata pelo utimes em qualquer sistema
     await utimes(csv, data, data);
     await criarIndiceTcu(dados, 2025);
-    await writeFile(csv, (await readFile(csv, "utf8")).replace("ACORDAO-COMPLETO-100005", "ACORDAO-COMPLETO-900005"));
+    // O índice já valeu neste processo antes da troca.
+    expect((await pesquisarTcu(dados, { consulta: termo })).indiceLocal?.comIndice).toEqual([2025]);
+    const antes = await readFile(csv);
+    const depois = Buffer.from(trocar(antes.toString("utf8")), "utf8");
+    expect(depois.equals(antes)).toBe(false);
+    expect(depois.length).toBe(antes.length);
+    await writeFile(csv, depois);
     await utimes(csv, data, data);
     expect((await stat(csv)).mtimeMs).toBe(data.getTime());
-    expect(await motivo(dados)).toMatch(/não bate com o arquivo/);
-    expect((await pesquisarTcu(dados, consulta)).resultados[0].chave).toBe("ACORDAO-COMPLETO-900005");
+    const { indice } = await mesmaResposta(dados, { consulta: termo });
+    expect(indice.indiceLocal).toEqual({ comIndice: [], semIndice: [{ ano: 2025, motivo: expect.stringMatching(/conteúdo do arquivo do ano mudou/) }] });
+    return indice;
+  });
+
+  it("o acórdão que passou a sigiloso não é devolvido e conta como excluído", async () => {
+    const dados = await mkdtemp(join(tmpdir(), "garimpo-tcu-indice-seguro-"));
+    const lista = registros().map((r, i) => (i === 4 ? { ...r, ACORDAO: "<p>abacate</p>" } : r));
+    const csv = await gravarComRecibo(dados, 2025, lista);
+    const data = new Date("2026-10-01T12:00:00Z");
+    await utimes(csv, data, data);
+    await criarIndiceTcu(dados, 2025);
+    expect((await pesquisarTcu(dados, { consulta: "abacate" })).total).toBe(1);
+    await writeFile(csv, (await readFile(csv, "utf8")).replace(/("ACORDAO-COMPLETO-100005"[\s\S]*?)"OFICIALIZADO"/, '$1"SIGILOSO    "'));
+    await utimes(csv, data, data);
+    const r = await pesquisarTcu(dados, { consulta: "abacate" });
+    expect(r).toMatchObject({ total: 0, resultados: [], excluidosPorSituacao: 1 });
+    expect(JSON.stringify(r)).not.toContain("abacate</");
+  });
+
+  it("arquivo tocado sem mudar o conteúdo (data regravada): o índice continua valendo, conferido pelo sha256", async () => {
+    const dados = await pasta();
+    const csv = caminhoDoAnoTcu(dados, 2025);
+    const { mtime } = await stat(csv);
+    await writeFile(csv, await readFile(csv));
+    await utimes(csv, mtime, mtime);
+    const ms = (await stat(csv)).mtimeMs;
+    await criarIndiceTcu(dados, 2025); // índice com a data nova
+    await utimes(csv, new Date(ms), new Date(ms));
+    expect((await pesquisarTcu(dados, consulta)).indiceLocal).toEqual({ comIndice: [2025], semIndice: [] });
   });
 
   it("não cria índice de arquivo que não confere com o recibo", async () => {

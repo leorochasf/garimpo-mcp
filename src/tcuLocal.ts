@@ -4,6 +4,7 @@
  */
 
 import { createHash } from "node:crypto";
+import { createReadStream } from "node:fs";
 import { open, readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { filtroLocal } from "./filtroLocal.js";
@@ -279,7 +280,10 @@ async function varrerAno(dados: string, ano: number, c: Consulta, melhores: Melh
 export const caminhoDoIndiceTcu = (dados: string, ano: number) => join(pastaDoTcu(dados), `acordao-completo-${ano}.indice`);
 
 /** Um documento do índice: início e tamanho em bytes no CSV, chave, tipo, colegiado, relator, data e número (ordem), conferir. */
-type DocumentoDoIndice = [number, number, string, string, string, string, number, number, 0 | 1];
+type DocumentoDoIndice = [
+  inicio: number, tamanho: number, chave: string, tipo: string, colegiado: string, relator: string, data: number, numero: number,
+  conferir: 0 | 1,
+];
 
 interface MetaDoIndice {
   ano: number;
@@ -376,6 +380,22 @@ export async function criarIndiceTcu(dados: string, ano: number): Promise<Indice
 /** Índices já abertos neste processo, pelo tamanho e data do arquivo do índice. */
 const abertos = new Map<string, { marca: string; indice: IndiceTcu<MetaDoIndice> }>();
 
+/**
+ * Arquivos do ano cujo conteúdo já foi conferido neste processo (sha256 igual ao do índice), com a marca do arquivo na
+ * hora: tamanho, datas de modificação e de alteração (ctime, que o sistema atualiza a cada escrita e a cada troca de
+ * data) e número do arquivo no disco. Marca diferente = o conteúdo é conferido de novo antes de o índice valer.
+ */
+const conferidos = new Map<string, string>();
+
+async function sha256DoArquivo(caminho: string): Promise<string> {
+  const hash = createHash("sha256");
+  for await (const bloco of createReadStream(caminho, { highWaterMark: 1 << 20 })) hash.update(bloco);
+  return hash.digest("hex");
+}
+
+const marcaDoArquivo = (s: { size: number; mtimeMs: number; ctimeMs: number; ino: number } | undefined, sha256: string) =>
+  s && `${s.size}:${s.mtimeMs}:${s.ctimeMs}:${s.ino}:${sha256}`;
+
 const RECRIAR = "Para criar o índice, use baixar_anos_tcu com renovar: true e confirmar: true.";
 
 /** O índice do ano, se existe e vale para o arquivo baixado agora; senão, o motivo (e a pesquisa varre o ano). */
@@ -404,17 +424,40 @@ export async function indiceDoAnoTcu(dados: string, ano: number): Promise<{ indi
   if (m?.ano !== ano || m.csv?.sha256 !== recibo.sha256 || m.csv.bytes !== doCsv?.size || m.csv.mtimeMs !== doCsv?.mtimeMs) {
     return { motivo: `O arquivo do ano mudou depois do índice: o índice não é usado e a pesquisa leu o arquivo inteiro. ${RECRIAR}` };
   }
+  // Tamanho e data iguais não provam o mesmo conteúdo: o sha256 do arquivo é conferido na 1ª vez neste processo e
+  // sempre que o arquivo for tocado (revisão G1).
+  const csv = caminhoDoAnoTcu(dados, ano);
+  const marcaCsv = marcaDoArquivo(doCsv, m.csv.sha256);
+  if (conferidos.get(csv) !== marcaCsv) {
+    conferidos.delete(csv);
+    const sha256 = await sha256DoArquivo(csv).catch(() => undefined);
+    const depois = await stat(csv).catch(() => undefined);
+    if (sha256 !== m.csv.sha256 || marcaDoArquivo(depois, m.csv.sha256) !== marcaCsv) {
+      return {
+        motivo:
+          "O conteúdo do arquivo do ano mudou depois do índice (sha256 diferente, mesmo com tamanho e data iguais): o índice " +
+          `não é usado e a pesquisa leu o arquivo inteiro. ${RECRIAR}`,
+      };
+    }
+    conferidos.set(csv, marcaCsv!);
+  }
   return aberto;
 }
 
-/** Lê do arquivo do ano os registros que o índice aponta, conferindo a chave. */
+/**
+ * Lê do arquivo do ano os registros que o índice aponta, conferindo chave, tipo, colegiado, relator e situação: se o
+ * arquivo mudar depois da conferência do sha256, a pesquisa inteira é refeita lendo os arquivos.
+ */
 async function lerDoIndice(dados: string, ano: number, m: MetaDoIndice, docs: DocumentoDoIndice[]): Promise<RegistroDoTcu[]> {
   const csv = await open(caminhoDoAnoTcu(dados, ano), "r");
   try {
     const lidos: RegistroDoTcu[] = [];
     for (const d of docs) {
-      const r = await registroDaLinha(m.cabecalhoCsv, (await lerBytes(csv, d[0], d[1])).toString("utf8"));
-      if (r?.KEY !== d[2]) throw new IndiceInvalidoError("o registro no arquivo não é o que o índice aponta");
+      const [inicio, tamanho, chave, tipo, colegiado, relator] = d;
+      const r = await registroDaLinha(m.cabecalhoCsv, (await lerBytes(csv, inicio, tamanho)).toString("utf8"));
+      if (!r || r.KEY !== chave || (r.TIPO ?? "") !== tipo || (r.COLEGIADO ?? "") !== colegiado || (r.RELATOR ?? "") !== relator || excluidoPorSituacao(r)) {
+        throw new IndiceInvalidoError("o registro no arquivo não é o que o índice aponta");
+      }
       lidos.push(r);
     }
     return lidos;
@@ -452,15 +495,16 @@ async function pesquisarNoIndice(
     const d = m.documentos[i];
     if (!d) throw new IndiceInvalidoError("documento fora do índice");
     return d;
-  }).filter((d) => passaFiltros(c, d[3], d[4], d[5]));
-  const conferir = filtrados.filter((d) => conferirTodos || d[8]);
+  }).filter(([, , , tipo, colegiado, relator]) => passaFiltros(c, tipo, colegiado, relator));
+  const conferir = filtrados.filter(([, , , , , , , , marcado]) => conferirTodos || marcado);
   const recusados = new Set<DocumentoDoIndice>();
   (await lerDoIndice(dados, ano, m, conferir)).forEach((r, k) => {
     if (!passaTriagem(brutoDe(r), c.palavras) || !c.passa(analisar(r).texto)) recusados.add(conferir[k]);
   });
   const achados = filtrados.filter((d) => !recusados.has(d));
   for (const d of achados) {
-    melhores.considerar([d[6], d[7]], () => async () => {
+    const [, , , , , , data, numero] = d;
+    melhores.considerar([data, numero], () => async () => {
       const [r] = await lerDoIndice(dados, ano, m, [d]);
       const { texto, sigilosas } = analisar(r);
       return montarAcordao(r, texto, sigilosas, c.termos);
