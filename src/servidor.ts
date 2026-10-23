@@ -491,7 +491,8 @@ export function criarServidor(
     {
       title: "Busca direta",
       description:
-        "Pesquisa jurisprudência num tribunal pela busca direta do JurisprudênciaIA (sem o chat de IA do site). " +
+        "Pesquisa jurisprudência (decisões judiciais publicadas) num tribunal pela busca direta do JurisprudênciaIA " +
+        "(sem o chat de IA do site). " +
         "Devolve acórdãos com a ementa como veio do site (avisoDeEmenta quando ela parece cortada pelo próprio site), " +
         "número, órgão, data e link oficial, e, em lista separada, os " +
         "precedentes qualificados (temas, súmulas). O site costuma devolver poucos acórdãos do STF por busca (de 2 a 7 na medição de out/2026). " +
@@ -689,7 +690,8 @@ export function criarServidor(
     {
       title: "Obter inteiro teor oficial",
       description:
-        "Baixa o PDF oficial do acórdão do portal do próprio tribunal e devolve o caminho do arquivo salvo, o " +
+        "Baixa o PDF oficial do acórdão (decisão pública que o próprio tribunal publica no seu portal), para leitura " +
+        "local, e devolve o caminho do arquivo salvo, o " +
         "sha256 e o caminho do recibo de origem gravado ao lado (link oficial, data e hora, sha256; declaração do " +
         "Garimpo, não certidão). Nunca sobrescreve nem deixa arquivo pela metade; recusa PDF acima de 50 MB. " +
         "Já devolve a 1ª parte do texto, com o mesmo cabeçalho do ler_inteiro_teor e a chamada pronta para a parte " +
@@ -967,7 +969,8 @@ export function criarServidor(
         "Consulta um precedente pelo número. STJ: tema repetitivo ou IAC, direto na tabela de precedentes que vai no " +
         "Garimpo (fotografia datada do Portal de Dados Abertos do STJ), sem consultar o portal do STJ: o robots.txt de " +
         "processo.stj.jus.br veda o acesso automatizado ao host, e o Garimpo respeita. A resposta diz \"tabela de " +
-        "<data>; consulta automática ao portal não realizada por restrição de acesso\", traz a situação na fonte (literal, " +
+        "<data>; consulta automática ao portal não realizada: o robots.txt do portal veda o acesso automatizado, e o " +
+        "Garimpo respeita\", traz a situação na fonte (literal, " +
         "situação processual, nunca vigência), a tese firmada ou \"sem tese firmada na tabela\", a questão submetida (a " +
         "pergunta, não a tese), órgão julgador, processo paradigma, a atribuição e, com mais de 90 dias, o aviso de idade; " +
         "número ausente volta como \"não consta na tabela de <data>\", nunca como inexistente. Para a situação do dia, " +
@@ -1034,12 +1037,13 @@ export function criarServidor(
         if (!tabela) {
           throw new Error(
             "A tabela de precedentes do STJ não foi carregada neste servidor, e a consulta automática ao portal do STJ " +
-              "não é feita por restrição de acesso: o precedente não pôde ser verificado.",
+              "não é feita: o robots.txt do portal veda o acesso automatizado, e o Garimpo respeita. O precedente não pôde " +
+              "ser verificado.",
           );
         }
         const resposta = consultarPrecedente(tabela, doTipo, numero, (agora ?? Date.now)());
         return json({
-          origem: `tabela de ${resposta.tabela.dataDaColeta}; consulta automática ao portal não realizada por restrição de acesso`,
+          origem: `tabela de ${resposta.tabela.dataDaColeta}; consulta automática ao portal não realizada: o robots.txt do portal veda o acesso automatizado, e o Garimpo respeita`,
           ...resposta,
           avisoNaturezaJuridica: AVISO_DA_TABELA,
         });
@@ -1067,7 +1071,8 @@ export function criarServidor(
         "tribunal (o movimento de tipo não verificado, ou a diferença de embargos). Nunca afirma que um acórdão falta. " +
         "Cada fonte vem com o seu estado (ok, vazia, erro, recusa, pausa, não consultada); \"o DataJud não devolveu este " +
         "processo\" não prova que ele não exista. " +
-        "Com incluir_djen (padrão), também as comunicações do processo no DJEN (uma página, até 100): data de " +
+        "Com incluir_djen (padrão), também as comunicações do processo no DJEN (Diário de Justiça Eletrônico " +
+        "Nacional, a publicação oficial das comunicações processuais) (uma página, até 100): data de " +
         "disponibilização, tipo de comunicação e de documento, órgão, classe e link; nunca o texto bruto nem nome detectável de parte ou " +
         "advogado; em comunicação de acórdão, um trecho saneado da ementa só se o tipo e o texto confirmarem os dois que é " +
         "o próprio ato (rotulado como trecho do DJEN, melhor esforço), senão \"não verificado\"; são comunicações do " +
@@ -1137,12 +1142,14 @@ export function criarServidor(
     {
       title: "Diagnóstico dos freios (por que parou?)",
       description:
-        "Explica por que uma fonte parou de responder, sem chamar fonte nenhuma: só lê o estado de proteção guardado " +
+        "Explica por que o Garimpo deixou de chamar uma fonte (pausa depois de recusa, pedido de espera da própria " +
+        "fonte ou pausa preventiva do Garimpo), sem chamar fonte nenhuma: só lê o estado de proteção guardado " +
         "neste computador. Fonte por fonte: se está pausada e até quando, se é pausa preventiva (com o restante que a " +
         "fonte informou), as recusas e retomadas das últimas 24 h (sem termo de busca nem número de processo) e se há " +
         "indício de recusa sistemática (esperar não resolve) ou se parece rajada (a pausa costuma passar). Avisa também " +
         "quando a rede está parada e quando esta janela não conseguiu gravar uma recusa. Use quando uma chamada falhar " +
-        "por recusa ou pausa, antes de decidir se tenta de novo.",
+        "por recusa ou pausa, para dizer ao usuário o motivo e até quando; antes da hora indicada a chamada nem sai, e " +
+        "com indício de recusa sistemática não insista.",
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
       inputSchema: {},
     },

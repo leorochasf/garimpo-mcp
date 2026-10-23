@@ -149,7 +149,8 @@ function semRedeNenhuma(): string[] {
   return chamadas;
 }
 
-const ORIGEM_D18 = "tabela de 2026-10-09; consulta automática ao portal não realizada por restrição de acesso";
+const ORIGEM_D18 =
+  "tabela de 2026-10-09; consulta automática ao portal não realizada: o robots.txt do portal veda o acesso automatizado, e o Garimpo respeita";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -192,7 +193,7 @@ describe("consultar_precedente — STJ só pela tabela (D-18: o robots.txt de pr
     expect(chamadas).toHaveLength(0);
     expect(r.erro).toBe(true);
     expect(r.texto).toMatch(/tabela de precedentes do STJ não foi carregada/);
-    expect(r.texto).toMatch(/restrição de acesso/);
+    expect(r.texto).toMatch(/o robots\.txt do portal veda o acesso automatizado, e o Garimpo respeita/);
     expect(r.texto).not.toMatch(/não respondeu/);
   });
 });
