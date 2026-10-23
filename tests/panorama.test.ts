@@ -151,6 +151,52 @@ describe("panorama_da_amostra", () => {
     expect(r.texto.length).toBeLessThan(25_000);
   });
 
+  it("traz o panorama por relator por tribunal, sem chamar o site, com o aviso de amostra e abaixo de 25 mil caracteres no pior caso", async () => {
+    const tribunais = ["stj", "tjgo", "tjsp", "tjmg", "tjto"];
+    // Pior caso realista: 40 relatores distintos por tribunal, cada nome com ~150 caracteres, e um texto absurdo de 5 mil.
+    const nome = (i: number) => `Desembargador Fictício Número ${String(i).padStart(2, "0")} `.padEnd(140, "da Silva e Souza ") + `${i}`;
+    const porTribunal = Object.fromEntries(tribunais.map((t) => [t, [
+      ...Array.from({ length: 39 }, (_, i) => ({ ...registro(String(i + 1), "2023-01-01T00:00:00.000Z", "Turma"), relator: nome(i) })),
+      { ...registro("40", "2023-01-01T00:00:00.000Z", "Turma"), relator: "Fulano ".repeat(700) },
+    ]]));
+    const { site, chamadas } = siteDosTribunais(porTribunal);
+    const mcp = await conectar(site);
+    for (const tribunal of tribunais) await chamar(mcp, "busca_direta", { tribunal, texto: "tema de exemplo", limite: 100 });
+    const antes = chamadas.length;
+    const ids = tribunais.flatMap((t) => Array.from({ length: 40 }, (_, i) => `${t}:${i + 1}`));
+    const r = await chamar(mcp, "panorama_da_amostra", { ids });
+    expect(chamadas).toHaveLength(antes);
+    expect(r.json.total).toBe(200);
+    for (const tribunal of tribunais) {
+      const rel = r.json.porRelator[tribunal];
+      // O orçamento de caracteres, não os 20 do top-N, limita a lista de nomes de ~150 caracteres.
+      const mostrados = Object.values(rel.relatores.valores as Record<string, number>).reduce((a, b) => a + b, 0);
+      expect(mostrados).toBeGreaterThan(0);
+      expect(mostrados + rel.relatores.outros).toBe(40);
+      expect(rel.paraOAcordao).toEqual({ valores: {}, outros: 0 });
+      expect(rel.naoInformado).toBe(0);
+    }
+    expect(r.json.avisoDeAmostra).toMatch(/amostra da busca/);
+    expect(r.texto.length).toBeLessThan(25_000);
+  });
+
+  it("separa relator não informado e mantém o nome como veio, por tribunal, no panorama da ferramenta", async () => {
+    const { site } = siteDosTribunais({
+      stj: [
+        { ...registro("1", null, "Turma"), relator: "Ministro Fictício" },
+        { ...registro("2", null, "Turma"), relator: "MINISTRO FICTÍCIO" },
+        registro("3", null, "Turma"),
+      ],
+      tjgo: [{ ...registro("4", null, "Câmara"), relator: "Ministro Fictício" }],
+    });
+    const mcp = await conectar(site);
+    await chamar(mcp, "busca_ampla", { formulacoes: ["tema de exemplo"], tribunais: ["stj", "tjgo"] });
+    const r = await chamar(mcp, "panorama_da_amostra", { ids: ["stj:1", "stj:2", "stj:3", "tjgo:4"] });
+    expect(r.json.porRelator.stj.relatores.valores).toEqual({ "MINISTRO FICTÍCIO": 1, "Ministro Fictício": 1 });
+    expect(r.json.porRelator.stj.naoInformado).toBe(1);
+    expect(r.json.porRelator.tjgo.relatores.valores).toEqual({ "Ministro Fictício": 1 });
+  });
+
   it("recusa lista vazia ou com mais de 200 ids, com frase que ensina", async () => {
     const mcp = await conectar(siteDosTribunais({}).site);
     for (const ids of [[], Array.from({ length: 201 }, (_, i) => `stj:${i}`)]) {
