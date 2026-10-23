@@ -40,7 +40,7 @@ import {
   textoForaDaMemoria,
 } from "./leitura.js";
 import { Memoria, obtidoDoSite } from "./memoria.js";
-import { AVISO_DE_AMOSTRA, panorama } from "./panorama.js";
+import { respostaDoPanorama } from "./panorama.js";
 import { ChaveDoDataJud, clienteDoDataJud, TERMO_DE_USO_DATAJUD } from "./datajud.js";
 import { clienteDoDjen, FonteDjen } from "./djen.js";
 import { julgamentosDoProcesso } from "./julgamentos.js";
@@ -1236,17 +1236,14 @@ export function criarServidor(
         }
         const unicos = [...new Set(ids)];
         const guardados = await Promise.all(unicos.map(async (id) => ({ id, guardado: await memoria.obter(id) })));
-        const foraDaMemoria = guardados.filter((g) => !g.guardado).map((g) => g.id);
-        return comAvisoNaturezaJuridica(
-          {
-            ...panorama(guardados.flatMap((g) => (g.guardado ? [g.guardado.acordao] : []))),
-            foraDaMemoria,
-            avisoDeAmostra: AVISO_DE_AMOSTRA,
-            ...(foraDaMemoria.length && {
-              aviso: "Os ids em foraDaMemoria não entraram na conta: refaça a busca que os trouxe e peça o panorama de novo.",
-            }),
-          },
-          [...new Set(guardados.flatMap((g) => (g.guardado ? [g.guardado.acordao.tribunal] : [])))],
+        const ausentes = guardados.flatMap((g, i) => (g.guardado ? [] : [{ id: g.id, posicao: i + 1 }]));
+        const tribunais = [...new Set(guardados.flatMap((g) => (g.guardado ? [g.guardado.acordao.tribunal] : [])))];
+        return json(
+          respostaDoPanorama(
+            guardados.flatMap((g) => (g.guardado ? [g.guardado.acordao] : [])),
+            ausentes,
+            avisoDasFontes(tribunais),
+          ),
         );
       } catch (e) {
         return erro(e);
