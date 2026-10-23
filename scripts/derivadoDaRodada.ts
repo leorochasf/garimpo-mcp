@@ -7,7 +7,7 @@
  * enumeração, hash, data ISO, versão ou id opaco. Não há campo de texto livre por onde um número ou uma ementa possa
  * vazar. `tests/dadosReais.test.ts` não cobre a pasta (ignorada pelo git), por isso a defesa é esta.
  *
- * Hash = HMAC-SHA-256 com a chave guardada na pasta externa: sem a chave, o hash de um número de processo não se
+ * Hash = HMAC-SHA-256 com a chave guardada fora do projeto: sem a chave, o hash de um número de processo não se
  * descobre testando números. A mesma chave em rodadas diferentes permite comparar listas (1.1.1 × 1.2).
  */
 
@@ -42,6 +42,8 @@ export interface Derivado {
   esquema: typeof ESQUEMA;
   versaoDoGarimpo: string;
   commit: string;
+  /** Identificador da chave dos hashes (não a chave): só derivados com o mesmo valor se comparam. */
+  chave: string;
   rodada: {
     iniciadoEm: string;
     terminadoEm?: string;
@@ -60,6 +62,7 @@ const VERSOES = new Set(["tecnica", "leiga", "palavras", "contraria"]);
 const TRIBUNAIS = new Set([...SIGLAS, "tcu"]);
 
 const HEX64 = /^[0-9a-f]{64}$/;
+const HEX16 = /^[0-9a-f]{16}$/;
 const ID_OPACO = /^c\d{3,5}$/;
 const VERSAO = /^\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 const COMMIT = /^[0-9a-f]{7,40}$/;
@@ -117,7 +120,7 @@ export function exportarDerivado(crua: RodadaCrua, chave: string, meta: { versao
     consultas: consultas.length,
   };
   if (e.terminadoEm !== undefined) rodada.terminadoEm = String(e.terminadoEm);
-  const derivado: Derivado = { esquema: ESQUEMA, versaoDoGarimpo: meta.versaoDoGarimpo, commit: meta.commit, rodada, consultas };
+  const derivado: Derivado = { esquema: ESQUEMA, versaoDoGarimpo: meta.versaoDoGarimpo, commit: meta.commit, chave: hash("chave").slice(0, 16), rodada, consultas };
   const problemas = validarDerivado(derivado);
   if (problemas.length) throw new Error(`derivado: fora do esquema, nada foi exportado:\n${problemas.join("\n")}`);
   return derivado;
@@ -145,6 +148,7 @@ const RAIZ: Record<string, Regra> = {
   esquema: { obrigatorio: true, valida: (v) => v === ESQUEMA, descricao: ESQUEMA },
   versaoDoGarimpo: texto(VERSAO, "versão N.N.N"),
   commit: texto(COMMIT, "hash de commit"),
+  chave: texto(HEX16, "identificador de chave (16 hexadecimais)"),
 };
 const RODADA: Record<string, Regra> = {
   iniciadoEm: texto(DATA_ISO, "data ISO"),

@@ -110,20 +110,23 @@ Propostos pelo plano e **pendentes de aprovação do dono**. Congelam junto com 
 | Material | Lugar | Por quê |
 |---|---|---|
 | Gravação crua (resposta do site, números, relatores, ementas, PDFs, votos do júri com justificativa, pool, `reservado/`) | **pasta externa**: fora do projeto e fora de nuvem, indicada pelo dono | tem texto de caso real |
-| Chave dos hashes (`chave-do-derivado.txt`) | pasta externa | sem ela, o hash de um número não se descobre testando números |
+| Chave dos hashes (um arquivo, o mesmo para a 1.1.1 e a 1.2) | fora do projeto e de nuvem | sem ela, o hash de um número não se descobre testando números; com chaves diferentes, as rodadas não se comparam |
 | Derivado (ids opacos, hashes, contagens e tempos) | `banco-de-provas-resultados/1.2/` (no projeto, fora do git) | comparação entre rodadas sem texto de caso |
 | Relatório público | `docs/banco-de-provas/` | só teses genéricas, contagens e hashes |
 
 A regra vale no código, não só no papel:
 
 - `scripts/rodarRodadaDeProvas.ts` recusa `--saida` dentro do projeto (inclusive em `banco-de-provas-resultados/`) e em
-  pasta de nuvem (`gravacaoForaDoLugar` em `scripts/seguroDaRodada.ts`). Também anota no `estado.json` a versão e o
-  commit do Garimpo.
-- `scripts/exportarDerivado.ts -- --de <pasta externa> --para banco-de-provas-resultados/1.2/<nome>.json` lê a rodada
-  crua e grava o derivado. O derivado passa pelo **esquema fechado** de `scripts/derivadoDaRodada.ts` antes e depois de
-  gravar: campo a mais em qualquer nível é recusado, e todo texto tem de ser enumeração, hash, data, versão ou id
-  opaco. Não há campo livre por onde um número, relator ou ementa possa sair. O `--de` também precisa ficar fora do
-  projeto.
+  pasta de nuvem, conferindo o caminho escrito e o físico: atalho (junction, link simbólico) e caminho estendido do
+  Windows não passam (`gravacaoForaDoLugarNoDisco` em `scripts/seguroDaRodada.ts`). Também anota no `estado.json` a
+  versão e o commit do Garimpo.
+- `scripts/exportarDerivado.ts -- --de <pasta externa> --chave <arquivo externo> --para
+  banco-de-provas-resultados/1.2/<nome>.json` lê a rodada crua e grava o derivado. O `--chave` é o mesmo arquivo nas
+  duas rodadas comparadas, criado na primeira. O derivado leva o identificador da chave (campo `chave`, não a chave):
+  derivados com identificadores diferentes não se comparam. O derivado passa pelo **esquema fechado** de
+  `scripts/derivadoDaRodada.ts` antes e depois de gravar: campo a mais em qualquer nível é recusado (também os nomes
+  herdados, como `constructor`), e todo texto tem de ser enumeração, hash, data, versão ou id opaco. Não há campo livre
+  por onde um número, relator ou ementa possa sair. O `--de` e o `--chave` também precisam ficar fora do projeto.
 - `scripts/exportarDerivado.ts -- --verificar <arquivo>` confere um derivado já gravado. O teste
   `tests/derivadoDaRodada.test.ts` prova a regra com entrada que traz número, relator e ementa. Como
   `tests/dadosReais.test.ts` só varre o que o git publicaria, ele **não** cobre `banco-de-provas-resultados/`.

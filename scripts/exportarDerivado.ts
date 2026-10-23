@@ -1,14 +1,16 @@
 /**
  * Exporta o derivado de uma rodada do banco de provas (B0.2 do plano 1.2, N03/F06), sem rede.
  *
- *   npx vite-node scripts/exportarDerivado.ts -- --de <pasta externa da rodada> --para <arquivo .json>
+ *   npx vite-node scripts/exportarDerivado.ts -- --de <pasta externa da rodada> --chave <arquivo externo> --para <arquivo .json>
  *   npx vite-node scripts/exportarDerivado.ts -- --verificar <arquivo .json>
  *
  * `--de` é a pasta que rodarRodadaDeProvas.ts gravou (fora do projeto): lê estado.json, resultados.json e, de
- * gravacao/, só consulta, tempo e status de cada chamada. A chave dos hashes fica em `<de>/chave-do-derivado.txt`,
- * criada na primeira exportação; use a mesma pasta-chave nas rodadas que forem comparadas. O derivado passa pelo esquema
- * fechado antes de gravar e é relido e conferido depois. `--verificar` confere um derivado já gravado (em
- * `banco-de-provas-resultados/`, que o teste de dados reais não varre).
+ * gravacao/, só consulta, tempo e status de cada chamada. `--chave` é o arquivo da chave dos hashes, fora do projeto e
+ * de nuvem, o MESMO para todas as rodadas que forem comparadas (1.1.1 × 1.2): sem ele os hashes não batem. Criado na
+ * primeira exportação, se não existir. O derivado leva o identificador da chave (campo `chave`, não a chave), para que
+ * derivados de chaves diferentes não sejam comparados. Ele passa pelo esquema fechado antes de gravar e é relido e
+ * conferido depois. `--verificar` confere um derivado já gravado (em `banco-de-provas-resultados/`, que o teste de dados
+ * reais não varre).
  */
 
 import { randomBytes } from "node:crypto";
@@ -42,16 +44,21 @@ if (verificar) {
 
 const de = arg("--de");
 const para = arg("--para");
-if (!de || !para || de.startsWith("-") || para.startsWith("-")) parar("use --de <pasta externa> --para <arquivo .json>, ou --verificar <arquivo>.");
+const chaveArg = arg("--chave");
+if (!de || !para || !chaveArg || [de, para, chaveArg].some((v) => v.startsWith("-")))
+  parar("use --de <pasta externa> --chave <arquivo externo> --para <arquivo .json>, ou --verificar <arquivo>.");
 if (!para!.endsWith(".json")) parar("--para precisa terminar em .json.");
+const raizDoProjeto = fileURLToPath(new URL("..", import.meta.url));
 const pastaCrua = resolve(de!);
-const recusa = gravacaoForaDoLugarNoDisco(pastaCrua, fileURLToPath(new URL("..", import.meta.url)));
+const recusa = gravacaoForaDoLugarNoDisco(pastaCrua, raizDoProjeto);
 if (recusa) parar(`--de: ${recusa}`);
+const chaveArquivo = resolve(chaveArg!);
+const recusaDaChave = gravacaoForaDoLugarNoDisco(chaveArquivo, raizDoProjeto);
+if (recusaDaChave) parar(`--chave: ${recusaDaChave}`);
 
-const chaveArquivo = join(pastaCrua, "chave-do-derivado.txt");
 if (!existsSync(chaveArquivo)) {
   writeFileSync(chaveArquivo, randomBytes(32).toString("hex"));
-  console.log(`Chave nova criada em ${chaveArquivo} (fica só na pasta externa).`);
+  console.log(`Chave nova criada em ${chaveArquivo} (guarde-a fora do projeto e use a mesma nas rodadas comparadas).`);
 }
 const chave = readFileSync(chaveArquivo, "utf8").trim();
 

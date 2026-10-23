@@ -78,6 +78,17 @@ describe("exportarDerivado", () => {
     expect(b.consultas[0].hashDoId).not.toBe(a.consultas[0].hashDoId);
   });
 
+  it("leva um identificador da chave (não a chave): derivados de chaves diferentes não se comparam por engano", () => {
+    const a = exportarDerivado(crua(), CHAVE, meta);
+    expect(a.chave).toMatch(/^[0-9a-f]{16}$/);
+    expect(JSON.stringify(a)).not.toContain(CHAVE);
+    expect(exportarDerivado(crua(), CHAVE, meta).chave).toBe(a.chave);
+    expect(exportarDerivado(crua(), "b".repeat(64), meta).chave).not.toBe(a.chave);
+    const semChave = JSON.parse(JSON.stringify(a));
+    delete semChave.chave;
+    expect(validarDerivado(semChave).join("\n")).toMatch(/chave/);
+  });
+
   it("recusa chave curta ou fora de hexadecimal: o hash sem segredo deixaria adivinhar o número", () => {
     expect(() => exportarDerivado(crua(), "abc", meta)).toThrow(/chave/);
     expect(() => exportarDerivado(crua(), "z".repeat(64), meta)).toThrow(/chave/);
