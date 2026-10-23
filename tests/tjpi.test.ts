@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { Acordao } from "../src/busca.js";
 import { USER_AGENT } from "../src/cliente.js";
 import { obterInteiroTeor } from "../src/inteiroTeor.js";
+import { lerTextoIntegral } from "../src/leitura.js";
 import { Memoria } from "../src/memoria.js";
 import { infoTribunal } from "../src/tribunais.js";
 import { clienteFalso } from "./apoio.js";
@@ -131,5 +132,18 @@ describe("inteiro teor — TJPI (I-16 / G-23): o texto do acórdão vem na pági
     const { cliente, chamadas } = clienteFalso([]);
     await expect(obterInteiroTeor({ id: "tjpi:77" }, () => cliente, memoria)).rejects.toThrow(/fora do formato/);
     expect(chamadas).toHaveLength(0);
+  });
+});
+
+describe("ler_inteiro_teor — texto do portal do TJPI pelo id", () => {
+  it("lê com o rótulo do portal do TJPI, nunca com o do TJTO", async () => {
+    const memoria = memoriaComAcordao();
+    await obterInteiroTeor({ id: "tjpi:77" }, () => clienteFalso([pagina()]).cliente, memoria);
+
+    const p = await lerTextoIntegral("tjpi:77", 1, memoria);
+    expect(p.cabecalho.tribunal).toBe("TJPI");
+    expect(p.cabecalho.fonte).toMatch(/portal de jurisprudência do TJPI \(jurisprudencia\.tjpi\.jus\.br\)/);
+    expect(p.cabecalho.natureza).toMatch(/^texto do portal do tribunal \(TJPI\)/);
+    expect(JSON.stringify(p.cabecalho)).not.toMatch(/TJTO/);
   });
 });
