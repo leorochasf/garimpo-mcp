@@ -109,13 +109,14 @@ Lido e aprovado pelo dono em 2026-10-14.
 Testes de igualdade e das ressalvas atualizados no mesmo conjunto. São travas de texto, não prova de que uma IA siga
 as instruções; a leitura semântica continua necessária.
 
-## Emenda de 2026-10-23: roteiro 1.2 (B1.1) — PENDENTE de ratificação do Codex Sol (D12)
+## Emenda de 2026-10-23: roteiro 1.2 (B1.1) — ratificada pelo Codex Sol (D12), com ajustes
 
 Plano 1.2, bloco B1.1 (U03, U12, U13, U15, U16, U24). Os números são os de D11, aprovados pelo dono em 2026-10-23.
-As frases novas são proposta do executor e ficam **pendentes da ratificação do Codex Sol** (D12: o Sol decide a
-redação, o dono pode vetar e lê o texto integral antes de publicar). Situação: **implementado, não medido**. A
-medição (banco de provas, amostra de distinção com agente, 2ª rodada, custo e tempo até a matriz) depende de rede e do
-júri (B0.2, B4.1).
+As frases novas, propostas pelo executor, foram **ratificadas pelo Codex Sol em 2026-10-23** (D12: o Sol decide a
+redação; revisão em `TICKETS/plano-1.2/revisao-b1.1.md`), com ajustes na regra dos TRTs e na 2ª rodada (abaixo). O dono
+pode vetar e lê o texto integral antes de publicar; a ratificação não comprova essa leitura. Situação:
+**implementado, não medido**. A medição (banco de provas, amostra de distinção com agente, 2ª rodada, custo e tempo
+até a matriz) depende de rede e do júri (B0.2, B4.1).
 
 - **Novo prompt `distinguir_precedente`** (argumentos `precedente`, obrigatório, e `fatos`, opcional, ambos texto).
   Não há ferramenta nova, pela mesma razão da decisão original. O prompt pede uma ficha do acórdão: identificação e
@@ -135,11 +136,15 @@ júri (B0.2, B4.1).
     chamada ao site.
   - No passo 1, sempre ao menos uma formulação contrária ou de exceção, em 2º lugar (U16, DV15).
   - Logo abaixo do passo 2, a regra dos TRTs. Cada formulação em cada TRT gasta uma página do Falcão; com até 2 TRTs,
-    a contrária vai em 2º lugar e, com 3 ou mais, em 1º. Repetir a chamada só vale com a memória ligada e legível, com
-    aviso do custo; senão, o agente diz onde a busca do contrário ficou incompleta.
+    a contrária vai em 2º lugar e, com 3 ou mais, em 1º. Para executar o `foraDoTeto`, uma repetição no máximo, na
+    pesquisa inteira, e só com a memória ligada e legível, buscas guardadas válidas e sem `renovar`. Com `renovar`,
+    memória desligada ou sem busca válida guardada, o agente avisa o custo e não repete; se a memória falhar na
+    repetição, não repete de novo. Em todo caso, diz onde a busca do contrário ficou incompleta.
   - Logo abaixo do passo 4, a 2ª rodada: uma só e só com o gatilho de D11 (menos de 5 das ementas lidas servindo à
     tese). Usa termos técnicos copiados das ementas devolvidas, cada um com o id de origem, e a união das formulações
-    numa só chamada, com as antigas na mesma ordem e grafia e os mesmos parâmetros.
+    numa só chamada, com as antigas na mesma ordem e grafia e os mesmos parâmetros. As antigas **podem** voltar da
+    memória (sem `renovar`, com busca válida guardada, menos de 24 h); senão vão ao site e gastam orçamento, e o agente
+    confere as guardadas no `cabecalhoDeCobertura`. O teto de 10 ementas obtidas soma as rodadas.
   - No passo 5, o agente diz se a contrária rodou em cada tribunal; busca sem acórdão contrário não prova que ele não
     exista.
 
@@ -161,10 +166,26 @@ Do lado do servidor, sem rede:
 - as cinco fixtures de injeção do B0.2 (`tests/fixtures/banco-de-provas-1.2/injecao.json`) chegam pelo fetch falso;
   a resposta só muda no texto copiado da fonte, com as mesmas chamadas e o mesmo link, e o trecho oculto do HTML fica,
   com aviso;
-- na união da 2ª rodada com memória fria (`GARIMPO_SEM_MEMORIA=1`), falha de leitura ou `renovar`, as formulações
-  antigas vão ao site e o cabeçalho as conta como feitas, não como guardadas;
+- na união da 2ª rodada com memória fria (`GARIMPO_SEM_MEMORIA=1`), falha de leitura, busca guardada vencida (24 h)
+  ou `renovar`, as formulações antigas vão ao site e o cabeçalho as conta como feitas, não como guardadas;
 - com 5 TRTs e 2 formulações, a contrária fica `foraDoTeto`; a repetição a executa com a memória valendo, e refaz as
-  páginas da tese com `renovar` ou sem memória.
+  páginas da tese com `renovar`, sem memória, com as buscas vencidas ou com falha ao ler a memória.
 
 Isso prova o que o servidor envia e faz, não que a IA do usuário siga o roteiro. Texto integral para leitura humana:
 `TICKETS/plano-1.2/b1.1-roteiro-texto-integral.md`.
+
+### Correções da revisão adversarial (B1.1, 2026-10-23)
+
+- **E1** — a 2ª rodada dizia que as antigas "voltam da memória", sem ressalvar `renovar` nem a busca válida guardada.
+  Agora "podem voltar", com as condições, o custo quando não voltam e a conferência no `cabecalhoDeCobertura`.
+- **E2** — com `renovar` ou sem memória, a regra dos TRTs mandava avisar o custo **antes de repetir**: permitia uma
+  repetição que só refaz as páginas já feitas, sem executar a contrária. Agora a repetição exige a memória valendo e
+  sem `renovar`; nos outros casos, o agente avisa o custo e não repete.
+- **Clareza** — o teto da 2ª rodada passou de "10 ementas apresentadas" a "10 ementas obtidas, somando as rodadas",
+  sem zerar a contagem ao mudar de rodada.
+
+Travas no mesmo conjunto: as frases ratificadas, e o texto anterior de cada correção reprovado pela trava; do lado do
+servidor, as condições que o texto nomeia (busca vencida e falha de leitura, acima). A ajuda comum para montar o
+cliente MCP nos testes, sugerida como opcional, não foi feita: montar no próprio arquivo é o padrão do projeto (25
+arquivos de teste), a única ajuda comum exige o cliente do Falcão, e uma terceira forma só para estes arquivos não
+tiraria a repetição do resto.
