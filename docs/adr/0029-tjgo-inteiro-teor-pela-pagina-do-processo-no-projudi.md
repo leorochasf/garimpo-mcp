@@ -39,16 +39,18 @@ Chamadas pelo cliente do Garimpo, uma por vez, com pausa, sobre processos que bu
   julgamento foi lançado quatro dias depois: nada no instante, não baixa.
 - Ementa com «julgado em DD/MM/AAAA 00:00:00» (apelação criminal de 2022): nenhuma movimentação no instante; a data
   era a da sessão, e o julgamento lançado dias depois. Sem hora, não há casamento seguro.
-- Arquivos de 2020 a 2024 vieram como `.html.p7s` (envelope de assinatura) e abrem com 200 direto, sem redirecionamento: formato
-  não lido pelo Garimpo.
+- Arquivos de 2020 a 2024 vieram como `.html.p7s` (arquivo assinado, PKCS#7/CMS). O Projudi os entrega com 200
+  direto, sem redirecionamento e sem o id no endereço: o corpo já é o documento de dentro do envelope, em HTML
+  ISO-8859-1 (visto em 2026-10-22, por ordem do dono de 2026-10-22: «pode fazer a leitura dos .p7s também»).
 - O Projudi respondeu com erros esparsos sem recusa (504, 555, 500, 404) a chamadas que funcionaram minutos antes ou
   depois.
 
 - **Verificação real pelo código (2026-10-22):** 27 acórdãos distintos do TJGO de buscas genéricas (apelação cível e
-  criminal, agravo de instrumento, embargos de declaração, família, fazenda pública; de 2020 a 2026), um por vez: 13
-  baixados, todos o julgamento que a busca achou, inclusive em processos com 3, 4, 5 e 9 julgamentos; 14 não baixados,
-  com o motivo (7 `.p7s`, 4 ementas sem hora ou com 00:00:00, 1 hora da sessão, 1 processo em segredo, 1 erro HTTP
-  504 do Projudi; um acórdão já baixado levou um 555 ao ser repetido). Nenhum acórdão de outro julgamento foi entregue.
+  criminal, agravo de instrumento, embargos de declaração, família, fazenda pública; de 2020 a 2026), um por vez. Com a
+  leitura dos `.p7s`: 21 baixados, todos o julgamento que a busca achou, inclusive em processos com 3, 4, 5 e 9
+  julgamentos (antes dela, 13); 6 não baixados, com o motivo (4 ementas sem hora ou com 00:00:00, 1 hora da sessão, 1
+  processo em segredo). Erros HTTP do Projudi (504, 555) apareceram e sumiram ao repetir. Nenhum acórdão de outro
+  julgamento foi entregue.
 
 ## Decisões
 
@@ -79,9 +81,16 @@ Chamadas pelo cliente do Garimpo, uma por vez, com pausa, sobre processos que bu
   5. a ementa e o relatório e voto baixados trazem o número CNJ do processo e a maior parte da ementa da busca
      (trechos de 40 letras e algarismos, sem acento nem pontuação; ao menos metade presente).
   Falhou um item: não baixa, não guarda nada e devolve o link do processo com o motivo.
+- **Arquivo assinado (`.p7s`):** o Garimpo lê o documento embutido, sem conferir a assinatura (o rótulo segue «texto
+  do portal do tribunal (TJGO)»). Se o Projudi entrega o HTML de dentro do envelope (como ao vivo), lê esse HTML; se
+  entrega o envelope cru (CMS, DER ou BER), tira o documento embutido com o leitor próprio, sem dependência nova, e
+  lê HTML ou, se for PDF, pelo leitor de PDF do Garimpo. Assinatura destacada (sem documento embutido) ou envelope
+  ilegível: não baixa e diz o motivo. Sem endereço do armazenamento, o `Id_Arquivo` não tem como ser conferido pelo
+  id: no lugar do item 4, a própria «Ementa» do julgamento tem de trazer ao menos metade da ementa da busca. As
+  demais amarrações valem iguais. São 4 chamadas por acórdão nesse caso.
 - **Segredo e acesso:** só processo com «Segredo de Justiça: Não» na página e só arquivo de acesso público. Processo em
   segredo, arquivo bloqueado ou de nível acima do público: não baixa e diz o motivo. O Garimpo não tenta outro caminho.
-- **Falha do Projudi** (erro HTTP sem recusa, formato diferente, `.p7s`, página sem a movimentação): não baixa, devolve
+- **Falha do Projudi** (erro HTTP sem recusa, formato diferente, página sem a movimentação): não baixa, devolve
   o link e o motivo. Recusa (429/503 duas vezes) e rede parada seguem a regra 3: param e avisam.
 - **`Id_Arquivo`:** o link do site deixa de ser mostrado no TJGO com número CNJ (commit `4bca673`), mas o `Id_Arquivo`
   dele fica no acórdão (`idArquivoProjudi`) para o item 4. Acórdão guardado antes desta versão, sem o campo, vale pelos
@@ -95,7 +104,8 @@ Chamadas pelo cliente do Garimpo, uma por vez, com pausa, sobre processos que bu
   vínculo.
 - Conferir o conteúdo só pelo «Relatório e Voto»: rejeitada; ele nem sempre repete a ementa (duas recusas indevidas
   na verificação real de 2026-10-22).
-- Ler os `.p7s` (envelope de assinatura): fora agora; outro formato, outra decisão.
+- Ler os `.p7s` com uma biblioteca de criptografia: rejeitada; o Garimpo não confere a assinatura, e tirar o
+  documento do envelope cabe num leitor próprio de poucas linhas (`src/envelopeCms.ts`).
 
 ## Consequências
 
@@ -106,4 +116,5 @@ Chamadas pelo cliente do Garimpo, uma por vez, com pausa, sobre processos que bu
 - Nada de processo em segredo nem de arquivo bloqueado: só arquivo de acesso público.
 - **Não verificado:** autorização do TJGO (não pedida); termo de uso do Projudi (nenhum achado no estudo); limite de
   ritmo; estabilidade de `Id_Arquivo` = «Ementa» e do id seguinte para o «Relatório e Voto» fora das amostras;
-  processo em segredo e arquivo bloqueado ao vivo; acórdãos com hora 00:00:00 ou em `.p7s` (não baixados).
+  processo em segredo e arquivo bloqueado ao vivo; acórdãos com hora 00:00:00 (não baixados); envelope `.p7s` cru e
+  PDF embutido ao vivo (só em teste, com fixtures fictícias).

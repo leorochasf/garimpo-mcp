@@ -375,10 +375,12 @@ A busca segue no JurisprudênciaIA. Leituras de 2026-10-22:
 - **Vínculo com a busca:** o `Id_Arquivo` do `link_pdf` do site é o arquivo «Ementa» (tipo 124) da movimentação do
   julgamento; o «Relatório e Voto» (tipo 125) é outro arquivo da mesma movimentação. O «julgado em» que fecha a ementa
   do site coincide com a data e a hora da movimentação ou fica um segundo depois.
-- **Formato:** arquivos em HTML (sem charset no cabeçalho); de 2020 a 2024 também `.html.p7s` (envelope de assinatura,
-  200 direto, não lido pelo Garimpo). Processo em segredo abre noutro leiaute, sem movimentações.
-- **Prova pelo código:** 27 acórdãos distintos, 13 baixados (todos o julgamento certo), 14 com motivo; cerca de 1 s por
-  acórdão. Erros esparsos do Projudi (500, 504, 555) sem recusa.
+- **Formato:** arquivos em HTML (sem charset no cabeçalho); de 2020 a 2024 também `.html.p7s` (arquivo assinado): o
+  Projudi responde 200 direto, `text/html;charset=iso-8859-1`, com o documento de dentro do envelope, e o Garimpo o lê
+  (envelope cru também, com leitor próprio em `src/envelopeCms.ts`). Processo em segredo abre noutro leiaute, sem
+  movimentações.
+- **Prova pelo código:** 27 acórdãos distintos, 21 baixados com os `.p7s` (todos o julgamento certo), 6 com motivo;
+  cerca de 1 s por acórdão. Erros esparsos do Projudi (500, 504, 555) sem recusa.
 - **Não verificado:** limite de ritmo; arquivo bloqueado ao vivo; estabilidade do vínculo `Id_Arquivo` = «Ementa» fora
   da amostra.
 

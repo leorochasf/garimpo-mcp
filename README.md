@@ -240,10 +240,11 @@ pela verificação anti-robô, que fica só no formulário de busca do portal, q
 não há autorização do TJGO). **Só o julgado exato:** um processo pode ter vários acórdãos (apelação, embargos de
 declaração, agravo interno); o Garimpo casa a data e a hora do «julgado em» da ementa com uma única movimentação de
 julgamento, confere que a ementa desse julgamento é o arquivo que a busca apontou e que o texto traz a ementa da busca.
-Se algo não bate (sem hora na ementa, dois julgamentos no mesmo instante, processo em segredo, arquivo bloqueado ou em
-`.p7s`, erro do Projudi), não baixa e diz o motivo, com o link do processo. São 6 chamadas por acórdão, uma por vez,
-com os freios de sempre. Na verificação de 2026-10-22, 13 de 27 acórdãos vieram, todos o julgamento certo; os outros
-14 trouxeram o motivo.
+Arquivos assinados (`.p7s`) são lidos pelo documento de dentro do envelope; o Garimpo não confere a assinatura.
+Se algo não bate (sem hora na ementa, dois julgamentos no mesmo instante, processo em segredo, arquivo bloqueado,
+assinatura sem documento embutido, erro do Projudi), não baixa e diz o motivo, com o link do processo. São até 6
+chamadas por acórdão, uma por vez, com os freios de sempre. Na verificação de 2026-10-22, 21 de 27 acórdãos vieram,
+todos o julgamento certo; os outros 6 trouxeram o motivo.
 
 ### TCU: acórdãos por arquivos anuais
 

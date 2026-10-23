@@ -8,6 +8,9 @@
   casamento seguro, não baixa e diz o motivo. Entra por decisão do dono de que o caminho do link direto do processo é
   público e não passa pela verificação anti-robô, que fica só no formulário de busca do portal; não há autorização do
   TJGO (ADR-0029).
+- TJGO: arquivos assinados (`.p7s`) também são lidos, pelo documento de dentro do envelope (o Garimpo não confere a
+  assinatura); assinatura sem documento embutido não baixa e diz o motivo.
+- TJPI: a leitura do texto do portal (`ler_inteiro_teor`) mostrava a fonte como o portal do TJTO; agora mostra a do TJPI.
 
 ## 1.1.0 (2026-10-19)
 
