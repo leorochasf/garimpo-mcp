@@ -16,7 +16,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { exportarDerivado, validarDerivado, type RodadaCrua } from "./derivadoDaRodada.js";
-import { gravacaoForaDoLugar } from "./seguroDaRodada.js";
+import { gravacaoForaDoLugarNoDisco } from "./seguroDaRodada.js";
 
 const arg = (nome: string) => {
   const i = process.argv.indexOf(nome);
@@ -45,7 +45,7 @@ const para = arg("--para");
 if (!de || !para || de.startsWith("-") || para.startsWith("-")) parar("use --de <pasta externa> --para <arquivo .json>, ou --verificar <arquivo>.");
 if (!para!.endsWith(".json")) parar("--para precisa terminar em .json.");
 const pastaCrua = resolve(de!);
-const recusa = gravacaoForaDoLugar(pastaCrua, fileURLToPath(new URL("..", import.meta.url)));
+const recusa = gravacaoForaDoLugarNoDisco(pastaCrua, fileURLToPath(new URL("..", import.meta.url)));
 if (recusa) parar(`--de: ${recusa}`);
 
 const chaveArquivo = join(pastaCrua, "chave-do-derivado.txt");

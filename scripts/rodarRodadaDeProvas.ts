@@ -6,8 +6,8 @@
  *
  * Uso: npx vite-node scripts/rodarRodadaDeProvas.ts -- --saida <pasta> --ao-vivo
  * (sem os dois, recusa; pasta com plano.json ou gravacao/ também recusa — ver recusaDaRodada). A pasta tem de ficar
- * FORA do projeto e fora de nuvem (gravacaoForaDoLugar): a gravação é crua, com números e relatores reais. Para dentro
- * do projeto vai só o derivado, por scripts/exportarDerivado.ts.
+ * FORA do projeto e fora de nuvem, também seguindo atalhos (gravacaoForaDoLugarNoDisco): a gravação é crua, com números
+ * e relatores reais. Para dentro do projeto vai só o derivado, por scripts/exportarDerivado.ts.
  *
  * Teto: 80 chamadas ao site na rodada inteira, contando a nova tentativa de 429/503 (decisão do piloto). Fora do teto
  * nada sai: a trava está no fetch embrulhado, não só na lista. Ordem: temas da amostra → teses (técnica e leiga) →
@@ -38,7 +38,7 @@ import {
   recusaDaRodada,
   TOPO,
 } from "./montarRodadaDeProvas.js";
-import { criarGravador, gravacaoForaDoLugar, rodadaCompleta, saidaInvalida } from "./seguroDaRodada.js";
+import { criarGravador, gravacaoForaDoLugarNoDisco, rodadaCompleta, saidaInvalida } from "./seguroDaRodada.js";
 
 const ESPACO_ENTRE_CHAMADAS_MS = 10_000;
 const MARGEM_DO_TETO = 2;
@@ -54,7 +54,7 @@ const dormir = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const gravar = (caminho: string, valor: unknown) => writeFileSync(caminho, JSON.stringify(valor, null, 1));
 
 const raizDoProjeto = fileURLToPath(new URL("..", import.meta.url));
-const recusa = saidaInvalida(pasta) ?? gravacaoForaDoLugar(saida, raizDoProjeto) ?? recusaDaRodada({ saida: pasta, aoVivo: process.argv.includes("--ao-vivo") }, (c) => existsSync(join(saida, c)));
+const recusa = saidaInvalida(pasta) ?? gravacaoForaDoLugarNoDisco(saida, raizDoProjeto) ?? recusaDaRodada({ saida: pasta, aoVivo: process.argv.includes("--ao-vivo") }, (c) => existsSync(join(saida, c)));
 if (recusa) {
   console.error(`NÃO RODA: ${recusa}`);
   process.exit(1);

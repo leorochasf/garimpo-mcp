@@ -1,7 +1,10 @@
 /**
  * Peças da rodada de gravação (rodarRodadaDeProvas.ts) que dispensam rede e por isso se testam: o valor de --saida, o
- * fetch gravador (sem redirecionamento automático) e o critério de rodada completa.
+ * lugar da gravação crua, o fetch gravador (sem redirecionamento automático) e o critério de rodada completa.
  */
+
+import { existsSync, realpathSync } from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
 
 /** Recusa valor de --saida ausente, vazio ou que pareça outra opção (`--saida --ao-vivo` criaria a pasta "--ao-vivo"). */
 export function saidaInvalida(valor: string | undefined): string | undefined {
@@ -13,7 +16,15 @@ export function saidaInvalida(valor: string | undefined): string | undefined {
 /** Pasta sincronizada de nuvem: o nome de uma das partes do caminho. */
 const NUVEM = /^(one\s?drive\b.*|google drive|meu drive|my drive|dropbox|icloud\s?drive|icloud)$/i;
 
-const partes = (caminho: string) => caminho.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase().split("/");
+/** Barras de um tipo só, sem o prefixo de caminho estendido do Windows (\\?\ ou \\.\; \\?\UNC\ vira \\). */
+const partes = (caminho: string) =>
+  caminho
+    .replace(/\\/g, "/")
+    .replace(/^\/\/[?.]\/unc\//i, "//")
+    .replace(/^\/\/[?.]\//, "")
+    .replace(/\/+$/, "")
+    .toLowerCase()
+    .split("/");
 
 /**
  * A gravação crua (resposta do site, números, relatores) vai só para pasta FORA do projeto e fora de nuvem (plano 1.2,
@@ -27,6 +38,25 @@ export function gravacaoForaDoLugar(pastaAbsoluta: string, raizDoProjeto: string
     return "a gravação crua não pode ficar dentro do projeto (nem em banco-de-provas-resultados/): use uma pasta externa e exporte o derivado.";
   if (p.some((parte) => NUVEM.test(parte))) return "a gravação crua não pode ficar em pasta sincronizada de nuvem: use uma pasta local fora do projeto.";
   return undefined;
+}
+
+/** Caminho físico: segue junction e link simbólico do ancestral que existe e acrescenta o resto (pasta ainda por criar). */
+function caminhoFisico(caminho: string): string {
+  let atual = resolve(caminho);
+  const resto: string[] = [];
+  while (!existsSync(atual) && dirname(atual) !== atual) {
+    resto.unshift(basename(atual));
+    atual = dirname(atual);
+  }
+  return join(realpathSync.native(atual), ...resto);
+}
+
+/**
+ * gravacaoForaDoLugar no caminho escrito e no físico: um atalho (junction, link simbólico) de fora para dentro do
+ * projeto ou para pasta de nuvem não passa. Quem grava confere com esta, antes da primeira escrita.
+ */
+export function gravacaoForaDoLugarNoDisco(pasta: string, raizDoProjeto: string): string | undefined {
+  return gravacaoForaDoLugar(pasta, raizDoProjeto) ?? gravacaoForaDoLugar(caminhoFisico(pasta), caminhoFisico(raizDoProjeto));
 }
 
 export interface Registro {
