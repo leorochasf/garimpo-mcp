@@ -474,9 +474,12 @@ interface Rotulo {
   tipo: Exclude<TipoDeDispositivo, "caput">;
   /** O rótulo como a fonte o escreve ("Art. 359-M-A.", "Arts. 22 a 24.", "§ 2º", "Parágrafo único.", "I -", "a)"). */
   rotulo: string;
-  /** O pedaço da chave da fonte ("art359-13-1", "par2", "par1u", "inc1", "ali1"); vazio na faixa. */
-  segmento: string;
-  /** Só na faixa: o primeiro e o último artigo dela. */
+  /**
+   * O pedaço da chave da fonte ("art359-13-1", "par2", "par1u", "inc1", "ali1"); vazio na faixa; ausente quando o número
+   * é ilegível na fonte ("Art. l97.", "§ lº"): o rótulo ainda separa os dispositivos, mas o pedido pelo número não o acha.
+   */
+  segmento?: string;
+  /** Só na faixa legível: o primeiro e o último artigo dela. */
   faixa?: [number, number];
   /** O texto do parágrafo depois do rótulo. */
   resto: string;
@@ -493,21 +496,26 @@ const romanoLegivel = (texto: string) => {
 /** O rótulo com que o parágrafo começa, se for de artigo, parágrafo, inciso ou alínea. */
 function rotuloDe(paragrafo: string): Rotulo | undefined {
   let m: RegExpExecArray | null;
-  const achado = (tipo: Rotulo["tipo"], segmento: string): Rotulo => ({
+  const achado = (tipo: Rotulo["tipo"], segmento: string | undefined): Rotulo => ({
     tipo,
     rotulo: m![0].trim(),
-    segmento,
+    ...(segmento !== undefined && { segmento }),
     resto: paragrafo.slice(m![0].length).trimStart(),
   });
-  if ((m = /^Arts\.\s*(\d+)[º°]?\s+a\s+(\d+)[º°]?\.?(?=\s|$)/.exec(paragrafo))) {
-    return { ...achado("faixa", ""), faixa: [Number(m[1]), Number(m[2])] };
+  // Em cada rótulo, a segunda alternativa (\S+) é o número ilegível na fonte.
+  if ((m = /^Arts\.\s*(?:(\d+)[º°]?\s+a\s+(\d+)[º°]?\.?(?=\s|$)|\S+)/.exec(paragrafo))) {
+    return { ...achado("faixa", ""), ...(m[1] && { faixa: [Number(m[1]), Number(m[2])] as [number, number] }) };
   }
-  if ((m = /^Art\.\s*(\d+(?:\.\d{3})*)[º°]?((?:-[A-Z])*)\.?(?=\s|$)/.exec(paragrafo))) return achado("artigo", `art${comLetras(m[1], m[2])}`);
-  if ((m = /^§\s*(\d+)[º°]?((?:-[A-Z])*)\.?(?=\s|$)/.exec(paragrafo))) return achado("paragrafo", `par${comLetras(m[1], m[2])}`);
+  if ((m = /^Art\.\s*(?:(\d+(?:\.\d{3})*)[º°]?((?:-[A-Z])*)\.?(?=\s|$)|\S+)/.exec(paragrafo))) {
+    return achado("artigo", m[1] && `art${comLetras(m[1], m[2])}`);
+  }
+  if ((m = /^§\s*(?:(\d+)[º°]?((?:-[A-Z])*)\.?(?=\s|$)|\S+)/.exec(paragrafo))) {
+    return achado("paragrafo", m[1] && `par${comLetras(m[1], m[2])}`);
+  }
   if ((m = /^Par[áa]grafo\s+[úu]nico\.?(?=\s|$)/.exec(paragrafo))) return achado("paragrafo", "par1u");
   if ((m = /^([IVXLCDM]+)\s*[-–—]/.exec(paragrafo))) {
     const numero = romanoLegivel(m[1]);
-    return numero === undefined ? undefined : achado("inciso", `inc${numero}`);
+    return achado("inciso", numero === undefined ? undefined : `inc${numero}`);
   }
   if ((m = /^([a-z])\)/.exec(paragrafo))) return achado("alinea", `ali${m[1].charCodeAt(0) - 96}`);
   return undefined;
@@ -516,7 +524,8 @@ function rotuloDe(paragrafo: string): Rotulo | undefined {
 /** Um dispositivo achado na compilação: o pedaço da chave, o rótulo e a ocorrência (dois iguais são dois nós). */
 interface No {
   tipo: TipoDeDispositivo;
-  segmento: string;
+  /** Ausente: número ilegível na fonte. */
+  segmento?: string;
   rotulo: string;
   id: number;
   faixa?: [number, number];
@@ -555,6 +564,18 @@ function pareceTitulo(paragrafo: string): boolean {
   return /^\p{Lu}/u.test(nucleo) && !/[.;:,?!]$/.test(nucleo) && nucleo.length <= 200;
 }
 
+const contar = (texto: string, aspa: string) => texto.split(aspa).length - 1;
+
+/** As aspas que um parágrafo abre no começo e não fecha: texto de outra norma citado nos parágrafos seguintes. */
+function aspasQueAbre(paragrafo: string): '"' | "“" | undefined {
+  if (paragrafo.startsWith('"') && contar(paragrafo, '"') % 2 === 1) return '"';
+  if (paragrafo.startsWith("“") && contar(paragrafo, "“") > contar(paragrafo, "”")) return "“";
+  return undefined;
+}
+
+const fechaAspas = (paragrafo: string, aspas: '"' | "“") =>
+  aspas === '"' ? contar(paragrafo, '"') % 2 === 1 : contar(paragrafo, "”") > contar(paragrafo, "“");
+
 /**
  * Título solto: linha sem rótulo que parece título e vem logo antes (pulando notas só entre parênteses) de um rótulo,
  * de um cabeçalho, do fecho ou de outro título solto. É a rubrica da fonte, não texto do dispositivo.
@@ -592,9 +613,24 @@ function linhasDaCompilacao(html: string, inicio: string): Linha[] {
   /** Do artigo ao dispositivo corrente; vazio fora de artigo. */
   let caminho: No[] = [];
   let notaDeTitulo = false;
+  /** Aspas abertas de texto de outra norma: o que vier é texto do dispositivo corrente até elas fecharem. */
+  let citacao: '"' | "“" | undefined;
   let id = 0;
-  const no = (tipo: TipoDeDispositivo, segmento: string, rotulo: string): No => ({ tipo, segmento, rotulo, id: id++ });
+  const no = (tipo: TipoDeDispositivo, segmento: string | undefined, rotulo: string): No => ({
+    tipo,
+    ...(segmento !== undefined && { segmento }),
+    rotulo,
+    id: id++,
+  });
   for (const [i, p] of paragrafos.entries()) {
+    const r = rotulos[i];
+    // As aspas não passam de um artigo novo nem de um cabeçalho, mesmo sem fechar.
+    if (citacao && !CABECALHO.test(p) && r?.tipo !== "artigo" && r?.tipo !== "faixa") {
+      linhas.push({ caminho, texto: p });
+      if (fechaAspas(p, citacao)) citacao = undefined;
+      continue;
+    }
+    citacao = undefined;
     if (CABECALHO.test(p)) {
       caminho = [];
       continue;
@@ -604,13 +640,13 @@ function linhasDaCompilacao(html: string, inicio: string): Linha[] {
       continue;
     }
     notaDeTitulo = false;
-    const r = rotulos[i];
     if (r?.tipo === "artigo") caminho = [no("artigo", r.segmento, r.rotulo), no("caput", "cpt", r.rotulo)];
     if (r?.tipo === "faixa") caminho = [{ ...no("faixa", "", r.rotulo), faixa: r.faixa }];
     if (!caminho.length) continue;
     // Na faixa não há dispositivo dentro: o que vier até o próximo artigo é texto dela.
     if (!r || (caminho[0].tipo === "faixa" && r.tipo !== "faixa")) {
       linhas.push({ caminho: PENA.test(p) ? caminho.slice(0, 2) : caminho, texto: p });
+      citacao = aspasQueAbre(p);
       continue;
     }
     if (r.tipo === "paragrafo") caminho = [caminho[0], no("paragrafo", r.segmento, r.rotulo)];
@@ -620,6 +656,13 @@ function linhasDaCompilacao(html: string, inicio: string): Linha[] {
     linhas.push({ caminho, rotulo: r.rotulo, texto: r.resto });
   }
   return linhas;
+}
+
+/** O dispositivo da linha, no jeito de citar; o de número ilegível na fonte vai com o rótulo como ela o escreve. */
+function citarCaminho(caminho: No[]): string {
+  const ilegivel = caminho.findIndex((n) => n.segmento === undefined);
+  const legivel = (ate: number) => citar(caminho.slice(0, ate).map((n) => n.segmento).join("_"));
+  return ilegivel < 0 ? legivel(caminho.length) : `${legivel(ilegivel)}, ${caminho[ilegivel].rotulo} (número ilegível na fonte)`;
 }
 
 /** Linhas seguidas do mesmo dispositivo formam uma parte, na ordem do texto. */
@@ -634,7 +677,7 @@ function partesDaCompilacao(linhas: Linha[]): Parte[] {
       continue;
     }
     partes.push({
-      dispositivo: citar(l.caminho.map((n) => n.segmento).join("_")),
+      dispositivo: citarCaminho(l.caminho),
       ...(l.rotulo && { rotuloNaFonte: l.rotulo }),
       ...(l.texto && { texto: l.texto }),
     });

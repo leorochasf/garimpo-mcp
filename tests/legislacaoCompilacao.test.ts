@@ -323,6 +323,169 @@ describe("texto_de_lei — faixa de artigos num parágrafo só ('Arts. 498 a 502
   });
 });
 
+describe("texto_de_lei — rótulo com número ilegível na fonte ('Art. l97.', '§ lº')", () => {
+  it("CLT art. 682: o '§ lº' encerra o inciso XIV e entra no artigo como parte própria, sem número lido", async () => {
+    const inciso = await encontrado("clt", "art. 682, inciso XIV");
+    expect(inciso.partes).toEqual([
+      {
+        dispositivo: "art. 682, caput, inciso XIV",
+        rotuloNaFonte: "XIV -",
+        texto: "assinar as folhas de pagamento dos vogais e servidores do Tribunal. (Inciso com redação dada pelo Decreto-Lei nº 8.737, de 19/1/1946)",
+      },
+    ]);
+
+    const artigo = await encontrado("clt", "art. 682");
+    expect(artigo.partes.map((p) => p.dispositivo).slice(-3)).toEqual([
+      "art. 682, § lº (número ilegível na fonte)",
+      "art. 682, § 2º",
+      "art. 682, § 3º",
+    ]);
+    expect(artigo.partes.at(-3)).toMatchObject({
+      rotuloNaFonte: "§ lº",
+      texto: expect.stringMatching(/^Na falta ou impedimento do presidente da Junta e do substituto da mesma localidade/),
+    });
+
+    expect((await consultar("clt", "art. 682, § 1º")).r.resultado).toBe("não verificado");
+  });
+
+  it("CP 'Art. l97.': o artigo com número ilegível não se cola no anterior, e o pedido pelo número fica não verificado", async () => {
+    // Variante sem o cabeçalho que separa os arts. 196 e l97 no recorte: sem ele, só o rótulo segura o limite.
+    const texto = html("cp")
+      .replace('<p class="BodyTextIndent" style="text-indent:0pt; text-align:center; font-size:1.2em"><span>TÍTULO IV</span></p>', "")
+      .replace(
+        '<p class="BodyTextIndent" style="text-indent:0pt; text-align:center; font-size:1.2em"><span>DOS CRIMES CONTRA A ORGANIZAÇÃO DO TRABALHO</span></p>',
+        "",
+      );
+    expect(texto).not.toMatch(/TÍTULO IV/);
+
+    const anterior = await encontrado("cp", "art. 196", { texto });
+    expect(anterior.partes).toEqual([
+      {
+        dispositivo: "art. 196, caput",
+        rotuloNaFonte: "Art. 196.",
+        texto: "(Revogado pela Lei nº 9.279, de 14/5/1996, publicada no DOU de 15/5/1996, em vigor 1 ano após a publicação)",
+      },
+    ]);
+
+    const { r } = await consultar("cp", "art. 197");
+    expect(r.resultado).toBe("não verificado");
+  });
+});
+
+describe("texto_de_lei — texto de outra lei entre aspas (CDC, arts. 110 e seguintes)", () => {
+  it("art. 113: as aspas abertas no § 4º só fecham no § 6º; os três §§ citados são texto do caput, não §§ do CDC", async () => {
+    const r = await encontrado("cdc", "art. 113");
+    expect(r.partes).toEqual([
+      {
+        dispositivo: "art. 113, caput",
+        rotuloNaFonte: "Art. 113.",
+        texto:
+          "Acrescente-se os seguintes §§ 4º, 5º e 6º ao art. 5º da Lei nº 7.347, de 24 de julho de 1985:\n" +
+          '"§ 4º O requisito da pré-constituição poderá ser dispensado pelo juiz, quando haja manifesto interesse social evidenciado pela dimensão ou característica do dano, ou pela relevância do bem jurídico a ser protegido.\n' +
+          "§ 5º Admitir-se-á o litisconsórcio facultativo entre os Ministérios Públicos da União, do Distrito Federal e dos Estados na defesa dos interesses e direitos de que cuida esta lei.\n" +
+          '§ 6º Os órgãos públicos legitimados poderão tomar dos interessados compromisso de ajustamento de sua conduta às exigências legais, mediante combinações, que terá eficácia de título executivo extrajudicial."',
+      },
+    ]);
+    expect((await consultar("cdc", "art. 113, § 5º")).r.resultado).toBe("não verificado");
+    expect((await encontrado("cdc", "art. 114")).partes[0].texto).toMatch(/^O art\. 15 da Lei nº 7\.347/);
+  });
+
+  it("art. 110: o inciso citado entre aspas é texto do caput", async () => {
+    const r = await encontrado("cdc", "art. 110");
+    expect(r.partes).toEqual([
+      {
+        dispositivo: "art. 110, caput",
+        rotuloNaFonte: "Art. 110.",
+        texto:
+          "Acrescente-se o seguinte inciso IV ao art. 1º da Lei nº 7.347, de 24 de julho de 1985:\n" +
+          '"IV - a qualquer outro interesse difuso ou coletivo."',
+      },
+    ]);
+  });
+});
+
+describe("texto_de_lei — linhas sem rótulo que são texto do dispositivo", () => {
+  it("CPP art. 472: a exortação e o juramento ficam no caput", async () => {
+    const r = await encontrado("cpp", "art. 472");
+    expect(r.partes[0]).toEqual({
+      dispositivo: "art. 472, caput",
+      rotuloNaFonte: "Art. 472.",
+      texto:
+        "Formado o Conselho de Sentença, o presidente, levantando-se, e, com ele, todos os presentes, fará aos jurados a seguinte exortação:\n" +
+        "Em nome da lei, concito-vos a examinar esta causa com imparcialidade e a proferir a vossa decisão de acordo com a vossa consciência e os ditames da justiça.\n" +
+        "Os jurados, nominalmente chamados pelo presidente, responderão:\n" +
+        "Assim o prometo. (“Caput” do artigo com redação dada pela Lei nº 11.689, de 9/6/2008, publicada no DOU de 10/6/2008, em vigor 60 dias após a publicação)",
+    });
+    expect(r.partes.map((p) => p.dispositivo)).toEqual(["art. 472, caput", "art. 472, parágrafo único"]);
+  });
+
+  it("CPP art. 483, § 2º: o quesito ('O jurado absolve o acusado?') é texto do §", async () => {
+    const r = await encontrado("cpp", "art. 483, § 2º");
+    expect(r.partes).toEqual([
+      {
+        dispositivo: "art. 483, § 2º",
+        rotuloNaFonte: "§ 2º",
+        texto:
+          "Respondidos afirmativamente por mais de 3 (três) jurados os quesitos relativos aos incisos I e II do caput deste artigo será formulado quesito com a seguinte redação:\n" +
+          "O jurado absolve o acusado? (Parágrafo acrescido pela Lei nº 11.689, de 9/6/2008, publicada no DOU de 10/6/2008, em vigor 60 dias após a publicação) (Vide ADPF nº 779/2021)",
+      },
+    ]);
+  });
+
+  it("CLT art. 580, inciso III: a tabela (cabeçalho, faixas e alíquotas) e a nota vêm no inciso", async () => {
+    const r = await encontrado("clt", "art. 580, inciso III");
+    expect(r.partes).toEqual([
+      {
+        dispositivo: "art. 580, caput, inciso III",
+        rotuloNaFonte: "III -",
+        texto: [
+          "para os empregadores, numa importância proporcional ao capital social da firma ou empresa, registrado nas respectivas Juntas Comerciais ou órgãos equivalentes, mediante a aplicação de alíquotas, conforme a seguinte tabela progressiva:",
+          "CLASSE DE CAPITAL",
+          "ALÍQUOTA",
+          "1 - até 150 vezes o maior valor-de- referência",
+          "0,8%",
+          "2 - acima de 150 até 1.500 vezes o maior valor-\nde-referência",
+          "0,2%",
+          "3 - acima de 1.500 até 150.000 vezes o\nmaior valor-de-referência",
+          "0,1%",
+          "4 - acima de 150.000 até 800.000 vezes o\nmaior valor-de-referência",
+          "0,02%",
+          "(Inciso acrescido pela Lei nº 6.386, de 9/12/1976, com redação dada pela Lei nº 7.047, de 1/12/1982)",
+        ].join("\n"),
+      },
+    ]);
+  });
+
+  it("CLT art. 674: as 24 regiões ficam no caput; o parágrafo partido do art. 791-A fica inteiro no caput", async () => {
+    const regioes = await encontrado("clt", "art. 674, caput");
+    const linhas = regioes.partes[0].texto!.split("\n");
+    expect(linhas).toHaveLength(25);
+    expect(linhas[1]).toBe("1ª Região - Estado do Rio de Janeiro; (Lei nº 5.839, de 5/12/1972)");
+    expect(linhas[24]).toBe(
+      "24ª Região – Estado do Mato Grosso do Sul; (Lei nº 8.431, de 9/6/1992) (“Caput” do artigo atualizado em conformidade com as leis citadas)",
+    );
+
+    const honorarios = await encontrado("clt", "art. 791-A, caput");
+    expect(honorarios.partes[0].texto).toBe(
+      "Ao advogado, ainda que atue em causa própria, serão devidos honorários de sucumbência, fixados entre o mínimo de 5% (cinco por cento) e o máximo de 15% (quinze por\n" +
+        "cento) sobre o valor que resultar da liquidação da sentença, do proveito econômico obtido ou, não sendo possível mensurá-lo, sobre o valor atualizado da causa.",
+    );
+  });
+
+  it("CLT art. 168: o hífen invisível antes de 'I - na admissão;' não esconde o inciso", async () => {
+    const r = await encontrado("clt", "art. 168, inciso I");
+    expect(r.partes).toEqual([
+      { dispositivo: "art. 168, caput, inciso I", rotuloNaFonte: "I -", texto: "na admissão; (Inciso acrescido pela Lei nº 7.855, de 24/10/1989)" },
+    ]);
+  });
+
+  it("CP art. 359-T: o '(VETADO …)' solto depois do caput é texto dele, não nota de rubrica", async () => {
+    const r = await encontrado("cp", "art. 359-T");
+    expect(r.partes).toHaveLength(1);
+    expect(r.partes[0].texto).toMatch(/com propósitos sociais\. \(Artigo acrescido pela Lei nº 14\.197.*\)\n\(VETADO na Lei nº 14\.197, de 1º\/9\/2021\)$/s);
+  });
+});
+
 describe("texto_de_lei — compilação: formato conferido, senão erro e nenhum texto", () => {
   type Norma = { legislationIdentifier: string; encoding: Record<string, unknown>[] };
   const norma = () => structuredClone(fixture("legislacao/cdc-norma.json")) as Norma;
