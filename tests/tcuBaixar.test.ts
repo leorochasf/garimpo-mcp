@@ -1,12 +1,12 @@
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { analisarListaTcu, urlDoAnoTcu } from "../src/tcu.js";
 import { baixarAnoTcu, avisoDeBaixaTcu } from "../src/tcuBaixar.js";
-import { caminhoDoAnoTcu, lerReciboTcu } from "../src/tcuLocal.js";
+import { caminhoDoAnoTcu, caminhoDoIndiceTcu, lerReciboTcu, pesquisarTcu } from "../src/tcuLocal.js";
 import { clienteFalso } from "./apoio.js";
 import { acordaoFicticio, csvDoTcu, LISTA_REAL_TCU } from "./apoioTcu.js";
 
@@ -163,6 +163,52 @@ describe("renovação de um ano já baixado", () => {
   });
 });
 
+describe("índice local criado com o download (D14: sob pedido, ao baixar o ano)", () => {
+  const usaIndice = async (dados: string) => (await pesquisarTcu(dados, { consulta: "sobrepreço" })).indiceLocal;
+
+  it("baixar um ano cria o índice dele; a pesquisa passa a usá-lo", async () => {
+    const dados = await pasta();
+    const r = await baixarAnoTcu({ dados, cliente: clienteFalso([completa()]).cliente, ano: 2025 });
+    expect(r.indice).toMatchObject({ ano: 2025, documentos: 2, bytesDoArquivo: BYTES.length });
+    expect(await usaIndice(dados)).toEqual({ comIndice: [2025], semIndice: [] });
+  });
+
+  it("renovar sem mudança no TCU (304) cria o índice que falta, sem baixar de novo; com índice válido, não refaz", async () => {
+    const dados = await pasta();
+    await baixarAnoTcu({ dados, cliente: clienteFalso([completa()]).cliente, ano: 2025 });
+    await rm(caminhoDoIndiceTcu(dados, 2025));
+    expect((await usaIndice(dados))?.comIndice).toEqual([]);
+    const r = await baixarAnoTcu({ dados, cliente: clienteFalso([new Response(null, { status: 304 })]).cliente, ano: 2025, renovar: true });
+    expect(r.situacao).toBe("sem-mudanca");
+    expect(r.indice).toMatchObject({ ano: 2025, documentos: 2 });
+    expect(await usaIndice(dados)).toEqual({ comIndice: [2025], semIndice: [] });
+    const de_novo = await baixarAnoTcu({ dados, cliente: clienteFalso([new Response(null, { status: 304 })]).cliente, ano: 2025, renovar: true });
+    expect(de_novo.indice).toBeUndefined();
+  });
+
+  it("atualizar o ano recria o índice para o arquivo novo", async () => {
+    const dados = await pasta();
+    await baixarAnoTcu({ dados, cliente: clienteFalso([completa()]).cliente, ano: 2025 });
+    const novo = Buffer.from(csvDoTcu([acordaoFicticio(9)]), "utf8");
+    const resp = new Response(novo, { status: 200, headers: { ...CABECALHOS, etag: '"novo"', "content-length": String(novo.length) } });
+    const r = await baixarAnoTcu({ dados, cliente: clienteFalso([resp]).cliente, ano: 2025, renovar: true });
+    expect(r).toMatchObject({ situacao: "atualizado", indice: { documentos: 1 } });
+    const p = await pesquisarTcu(dados, { consulta: "sobrepreço" });
+    expect(p.indiceLocal?.comIndice).toEqual([2025]);
+    expect(p.resultados.map((x) => x.numero)).toEqual(["9"]);
+  });
+
+  it("falha ao criar o índice não desfaz o download: o ano fica baixado e a pesquisa lê o arquivo inteiro", async () => {
+    const dados = await pasta();
+    await mkdir(caminhoDoIndiceTcu(dados, 2025), { recursive: true }); // no lugar do índice, uma pasta
+    const r = await baixarAnoTcu({ dados, cliente: clienteFalso([completa()]).cliente, ano: 2025 });
+    expect(r.situacao).toBe("baixado");
+    expect(r.indice).toMatchObject({ erro: expect.stringMatching(/índice/) });
+    expect(await readFile(caminhoDoAnoTcu(dados, 2025))).toEqual(BYTES);
+    expect((await pesquisarTcu(dados, { consulta: "sobrepreço" })).total).toBe(2);
+  });
+});
+
 describe("aviso antes de baixar", () => {
   const lista = analisarListaTcu(LISTA_REAL_TCU);
 
@@ -172,6 +218,8 @@ describe("aviso antes de baixar", () => {
     expect(a.precisaConfirmar).toBe(true);
     expect(a.anos.map((x) => [x.ano, x.tamanhoMb])).toEqual([[2021, 500.75], [2025, 394.4]]);
     expect(a.totalMb).toBeCloseTo(895.15, 2);
+    expect(a.indiceEstimadoMb).toBeCloseTo(895.15 * 0.35, 1);
+    expect(a.mensagem).toMatch(/313,3 MB do índice local/);
     expect(a.pasta).toBe(join(dados, "tcu"));
     expect(a.mensagem).toMatch(/baixar/);
     expect(a.mensagem).toMatch(/confirmar/);
