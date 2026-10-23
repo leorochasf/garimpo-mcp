@@ -151,30 +151,34 @@ describe("panorama_da_amostra", () => {
     expect(r.texto.length).toBeLessThan(25_000);
   });
 
-  it("traz o panorama por relator por tribunal, sem chamar o site, com o aviso de amostra e abaixo de 25 mil caracteres no pior caso", async () => {
+  it("traz o panorama por relator por tribunal, sem chamar o site, e a resposta inteira (órgãos e relatores longos, ids fora da memória) fica abaixo de 25 mil caracteres", async () => {
     const tribunais = ["stj", "tjgo", "tjsp", "tjmg", "tjto"];
-    // Pior caso realista: 40 relatores distintos por tribunal, cada nome com ~150 caracteres, e um texto absurdo de 5 mil.
-    const nome = (i: number) => `Desembargador Fictício Número ${String(i).padStart(2, "0")} `.padEnd(140, "da Silva e Souza ") + `${i}`;
+    // Pior caso realista: por tribunal, 38 acórdãos com 20 órgãos de ~190 caracteres e 20 relatores de ~150, mais um texto absurdo de relator.
+    const longo = (prefixo: string, i: number, tamanho: number) => `${prefixo} ${String(i % 20).padStart(2, "0")} `.padEnd(tamanho, "da Silva e Souza ");
     const porTribunal = Object.fromEntries(tribunais.map((t) => [t, [
-      ...Array.from({ length: 39 }, (_, i) => ({ ...registro(String(i + 1), "2023-01-01T00:00:00.000Z", "Turma"), relator: nome(i) })),
+      ...Array.from({ length: 39 }, (_, i) => ({
+        ...registro(String(i + 1), "2023-01-01T00:00:00.000Z", longo("Órgão Julgador Fictício", i, 190)),
+        relator: longo("Desembargador Fictício", i, 150),
+      })),
       { ...registro("40", "2023-01-01T00:00:00.000Z", "Turma"), relator: "Fulano ".repeat(700) },
     ]]));
     const { site, chamadas } = siteDosTribunais(porTribunal);
     const mcp = await conectar(site);
     for (const tribunal of tribunais) await chamar(mcp, "busca_direta", { tribunal, texto: "tema de exemplo", limite: 100 });
     const antes = chamadas.length;
-    const ids = tribunais.flatMap((t) => Array.from({ length: 40 }, (_, i) => `${t}:${i + 1}`));
-    const r = await chamar(mcp, "panorama_da_amostra", { ids });
+    const ids = tribunais.flatMap((t) => Array.from({ length: 38 }, (_, i) => `${t}:${i + 1}`));
+    const foraDaMemoria = Array.from({ length: 10 }, (_, i) => `stj:${"9".repeat(50)}${i}`);
+    const r = await chamar(mcp, "panorama_da_amostra", { ids: [...ids, ...foraDaMemoria] });
     expect(chamadas).toHaveLength(antes);
-    expect(r.json.total).toBe(200);
+    expect(r.json.total).toBe(190);
+    expect(r.json.foraDaMemoria).toEqual(foraDaMemoria);
+    const soma = (o: Record<string, number>) => Object.values(o).reduce((a, b) => a + b, 0);
     for (const tribunal of tribunais) {
       const rel = r.json.porRelator[tribunal];
-      // O orçamento de caracteres, não os 20 do top-N, limita a lista de nomes de ~150 caracteres.
-      const mostrados = Object.values(rel.relatores.valores as Record<string, number>).reduce((a, b) => a + b, 0);
-      expect(mostrados).toBeGreaterThan(0);
-      expect(mostrados + rel.relatores.outros).toBe(40);
+      expect(soma(rel.relatores.valores)).toBeGreaterThan(0);
+      expect(soma(rel.relatores.valores) + rel.relatores.outros + rel.naoInformado).toBe(38);
       expect(rel.paraOAcordao).toEqual({ valores: {}, outros: 0 });
-      expect(rel.naoInformado).toBe(0);
+      expect(soma(r.json.porOrgao[tribunal])).toBe(38);
     }
     expect(r.json.avisoDeAmostra).toMatch(/amostra da busca/);
     expect(r.texto.length).toBeLessThan(25_000);

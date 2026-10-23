@@ -1,15 +1,20 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { Acordao } from "../src/busca.js";
-import { ORCAMENTO_DE_RELATORES, panorama } from "../src/panorama.js";
+import { panorama, TETO_DO_PANORAMA } from "../src/panorama.js";
+import { ROTULO_FALCAO, ROTULO_TNU, ROTULO_TRF2, ROTULO_TRF4 } from "../src/tribunais.js";
 import { lerResultadosDoTrf4 } from "../src/trf4.js";
 
 let seq = 0;
 /** Acórdão mínimo e fictício: só o que o panorama lê. */
-function acordao(tribunal: string, relator?: string): Acordao {
+function acordao(tribunal: string, relator?: string, fonte?: string): Acordao {
   seq += 1;
-  return { id: `${tribunal}:${seq}`, tribunal, numero: `N ${seq}`, semNumero: false, relator, ementa: "Ementa fictícia." } as Acordao;
+  return { id: `${tribunal}:${seq}`, tribunal, numero: `N ${seq}`, semNumero: false, relator, fonte, ementa: "Ementa fictícia." } as Acordao;
 }
+
+const ROTULO_DO_EPROC: Record<string, string> = { trf2: ROTULO_TRF2, trf4: ROTULO_TRF4, tnu: ROTULO_TNU };
+/** Registro como o adaptador do e-Proc o monta: tribunal e rótulo da fonte do próprio e-Proc. */
+const doEproc = (tribunal: "trf2" | "trf4" | "tnu", relator?: string) => acordao(tribunal, relator, ROTULO_DO_EPROC[tribunal]);
 
 describe("panorama por relator — contagem simples", () => {
   it("conta por tribunal: o mesmo nome em tribunais diferentes não se soma", () => {
@@ -52,16 +57,16 @@ describe("panorama por relator — contagem simples", () => {
 
   it("a soma dos nomes, de outros, de relator para o acórdão e de naoInformado fecha com o total do tribunal", () => {
     const registros = [
-      ...Array.from({ length: 30 }, (_, i) => acordao("stj", `Relator ${i}`)),
-      acordao("stj"),
-      acordao("stj", "Fulano (relator para o acórdão: Beltrano)"),
+      ...Array.from({ length: 30 }, (_, i) => doEproc("trf4", `Relator ${i}`)),
+      doEproc("trf4"),
+      doEproc("trf4", "Fulano (relator para o acórdão: Beltrano)"),
     ];
     const p = panorama(registros);
-    const r = p.porRelator.stj;
+    const r = p.porRelator.trf4;
     const soma = (o: Record<string, number>) => Object.values(o).reduce((a, b) => a + b, 0);
     expect(
       soma(r.relatores.valores) + r.relatores.outros + soma(r.paraOAcordao.valores) + r.paraOAcordao.outros + r.naoInformado,
-    ).toBe(p.porTribunal.stj);
+    ).toBe(p.porTribunal.trf4);
   });
 });
 
@@ -97,7 +102,7 @@ describe("panorama por relator — top-N e outros", () => {
 describe("panorama por relator — relator para o acórdão (formato exato do e-Proc)", () => {
   it("separa só o formato «<relator> (relator para o acórdão: <nome>)» e mantém o texto original", () => {
     const texto = "JUIZ FICTÍCIO UM (relator para o acórdão: JUÍZA FICTÍCIA TRÊS)";
-    const p = panorama([acordao("trf4", texto), acordao("trf4", texto), acordao("trf4", "JUIZ FICTÍCIO UM")]);
+    const p = panorama([doEproc("trf4", texto), doEproc("trf4", texto), doEproc("trf4", "JUIZ FICTÍCIO UM")]);
     expect(p.porRelator.trf4.paraOAcordao.valores).toEqual({ [texto]: 2 });
     expect(p.porRelator.trf4.relatores.valores).toEqual({ "JUIZ FICTÍCIO UM": 1 });
   });
@@ -116,13 +121,33 @@ describe("panorama por relator — relator para o acórdão (formato exato do e-
     ["espaço sobrando", "Fulano  (relator para o acórdão: Beltrano)"],
     ["relator vencido por outro texto", "Fulano, vencido; relator para o acórdão: Beltrano"],
   ])("qualquer outro texto conta inteiro como relator (%s)", (_motivo, texto) => {
-    const p = panorama([acordao("stj", texto)]);
-    expect(p.porRelator.stj.relatores.valores).toEqual({ [texto]: 1 });
-    expect(p.porRelator.stj.paraOAcordao).toEqual({ valores: {}, outros: 0 });
+    const p = panorama([doEproc("trf4", texto)]);
+    expect(p.porRelator.trf4.relatores.valores).toEqual({ [texto]: 1 });
+    expect(p.porRelator.trf4.paraOAcordao).toEqual({ valores: {}, outros: 0 });
+  });
+
+  const COMPOSTO = "Fulano (relator para o acórdão: Beltrano)";
+
+  it.each(["trf2", "trf4", "tnu"] as const)("separa o formato exato nos três e-Procs (%s)", (t) => {
+    const p = panorama([doEproc(t, COMPOSTO)]);
+    expect(p.porRelator[t].paraOAcordao.valores).toEqual({ [COMPOSTO]: 1 });
+    expect(p.porRelator[t].relatores.valores).toEqual({});
+  });
+
+  it.each([
+    ["JurisprudênciaIA (sem rótulo de fonte)", () => acordao("stj", COMPOSTO), "stj"],
+    ["JurisprudênciaIA em tribunal federal sem rótulo de e-Proc", () => acordao("trf4", COMPOSTO), "trf4"],
+    ["Falcão (rótulo do Falcão)", () => acordao("trt2", COMPOSTO, ROTULO_FALCAO), "trt2"],
+    ["rótulo do e-Proc de outro tribunal", () => acordao("trf4", COMPOSTO, ROTULO_TRF2), "trf4"],
+    ["rótulo do e-Proc em tribunal que não é dele", () => acordao("stj", COMPOSTO, ROTULO_TRF4), "stj"],
+  ])("fora do e-Proc comprovado o texto composto fica inteiro em relatores, sem separar (%s)", (_origem, registro, t) => {
+    const p = panorama([registro()]);
+    expect(p.porRelator[t].relatores.valores).toEqual({ [COMPOSTO]: 1 });
+    expect(p.porRelator[t].paraOAcordao).toEqual({ valores: {}, outros: 0 });
   });
 
   it("também limita a lista de relator para o acórdão em 20, com o resto em outros", () => {
-    const registros = Array.from({ length: 23 }, (_, i) => acordao("trf4", `Relator ${String(i).padStart(2, "0")} (relator para o acórdão: Outro)`));
+    const registros = Array.from({ length: 23 }, (_, i) => doEproc("trf4", `Relator ${String(i).padStart(2, "0")} (relator para o acórdão: Outro)`));
     const p = panorama(registros);
     expect(Object.keys(p.porRelator.trf4.paraOAcordao.valores)).toHaveLength(20);
     expect(p.porRelator.trf4.paraOAcordao.outros).toBe(3);
@@ -158,41 +183,62 @@ describe("panorama por relator — fixture compartilhada com o leitor do e-Proc"
   });
 });
 
-describe("panorama por relator — teto de tamanho da resposta", () => {
+describe("panorama — teto de tamanho da resposta inteira (órgãos e relatores juntos)", () => {
+  const nome = (prefixo: string, i: number, tamanho: number) => `${prefixo} ${String(i).padStart(2, "0")} `.padEnd(tamanho, "Fictício ");
+  const soma = (o: Record<string, number>) => Object.values(o).reduce((a, b) => a + b, 0);
+  const cinco = ["stj", "tjgo", "tjsp", "tjmg", "tjto"];
+  const comOrgaoERelator = (t: string, i: number, orgao: string, relator: string) =>
+    ({ ...acordao(t, relator), orgao, dataJulgamento: `20${10 + (i % 12)}-01-01` }) as Acordao;
+
+  /** Nenhuma contagem se perde: o que não cabe na lista soma em outros. */
+  function conferirConservacao(p: ReturnType<typeof panorama>, porTribunal: number) {
+    for (const t of Object.keys(p.porTribunal)) {
+      expect(soma(p.porOrgao[t])).toBe(porTribunal);
+      const r = p.porRelator[t];
+      expect(soma(r.relatores.valores) + r.relatores.outros + soma(r.paraOAcordao.valores) + r.paraOAcordao.outros + r.naoInformado).toBe(porTribunal);
+    }
+  }
+
+  it("200 acórdãos em 5 tribunais, 20 órgãos de 200 caracteres e 20 relatores de 110 (o caso da revisão): cabe no teto", () => {
+    const registros = cinco.flatMap((t) =>
+      Array.from({ length: 40 }, (_, i) => comOrgaoERelator(t, i, nome("Orgao", i % 20, 200), nome("Relator", i % 20, 110))),
+    );
+    const p = panorama(registros);
+    expect(p.total).toBe(200);
+    expect(JSON.stringify(p).length).toBeLessThanOrEqual(TETO_DO_PANORAMA);
+    conferirConservacao(p, 40);
+  });
+
+  it("nomes de 190 caracteres em órgão, relator e relator para o acórdão ao mesmo tempo, em 5 e em 40 tribunais", () => {
+    for (const tribunais of [cinco, Array.from({ length: 40 }, (_, i) => `trf${i}`)]) {
+      const por = 200 / tribunais.length;
+      const registros = tribunais.flatMap((t) =>
+        Array.from({ length: por }, (_, i) => {
+          const relator = nome("Relator", i % 20, 150) + (i % 2 ? " (relator para o acórdão: Fulano)" : "");
+          return { ...comOrgaoERelator(t, i, nome("Orgao", i % 20, 190), relator), fonte: ROTULO_TRF4 } as Acordao;
+        }),
+      );
+      const p = panorama(registros);
+      expect(JSON.stringify(p).length).toBeLessThanOrEqual(TETO_DO_PANORAMA);
+      conferirConservacao(p, por);
+    }
+  });
+
+  it("caso comum continua inteiro: 5 tribunais, órgãos e relatores de tamanho normal aparecem todos (20 + outros)", () => {
+    const registros = cinco.flatMap((t) =>
+      Array.from({ length: 40 }, (_, i) => comOrgaoERelator(t, i, `Câmara Cível ${i % 25}`, `Desembargador Fulano ${i % 25}`)),
+    );
+    const p = panorama(registros);
+    for (const t of cinco) {
+      expect(Object.keys(p.porOrgao[t])).toHaveLength(21);
+      expect(Object.keys(p.porRelator[t].relatores.valores)).toHaveLength(20);
+    }
+    conferirConservacao(p, 40);
+  });
+
   it("o texto longo demais que lidera a contagem não encerra a lista dos nomes que cabem", () => {
     const longo = "Fulano ".repeat(100);
     const p = panorama([acordao("stj", longo), acordao("stj", longo), acordao("stj", longo), acordao("stj", "Abel"), acordao("stj", "Bruno")]);
     expect(p.porRelator.stj.relatores).toEqual({ valores: { Abel: 1, Bruno: 1 }, outros: 3 });
-  });
-
-  const nomeLongo = (i: number, sufixo = "") => `${String(i).padStart(3, "0")} ${"Nome Fictício ".repeat(14)}`.slice(0, 190 - sufixo.length) + sufixo;
-  const somaDeCaracteres = (p: ReturnType<typeof panorama>) =>
-    Object.values(p.porRelator).reduce(
-      (s, r) => s + [...Object.keys(r.relatores.valores), ...Object.keys(r.paraOAcordao.valores)].reduce((t, k) => t + k.length, 0),
-      0,
-    );
-
-  it("200 acórdãos em 5 tribunais com nomes de 190 caracteres nas duas listas cabem em 25 mil caracteres", () => {
-    const registros = ["stj", "tjgo", "tjsp", "tjmg", "tjto"].flatMap((t) => [
-      ...Array.from({ length: 20 }, (_, i) => acordao(t, nomeLongo(i))),
-      ...Array.from({ length: 20 }, (_, i) => acordao(t, nomeLongo(i, " (relator para o acórdão: Fulano)"))),
-    ]);
-    const p = panorama(registros);
-    expect(p.total).toBe(200);
-    expect(somaDeCaracteres(p)).toBeLessThanOrEqual(ORCAMENTO_DE_RELATORES);
-    expect(JSON.stringify(p).length).toBeLessThan(25_000);
-  });
-
-  it("40 tribunais com 5 acórdãos de nomes longos: o orçamento se divide e o que não cabe soma em outros, sem perder contagem", () => {
-    const registros = Array.from({ length: 40 }, (_, t) =>
-      Array.from({ length: 5 }, (_, i) => acordao(`trib${t}`, nomeLongo(i))),
-    ).flat();
-    const p = panorama(registros);
-    expect(somaDeCaracteres(p)).toBeLessThanOrEqual(ORCAMENTO_DE_RELATORES);
-    for (const r of Object.values(p.porRelator)) {
-      const mostrados = Object.values(r.relatores.valores).reduce((a, b) => a + b, 0);
-      expect(mostrados + r.relatores.outros).toBe(5);
-    }
-    expect(JSON.stringify(p).length).toBeLessThan(25_000);
   });
 });
