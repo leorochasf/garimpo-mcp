@@ -1,9 +1,10 @@
 /**
  * Inteiro teor oficial: o PDF do acórdão baixado do portal do próprio tribunal.
- * Baixa só o que sai por HTTP comum (TJMG, TJMS, TJSP, TSE). O STJ não: o robots.txt de processo.stj.jus.br veda o host
- * inteiro (D-18), e o Garimpo devolve o link para conferência manual. No TJTO, o portal entrega o acórdão em HTML: vira o
- * texto do portal do tribunal, guardado na memória (ADR-0021). Para os demais devolve link + explicação:
- * nunca navegador automatizado, captcha ou contorno de proteção.
+ * Baixa só o que sai por HTTP comum (TJMG, TJMS, TJRR, TJSP, TSE). O STJ não: o robots.txt de processo.stj.jus.br veda
+ * o host inteiro (D-18), e o Garimpo devolve o link para conferência manual. Nos 7 tribunais de texto do portal (TJTO,
+ * TJDFT pela API, TJGO, TJPI, TRF2, TRF4, TNU), o acórdão vira o texto do portal do tribunal, guardado na memória
+ * (ADR-0021); no TJGO o documento pode vir em HTML ou com PDF embutido no arquivo assinado. Para os demais devolve link +
+ * explicação e a ponte para o PDF trazido pelo usuário: nunca navegador automatizado, captcha ou contorno de proteção.
  */
 
 import { createHash, randomUUID } from "node:crypto";
@@ -301,8 +302,9 @@ export async function obterInteiroTeor(
 }
 
 /**
- * TJTO (ADR-0021): o portal entrega o acórdão (ementa, relatório, voto e extrato de ata) em HTML, não em PDF. O texto,
- * convertido pelo Garimpo, vai para a memória pelo id do acórdão, como o do Falcão; já guardado = nenhuma chamada.
+ * Texto do portal do tribunal (ADR-0021): TJTO, TJPI, TRF2, TRF4 e TNU entregam o acórdão em HTML; TJDFT, pela API; TJGO,
+ * em HTML ou com PDF embutido no arquivo assinado. O texto, convertido pelo Garimpo, vai para a memória pelo id do
+ * acórdão, como o do Falcão; já guardado = nenhuma chamada.
  */
 async function textoDoPortal(
   nomeTribunal: string,
@@ -396,6 +398,10 @@ async function textoDoPortal(
       acordao.tribunal === "tjdft"
         ? `A API do ${nomeTribunal} entrega o texto do acórdão, não o PDF: o Garimpo o guardou como texto do portal do ` +
           `tribunal, sem recibo de origem; não é o PDF do tribunal. ${ler}`
+        : acordao.tribunal === "tjgo"
+        ? `O Projudi do ${nomeTribunal} entrega o documento do julgamento em HTML ou num arquivo assinado (.p7s), que ` +
+          "pode trazer um PDF embutido: o Garimpo o converteu em texto (texto do portal do tribunal, sem recibo de " +
+          `origem; a assinatura não é verificada pelo Garimpo). ${ler}`
         : `O portal do ${nomeTribunal} entrega o acórdão em HTML, não em PDF: o Garimpo o converteu em texto (texto do ` +
           `portal do tribunal, sem recibo de origem; não é o PDF do tribunal). ${ler}`,
   };

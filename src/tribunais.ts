@@ -6,7 +6,8 @@
 
 /**
  * "baixa" = o Garimpo baixa o PDF oficial; "link" = devolve link + explicação; "texto" = texto integral na busca;
- * "portal" = o obter_inteiro_teor traz o texto do portal do tribunal (HTML convertido) para a memória (ADR-0021).
+ * "portal" = o obter_inteiro_teor traz o texto do portal do tribunal para a memória (ADR-0021): HTML convertido, o
+ * registro da API no TJDFT e, no TJGO, também o PDF embutido no arquivo assinado.
  */
 export type InteiroTeorModo = "baixa" | "link" | "texto" | "portal";
 
@@ -17,7 +18,7 @@ export type Fonte = "JurisprudênciaIA" | "Falcão (CSJT)" | "e-Proc do TRF2" | 
 export const QUALIFICADOS_TRT =
   "coleção precedentes do Falcão, só na busca_direta com precedentes:true (até 10 itens; cobertura por TRT não verificada)";
 export const INTEIRO_TEOR_TRT = "texto integral do repositório oficial (sem PDF)";
-/** O que a tabela diz do TJTO (ADR-0021). */
+/** O que a tabela diz dos tribunais de texto do portal (ADR-0021). */
 export const INTEIRO_TEOR_PORTAL = "texto do portal do tribunal, trazido pelo obter_inteiro_teor (sem PDF)";
 
 /** Rótulo de cada acórdão de TRT (ADR-0018). */

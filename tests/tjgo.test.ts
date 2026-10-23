@@ -630,6 +630,19 @@ describe("TJGO — arquivos assinados (.p7s): o documento embutido, com as mesma
     expect(guardado?.texto).toMatch(/0000001-11\.2024\.8\.09\.0001/);
   });
 
+  it("envelope com PDF embutido: a explicação não diz que o acórdão veio em HTML (D12 da B0.1)", async () => {
+    const { explicacao } = await tentar([
+      paginaDoProcesso([JULGAMENTO]),
+      listaDeArquivos([EMENTA_P7S, RELATORIO_P7S]),
+      envelope("tjgo-ementa.html.p7s"),
+      envelope("tjgo-relatorio-voto-pdf.p7s"),
+    ]);
+    expect(explicacao).not.toMatch(/entrega o acórdão em HTML, não em PDF/);
+    expect(explicacao).toMatch(/PDF embutido/);
+    expect(explicacao).toMatch(/texto do portal do tribunal, sem recibo de origem/);
+    expect(explicacao).toMatch(/ler_inteiro_teor com o id tjgo:77/);
+  });
+
   it("assinatura destacada (sem documento embutido): não baixa e diz o motivo", async () => {
     const { explicacao, guardado } = await tentar([
       paginaDoProcesso([JULGAMENTO]),
