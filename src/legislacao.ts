@@ -57,6 +57,19 @@ const DIPLOMAS: Diploma[] = [
     inicioNaCompilacao: "DECRETO-LEI Nº 2.848, DE 7 DE DEZEMBRO DE 1940",
   },
   {
+    sigla: "CPP",
+    urn: "urn:lex:br:federal:decreto.lei:1941-10-03;3689",
+    apelidos: ["cpp", "codigo de processo penal", "decreto-lei 3689/1941", "decreto-lei 3689"],
+    inicioNaCompilacao: "DECRETO-LEI Nº 3.689, DE 3 DE OUTUBRO DE 1941",
+  },
+  {
+    // Só pela sigla e pelo nome: o Decreto-Lei 5.452/1943 tem arts. 1º e 2º próprios, antes da Consolidação que aprova.
+    sigla: "CLT",
+    urn: "urn:lex:br:federal:decreto.lei:1943-05-01;5452",
+    apelidos: ["clt", "consolidacao das leis do trabalho"],
+    inicioNaCompilacao: "CONSOLIDAÇÃO DAS LEIS DO TRABALHO",
+  },
+  {
     sigla: "CDC",
     urn: "urn:lex:br:federal:lei:1990-09-11;8078",
     apelidos: ["cdc", "codigo de defesa do consumidor", "codigo de protecao e defesa do consumidor", "lei 8078/1990", "lei 8078"],
@@ -92,9 +105,9 @@ function deRomano(texto: string): number {
   return total;
 }
 
-/** "10-A" → "10-1"; a fonte numera as letras (A = 1). */
-const comLetra = (numero: string, letra: string | undefined) =>
-  letra ? `${numero}-${letra.toLowerCase().charCodeAt(0) - 96}` : numero;
+/** "10" e "-A" → "10-1", "359" e "-M-A" → "359-13-1"; a fonte numera as letras (A = 1) e escreve o número sem ponto. */
+const comLetras = (numero: string, sufixos = "") =>
+  numero.replace(/\./g, "") + [...sufixos.matchAll(/[A-Za-z]/g)].map((m) => `-${m[0].toLowerCase().charCodeAt(0) - 96}`).join("");
 
 export interface Pedido {
   /** Como a fonte identifica o dispositivo, sem o sufixo de quem o acrescentou (ex.: "art85_par2_inc1"). */
@@ -106,14 +119,17 @@ const ERRO_DISPOSITIVO =
   '"art. 85, caput", "art. 85, § 2º", "art. 85, § 2º, inciso I", "art. 85, § 2º, inciso I, alínea a", ' +
   '"art. 9º, parágrafo único" ou "art. 699-A". Um dispositivo por pedido.';
 
-/** O que pode vir depois do que já foi lido: artigo → caput ou §; caput ou § → inciso; inciso → alínea. */
+/**
+ * O que pode vir depois do que já foi lido: artigo → caput, §, inciso ou alínea (as duas últimas, do caput); caput ou
+ * § → inciso ou alínea (alínea direto no caput ou no §, como na CLT); inciso → alínea.
+ */
 type Etapa = "artigo" | "caput" | "inciso" | "alinea";
 
 export function lerDispositivo(texto: string): Pedido {
   let resto = texto.trim().replace(/[º°ª]/g, "");
-  const artigo = /^art(?:igo)?s?\.?\s*(\d+(?:\.\d{3})*)\s*(?:-\s*([A-Za-z])\b)?/i.exec(resto);
+  const artigo = /^art(?:igo)?s?\.?\s*(\d+(?:\.\d{3})*)((?:\s*-\s*[A-Za-z]\b)*)/i.exec(resto);
   if (!artigo) throw new Error(ERRO_DISPOSITIVO);
-  let chave = `art${comLetra(artigo[1].replace(/\./g, ""), artigo[2])}`;
+  let chave = `art${comLetras(artigo[1], artigo[2])}`;
   resto = resto.slice(artigo[0].length);
 
   let etapa: Etapa = "artigo";
@@ -127,15 +143,16 @@ export function lerDispositivo(texto: string): Pedido {
     } else if (etapa === "artigo" && (m = /^(?:§|par\.?|par[aá]grafo)\s*[uú]nico\b/i.exec(resto))) {
       chave += "_par1u";
       etapa = "caput";
-    } else if (etapa === "artigo" && (m = /^(?:§|par\.?|par[aá]grafo)\s*(\d+)\s*(?:-\s*([A-Za-z])\b)?/i.exec(resto))) {
-      chave += `_par${comLetra(m[1], m[2])}`;
+    } else if (etapa === "artigo" && (m = /^(?:§|par\.?|par[aá]grafo)\s*(\d+)((?:\s*-\s*[A-Za-z]\b)*)/i.exec(resto))) {
+      chave += `_par${comLetras(m[1], m[2])}`;
       etapa = "caput";
     } else if ((etapa === "artigo" || etapa === "caput") && (m = /^(?:inciso|inc\.?)\s+([ivxlcdm]+)\b/i.exec(resto) ?? /^([IVXLCDM]+)\b/.exec(resto))) {
       // Inciso logo depois do artigo é inciso do caput.
       chave += `${etapa === "artigo" ? "_cpt" : ""}_inc${deRomano(m[1])}`;
       etapa = "inciso";
-    } else if (etapa === "inciso" && (m = /^(?:al[ií]nea|al\.?)\s+([a-z])\b/i.exec(resto) ?? /^([a-z])\b(?!\.)/.exec(resto))) {
-      chave += `_ali${m[1].toLowerCase().charCodeAt(0) - 96}`;
+    } else if (etapa !== "alinea" && (m = /^(?:al[ií]nea|al\.?)\s+([a-z])\b/i.exec(resto) ?? /^([a-z])\b(?!\.)/.exec(resto))) {
+      // Alínea logo depois do artigo é alínea do caput.
+      chave += `${etapa === "artigo" ? "_cpt" : ""}_ali${m[1].toLowerCase().charCodeAt(0) - 96}`;
       etapa = "alinea";
     } else {
       throw new Error(ERRO_DISPOSITIVO);
@@ -254,11 +271,14 @@ const versoesDoNo = (n: Bruto): Bruto[] =>
     .filter((v): v is Bruto => !!v)
     .sort((a, b) => (texto(a.legislationDate) ?? "").localeCompare(texto(b.legislationDate) ?? ""));
 
-/** "6-1" → "6º-A", "1045" → "1.045": o jeito de citar. O ordinal vai só até o 9 (art. 9º, § 10), como a lei escreve. */
+/**
+ * "6-1" → "6º-A", "359-13-1" → "359-M-A", "1045" → "1.045": o jeito de citar. O ordinal vai só até o 9 (art. 9º, § 10),
+ * como a lei escreve.
+ */
 const ordinal = (n: string) => {
-  const [numero, letra] = n.split("-");
+  const [numero, ...letras] = n.split("-");
   const grafado = Number(numero) <= 9 ? `${numero}º` : numero.replace(/\B(?=(\d{3})+$)/g, ".");
-  return `${grafado}${letra ? `-${String.fromCharCode(64 + Number(letra))}` : ""}`;
+  return grafado + letras.map((l) => `-${String.fromCharCode(64 + Number(l))}`).join("");
 };
 
 /** "art85_par2_inc1" → "art. 85, § 2º, inciso I". */
@@ -447,20 +467,20 @@ function paragrafosDaCompilacao(html: string): string[] {
   return paragrafos;
 }
 
-type TipoDeDispositivo = "artigo" | "caput" | "paragrafo" | "inciso" | "alinea";
+/** "faixa": vários artigos num parágrafo só ("Arts. 22 a 24. (Revogados ...)"). */
+type TipoDeDispositivo = "artigo" | "faixa" | "caput" | "paragrafo" | "inciso" | "alinea";
 
 interface Rotulo {
   tipo: Exclude<TipoDeDispositivo, "caput">;
-  /** O rótulo como a fonte o escreve ("Art. 359-M-A.", "§ 2º", "Parágrafo único.", "I -", "a)"). */
+  /** O rótulo como a fonte o escreve ("Art. 359-M-A.", "Arts. 22 a 24.", "§ 2º", "Parágrafo único.", "I -", "a)"). */
   rotulo: string;
-  /** O pedaço da chave da fonte ("art359-13-1", "par2", "par1u", "inc1", "ali1"). */
+  /** O pedaço da chave da fonte ("art359-13-1", "par2", "par1u", "inc1", "ali1"); vazio na faixa. */
   segmento: string;
+  /** Só na faixa: o primeiro e o último artigo dela. */
+  faixa?: [number, number];
   /** O texto do parágrafo depois do rótulo. */
   resto: string;
 }
-
-const comLetras = (numero: string, sufixos: string) =>
-  numero.replace(/\./g, "") + [...sufixos.matchAll(/[A-Z]/g)].map((m) => `-${m[0].charCodeAt(0) - 64}`).join("");
 
 const romanoLegivel = (texto: string) => {
   try {
@@ -479,6 +499,9 @@ function rotuloDe(paragrafo: string): Rotulo | undefined {
     segmento,
     resto: paragrafo.slice(m![0].length).trimStart(),
   });
+  if ((m = /^Arts\.\s*(\d+)[º°]?\s+a\s+(\d+)[º°]?\.?(?=\s|$)/.exec(paragrafo))) {
+    return { ...achado("faixa", ""), faixa: [Number(m[1]), Number(m[2])] };
+  }
   if ((m = /^Art\.\s*(\d+(?:\.\d{3})*)[º°]?((?:-[A-Z])*)\.?(?=\s|$)/.exec(paragrafo))) return achado("artigo", `art${comLetras(m[1], m[2])}`);
   if ((m = /^§\s*(\d+)[º°]?((?:-[A-Z])*)\.?(?=\s|$)/.exec(paragrafo))) return achado("paragrafo", `par${comLetras(m[1], m[2])}`);
   if ((m = /^Par[áa]grafo\s+[úu]nico\.?(?=\s|$)/.exec(paragrafo))) return achado("paragrafo", "par1u");
@@ -496,6 +519,7 @@ interface No {
   segmento: string;
   rotulo: string;
   id: number;
+  faixa?: [number, number];
 }
 
 /** Uma linha do texto e os dispositivos donos dela, do artigo ao mais fundo. */
@@ -582,8 +606,10 @@ function linhasDaCompilacao(html: string, inicio: string): Linha[] {
     notaDeTitulo = false;
     const r = rotulos[i];
     if (r?.tipo === "artigo") caminho = [no("artigo", r.segmento, r.rotulo), no("caput", "cpt", r.rotulo)];
+    if (r?.tipo === "faixa") caminho = [{ ...no("faixa", "", r.rotulo), faixa: r.faixa }];
     if (!caminho.length) continue;
-    if (!r) {
+    // Na faixa não há dispositivo dentro: o que vier até o próximo artigo é texto dela.
+    if (!r || (caminho[0].tipo === "faixa" && r.tipo !== "faixa")) {
       linhas.push({ caminho: PENA.test(p) ? caminho.slice(0, 2) : caminho, texto: p });
       continue;
     }
@@ -637,14 +663,29 @@ async function consultarNaCompilacao(
     urlOficial,
   };
   const segmentos = pedido.chave.split("_");
-  const doPedido = linhas.filter((l) => segmentos.every((s, k) => l.caminho[k]?.segmento === s));
+  let doPedido = linhas.filter((l) => segmentos.every((s, k) => l.caminho[k]?.segmento === s));
+  // Artigo inteiro, sem letra, que a fonte só traz dentro de uma faixa ("Arts. 498 a 502.").
+  const numero = Number(/^art(\d+)$/.exec(pedido.chave)?.[1]);
+  if (!doPedido.length && numero) {
+    doPedido = linhas.filter(({ caminho: [no] }) => no.faixa && no.faixa[0] <= numero && numero <= no.faixa[1]);
+  }
   if (!doPedido.length) {
     return { resultado: "não verificado", ...base, motivo: "A fonte não traz este dispositivo; confira o número no texto oficial.", arquivoDaFonte: arquivo };
   }
+  const faixa = doPedido[0].caminho[0].faixa;
   return {
     resultado: "encontrado",
     ...base,
-    partes: partesDaCompilacao(doPedido),
+    partes: faixa
+      ? [
+          {
+            dispositivo: base.dispositivo,
+            rotuloNaFonte: doPedido[0].rotulo,
+            texto: doPedido.map((l) => l.texto).filter(Boolean).join("\n"),
+            observacao: `A fonte traz os arts. ${ordinal(String(faixa[0]))} a ${ordinal(String(faixa[1]))} num só parágrafo; o texto é o dele.`,
+          },
+        ]
+      : partesDaCompilacao(doPedido),
     versaoDaFonte: {
       ...(texto(corpo.dateModified) && { modificadaEm: texto(corpo.dateModified) }),
       ...(texto(corpo.sdDatePublished) && { publicadaEm: texto(corpo.sdDatePublished) }),

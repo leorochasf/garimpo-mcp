@@ -200,6 +200,129 @@ describe("texto_de_lei — Código Penal: rubricas e penas", () => {
   });
 });
 
+describe("texto_de_lei — Código Penal: sufixo duplo", () => {
+  it("art. 359-M-A e 359-M-B são artigos próprios, separados do 359-M", async () => {
+    const m = await encontrado("cp", "art. 359-M");
+    expect(m.partes).toEqual([
+      {
+        dispositivo: "art. 359-M, caput",
+        rotuloNaFonte: "Art. 359-M.",
+        texto:
+          "Tentar depor, por meio de violência ou grave ameaça, o governo legitimamente constituído:\n" +
+          "Pena - reclusão, de 4 (quatro) a 12 (doze) anos, além da pena correspondente à violência. (Artigo acrescido pela Lei nº 14.197, de 1º/9/2021, publicada no DOU de 2/9/2021, em vigor 90 dias após a publicação)",
+      },
+    ]);
+
+    const ma = await encontrado("cp", "art. 359-M-A");
+    expect(ma.dispositivo).toBe("art. 359-M-A");
+    expect(ma.partes).toEqual([
+      {
+        dispositivo: "art. 359-M-A, caput",
+        rotuloNaFonte: "Art. 359-M-A.",
+        texto:
+          "Quando os delitos deste Capítulo estão inseridos no mesmo contexto, a pena deverá ser aplicada, ainda que existente desígnio autônomo, na forma do concurso formal próprio de que trata a primeira parte do art. 70, vedando-se a aplicação do cômputo cumulativo previsto na segunda parte desse dispositivo e no art. 69, todos deste Código. (Artigo acrescido pela Lei nº 15.402, de 8/5/2026)",
+      },
+    ]);
+
+    const mb = await encontrado("cp", "art. 359-M-B");
+    expect(mb.partes[0].texto).toMatch(/^Quando os crimes previstos neste Capítulo forem praticados em contexto de multidão/);
+  });
+});
+
+describe("texto_de_lei — CLT", () => {
+  it("o texto começa em 'CONSOLIDAÇÃO DAS LEIS DO TRABALHO': os arts. 1º e 2º são os da CLT, não os do decreto-lei que a aprova", async () => {
+    const { r, chamadas } = await consultar("clt", "art. 2º");
+    expect(chamadas[1].url).toBe("https://normas.leg.br/api/public/binario/5e35b26e-26a7-44d7-8a95-b8f0852cabe1/texto");
+    if (r.resultado !== "encontrado") throw new Error(`esperava encontrado, veio ${r.resultado}`);
+    expect(r.diploma).toEqual({ sigla: "CLT", nome: "Decreto-Lei nº 5.452, de 01 de maio de 1943" });
+    expect(r.partes.map((p) => p.dispositivo)).toEqual(["art. 2º, caput", "art. 2º, § 1º", "art. 2º, § 2º", "art. 2º, § 3º"]);
+    expect(r.partes[0].texto).toBe(
+      "Considera-se empregador a empresa individual ou coletiva, que, assumindo os riscos de atividade econômica, admite, assalaria e dirige a prestação pessoal de serviços.",
+    );
+
+    const primeiro = await encontrado("clt", "art. 1º");
+    expect(primeiro.partes).toEqual([
+      {
+        dispositivo: "art. 1º, caput",
+        rotuloNaFonte: "Art. 1º",
+        texto: "Esta Consolidação estatui as normas que regulam as relações individuais e coletivas de trabalho nela previstas.",
+      },
+    ]);
+  });
+
+  it("sem o parágrafo 'CONSOLIDAÇÃO DAS LEIS DO TRABALHO', é formato inesperado (não lê os artigos do decreto-lei como da CLT)", async () => {
+    // O <title> do <head> tem o mesmo texto, mas só o parágrafo do corpo marca o começo.
+    const texto = html("clt").replace(">CONSOLIDAÇÃO DAS LEIS DO TRABALHO</span>", ">CONSOLIDAÇÃO</span>");
+    expect(texto).not.toBe(html("clt"));
+    const { cliente } = clienteFalso([respostaJson(fixture("legislacao/clt-norma.json")), respostaHtml(texto)]);
+    await expect(textoDeLei({ diploma: "CLT", dispositivo: "art. 2º" }, { cliente })).rejects.toBeInstanceOf(FormatoInesperadoError);
+  });
+
+  it("só pela sigla ou pelo nome: o número do decreto-lei (que tem artigos próprios) não é aceito como CLT", async () => {
+    expect((await encontrado("clt", "art. 1º", { diploma: "Consolidação das Leis do Trabalho" })).diploma.sigla).toBe("CLT");
+    const { cliente, chamadas } = clienteFalso([]);
+    await expect(textoDeLei({ diploma: "Decreto-Lei 5.452/1943", dispositivo: "art. 1º" }, { cliente })).rejects.toThrow(
+      /não reconheceu o diploma "Decreto-Lei 5\.452\/1943"/,
+    );
+    expect(chamadas).toHaveLength(0);
+  });
+
+  it("alínea direto no caput (art. 482) ou no § (art. 443, § 2º), sem inciso", async () => {
+    const artigo = await encontrado("clt", "art. 482");
+    expect(artigo.partes.map((p) => p.rotuloNaFonte)).toEqual([
+      "Art. 482.", "a)", "b)", "c)", "d)", "e)", "f)", "g)", "h)", "i)", "j)", "k)", "l)", "m)", "Parágrafo único.",
+    ]);
+    expect(artigo.partes[0].texto).toBe("Constituem justa causa para rescisão do contrato de trabalho pelo empregador:");
+
+    const a = await encontrado("clt", "art. 482, alínea a");
+    expect(a.partes).toEqual([{ dispositivo: "art. 482, caput, alínea a", rotuloNaFonte: "a)", texto: "ato de improbidade;" }]);
+
+    const doParagrafo = await encontrado("clt", "art. 443, § 2º, a");
+    expect(doParagrafo.partes).toEqual([
+      {
+        dispositivo: "art. 443, § 2º, alínea a",
+        rotuloNaFonte: "a)",
+        texto: "de serviço cuja natureza ou transitoriedade justifique a predeterminação do prazo;",
+      },
+    ]);
+  });
+});
+
+describe("texto_de_lei — faixa de artigos num parágrafo só ('Arts. 498 a 502.')", () => {
+  it("CPP art. 500: o parágrafo da faixa, literal, com a observação de que a fonte junta os artigos", async () => {
+    const { r, chamadas } = await consultar("cpp", "art. 500");
+    expect(chamadas[1].url).toBe("https://normas.leg.br/api/public/binario/f673d457-87d9-45cb-b467-a3d59aaaad4e/texto");
+    if (r.resultado !== "encontrado") throw new Error(`esperava encontrado, veio ${r.resultado}`);
+    expect(r.partes).toEqual([
+      {
+        dispositivo: "art. 500",
+        rotuloNaFonte: "Arts. 498 a 502.",
+        texto: "(Revogados pela Lei nº 11.719, de 20/6/2008, publicada no DOU de 23/6/2008, em vigor 60 dias após a publicação)",
+        observacao: "A fonte traz os arts. 498 a 502 num só parágrafo; o texto é o dele.",
+      },
+    ]);
+    expect((await encontrado("cpp", "art. 498")).partes[0].rotuloNaFonte).toBe("Arts. 498 a 502.");
+    expect((await encontrado("cpp", "art. 502")).partes[0].rotuloNaFonte).toBe("Arts. 498 a 502.");
+  });
+
+  it("dispositivo dentro de artigo da faixa, ou artigo fora dela: não verificado", async () => {
+    expect((await consultar("cpp", "art. 500, § 1º")).r.resultado).toBe("não verificado");
+    expect((await consultar("cpp", "art. 503")).r.resultado).toBe("não verificado");
+  });
+
+  it("CLT art. 23: a faixa acaba no cabeçalho da seção seguinte", async () => {
+    const r = await encontrado("clt", "art. 23");
+    expect(r.partes).toEqual([
+      {
+        dispositivo: "art. 23",
+        rotuloNaFonte: "Arts. 22 a 24.",
+        texto: "(Revogados pelo Decreto-Lei nº 926, de 10/10/1969)",
+        observacao: "A fonte traz os arts. 22 a 24 num só parágrafo; o texto é o dele.",
+      },
+    ]);
+  });
+});
+
 describe("texto_de_lei — compilação: formato conferido, senão erro e nenhum texto", () => {
   type Norma = { legislationIdentifier: string; encoding: Record<string, unknown>[] };
   const norma = () => structuredClone(fixture("legislacao/cdc-norma.json")) as Norma;
