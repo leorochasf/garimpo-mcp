@@ -337,6 +337,11 @@ _Evitar_: resposta certa, ground truth
 Marcação provisória (relevante, irrelevante ou dúvida) feita por IA lendo a ementa; só vira gabarito depois da revisão do dono.
 _Evitar_: gabarito (antes da revisão)
 
+**Veredito do júri**:
+Decisão de um júri de três IAs de famílias diferentes — duas julgam e a terceira desempata —, com o critério do dono, sobre cada acórdão do pool cego (serve, serve em parte, contra ou não serve) ou sobre cada resposta. Vira gabarito só o que o dono confere; o relatório separa "concordância do júri" de "conferido pelo dono" ([protocolo 1.2](docs/banco-de-provas/protocolo-1.2.md)).
+_Evitar_: gabarito, validação humana (sem a conferência do dono)
+_Registrado em 2026-10-23 pela proposta D10 do plano 1.2 — pendente de confirmação do dono._
+
 **Lista unificada**:
 Todos os acórdãos que os sistemas comparados acharam para uma tese, sem acórdão repetido, indicando quem achou cada um.
 _Evitar_: pool, base

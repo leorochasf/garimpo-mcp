@@ -65,3 +65,69 @@ Mantém-se a **varredura por arquivo**, sem índice local: com 10 anos baixados 
 Para a 1.0 o custo é **dito, não escondido**: o aviso de baixar diz que cada ano baixado acrescenta cerca de 10 a 20 s a
 cada pesquisa e recomenda poucos anos; a pesquisa devolve `anosPercorridos` e `tempoSegundos`. O índice local fica para
 o ticket de cache forte e índice local (b19-velocidade), que recebe estes números como caso de uso.
+
+## Decisão de velocidade 1.2 (B1.2, 2026-10-23)
+
+Substitui a da 1.0 no que diz respeito à pesquisa: cada ano baixado ganha um **índice textual local** ao lado do CSV
+(`acordao-completo-<ano>.indice`), e a pesquisa usa o índice quando ele vale. A resposta é **a mesma** da varredura —
+ids, total, ordem, todos os campos (inclusive `trechos` e `partesSigilosas`), exclusões por situação, anos usados e
+sem arquivo; muda só o tempo, e a resposta ganha `indiceLocal` (por ano: pelo índice ou lido inteiro, e por quê).
+
+- **O que o índice guarda:** as palavras do mesmo texto que a pesquisa compara (normalizado como o filtro local), com
+  documentos e posições, e por acórdão só onde ele está no CSV, chave, tipo, colegiado, relator, data e número. Nada de
+  INTERESSADOS/ADVOGADO, nenhum texto novo, nenhum resumo por IA. Sem dependência nativa (`src/tcuIndice.ts`).
+- **Mesma resposta por construção:** o índice decide sozinho só palavra solta e frase de palavras separadas por espaço;
+  termo com pontuação e acórdão que a triagem barata recusaria (marcado ao criar o índice) são conferidos no texto pelo
+  mesmo caminho da varredura; os acórdãos mostrados são relidos do CSV e montados pelo mesmo código. Termo sem letra
+  nem número: o ano é lido inteiro.
+- **Amarrado ao conteúdo do arquivo:** o índice nasce só de CSV com recibo e que confere com o sha256 dele, e guarda
+  sha256, tamanho e data do arquivo. Tamanho e data iguais não bastam (revisão do B1.2, G1: um CSV alterado no lugar,
+  com tamanho, data e chave preservados, fazia o índice velho valer e devolver acórdão que passara a sigiloso): o sha256
+  do arquivo é **recalculado na 1ª pesquisa de cada processo** e de novo sempre que o arquivo for tocado (muda tamanho,
+  data de modificação, data de alteração do sistema ou número do arquivo no disco). CSV trocado, conteúdo diferente,
+  recibo ausente, índice ausente, de outra versão ou estragado (sha256 do índice inteiro) → aquele ano é lido inteiro,
+  com o motivo em `indiceLocal`. Segunda defesa: cada acórdão relido do CSV para a resposta precisa ter a chave, o tipo,
+  o colegiado e o relator que o índice registrou e não pode estar INVALIDADO nem sigiloso; senão a pesquisa inteira é
+  refeita lendo os arquivos. Nunca resposta pela metade. Limite: dentro de um mesmo processo, uma troca que forje
+  também a data de alteração do sistema (exige ferramenta de baixo nível) só é pega pela segunda defesa.
+  Terceira defesa, a janela entre validar e responder (revisão do B1.2, M1: CSV trocado depois do sha256 e antes de a
+  resposta ser montada misturava índice velho com texto novo): ao terminar de montar a resposta (contagens, seleção e
+  texto dos acórdãos), cada ano que usou o índice tem a identidade do arquivo conferida de novo por um `stat` (tamanho,
+  datas, ctime e inode contra a marca da validação, sem reler nem refazer o hash); se mudou, a pesquisa inteira é
+  refeita lendo os arquivos. Limite: escrita no mesmo instante do `stat` final, ou depois dele, equivale a escrita
+  depois da resposta; e sistema de arquivos com relógio grosso pode não distinguir duas escritas do mesmo tique.
+- **Quando nasce (D14, recomendação "sob pedido, ao baixar o ano"):** ao baixar, retomar ou atualizar um ano; e
+  `renovar: true` com `confirmar: true`, quando o TCU diz que não mudou (304), cria o índice que falta sem baixar de
+  novo — é o caminho para anos baixados pela 1.1. Falha ao criar o índice não desfaz o download. O aviso antes de baixar
+  estima o disco do índice (`indiceEstimadoMb`, 35 % do arquivo).
+
+**Medição** (sem rede; TCU sintético da composição registrada em B0.3; servidor compilado chamado por MCP no stdio,
+processo novo por bloco; N = 30 por braço, varredura e índice alternados na mesma rodada, respostas comparadas campo a
+campo: idênticas nas 30 rodadas; `scripts/medirIndiceTcu.ts`, 2026-10-23, mesma máquina da linha de base, já com a
+conferência do sha256 do arquivo da correção G1):
+
+| Pesquisa quente, mediana (p95), ms | 1 ano | 5 anos | 10 anos |
+|---|---|---|---|
+| seletiva | 257 → 6,5 (7,6) | 1.331 → 18,5 (21,1) | 2.995 → 22,5 (25,5) |
+| comum | 415 → 16,9 (20,0) | 2.608 → 21,4 (22,8) | 5.274 → 25,0 (27,8) |
+| vazia | 248 → 2,7 (3,2) | 1.467 → 5,2 (5,9) | 2.974 → 8,4 (10,3) |
+| sem acento | 290 → 39,2 (43,0) | 1.628 → 44,8 (46,5) | 3.394 → 45,7 (48,9) |
+| entre aspas | 449 → 50,0 (55,9) | 2.515 → 58,9 (62,8) | 5.176 → 67,6 (72,3) |
+| com filtros | 102 → 9,8 (13,4) | 569 → 36,9 (39,8) | 1.181 → 41,4 (46,8) |
+| 1ª do processo (comum, com a conferência do sha256) | 449 → 47,5 (54,9) | 2.021 → 98,0 (104,3) | 4.586 → 161,4 (174,9) |
+
+Ganho na mediana de 7,4× (sem acento, 1 ano) a 355× (vazia, 10 anos); com 10 anos, p95 de no máximo 175 ms (a 1ª
+pesquisa do processo, que confere o sha256 dos 10 arquivos), dentro da meta de D11 (≥ 5× e ≤ 2 s no p95 com 10 anos
+sintéticos). O braço varredura reproduz a linha de base da 1.1.1 (`docs/banco-de-provas/velocidade-base-1.1.1.md`:
+comum de 10 anos 5.236 ms lá, 5.274 ms aqui). Vale para esta composição; o tempo absoluto no arquivo real não sai daqui.
+
+**Criação do índice** (processo próprio, servidor compilado): 1 / 5 / 10 anos sintéticos (9,8 / 46,9 / 95,5 MB de CSV)
+→ 3,4 / 16,7 / 33,9 MB de índice (35,1 a 35,7 % do CSV), 1,2 / 6,1 / 13,2 s e RAM de pico de 130 / 155 / 177 MB (40 MB
+do processo vazio). **Um ano sintético do tamanho do real** (18.588 registros, 388 MB;
+`scripts/medirIndiceTcuAnoReal.ts`): índice de 131 MB (33,9 %), 47,6 s e 366 MB de RAM de pico para criar; a pesquisa
+comum caiu de 18,8 s (varredura) para 27 ms (índice), com o mesmo total (16.316); a 1ª do processo leva 375 ms, dos quais
+cerca de 200 ms são a conferência do sha256 do arquivo (com 10 anos reais, estimam-se 2 a 3 s só na 1ª pesquisa de cada
+sessão; não medido). **Não medido:** a fração e o tempo no arquivo real do TCU, que tem mais marcação HTML por palavra.
+
+**Fica para depois:** as descrições das ferramentas no `servidor.ts` ainda falam em 10 a 20 s por ano (B2.1); o teto
+de disco aceitável é decisão do dono (D14), com os 35 % acima na mão.
