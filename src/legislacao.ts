@@ -2,11 +2,13 @@
  * texto_de_lei: o texto LITERAL de um dispositivo de lei (artigo, parágrafo, inciso, alínea) como a página oficial de
  * normas.leg.br o mostra, com URL, data de obtenção e as marcas de alteração/revogação que a fonte traz. Nunca afirma
  * vigência, não reconstitui alteração e não liga artigo a precedente (D-12, ADR-0026). Fonte, termos e limites:
- * docs/fontes.md.
+ * docs/fontes.md. Diploma cuja resposta não traz a árvore de dispositivos (CP, CPP, CLT, CDC) é lido do HTML da
+ * compilação que a própria resposta marca como "Current", com a marca de valor legal que ela dá.
  */
 
 import { createHash } from "node:crypto";
-import { Cliente, FormatoInesperadoError, type OpcoesCliente } from "./cliente.js";
+import { Cliente, decodificar, FormatoInesperadoError, type OpcoesCliente } from "./cliente.js";
+import { htmlParaTexto } from "./html.js";
 import { type Memoria } from "./memoria.js";
 
 const HOST = "normas.leg.br";
@@ -24,6 +26,11 @@ interface Diploma {
   urn: string;
   /** Formas aceitas para o diploma, já normalizadas por `normalizar`. */
   apelidos: string[];
+  /**
+   * Só nos diplomas lidos do HTML da compilação: o parágrafo exato, único no arquivo, depois do qual começa o texto
+   * do diploma.
+   */
+  inicioNaCompilacao?: string;
 }
 
 /** Lista curta: só entra diploma cuja resposta foi vista ao vivo (docs/fontes.md). */
@@ -42,6 +49,18 @@ const DIPLOMAS: Diploma[] = [
     sigla: "CF",
     urn: "urn:lex:br:federal:constituicao:1988-10-05;1988",
     apelidos: ["cf", "cf/88", "cf/1988", "cf 1988", "crfb", "crfb/88", "crfb/1988", "constituicao federal", "constituicao federal de 1988", "constituicao da republica federativa do brasil"],
+  },
+  {
+    sigla: "CP",
+    urn: "urn:lex:br:federal:decreto.lei:1940-12-07;2848",
+    apelidos: ["cp", "codigo penal", "decreto-lei 2848/1940", "decreto-lei 2848"],
+    inicioNaCompilacao: "DECRETO-LEI Nº 2.848, DE 7 DE DEZEMBRO DE 1940",
+  },
+  {
+    sigla: "CDC",
+    urn: "urn:lex:br:federal:lei:1990-09-11;8078",
+    apelidos: ["cdc", "codigo de defesa do consumidor", "codigo de protecao e defesa do consumidor", "lei 8078/1990", "lei 8078"],
+    inicioNaCompilacao: "LEI Nº 8.078, DE 11 DE SETEMBRO DE 1990",
   },
 ];
 
@@ -158,6 +177,14 @@ export interface Parte {
   observacao?: string;
 }
 
+/** O arquivo da compilação de onde o texto saiu, com a versão e o valor legal como a fonte os marca. */
+export interface ArquivoDaFonte {
+  url: string;
+  versaoNaFonte: string;
+  tipoNaFonte?: string;
+  valorLegalMarcadoPelaFonte?: string;
+}
+
 export interface ConsultaEncontrada {
   resultado: "encontrado";
   diploma: { sigla: string; nome: string };
@@ -168,6 +195,8 @@ export interface ConsultaEncontrada {
   versaoDaFonte: { modificadaEm?: string; publicadaEm?: string };
   licenca: string;
   creditos: string;
+  /** Só nos diplomas lidos da compilação: a URL oficial é a da norma, e o texto vem deste arquivo. */
+  arquivoDaFonte?: ArquivoDaFonte;
 }
 
 export interface ConsultaSemTexto {
@@ -177,6 +206,7 @@ export interface ConsultaSemTexto {
   motivo: string;
   urlOficial?: string;
   urlDaConsulta: string;
+  arquivoDaFonte?: ArquivoDaFonte;
 }
 
 export interface ConsultaAmbigua {
@@ -186,6 +216,7 @@ export interface ConsultaAmbigua {
   motivo: string;
   candidatos: { dispositivo: string; urlOficial: string }[];
   urlDaConsulta: string;
+  arquivoDaFonte?: ArquivoDaFonte;
 }
 
 export type Consulta = ConsultaEncontrada | ConsultaSemTexto | ConsultaAmbigua;
@@ -345,6 +376,285 @@ function consultarNaResposta(diploma: Diploma, nomeDaNorma: string, pedido: Pedi
   };
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// Diploma sem a árvore de dispositivos na resposta: o texto vem do HTML da compilação que ela marca como "Current".
+
+/** O arquivo de texto de uma norma no normas.leg.br, como a resposta o aponta (prova de 2026-10-23). */
+const CAMINHO_DO_ARQUIVO = /^\/api\/binario\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/texto$/;
+
+/**
+ * A única versão "Current" que a resposta lista, em HTML, num endereço https do normas.leg.br no formato conferido;
+ * o arquivo é baixado pela forma pública do mesmo endereço. Outra coisa é formato inesperado: o Garimpo não escolhe.
+ */
+function arquivoDaCompilacao(corpo: Bruto): ArquivoDaFonte {
+  const atuais = lista(corpo.encoding).map(objeto).filter((e): e is Bruto => e?.version === "Current");
+  if (atuais.length !== 1) {
+    throw new FormatoInesperadoError(
+      `O normas.leg.br listou ${atuais.length} versões "Current" do texto da norma, e o Garimpo só lê quando há uma. Confira no site oficial.`,
+    );
+  }
+  const [atual] = atuais;
+  let uuid: string | undefined;
+  try {
+    const url = new URL(texto(atual.contentUrl) ?? "");
+    if (url.protocol === "https:" && url.host === HOST && !url.username && !url.password && !url.search && !url.hash) {
+      uuid = CAMINHO_DO_ARQUIVO.exec(url.pathname)?.[1];
+    }
+  } catch { /* Ausência ou URL inválida: sem arquivo verificável. */ }
+  if (!uuid || !texto(atual.encodingFormat)?.endsWith("/text/html")) {
+    throw new FormatoInesperadoError("O normas.leg.br não trouxe o arquivo do texto da norma no formato conferido. Confira no site oficial.");
+  }
+  const tipo = texto(atual.additionalType);
+  const valor = texto(atual.legislationLegalValue);
+  return {
+    url: `https://${HOST}/api/public/binario/${uuid}/texto`,
+    versaoNaFonte: "Current",
+    ...(tipo && { tipoNaFonte: tipo }),
+    ...(valor && { valorLegalMarcadoPelaFonte: valor }),
+  };
+}
+
+async function htmlDaCompilacao(cliente: Cliente, url: string): Promise<string> {
+  const resposta = await cliente.requisitar(url, { headers: { Accept: "text/html" }, redirect: "manual" });
+  const tipo = resposta.headers.get("content-type") ?? "";
+  if ((resposta.status >= 300 && resposta.status < 400) || !/text\/html/i.test(tipo)) {
+    await resposta.body?.cancel();
+    throw new FormatoInesperadoError(
+      "O normas.leg.br não entregou o texto da norma em HTML no endereço pedido (redirecionou ou mudou o formato). Confira no site oficial.",
+    );
+  }
+  return decodificar(new Uint8Array(await resposta.arrayBuffer()), tipo);
+}
+
+/** Etiquetas que separam parágrafos da compilação; o <br> fica dentro do parágrafo, como quebra de linha. */
+const SEPARA_PARAGRAFO = /^(?:p|h[1-6]|div|table|thead|tbody|tfoot|tr|td|th|ul|ol|li|body)$/i;
+
+/** Cada <p>, <h1>–<h6> e célula da compilação vira um parágrafo de texto (htmlParaTexto), na ordem do arquivo. */
+function paragrafosDaCompilacao(html: string): string[] {
+  const corpo = html.slice(Math.max(0, html.search(/<body[\s>]/i))).replace(/<!--[\s\S]*?(?:-->|$)/g, "");
+  const paragrafos: string[] = [];
+  let inicio = 0;
+  const fechar = (fim: number) => {
+    const t = htmlParaTexto(corpo.slice(inicio, fim)).replace(/^[\s­​]+|[\s­​]+$/g, "");
+    if (t) paragrafos.push(t);
+  };
+  for (const m of corpo.matchAll(/<\/?([a-z][a-z0-9]*)\b[^>]*>/gi)) {
+    if (!SEPARA_PARAGRAFO.test(m[1])) continue;
+    fechar(m.index);
+    inicio = m.index + m[0].length;
+  }
+  fechar(corpo.length);
+  return paragrafos;
+}
+
+type TipoDeDispositivo = "artigo" | "caput" | "paragrafo" | "inciso" | "alinea";
+
+interface Rotulo {
+  tipo: Exclude<TipoDeDispositivo, "caput">;
+  /** O rótulo como a fonte o escreve ("Art. 359-M-A.", "§ 2º", "Parágrafo único.", "I -", "a)"). */
+  rotulo: string;
+  /** O pedaço da chave da fonte ("art359-13-1", "par2", "par1u", "inc1", "ali1"). */
+  segmento: string;
+  /** O texto do parágrafo depois do rótulo. */
+  resto: string;
+}
+
+const comLetras = (numero: string, sufixos: string) =>
+  numero.replace(/\./g, "") + [...sufixos.matchAll(/[A-Z]/g)].map((m) => `-${m[0].charCodeAt(0) - 64}`).join("");
+
+const romanoLegivel = (texto: string) => {
+  try {
+    return deRomano(texto);
+  } catch {
+    return undefined;
+  }
+};
+
+/** O rótulo com que o parágrafo começa, se for de artigo, parágrafo, inciso ou alínea. */
+function rotuloDe(paragrafo: string): Rotulo | undefined {
+  let m: RegExpExecArray | null;
+  const achado = (tipo: Rotulo["tipo"], segmento: string): Rotulo => ({
+    tipo,
+    rotulo: m![0].trim(),
+    segmento,
+    resto: paragrafo.slice(m![0].length).trimStart(),
+  });
+  if ((m = /^Art\.\s*(\d+(?:\.\d{3})*)[º°]?((?:-[A-Z])*)\.?(?=\s|$)/.exec(paragrafo))) return achado("artigo", `art${comLetras(m[1], m[2])}`);
+  if ((m = /^§\s*(\d+)[º°]?((?:-[A-Z])*)\.?(?=\s|$)/.exec(paragrafo))) return achado("paragrafo", `par${comLetras(m[1], m[2])}`);
+  if ((m = /^Par[áa]grafo\s+[úu]nico\.?(?=\s|$)/.exec(paragrafo))) return achado("paragrafo", "par1u");
+  if ((m = /^([IVXLCDM]+)\s*[-–—]/.exec(paragrafo))) {
+    const numero = romanoLegivel(m[1]);
+    return numero === undefined ? undefined : achado("inciso", `inc${numero}`);
+  }
+  if ((m = /^([a-z])\)/.exec(paragrafo))) return achado("alinea", `ali${m[1].charCodeAt(0) - 96}`);
+  return undefined;
+}
+
+/** Um dispositivo achado na compilação: o pedaço da chave, o rótulo e a ocorrência (dois iguais são dois nós). */
+interface No {
+  tipo: TipoDeDispositivo;
+  segmento: string;
+  rotulo: string;
+  id: number;
+}
+
+/** Uma linha do texto e os dispositivos donos dela, do artigo ao mais fundo. */
+interface Linha {
+  caminho: No[];
+  /** Só na linha que abre o dispositivo. */
+  rotulo?: string;
+  texto: string;
+}
+
+/** PARTE, LIVRO, TÍTULO, CAPÍTULO, Seção ou Subseção com o número (ou ÚNICO, GERAL, ESPECIAL): o parágrafo inteiro. */
+const CABECALHO =
+  /^(?:PARTE|LIVRO|T[ÍI]TULO|CAP[ÍI]TULO|SE[ÇC][ÃA]O|Se[çc][ãa]o|SUBSE[ÇC][ÃA]O|Subse[çc][ãa]o)\s+(?:[IVXLCDM]+(?:-[A-Z])?|[ÚU]NIC[OA]|[ÚU]nic[oa]|GERAL|Geral|ESPECIAL|Especial)$/;
+/** O fecho do diploma ("Brasília, 11 de setembro de 1990; 169º da Independência e 102º da República."). */
+const FECHO = /^(?:Rio de Janeiro|Brasília),\s.*\d{4}\s*[;,].*Independência/;
+/** A pena do tipo ("Pena - reclusão, ..."): é do caput ou do §, não do inciso nem da alínea. */
+const PENA = /^Pena\s*[-–—:]/;
+const SO_PARENTESES = /^\(.*\)$/s;
+
+/** O texto sem os parênteses do fim ("Feminicídio (Nome jurídico acrescido ...)" → "Feminicídio"). */
+function semParentesesNoFim(texto: string): string {
+  let t = texto.trim();
+  for (;;) {
+    const m = /\s*\([^()]*(?:\([^()]*\)[^()]*)*\)$/.exec(t);
+    if (!m || m.index === 0) return t;
+    t = t.slice(0, m.index).trimEnd();
+  }
+}
+
+/** Linha que, pela forma, pode ser rubrica (nome jurídico) ou nome: maiúscula no começo, sem pontuação no fim, curta. */
+function pareceTitulo(paragrafo: string): boolean {
+  const nucleo = semParentesesNoFim(paragrafo);
+  return /^\p{Lu}/u.test(nucleo) && !/[.;:,?!]$/.test(nucleo) && nucleo.length <= 200;
+}
+
+/**
+ * Título solto: linha sem rótulo que parece título e vem logo antes (pulando notas só entre parênteses) de um rótulo,
+ * de um cabeçalho, do fecho ou de outro título solto. É a rubrica da fonte, não texto do dispositivo.
+ */
+function titulosSoltos(paragrafos: string[], rotulos: (Rotulo | undefined)[]): boolean[] {
+  const titulo = paragrafos.map(() => false);
+  for (let i = paragrafos.length - 1; i >= 0; i--) {
+    const p = paragrafos[i];
+    if (rotulos[i] || CABECALHO.test(p) || PENA.test(p) || !pareceTitulo(p)) continue;
+    let j = i + 1;
+    while (j < paragrafos.length && SO_PARENTESES.test(paragrafos[j])) j++;
+    titulo[i] = j === paragrafos.length || !!rotulos[j] || CABECALHO.test(paragrafos[j]) || titulo[j];
+  }
+  return titulo;
+}
+
+/**
+ * As linhas do texto do diploma, do parágrafo de início ao fecho, cada uma com o dispositivo dono. O que vem depois do
+ * fecho (as assinaturas) fica de fora; cabeçalho estrutural encerra o artigo, e o nome dele fica fora de artigo; título
+ * solto e a nota entre parênteses logo depois dele ficam fora do texto.
+ */
+function linhasDaCompilacao(html: string, inicio: string): Linha[] {
+  const todos = paragrafosDaCompilacao(html);
+  const de = todos.indexOf(inicio) + 1;
+  const ate = todos.findIndex((p, i) => de > 0 && i >= de && FECHO.test(p));
+  if (de === 0 || todos.indexOf(inicio, de) >= 0 || ate < 0) {
+    throw new FormatoInesperadoError(
+      "O texto da norma no normas.leg.br não tem o começo ou o fecho no formato conferido; o Garimpo não recorta dispositivo dele. Confira no site oficial.",
+    );
+  }
+  const paragrafos = todos.slice(de, ate);
+  const rotulos = paragrafos.map(rotuloDe);
+  const titulo = titulosSoltos(paragrafos, rotulos);
+  const linhas: Linha[] = [];
+  /** Do artigo ao dispositivo corrente; vazio fora de artigo. */
+  let caminho: No[] = [];
+  let notaDeTitulo = false;
+  let id = 0;
+  const no = (tipo: TipoDeDispositivo, segmento: string, rotulo: string): No => ({ tipo, segmento, rotulo, id: id++ });
+  for (const [i, p] of paragrafos.entries()) {
+    if (CABECALHO.test(p)) {
+      caminho = [];
+      continue;
+    }
+    if (titulo[i] || (notaDeTitulo && SO_PARENTESES.test(p))) {
+      notaDeTitulo = true;
+      continue;
+    }
+    notaDeTitulo = false;
+    const r = rotulos[i];
+    if (r?.tipo === "artigo") caminho = [no("artigo", r.segmento, r.rotulo), no("caput", "cpt", r.rotulo)];
+    if (!caminho.length) continue;
+    if (!r) {
+      linhas.push({ caminho: PENA.test(p) ? caminho.slice(0, 2) : caminho, texto: p });
+      continue;
+    }
+    if (r.tipo === "paragrafo") caminho = [caminho[0], no("paragrafo", r.segmento, r.rotulo)];
+    else if (r.tipo === "inciso") caminho = [caminho[0], caminho[1], no("inciso", r.segmento, r.rotulo)];
+    // Alínea de inciso, ou direto no caput ou no § (como na CLT).
+    else if (r.tipo === "alinea") caminho = [...caminho.slice(0, caminho[2]?.tipo === "inciso" ? 3 : 2), no("alinea", r.segmento, r.rotulo)];
+    linhas.push({ caminho, rotulo: r.rotulo, texto: r.resto });
+  }
+  return linhas;
+}
+
+/** Linhas seguidas do mesmo dispositivo formam uma parte, na ordem do texto. */
+function partesDaCompilacao(linhas: Linha[]): Parte[] {
+  const partes: Parte[] = [];
+  let dono: number | undefined;
+  for (const l of linhas) {
+    const ultimo = l.caminho[l.caminho.length - 1];
+    const parte = partes[partes.length - 1];
+    if (parte && ultimo.id === dono && !l.rotulo) {
+      parte.texto = parte.texto ? `${parte.texto}\n${l.texto}` : l.texto;
+      continue;
+    }
+    partes.push({
+      dispositivo: citar(l.caminho.map((n) => n.segmento).join("_")),
+      ...(l.rotulo && { rotuloNaFonte: l.rotulo }),
+      ...(l.texto && { texto: l.texto }),
+    });
+    dono = ultimo.id;
+  }
+  return partes;
+}
+
+async function consultarNaCompilacao(
+  cliente: Cliente,
+  diploma: Diploma,
+  nomeDaNorma: string,
+  pedido: Pedido,
+  corpo: Bruto,
+): Promise<Consulta> {
+  if (texto(corpo.legislationIdentifier) !== diploma.urn) {
+    throw new FormatoInesperadoError("O normas.leg.br devolveu uma norma diferente do diploma pedido ou sem identificação. Confira no site oficial.");
+  }
+  const arquivo = arquivoDaCompilacao(corpo);
+  const linhas = linhasDaCompilacao(await htmlDaCompilacao(cliente, arquivo.url), diploma.inicioNaCompilacao!);
+  const urlOficial = urlOficialDoNo(corpo);
+  const base = {
+    diploma: { sigla: diploma.sigla, nome: nomeDaNorma },
+    dispositivo: citar(pedido.chave),
+    urlDaConsulta: urlDaFonte(diploma),
+    urlOficial,
+  };
+  const segmentos = pedido.chave.split("_");
+  const doPedido = linhas.filter((l) => segmentos.every((s, k) => l.caminho[k]?.segmento === s));
+  if (!doPedido.length) {
+    return { resultado: "não verificado", ...base, motivo: "A fonte não traz este dispositivo; confira o número no texto oficial.", arquivoDaFonte: arquivo };
+  }
+  return {
+    resultado: "encontrado",
+    ...base,
+    partes: partesDaCompilacao(doPedido),
+    versaoDaFonte: {
+      ...(texto(corpo.dateModified) && { modificadaEm: texto(corpo.dateModified) }),
+      ...(texto(corpo.sdDatePublished) && { publicadaEm: texto(corpo.sdDatePublished) }),
+    },
+    licenca: texto(corpo.license) ?? LICENCA,
+    creditos: CREDITOS,
+    arquivoDaFonte: arquivo,
+  };
+}
+
 const dia = (instante: number) => {
   const d = new Date(instante);
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
@@ -384,7 +694,9 @@ export async function textoDeLei(
     throw new FormatoInesperadoError("O normas.leg.br devolveu uma norma diferente do diploma pedido ou sem identificação. Confira no site oficial.");
   }
   const nomeDaNorma = texto(corpo.headline) ?? texto(corpo.name) ?? diploma.sigla;
-  const consulta = consultarNaResposta(diploma, nomeDaNorma, pedido, corpo);
+  const consulta = diploma.inicioNaCompilacao
+    ? await consultarNaCompilacao(cliente, diploma, nomeDaNorma, pedido, corpo)
+    : consultarNaResposta(diploma, nomeDaNorma, pedido, corpo);
   const obtidoEm = agora();
   memoria?.guardarConsulta(chave, "legislacao", consulta);
   return completar(consulta, obtidoEm, `consultado no normas.leg.br em ${dia(obtidoEm)}`);
