@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { Acordao } from "../src/busca.js";
-import { panorama, TETO_DO_PANORAMA } from "../src/panorama.js";
+import { panorama, respostaDoPanorama, TETO_DA_RESPOSTA, TETO_DO_PANORAMA } from "../src/panorama.js";
 import { ROTULO_FALCAO, ROTULO_TNU, ROTULO_TRF2, ROTULO_TRF4 } from "../src/tribunais.js";
 import { lerResultadosDoTrf4 } from "../src/trf4.js";
 
@@ -210,18 +210,48 @@ describe("panorama — teto de tamanho da resposta inteira (órgãos e relatores
   });
 
   it("nomes de 190 caracteres em órgão, relator e relator para o acórdão ao mesmo tempo, em 5 e em 40 tribunais", () => {
-    for (const tribunais of [cinco, Array.from({ length: 40 }, (_, i) => `trf${i}`)]) {
+    const outros = (n: number) => Array.from({ length: n }, (_, i) => `tj${i}`);
+    for (const tribunais of [["trf2", "trf4", "tnu", "stj", "tjgo"], ["trf2", "trf4", "tnu", ...outros(37)]]) {
       const por = 200 / tribunais.length;
       const registros = tribunais.flatMap((t) =>
         Array.from({ length: por }, (_, i) => {
-          const relator = nome("Relator", i % 20, 150) + (i % 2 ? " (relator para o acórdão: Fulano)" : "");
-          return { ...comOrgaoERelator(t, i, nome("Orgao", i % 20, 190), relator), fonte: ROTULO_TRF4 } as Acordao;
+          // Relator para o acórdão só existe no e-Proc: os três levam o rótulo de fonte certo; o resto, não.
+          const relator = nome("Relator", i % 20, 150).trim() + (i % 2 ? " (relator para o acórdão: Fulano)" : "");
+          return { ...comOrgaoERelator(t, i, nome("Orgao", i % 20, 190), relator), fonte: ROTULO_DO_EPROC[t] } as Acordao;
         }),
       );
       const p = panorama(registros);
+      // O cenário anunciado existe de fato: nos três e-Procs as duas listas têm valores.
+      for (const t of ["trf2", "trf4", "tnu"]) {
+        expect(Object.keys(p.porRelator[t].relatores.valores).length).toBeGreaterThan(0);
+        expect(Object.keys(p.porRelator[t].paraOAcordao.valores).length).toBeGreaterThan(0);
+      }
       expect(JSON.stringify(p).length).toBeLessThanOrEqual(TETO_DO_PANORAMA);
       conferirConservacao(p, por);
     }
+  });
+
+  it("órgão chamado 'outros' não perde a contagem quando o corte por tamanho também soma o resto em outros", () => {
+    // 5 tribunais: 5 acórdãos de órgão 'outros' e 35 em 19 órgãos de 200 caracteres (caso da reconferência).
+    const registros = cinco.flatMap((t) =>
+      Array.from({ length: 40 }, (_, i) => comOrgaoERelator(t, i, i < 5 ? "outros" : nome("Orgao", i % 19, 200), "Relator")),
+    );
+    const p = panorama(registros);
+    for (const t of cinco) {
+      expect(soma(p.porOrgao[t])).toBe(40);
+      expect(p.porOrgao[t].outros).toBeGreaterThanOrEqual(5);
+    }
+    conferirConservacao(p, 40);
+  });
+
+  it("órgão chamado 'outros' soma ao resto mesmo quando o corte é só por quantidade (mais de 20 órgãos)", () => {
+    const registros = [
+      ...Array.from({ length: 4 }, () => comOrgaoERelator("stj", 0, "outros", "R")),
+      ...Array.from({ length: 25 }, (_, i) => comOrgaoERelator("stj", i, `Turma ${String(i).padStart(2, "0")}`, "R")),
+    ];
+    const p = panorama(registros);
+    expect(soma(p.porOrgao.stj)).toBe(29);
+    conferirConservacao(p, 29);
   });
 
   it("caso comum continua inteiro: 5 tribunais, órgãos e relatores de tamanho normal aparecem todos (20 + outros)", () => {
@@ -241,4 +271,57 @@ describe("panorama — teto de tamanho da resposta inteira (órgãos e relatores
     const p = panorama([acordao("stj", longo), acordao("stj", longo), acordao("stj", longo), acordao("stj", "Abel"), acordao("stj", "Bruno")]);
     expect(p.porRelator.stj.relatores).toEqual({ valores: { Abel: 1, Bruno: 1 }, outros: 3 });
   });
+});
+
+describe("respostaDoPanorama — teto de 25 mil caracteres da resposta inteira, no pior caso", () => {
+  const nome = (prefixo: string, i: number, tamanho: number) => `${prefixo} ${String(i).padStart(2, "0")} `.padEnd(tamanho, "Fictício ");
+  const cinco = ["stj", "tjgo", "tjsp", "tjmg", "tjto"];
+  const guardados = cinco.flatMap((t, k) =>
+    Array.from({ length: 20 }, (_, i) =>
+      ({ ...acordao(t, nome("Relator", i, 200)), orgao: nome("Orgao", i, 200), dataJulgamento: `20${10 + ((i + k) % 12)}-01-01` }) as Acordao,
+    ),
+  );
+  const avisoLongo = "Aviso de natureza jurídica das cinco fontes. ".repeat(40);
+
+  it.each([
+    ["100 ids ausentes de ~96 caracteres (o caso da reconferência)", 100, 96],
+    ["100 ids ausentes de 3 mil caracteres", 100, 3000],
+    ["ids ausentes curtos", 100, 12],
+  ])("%s: a resposta serializada nunca passa de 25 mil e cada ausente fica identificado", (_caso, quantos, tamanho) => {
+    const ausentes = Array.from({ length: quantos }, (_, i) => ({
+      id: `stj:${i}x${"9".repeat(tamanho - 5 - String(i).length)}`,
+      posicao: 101 + i,
+    }));
+    const r = respostaDoPanorama(guardados, ausentes, avisoLongo);
+    expect(JSON.stringify(r).length).toBeLessThanOrEqual(TETO_DA_RESPOSTA);
+    expect(r.total).toBe(100);
+    const posicoesListadas = r.foraDaMemoria.map((id) => ausentes.find((a) => a.id === id)!.posicao);
+    const todas = [...posicoesListadas, ...(r.foraDaMemoriaSemEspaco ?? [])].sort((a, b) => a - b);
+    expect(todas).toEqual(ausentes.map((a) => a.posicao));
+    conferirContagem(r);
+  });
+
+  it("sem ausentes não aparece foraDaMemoriaSemEspaco nem aviso de refazer a busca", () => {
+    const r = respostaDoPanorama(guardados, [], "aviso");
+    expect(r.foraDaMemoria).toEqual([]);
+    expect(r).not.toHaveProperty("foraDaMemoriaSemEspaco");
+    expect(r).not.toHaveProperty("aviso");
+  });
+
+  it("ids que cabem vêm inteiros, na ordem recebida, sem posições de reserva", () => {
+    const ausentes = [{ id: "stj:9001", posicao: 3 }, { id: "tjgo:9002", posicao: 7 }];
+    const r = respostaDoPanorama(guardados, ausentes, "aviso");
+    expect(r.foraDaMemoria).toEqual(["stj:9001", "tjgo:9002"]);
+    expect(r).not.toHaveProperty("foraDaMemoriaSemEspaco");
+    expect(r.aviso).toMatch(/refaça a busca/i);
+  });
+
+  function conferirContagem(r: ReturnType<typeof respostaDoPanorama>) {
+    const soma = (o: Record<string, number>) => Object.values(o).reduce((a, b) => a + b, 0);
+    for (const t of cinco) {
+      expect(soma(r.porOrgao[t])).toBe(20);
+      const rel = r.porRelator[t];
+      expect(soma(rel.relatores.valores) + rel.relatores.outros + soma(rel.paraOAcordao.valores) + rel.paraOAcordao.outros + rel.naoInformado).toBe(20);
+    }
+  }
 });
