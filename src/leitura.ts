@@ -671,6 +671,15 @@ async function comPdf<T>(
   }
 }
 
+/**
+ * Texto de um PDF que veio na memória, sem arquivo (o documento embutido num .p7s do TJGO): as páginas com texto, na
+ * ordem; páginas não lidas pelo teto = cortado.
+ */
+export async function textoDoPdfEmMemoria(bytes: Uint8Array, nome: string): Promise<{ texto: string; cortado: boolean }> {
+  const { paginas, naoLidas } = await extrairPaginas(bytes, nome, {});
+  return { texto: paginas.filter(Boolean).join("\n\n"), cortado: naoLidas.length > 0 };
+}
+
 /** Total de páginas do PDF, contado pela estrutura do documento, sem extrair texto. */
 export async function contarPaginas(caminhoPedido: string): Promise<number> {
   const { bytes, caminho } = await lerArquivo(caminhoPedido);

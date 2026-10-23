@@ -342,11 +342,11 @@ describe("inteiro teor — TJGO pela página pública do processo no Projudi (AD
       expect(explicacao).toMatch(/não é de acesso público/);
     });
 
-    it("«Ementa» bloqueada, inválida ou em .p7s: não pede nenhum arquivo", async () => {
+    it("«Ementa» bloqueada, inválida ou em formato desconhecido: não pede nenhum arquivo", async () => {
       for (const ementa of [
         { ...EMENTA, acesso: "3" },
         { ...EMENTA, valido: "false" },
-        { ...EMENTA, nome: "ementa.html.p7s" },
+        { ...EMENTA, nome: "ementa.pdf" },
       ]) {
         const { explicacao, chamadas } = await tentar([paginaDoProcesso([JULGAMENTO]), listaDeArquivos([ementa, RELATORIO])]);
         expect(chamadas).toHaveLength(2);
@@ -374,13 +374,13 @@ describe("inteiro teor — TJGO pela página pública do processo no Projudi (AD
       expect(explicacao).toMatch(/«Relatório e Voto» não traz o número do processo/);
     });
 
-    it("relatório e voto em .p7s (envelope de assinatura): formato que o Garimpo não lê", async () => {
+    it("relatório e voto em formato desconhecido: não pede o arquivo", async () => {
       const { explicacao, chamadas } = await tentar([
         paginaDoProcesso([JULGAMENTO]),
-        listaDeArquivos([EMENTA, { ...RELATORIO, nome: "relatorio_voto_acordao.html.p7s" }]),
+        listaDeArquivos([EMENTA, { ...RELATORIO, nome: "relatorio_voto_acordao.doc" }]),
       ]);
       expect(chamadas).toHaveLength(2);
-      expect(explicacao).toMatch(/\.p7s/);
+      expect(explicacao).toMatch(/formato que o Garimpo não lê/);
     });
 
     it("dois relatórios e votos na mesma movimentação: ambíguo", async () => {
@@ -561,6 +561,117 @@ describe("ler_inteiro_teor — texto do Projudi do TJGO pelo id", () => {
     expect(p.cabecalho.fonte).toMatch(/Projudi do TJGO/);
     expect(p.cabecalho.natureza).toMatch(/^texto do portal do tribunal \(TJGO\)/);
     expect(JSON.stringify(p.cabecalho)).not.toMatch(/TJTO|Falcão/);
+  });
+});
+
+/**
+ * Arquivos assinados (.p7s). Fixtures fictícias geradas com o openssl e um certificado autoassinado fictício
+ * («Assinante Ficticio do Garimpo»), sobre o HTML e o PDF fictícios destes testes:
+ *   openssl cms -sign -binary -nodetach [-stream] -in <conteúdo> -signer cert.pem -inkey chave.pem -outform DER
+ * tjgo-ementa.html.p7s (DER), tjgo-relatorio-voto.html.p7s (BER de comprimento indefinido, -stream),
+ * tjgo-relatorio-voto-pdf.p7s (PDF embutido) e tjgo-destacada.p7s (sem -nodetach: só a assinatura).
+ */
+describe("TJGO — arquivos assinados (.p7s): o documento embutido, com as mesmas amarrações", () => {
+  const fixtureBinaria = (nome: string) => new Uint8Array(readFileSync(new URL(`./fixtures/${nome}`, import.meta.url)));
+  const EMENTA_P7S: Arquivo = { tipo: "Ementa", nome: "ementa.html.p7s" };
+  const RELATORIO_P7S: Arquivo = { tipo: "Relatório e Voto", nome: "relatorio_voto_acordao.html.p7s" };
+  /** Como o Projudi respondeu ao vivo: 200 direto, o HTML de dentro do envelope, em ISO-8859-1. */
+  const htmlDireto = (html: string) => () =>
+    new Response(Buffer.from(html, "latin1"), {
+      headers: { "content-type": "text/html;charset=iso-8859-1", "content-disposition": 'filename="x.html"' },
+    });
+  /** O envelope cru (CMS), se o Projudi o mandasse como está. */
+  const envelope = (nome: string) => () =>
+    new Response(fixtureBinaria(nome), { headers: { "content-type": "application/pkcs7-signature" } });
+  const ementaHtml = `<p><strong>APELAÇÃO CÍVEL N.º ${CNJ}</strong></p><p>${EMENTA_DA_BUSCA}</p>`;
+  const relatorioHtml = readFileSync(new URL("./fixtures/tjgo-relatorio-voto.html", import.meta.url), "utf8")
+    .replace("{{EMENTA}}", "(ementa em arquivo próprio)")
+    .replace("{{CLASSE}}", "APELAÇÃO CÍVEL");
+
+  async function tentar(respostas: Parameters<typeof clienteFalso>[0], sobre: Partial<Acordao> = {}) {
+    const memoria = memoriaComAcordao(sobre);
+    const { cliente, chamadas } = clienteFalso(respostas);
+    const r = await obterInteiroTeor({ id: "tjgo:77" }, () => cliente, memoria);
+    return { r, chamadas, guardado: await memoria.obterTexto("tjgo:77"), explicacao: r.baixado ? "" : r.explicacao };
+  }
+
+  it("o Projudi entrega o HTML de dentro do envelope (como ao vivo): lê a ementa e o relatório e voto, 4 chamadas", async () => {
+    const { chamadas, guardado } = await tentar([
+      paginaDoProcesso([JULGAMENTO]),
+      listaDeArquivos([EMENTA_P7S, RELATORIO_P7S]),
+      htmlDireto(ementaHtml),
+      htmlDireto(relatorioHtml),
+    ]);
+    expect(chamadas).toHaveLength(4);
+    expect(guardado?.texto).toMatch(/EXEMPLO FICTÍCIO DE NEGATIVAÇÃO[\s\S]*A C Ó R D Ã O/);
+  });
+
+  it("envelope cru em DER e em BER de comprimento indefinido: extrai o documento embutido", async () => {
+    const { guardado } = await tentar([
+      paginaDoProcesso([JULGAMENTO]),
+      listaDeArquivos([EMENTA_P7S, RELATORIO_P7S]),
+      envelope("tjgo-ementa.html.p7s"),
+      envelope("tjgo-relatorio-voto.html.p7s"),
+    ]);
+    expect(guardado?.texto).toMatch(/APELAÇÃO CÍVEL N\.º 0000001-11\.2024\.8\.09\.0001[\s\S]*EXEMPLO FICTÍCIO DE NEGATIVAÇÃO/);
+    expect(guardado?.texto).toMatch(/Datado e assinado conforme Resolução nº 59\/2016/);
+    // Nada do envelope (certificado, assinatura) vira texto.
+    expect(guardado?.texto).not.toMatch(/Assinante Ficticio/);
+  });
+
+  it("envelope com PDF embutido: o texto sai pelo leitor de PDF do Garimpo", async () => {
+    const { guardado } = await tentar([
+      paginaDoProcesso([JULGAMENTO]),
+      listaDeArquivos([EMENTA_P7S, RELATORIO_P7S]),
+      envelope("tjgo-ementa.html.p7s"),
+      envelope("tjgo-relatorio-voto-pdf.p7s"),
+    ]);
+    expect(guardado?.texto).toMatch(/A C O R D A O/);
+    expect(guardado?.texto).toMatch(/0000001-11\.2024\.8\.09\.0001/);
+  });
+
+  it("assinatura destacada (sem documento embutido): não baixa e diz o motivo", async () => {
+    const { explicacao, guardado } = await tentar([
+      paginaDoProcesso([JULGAMENTO]),
+      listaDeArquivos([EMENTA_P7S, RELATORIO_P7S]),
+      envelope("tjgo-ementa.html.p7s"),
+      envelope("tjgo-destacada.p7s"),
+    ]);
+    expect(explicacao).toMatch(/assinatura destacada/);
+    expect(guardado).toBeUndefined();
+  });
+
+  it("envelope ilegível: não baixa e diz o motivo", async () => {
+    const { explicacao, guardado } = await tentar([
+      paginaDoProcesso([JULGAMENTO]),
+      listaDeArquivos([EMENTA_P7S, RELATORIO_P7S]),
+      envelope("tjgo-ementa.html.p7s"),
+      () => new Response(new Uint8Array([0x30, 0x82, 0xff, 0xff, 0x06]), { headers: { "content-type": "application/octet-stream" } }),
+    ]);
+    expect(explicacao).toMatch(/envelope de assinatura .*fora do formato/);
+    expect(guardado).toBeUndefined();
+  });
+
+  it("sem chave do armazenamento para conferir o Id_Arquivo: a «Ementa» sozinha tem de trazer a ementa da busca", async () => {
+    const outra = `<p>APELAÇÃO CÍVEL N.º ${CNJ}</p><p>EMENTA: EMBARGOS DE DECLARAÇÃO FICTÍCIOS. OMISSÃO INEXISTENTE NO EXEMPLO.</p>`;
+    const { explicacao, guardado } = await tentar([
+      paginaDoProcesso([JULGAMENTO]),
+      listaDeArquivos([EMENTA_P7S, RELATORIO_P7S]),
+      htmlDireto(outra),
+      // O relatório e voto repete a ementa da busca: sozinho, isso não basta quando o Id_Arquivo não pôde ser conferido.
+      htmlDireto(relatorioHtml.replace("(ementa em arquivo próprio)", EMENTA_DA_BUSCA)),
+    ]);
+    expect(explicacao).toMatch(/a «Ementa» do julgamento não traz a ementa da busca/);
+    expect(guardado).toBeUndefined();
+  });
+
+  it("arquivo que não é .p7s respondendo 200 direto (sem ir ao armazenamento): continua recusado", async () => {
+    const { explicacao } = await tentar([
+      paginaDoProcesso([JULGAMENTO]),
+      listaDeArquivos([EMENTA, RELATORIO]),
+      htmlDireto(ementaHtml),
+    ]);
+    expect(explicacao).toMatch(/fora do armazenamento do TJGO/);
   });
 });
 

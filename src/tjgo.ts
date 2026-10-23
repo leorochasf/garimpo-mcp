@@ -7,7 +7,9 @@
  */
 
 import { type Cliente, decodificar, ErroHttp } from "./cliente.js";
+import { documentoDoEnvelope, EnvelopeIlegivel } from "./envelopeCms.js";
 import { htmlComConteudoOculto, htmlComIndicioDeCorte, htmlParaTexto } from "./html.js";
+import { textoDoPdfEmMemoria } from "./leitura.js";
 import type { TextoIntegral } from "./memoria.js";
 import { linkDoProcessoNoTjgo } from "./tribunais.js";
 
@@ -176,7 +178,7 @@ async function pelaPaginaDoProcesso(
     return { motivo: `o julgamento de ${julgadoEm} não tem um só «Relatório e Voto» e no máximo uma «Ementa»` };
   }
   const [relatorio] = relatorios;
-  // Os dois arquivos que o Garimpo pede: só de acesso público, válidos e no HTML esperado.
+  // Os dois arquivos que o Garimpo pede: só de acesso público, válidos e no HTML esperado (assinado em .p7s ou não).
   for (const [a, nome, html] of [
     [relatorio, "«Relatório e Voto»", "relatorio_voto_acordao.html"],
     ...ementas.map((e) => [e, "«Ementa»", "ementa.html"] as const),
@@ -184,60 +186,113 @@ async function pelaPaginaDoProcesso(
     if (a.AcessoArquivo !== "1" || a.valido !== "true") {
       return { motivo: `o arquivo ${nome} do julgamento não é de acesso público (bloqueado, restrito ou inválido)` };
     }
-    if (a.nome_arquivo !== html) {
-      return {
-        motivo: `o arquivo ${nome} do julgamento está em formato que o Garimpo não lê (${a.nome_arquivo.endsWith(".p7s") ? "envelope de assinatura .p7s" : "não é o HTML esperado"})`,
-      };
+    if (a.nome_arquivo !== html && a.nome_arquivo !== `${html}.p7s`) {
+      return { motivo: `o arquivo ${nome} do julgamento está em formato que o Garimpo não lê (${a.nome_arquivo})` };
     }
   }
-  const arquivo = (a: ArquivoDaLista) =>
-    `${PROJUDI}BuscaProcesso?PaginaAtual=6&Id_MovimentacaoArquivo=${encodeURIComponent(a.id)}&hash=${encodeURIComponent(a.hash)}&id_proc=undefined`;
 
   // O Id_Arquivo do link do site é o da «Ementa» do julgamento: o destino dela amarra o julgamento ao que a busca achou.
   if (acordao.idArquivoProjudi && !ementas.length) {
     return { motivo: `o julgamento de ${julgadoEm} veio sem o arquivo «Ementa», que amarra o acórdão à busca` };
   }
-  let ementa = "";
+  let ementa: Documento | undefined;
   if (ementas.length) {
-    const re = await cliente.requisitar(arquivo(ementas[0]), doProjudi);
-    await re.body?.cancel();
-    const id = acordao.idArquivoProjudi ?? "\\d+";
-    const destino = noArmazenamento(re, new RegExp(`/id_${id}_ementa\\.html$`));
-    if (!destino) {
-      return acordao.idArquivoProjudi
-        ? { motivo: `a ementa do julgamento de ${julgadoEm} não é a que a busca apontou` }
-        : { motivo: "a «Ementa» não redirecionou para o arquivo no armazenamento do TJGO (destino fora do armazenamento do TJGO)" };
+    const lida = await documento(cliente, ementas[0], doProjudi, "ementa", "da «Ementa»", acordao.idArquivoProjudi);
+    if ("motivo" in lida) {
+      return lida.motivo === ID_DIFERENTE ? { motivo: `a ementa do julgamento de ${julgadoEm} não é a que a busca apontou` } : lida;
     }
-    const lida = await doArmazenamento(cliente, destino, "da «Ementa»");
-    if (typeof lida !== "string") return lida;
+    // Arquivo assinado (.p7s) não passa pelo armazenamento, e sem o id não há como conferir o Id_Arquivo: no lugar
+    // dele, a própria «Ementa» do julgamento tem de trazer a ementa da busca.
+    if (acordao.idArquivoProjudi && lida.idNoArmazenamento === undefined && parteDaEmentaNoTexto(acordao.ementa, lida.texto) < PARTE_MINIMA) {
+      return { motivo: "a «Ementa» do julgamento não traz a ementa da busca; pode ser outro acórdão do mesmo processo" };
+    }
     ementa = lida;
   }
 
-  const rr = await cliente.requisitar(arquivo(relatorio), doProjudi);
-  await rr.body?.cancel();
-  const destino = noArmazenamento(rr, /\/id_\d+_relatorio_voto_acordao\.html$/);
-  if (!destino) return { motivo: "o «Relatório e Voto» não redirecionou para o arquivo no armazenamento do TJGO (destino fora do armazenamento do TJGO)" };
-  const doc = await doArmazenamento(cliente, destino, "do «Relatório e Voto»");
-  if (typeof doc !== "string") return doc;
+  const doc = await documento(cliente, relatorio, doProjudi, "relatorio_voto_acordao", "do «Relatório e Voto»");
+  if ("motivo" in doc) return doc;
 
   // A ementa do julgamento antes do relatório e voto: os dois documentos do acórdão, cada um como veio.
-  const texto = [htmlParaTexto(ementa), htmlParaTexto(doc)].filter(Boolean).join("\n\n");
-  const relatorioEVoto = htmlParaTexto(doc);
-  if (relatorioEVoto.length < MINIMO_TEXTO) return { motivo: "o «Relatório e Voto» veio curto demais" };
+  const texto = [ementa?.texto ?? "", doc.texto].filter(Boolean).join("\n\n");
+  if (doc.texto.length < MINIMO_TEXTO) return { motivo: "o «Relatório e Voto» veio curto demais" };
   // O número vale no próprio relatório e voto: a ementa certa não pode cobrir um relatório de outro processo.
   const numero = soLetrasEAlgarismos(acordao.numeroCnj ?? acordao.numero);
-  if (!soLetrasEAlgarismos(relatorioEVoto).includes(numero)) {
+  if (!soLetrasEAlgarismos(doc.texto).includes(numero)) {
     return { motivo: "o «Relatório e Voto» não traz o número do processo da busca" };
   }
   if (parteDaEmentaNoTexto(acordao.ementa, texto) < PARTE_MINIMA) {
     return { motivo: "a ementa e o relatório e voto baixados não trazem a ementa da busca; pode ser outro acórdão do mesmo processo" };
   }
-  const documentos = ementa + doc;
   return {
     texto,
-    indicioDeCorte: htmlComIndicioDeCorte(ementa) || htmlComIndicioDeCorte(doc),
-    ...(htmlComConteudoOculto(documentos) && { conteudoOculto: true }),
+    indicioDeCorte: Boolean(ementa?.indicioDeCorte) || doc.indicioDeCorte,
+    ...((ementa?.conteudoOculto || doc.conteudoOculto) && { conteudoOculto: true }),
   };
+}
+
+/** Um documento do julgamento, em texto; idNoArmazenamento = o id do arquivo no endereço do armazenamento, se passou por lá. */
+interface Documento {
+  texto: string;
+  indicioDeCorte: boolean;
+  conteudoOculto: boolean;
+  idNoArmazenamento?: string;
+}
+
+/** Motivo interno: o id da «Ementa» no armazenamento não é o Id_Arquivo da busca. */
+const ID_DIFERENTE = "id diferente";
+
+/**
+ * Um arquivo do julgamento pelo Projudi. O arquivo comum redireciona para o armazenamento do TJGO (um salto, só para
+ * lá, conferindo o id quando pedido); o assinado (.p7s) responde direto, com o documento de dentro do envelope em
+ * HTML (como ao vivo) ou com o próprio envelope, de onde o Garimpo tira o documento embutido.
+ */
+async function documento(
+  cliente: Cliente,
+  a: ArquivoDaLista,
+  doProjudi: RequestInit,
+  arquivoNoArmazenamento: string,
+  doArquivo: string,
+  idEsperado?: string,
+): Promise<Documento | { motivo: string }> {
+  const url = `${PROJUDI}BuscaProcesso?PaginaAtual=6&Id_MovimentacaoArquivo=${encodeURIComponent(a.id)}&hash=${encodeURIComponent(a.hash)}&id_proc=undefined`;
+  const r = await cliente.requisitar(url, doProjudi);
+  if (r.status === 200 && a.nome_arquivo.endsWith(".p7s")) return doEnvelope(r, doArquivo);
+  await r.body?.cancel();
+  const caminho = new RegExp(`/id_(\\d+)_${arquivoNoArmazenamento}\\.html$`);
+  const destino = noArmazenamento(r, caminho);
+  if (!destino) {
+    return { motivo: `o arquivo ${doArquivo} não redirecionou para o armazenamento do TJGO (destino fora do armazenamento do TJGO)` };
+  }
+  const id = caminho.exec(destino.pathname)![1];
+  if (idEsperado && id !== idEsperado) return { motivo: ID_DIFERENTE };
+  const html = await doArmazenamento(cliente, destino, doArquivo);
+  if (typeof html !== "string") return html;
+  return { ...deHtml(html), idNoArmazenamento: id };
+}
+
+function deHtml(html: string): Omit<Documento, "idNoArmazenamento"> {
+  return { texto: htmlParaTexto(html), indicioDeCorte: htmlComIndicioDeCorte(html), conteudoOculto: htmlComConteudoOculto(html) };
+}
+
+/** O documento de um arquivo assinado: o HTML que o Projudi já tirou do envelope, ou o embutido no envelope cru. */
+async function doEnvelope(r: Response, doArquivo: string): Promise<Documento | { motivo: string }> {
+  const tipo = r.headers.get("content-type") ?? "";
+  const bytes = new Uint8Array(await r.arrayBuffer());
+  if (bytes.length > LIMITE_BYTES) return { motivo: `o arquivo ${doArquivo} veio grande demais` };
+  if (/text\/html/i.test(tipo)) return deHtml(decodificar(bytes, tipo, "iso-8859-1"));
+  let embutido: Uint8Array | undefined;
+  try {
+    embutido = documentoDoEnvelope(bytes);
+  } catch (e) {
+    if (e instanceof EnvelopeIlegivel) return { motivo: `o envelope de assinatura (.p7s) ${doArquivo} veio fora do formato esperado` };
+    throw e;
+  }
+  if (!embutido) return { motivo: `o arquivo ${doArquivo} é uma assinatura destacada, sem o documento embutido` };
+  if (Buffer.from(embutido.subarray(0, 4)).toString("latin1") === "%PDF") {
+    const pdf = await textoDoPdfEmMemoria(embutido, `arquivo ${doArquivo}`);
+    return { texto: pdf.texto, indicioDeCorte: pdf.cortado, conteudoOculto: false };
+  }
+  return deHtml(decodificar(embutido, "", "iso-8859-1"));
 }
 
 /** Um salto só, para o armazenamento do TJGO, sem o cookie do Projudi: o HTML do arquivo, ou o motivo. */
