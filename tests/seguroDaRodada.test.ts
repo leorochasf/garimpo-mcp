@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { criarGravador, rodadaCompleta, saidaInvalida, type Registro } from "../scripts/seguroDaRodada.js";
+import { criarGravador, gravacaoForaDoLugar, rodadaCompleta, saidaInvalida, type Registro } from "../scripts/seguroDaRodada.js";
 
 const URL_OK = "https://www.jurisprudenciaia.com.br/api/tribunais/stj/search";
 const PERMITIDA = /^https:\/\/www\.jurisprudenciaia\.com\.br\/api\/tribunais\/(stj|stf|tst|tse)\/search$/;
@@ -28,6 +28,26 @@ describe("saidaInvalida", () => {
     expect(saidaInvalida("--ao-vivo")).toMatch(/--saida/);
     expect(saidaInvalida("-x")).toMatch(/--saida/);
     expect(saidaInvalida("pasta")).toBeUndefined();
+  });
+});
+
+describe("gravacaoForaDoLugar (N03: a gravação crua só vai para pasta externa)", () => {
+  const raiz = "D:/projetos/garimpo-mcp";
+
+  it("recusa a pasta do projeto e qualquer pasta dentro dele, inclusive banco-de-provas-resultados", () => {
+    expect(gravacaoForaDoLugar(raiz, raiz)).toMatch(/projeto/);
+    expect(gravacaoForaDoLugar("D:/projetos/garimpo-mcp/banco-de-provas-resultados/1.2", raiz)).toMatch(/projeto/);
+    expect(gravacaoForaDoLugar(String.raw`d:\Projetos\Garimpo-MCP\x`, raiz)).toMatch(/projeto/);
+  });
+
+  it("recusa pasta sincronizada de nuvem", () => {
+    for (const nuvem of ["One" + "Drive", "One" + "Drive - Empresa", "Google Drive", "Meu Drive", "Dropbox", "iCloud" + "Drive"])
+      expect(gravacaoForaDoLugar(`E:/${nuvem}/provas`, raiz), nuvem).toMatch(/nuvem/);
+  });
+
+  it("aceita pasta externa comum, inclusive irmã com nome parecido", () => {
+    expect(gravacaoForaDoLugar("E:/provas-garimpo/1.2-base", raiz)).toBeUndefined();
+    expect(gravacaoForaDoLugar("D:/projetos/garimpo-mcp-provas", raiz)).toBeUndefined();
   });
 });
 

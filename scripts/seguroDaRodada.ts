@@ -10,6 +10,25 @@ export function saidaInvalida(valor: string | undefined): string | undefined {
   return undefined;
 }
 
+/** Pasta sincronizada de nuvem: o nome de uma das partes do caminho. */
+const NUVEM = /^(one\s?drive\b.*|google drive|meu drive|my drive|dropbox|icloud\s?drive|icloud)$/i;
+
+const partes = (caminho: string) => caminho.replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase().split("/");
+
+/**
+ * A gravação crua (resposta do site, números, relatores) vai só para pasta FORA do projeto e fora de nuvem (plano 1.2,
+ * regra "Dados reais e fixtures"; N03). Dentro do projeto, até `banco-de-provas-resultados/`, só entra o derivado de
+ * derivadoDaRodada.ts. Recebe caminhos absolutos; devolve o motivo da recusa ou undefined.
+ */
+export function gravacaoForaDoLugar(pastaAbsoluta: string, raizDoProjeto: string): string | undefined {
+  const p = partes(pastaAbsoluta);
+  const raiz = partes(raizDoProjeto);
+  if (raiz.every((parte, i) => p[i] === parte))
+    return "a gravação crua não pode ficar dentro do projeto (nem em banco-de-provas-resultados/): use uma pasta externa e exporte o derivado.";
+  if (p.some((parte) => NUVEM.test(parte))) return "a gravação crua não pode ficar em pasta sincronizada de nuvem: use uma pasta local fora do projeto.";
+  return undefined;
+}
+
 export interface Registro {
   seq: number;
   consulta: string;
