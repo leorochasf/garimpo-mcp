@@ -207,3 +207,26 @@ export function validarDerivado(d: unknown): string[] {
   else d.consultas.forEach((c, i) => conferir(`consultas[${i}]`, c, CONSULTA, problemas));
   return problemas;
 }
+
+const mesmoArquivo = (a: string, b: string) => {
+  const normal = (c: string) => c.replace(/\\/g, "/").replace(/^\/\/[?.]\//, "").toLowerCase();
+  return normal(a) === normal(b);
+};
+
+/**
+ * Motivo para não gravar em `--para`, ou undefined. Nunca grava por cima do arquivo da chave (perderia a chave, sem
+ * volta) nem de arquivo que não seja um derivado deste esquema. Recebe caminhos físicos e o conteúdo atual do destino
+ * (undefined se ainda não existe).
+ */
+export function destinoInvalido(para: string, chave: string, conteudoAtual: string | undefined): string | undefined {
+  if (mesmoArquivo(para, chave)) return "--para é o arquivo da chave: gravar ali apagaria a chave.";
+  if (conteudoAtual === undefined) return undefined;
+  let atual: unknown;
+  try {
+    atual = JSON.parse(conteudoAtual);
+  } catch {
+    atual = undefined;
+  }
+  if (validarDerivado(atual).length) return "--para já existe e não é um derivado deste esquema: escolha outro arquivo.";
+  return undefined;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { exportarDerivado, validarDerivado, type RodadaCrua } from "../scripts/derivadoDaRodada.js";
+import { destinoInvalido, exportarDerivado, validarDerivado, type RodadaCrua } from "../scripts/derivadoDaRodada.js";
 
 // Rodada crua falsa, no formato que o gravador escreve na pasta externa. Número fictício (tribunal 99), relator e
 // ementa inventados: o teste prova que nada disso passa para o derivado.
@@ -101,6 +101,25 @@ describe("exportarDerivado", () => {
     const s = crua();
     s.resultados[0].fase = EMENTA;
     expect(() => exportarDerivado(s, CHAVE, meta)).toThrow(/fase/);
+  });
+});
+
+describe("destinoInvalido (R04: a exportação não apaga a chave nem outro arquivo)", () => {
+  const derivado = JSON.stringify(exportarDerivado(crua(), CHAVE, meta));
+
+  it("recusa --para igual a --chave, inclusive com outra caixa e outra barra", () => {
+    expect(destinoInvalido("E:/provas/chave.json", "E:/provas/chave.json", undefined)).toMatch(/chave/);
+    expect(destinoInvalido(String.raw`e:\Provas\CHAVE.json`, "E:/provas/chave.json", CHAVE)).toMatch(/chave/);
+  });
+
+  it("recusa sobrescrever arquivo que não é um derivado do esquema (ex.: a chave guardada em .json)", () => {
+    expect(destinoInvalido("E:/provas/a.json", "E:/provas/chave.txt", CHAVE)).toMatch(/não é um derivado/);
+    expect(destinoInvalido("E:/provas/a.json", "E:/provas/chave.txt", "{")).toMatch(/não é um derivado/);
+  });
+
+  it("aceita destino novo ou um derivado anterior a substituir", () => {
+    expect(destinoInvalido("E:/provas/a.json", "E:/provas/chave.txt", undefined)).toBeUndefined();
+    expect(destinoInvalido("E:/provas/a.json", "E:/provas/chave.txt", derivado)).toBeUndefined();
   });
 });
 

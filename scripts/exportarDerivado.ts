@@ -17,8 +17,8 @@ import { randomBytes } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { exportarDerivado, validarDerivado, type RodadaCrua } from "./derivadoDaRodada.js";
-import { gravacaoForaDoLugarNoDisco } from "./seguroDaRodada.js";
+import { destinoInvalido, exportarDerivado, validarDerivado, type RodadaCrua } from "./derivadoDaRodada.js";
+import { caminhoFisico, gravacaoForaDoLugarNoDisco } from "./seguroDaRodada.js";
 
 const arg = (nome: string) => {
   const i = process.argv.indexOf(nome);
@@ -55,6 +55,13 @@ if (recusa) parar(`--de: ${recusa}`);
 const chaveArquivo = resolve(chaveArg!);
 const recusaDaChave = gravacaoForaDoLugarNoDisco(chaveArquivo, raizDoProjeto);
 if (recusaDaChave) parar(`--chave: ${recusaDaChave}`);
+const destino = resolve(para!);
+const recusaDoDestino = destinoInvalido(
+  caminhoFisico(destino),
+  caminhoFisico(chaveArquivo),
+  existsSync(destino) ? readFileSync(destino, "utf8") : undefined,
+);
+if (recusaDoDestino) parar(recusaDoDestino);
 
 if (!existsSync(chaveArquivo)) {
   writeFileSync(chaveArquivo, randomBytes(32).toString("hex"));
@@ -79,6 +86,5 @@ const commit = arg("--commit") ?? estado.commit;
 if (typeof versaoDoGarimpo !== "string" || typeof commit !== "string")
   parar("estado.json não diz a versão e o commit do Garimpo da rodada: informe --versao e --commit.");
 
-const destino = resolve(para!);
 writeFileSync(destino, JSON.stringify(exportarDerivado(crua, chave, { versaoDoGarimpo: versaoDoGarimpo as string, commit: commit as string }), null, 1));
 conferirArquivo(destino);

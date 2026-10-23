@@ -41,7 +41,7 @@ export function gravacaoForaDoLugar(pastaAbsoluta: string, raizDoProjeto: string
 }
 
 /** Caminho físico: segue junction e link simbólico do ancestral que existe e acrescenta o resto (pasta ainda por criar). */
-function caminhoFisico(caminho: string): string {
+export function caminhoFisico(caminho: string): string {
   let atual = resolve(caminho);
   const resto: string[] = [];
   while (!existsSync(atual) && dirname(atual) !== atual) {
