@@ -610,6 +610,12 @@ describe("texto_de_lei — compilação: formato conferido, senão erro e nenhum
     await recusa({ norma: n }, 1);
   });
 
+  it("URL da norma que não comprova o CDC: nada é baixado", async () => {
+    const n = norma() as Norma & { "@id": string };
+    n["@id"] = "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1990-07-13;8069";
+    await recusa({ norma: n }, 1);
+  });
+
   it("o arquivo da compilação redirecionado ou fora de HTML não é seguido nem lido", async () => {
     const { cliente, chamadas } = clienteFalso([
       respostaJson(fixture("legislacao/cdc-norma.json")),

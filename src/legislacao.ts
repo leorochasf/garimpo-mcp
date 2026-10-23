@@ -456,7 +456,7 @@ function paragrafosDaCompilacao(html: string): string[] {
   const paragrafos: string[] = [];
   let inicio = 0;
   const fechar = (fim: number) => {
-    const t = htmlParaTexto(corpo.slice(inicio, fim)).replace(/^[\s­​]+|[\s­​]+$/g, "");
+    const t = htmlParaTexto(corpo.slice(inicio, fim)).replace(/^[\s\u00ad\u200b]+|[\s\u00ad\u200b]+$/g, "");
     if (t) paragrafos.push(t);
   };
   for (const m of corpo.matchAll(/<\/?([a-z][a-z0-9]*)\b[^>]*>/gi)) {
@@ -698,8 +698,8 @@ async function consultarNaCompilacao(
     throw new FormatoInesperadoError("O normas.leg.br devolveu uma norma diferente do diploma pedido ou sem identificação. Confira no site oficial.");
   }
   const arquivo = arquivoDaCompilacao(corpo);
-  const linhas = linhasDaCompilacao(await htmlDaCompilacao(cliente, arquivo.url), diploma.inicioNaCompilacao!);
   const urlOficial = urlOficialDoNo(corpo);
+  const linhas = linhasDaCompilacao(await htmlDaCompilacao(cliente, arquivo.url), diploma.inicioNaCompilacao!);
   const base = { diploma: { sigla: diploma.sigla, nome: nomeDaNorma }, dispositivo: citar(pedido.chave), urlDaConsulta: urlDaFonte(diploma) };
   const segmentos = pedido.chave.split("_");
   // Artigo inteiro, sem letra, que a fonte pode trazer dentro de uma faixa ("Arts. 498 a 502.").
