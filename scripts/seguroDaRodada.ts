@@ -100,7 +100,8 @@ export function criarGravador(d: DependenciasDoGravador) {
     const host = new URL(u).host;
     d.hosts.set(host, (d.hosts.get(host) ?? 0) + 1);
     const consulta = d.consultaAtual();
-    const r: Registro = { seq: ++seq, consulta, tribunal: m[1], corpoEnviado: String(init.body), inicio: new Date().toISOString() };
+    // Rota sem tribunal no caminho (o Falcão leva o TRT no corpo): fica o host.
+    const r: Registro = { seq: ++seq, consulta, tribunal: m[1] ?? host, corpoEnviado: String(init.body), inicio: new Date().toISOString() };
     const t0 = performance.now();
     try {
       const resposta = await d.fetch(url, { ...init, redirect: "error" });
