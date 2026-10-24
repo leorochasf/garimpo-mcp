@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 /**
@@ -162,15 +162,21 @@ const CNJ_APROVADOS: { arquivo: RegExp; hashes: ReadonlySet<string> }[] = [
 
 /** `-z`: caminhos crus separados por NUL (sem aspas nem escape de acentos). */
 const listar = (...args: string[]) => execFileSync("git", [...args, "-z"], { encoding: "utf8" }).split("\0").filter(Boolean);
+/**
+ * Arquivos fora do git que a varredura também lê, pedidos em GARIMPO_VARRER_TAMBEM (caminhos separados por ";"): o
+ * derivado do banco de provas fica em banco-de-provas-resultados/, que o git ignora (protocolo 1.2, seção 7). Sem lista
+ * de permitidos para eles: qualquer regra violada falha.
+ */
+const TAMBEM = (process.env.GARIMPO_VARRER_TAMBEM ?? "").split(";").map((c) => c.trim()).filter(Boolean);
 /** Varre tudo que o git publicaria (inclui .env.example, *.pem, sem extensão); só binário fica de fora. */
 const BINARIO = /\.(xlsx?|docx?|pdf|zip|gz|tgz|png|jpe?g|gif|webp|ico|woff2?|ttf|otf|mp[34]|wasm|sqlite3?|db)$/i;
-const arquivos = [...new Set([...listar("ls-files"), ...listar("ls-files", "--others", "--exclude-standard")])].filter(
+const arquivos = [...new Set([...listar("ls-files"), ...listar("ls-files", "--others", "--exclude-standard"), ...TAMBEM])].filter(
   (f) => !BINARIO.test(f) && f !== "package-lock.json" && !FORA_DA_VARREDURA.test(f),
 );
 
 describe("dados reais", () => {
   it("nenhum dado de usuário ou de processo real nos arquivos do repositório (só arquivo + regra no relatório)", () => {
-    const achados: string[] = [];
+    const achados: string[] = TAMBEM.filter((f) => !existsSync(f)).map((f) => `${f}: pedido em GARIMPO_VARRER_TAMBEM e não existe`);
     for (const f of arquivos) {
       let texto: string;
       try {
