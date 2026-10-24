@@ -2,10 +2,12 @@
  * Exporta o derivado de uma rodada do banco de provas (B0.2 do plano 1.2, N03/F06), sem rede.
  *
  *   npx vite-node scripts/exportarDerivado.ts -- --de <pasta externa da rodada> --chave <arquivo externo> --para <arquivo .json>
+ *     [--apuracao <pasta externa>/veredito/apuracao.json]
  *   npx vite-node scripts/exportarDerivado.ts -- --verificar <arquivo .json>
  *
- * `--de` é a pasta que rodarRodadaDeProvas.ts gravou (fora do projeto): lê estado.json, resultados.json e, de
- * gravacao/, só consulta, tempo e status de cada chamada. `--chave` é o arquivo da chave dos hashes, fora do projeto e
+ * `--de` é a pasta que rodarRodadaDeProvas.ts ou rodarLinhaDeBase.ts gravou (fora do projeto): lê estado.json,
+ * resultados.json e, de gravacao/, só consulta, tempo e status de cada chamada. `--apuracao` (opcional, também fora do
+ * projeto) traz as contagens do júri de scripts/juriDaLinhaDeBase.ts. `--chave` é o arquivo da chave dos hashes, fora do projeto e
  * de nuvem, o MESMO para todas as rodadas que forem comparadas (1.1.1 × 1.2): sem ele os hashes não batem. Criado na
  * primeira exportação, se não existir. O derivado leva o identificador da chave (campo `chave`, não a chave), para que
  * derivados de chaves diferentes não sejam comparados. Ele passa pelo esquema fechado antes de gravar e é relido e
@@ -17,7 +19,7 @@ import { randomBytes } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { destinoInvalido, exportarDerivado, validarDerivado, type RodadaCrua } from "./derivadoDaRodada.js";
+import { type ApuracaoDoJuri, destinoInvalido, exportarDerivado, validarDerivado, type RodadaCrua } from "./derivadoDaRodada.js";
 import { caminhoFisico, gravacaoForaDoLugarNoDisco } from "./seguroDaRodada.js";
 
 const arg = (nome: string) => {
@@ -55,6 +57,10 @@ if (recusa) parar(`--de: ${recusa}`);
 const chaveArquivo = resolve(chaveArg!);
 const recusaDaChave = gravacaoForaDoLugarNoDisco(chaveArquivo, raizDoProjeto);
 if (recusaDaChave) parar(`--chave: ${recusaDaChave}`);
+const apuracaoArg = arg("--apuracao");
+if (apuracaoArg !== undefined && (apuracaoArg.startsWith("-") || gravacaoForaDoLugarNoDisco(resolve(apuracaoArg), raizDoProjeto)))
+  parar("--apuracao precisa de um arquivo fora do projeto e de nuvem (a apuração do júri fica na pasta externa).");
+const apuracao = apuracaoArg === undefined ? undefined : (ler(resolve(apuracaoArg)) as ApuracaoDoJuri);
 const destino = resolve(para!);
 const recusaDoDestino = destinoInvalido(
   caminhoFisico(destino),
@@ -86,5 +92,5 @@ const commit = arg("--commit") ?? estado.commit;
 if (typeof versaoDoGarimpo !== "string" || typeof commit !== "string")
   parar("estado.json não diz a versão e o commit do Garimpo da rodada: informe --versao e --commit.");
 
-writeFileSync(destino, JSON.stringify(exportarDerivado(crua, chave, { versaoDoGarimpo: versaoDoGarimpo as string, commit: commit as string }), null, 1));
+writeFileSync(destino, JSON.stringify(exportarDerivado(crua, chave, { versaoDoGarimpo: versaoDoGarimpo as string, commit: commit as string }, apuracao), null, 1));
 conferirArquivo(destino);

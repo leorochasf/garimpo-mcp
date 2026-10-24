@@ -104,6 +104,76 @@ describe("exportarDerivado", () => {
   });
 });
 
+describe("exportarDerivado da linha de base (busca_ampla em vários tribunais, E5 e júri)", () => {
+  const ampla = (): RodadaCrua => ({
+    estado: { iniciadoEm: "2026-10-24T10:00:00.000Z", chamadasAoSite: 20, recusasDoSite: [], completa: true },
+    resultados: [
+      {
+        id: "e1-t01-tecnica",
+        fase: "tese",
+        versao: "tecnica",
+        tribunais: ["stf", "stj"],
+        chamadas: 6,
+        mostrados: 2,
+        msParede: 1234.4,
+        numeros: [NUMERO, NUMERO],
+        acordaos: [{ numero: NUMERO, tribunal: "stf", relator: RELATOR }, { numero: NUMERO, tribunal: "stj", ementa: EMENTA }],
+        cobertura: [{ tribunal: "stf", buscasFeitas: 3, vazias: 0, comErro: 0, maisAntiga: "24/10 10:00", achados: 9 }],
+      },
+      {
+        id: "e5-5trts-fria",
+        fase: "trt",
+        memoria: "fria",
+        tribunais: ["trt1", "trt2"],
+        chamadas: 2,
+        mostrados: 0,
+        numeros: [],
+        cobertura: [{ tribunal: "trt1", buscasFeitas: 1, vazias: 1, comErro: 0, foraDoTeto: 1 }],
+      },
+    ],
+    registros: [{ seq: 1, consulta: "e1-t01-tecnica", ms: 300, status: 200, resposta: EMENTA }],
+  });
+  const apuracao = { linhas: 40, controles: { total: 4, julgadosN: 4 }, semMaioria: 1, porPedido: { "e1-t01-tecnica": { S: 1, P: 1, C: 0, N: 0, semMaioria: 0 } } };
+
+  it("leva tribunais, memória, tempo de parede, cobertura e contagens do júri, e nada de texto de caso", () => {
+    const d = exportarDerivado(ampla(), CHAVE, meta, apuracao);
+    expect(validarDerivado(d)).toEqual([]);
+    const texto = JSON.stringify(d);
+    for (const proibido of [NUMERO, RELATOR, "Fictício", "EMENTA", "24/10", "maisAntiga", "achados"]) expect(texto).not.toContain(proibido);
+    const [e1, e5] = d.consultas;
+    expect(e1).toMatchObject({ tribunais: ["stf", "stj"], msParede: 1234, ms: 300, juri: { S: 1, P: 1, C: 0, N: 0, semMaioria: 0 } });
+    expect(e1.tribunal).toBeUndefined();
+    expect(e5).toMatchObject({ memoria: "fria", cobertura: [{ tribunal: "trt1", buscasFeitas: 1, vazias: 1, comErro: 0, foraDoTeto: 1, guardadas: 0, feitasAgora: 0 }] });
+    expect(d.juri).toEqual({ linhas: 40, controles: 4, controlesN: 4, semMaioria: 1 });
+  });
+
+  it("o mesmo número em dois tribunais são dois acórdãos (o tribunal entra no hash)", () => {
+    const [h1, h2] = exportarDerivado(ampla(), CHAVE, meta).consultas[0].acordaos;
+    expect(h1).not.toBe(h2);
+  });
+
+  it("um, e só um, entre tribunal e tribunais; cobertura e júri são objetos fechados; memória só da lista", () => {
+    const bom = () => JSON.parse(JSON.stringify(exportarDerivado(ampla(), CHAVE, meta, apuracao)));
+    const casos: [string, (d: Record<string, any>) => void][] = [
+      ["consultas\\[0\\]\\.tribunal", (d) => (d.consultas[0].tribunal = "stf")],
+      ["consultas\\[1\\]\\.tribunal", (d) => delete d.consultas[1].tribunais],
+      ["consultas\\[0\\]\\.tribunais", (d) => (d.consultas[0].tribunais = [RELATOR])],
+      ["consultas\\[1\\]\\.cobertura", (d) => (d.consultas[1].cobertura[0].maisAntiga = "24/10 10:00")],
+      ["consultas\\[1\\]\\.cobertura", (d) => (d.consultas[1].cobertura[0].tribunal = RELATOR)],
+      ["consultas\\[0\\]\\.juri", (d) => (d.consultas[0].juri.motivo = EMENTA)],
+      ["juri\\.motivo", (d) => (d.juri.motivo = EMENTA)],
+      ["consultas\\[1\\]\\.memoria", (d) => (d.consultas[1].memoria = "morna")],
+    ];
+    for (const [campo, estragar] of casos) {
+      const d = bom();
+      estragar(d);
+      const problemas = validarDerivado(d).join("\n");
+      expect(problemas, campo).toMatch(new RegExp(campo));
+      expect(problemas).not.toContain(RELATOR);
+    }
+  });
+});
+
 describe("destinoInvalido (R04: a exportação não apaga a chave nem outro arquivo)", () => {
   const derivado = JSON.stringify(exportarDerivado(crua(), CHAVE, meta));
 
