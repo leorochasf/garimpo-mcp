@@ -1,5 +1,19 @@
 # Changelog
 
+## Não publicado
+
+- TJPR: o `obter_inteiro_teor` passa a trazer o texto do acórdão da página pública dele no portal de jurisprudência do
+  tribunal, que já traz a íntegra, como "texto do portal do tribunal" (HTML, sem PDF e sem recibo; o tribunal avisa que
+  é transcrição, com as imagens suprimidas). Só o documento do link, com o mesmo número de processo da busca e esse
+  número escrito dentro da íntegra: o portal às vezes põe na página certa a íntegra de outro acórdão (cerca de 1 em 3
+  chamadas na conferência), e então nada é guardado e vai o motivo. Acórdão em segredo de justiça não tem o texto
+  guardado. O `robots.txt` do portal não veda a jurisprudência; não há autorização do
+  TJPR. HTTP 502 do portal conta como pedido de espera (uma nova tentativa), como 429/503 (ADR-0030).
+- TJPR: cópias do mesmo acórdão na base do JurisprudênciaIA (dois lotes, com rodapés de ementa diferentes) viram um
+  resultado só, pelo número do documento no link do portal; números de processo que se contradigam continuam separados.
+- Estudo da cobertura do TJPR na base do site (`docs/estudos/2026-10-29-tjpr-cobertura.md`): na amostra, de cerca de 2020
+  ao 1º semestre de 2026 nas Câmaras e até o fim de 2025 nas Turmas Recursais.
+
 ## 1.1.1 (2026-10-22)
 
 - TJGO: o `obter_inteiro_teor` passa a trazer o texto do acórdão pela consulta pública do processo no Projudi (a
