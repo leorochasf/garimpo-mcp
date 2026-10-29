@@ -1,6 +1,6 @@
 # Changelog
 
-## Não publicado
+## 1.1.2 (2026-10-29)
 
 - TJPR: o `obter_inteiro_teor` passa a trazer o texto do acórdão da página pública dele no portal de jurisprudência do
   tribunal, que já traz a íntegra, como "texto do portal do tribunal" (HTML, sem PDF e sem recibo; o tribunal avisa que
