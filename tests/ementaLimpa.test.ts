@@ -226,6 +226,29 @@ describe("ementa limpa: decisão inteira no campo (TJBA)", () => {
     expect(limpa.ementa).toContain("NÃO SUPRE");
   });
 
+  // B20-R02, rodada 2: a única ocorrência é a interna; o fecho verdadeiro não usa a expressão.
+  it.each([
+    [
+      "cenário do parecer",
+      "EMENTA: PODER JUDICIÁRIO Processo: EXEMPLO APELANTE: PESSOA FICTÍCIA APELADO: OUTRA PESSOA ACORDÃO DIREITO " +
+        "PROCESSUAL. A FÓRMULA Vistos, relatados e discutidos NÃO SUPRE A FUNDAMENTAÇÃO. RECURSO PROVIDO. Examinados " +
+        "estes autos. Acordam os julgadores. ( Classe: Apelação )",
+    ],
+    [
+      "contraprova: o «Vistos» do fecho real trocado",
+      CAMARA_2.replace("RECURSO CONHECIDO E PROVIDO. I.", `${INTERNA} RECURSO CONHECIDO E PROVIDO. I.`).replace(
+        "Vistos, relatados e discutidos estes autos",
+        "Examinados estes autos",
+      ),
+    ],
+  ])("expressão interna sem fecho verdadeiro com ela (%s): começo + C1, com a fundamentação", (_caso, campo) => {
+    const limpa = limparEmenta("tjba", campo);
+
+    expect(limpa.separacaoIncerta).toBe(true);
+    expect(limpa.ementa.startsWith("DIREITO")).toBe(true);
+    expect(limpa.ementa).toContain("NÃO SUPRE");
+  });
+
   it("modelos antigos com a expressão dentro da ementa: o fim antigo vale, como antes", () => {
     const turma = TURMA.replace("MERO ABORRECIMENTO.", `MERO ABORRECIMENTO. ${INTERNA}`);
     const camara = CAMARA.replace("EXEMPLO FICTÍCIO. RECURSO", `EXEMPLO FICTÍCIO. ${INTERNA} RECURSO`);

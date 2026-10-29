@@ -43,10 +43,11 @@ const PROCESSO_NA_FICHA = /\bProcesso\s*:/;
 /** TJBA: o que vem depois da ementa, na Turma Recursal («RELATÓRIO») e na Câmara («ACÓRDÃO Vistos…»). */
 const FIM_DA_EMENTA_TJBA = /\sRELATÓRIO\s|\sACÓRDÃO\s+Vistos\b/;
 /**
- * Câmara Cível do TJBA sem «ACÓRDÃO Vistos»: o fecho «Vistos, relatados e discutidos…». Vale só a última ocorrência, e
- * só com «Acordam» e o rodapé «( Classe:» depois dela; a mesma expressão dentro da ementa não é fecho.
+ * Câmara Cível do TJBA sem «ACÓRDÃO Vistos»: o fecho «Vistos, relatados e discutidos estes autos…» (no campo da base,
+ * «estes autos» vem logo depois, a um espaço). Vale só a última ocorrência, e só com «Acordam» e o rodapé «( Classe:»
+ * depois dela; a mesma expressão dentro da ementa, seguida de outra coisa, não é fecho.
  */
-const FECHO_TJBA = /\sVistos,?\s+relatados\s+e\s+discutidos\b/g;
+const FECHO_TJBA = /\sVistos,?\s+relatados\s+e\s+discutidos(?=\s{1,3}(?:estes|os\s+presentes)\s+autos\b)/g;
 const DEPOIS_DO_FECHO_TJBA = [/\bAcordam\b/i, /\(\s*Classe\s*:/];
 /**
  * Títulos de relatório e voto (e o fecho do acórdão): em maiúsculas, seguidos de pontuação ou do começo de uma frase
