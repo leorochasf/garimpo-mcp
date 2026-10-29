@@ -5,7 +5,14 @@
 
 import { createHash } from "node:crypto";
 import { Cliente, FormatoInesperadoError } from "./cliente.js";
-import { type Enquadramento927, enquadrarAcordao, enquadrarQualificado, type ParadigmaDoSite } from "./enquadramento.js";
+import {
+  avisoDeClasse,
+  duvidaDaClasse,
+  type Enquadramento927,
+  enquadrarAcordao,
+  enquadrarQualificado,
+  type ParadigmaDoSite,
+} from "./enquadramento.js";
 import { reforcoDaTabela, type TabelaDePrecedentes } from "./tabelaDePrecedentes.js";
 import { reforcoDoStf, type TabelaDoStf } from "./tabelaDoStf.js";
 import { juntarEquivalentes } from "./equivalencia.js";
@@ -41,7 +48,10 @@ export interface Acordao {
   /** O site não trouxe número de processo: o `numero` é só o id do site. */
   semNumero: boolean;
   numeroCnj?: string;
+  /** A classe como o site informa, nunca trocada; o avisoDeClasse diz quando os próprios dados a põem em dúvida. */
   classe?: string;
+  /** Só quando o campo de classe traz nome de órgão ou a ementa nomeia outra classe (enquadramento.ts): o aviso. */
+  avisoDeClasse?: string;
   relator?: string;
   orgao?: string;
   dataJulgamento?: string;
@@ -651,6 +661,12 @@ function paraAcordao(tribunal: string, x: Bruto, paradigmas: readonly ParadigmaD
   // Só o começo já vem com aviso próprio; a heurística de ementa cortada olharia o corte do Garimpo, não o do site.
   const incompleta = !limpa.separacaoIncerta && ementaAparentementeIncompleta(limpa.ementa);
   const avisosDeEmenta = [limpa.aviso, incompleta ? AVISO_EMENTA_INCOMPLETA : undefined].filter(Boolean);
+  // Ementa sem separação segura (só o começo) não serve para dizer que a classe não aparece nela.
+  const duvida = duvidaDaClasse({
+    classe: texto(x.classe_processual),
+    ementa: limpa.separacaoIncerta ? undefined : limpa.ementa,
+    numeroCnj: texto(x.numero_processo_cnj),
+  });
   const acordao = limpar({
     id: `${tribunal}:${x.id}`,
     tribunal,
@@ -658,6 +674,7 @@ function paraAcordao(tribunal: string, x: Bruto, paradigmas: readonly ParadigmaD
     semNumero: !numeroDeVerdade,
     numeroCnj: texto(x.numero_processo_cnj),
     classe: texto(x.classe_processual),
+    avisoDeClasse: duvida && avisoDeClasse(duvida),
     relator: texto(x.relator),
     orgao: texto(x.orgao_julgador),
     dataJulgamento: data(x.data_julgamento),
@@ -672,7 +689,7 @@ function paraAcordao(tribunal: string, x: Bruto, paradigmas: readonly ParadigmaD
     relevancia: numeroOuNada(x.rerank_score) ?? numeroOuNada(x.score),
   });
   const enquadramento927 = enquadrarAcordao(
-    { ...acordao, siglaClasse: sigla, numeroTema: texto(x.numero_tema) },
+    { ...acordao, siglaClasse: sigla, numeroTema: texto(x.numero_tema), duvidaDaClasse: duvida },
     { paradigmas },
   );
   return { ...acordao, enquadramento927 };
