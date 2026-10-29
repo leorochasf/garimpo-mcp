@@ -8,6 +8,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { Cliente, PausaPreventivaError, RecusaError, VERSAO } from "./cliente.js";
 import { buscaDireta, conferirDadosDoAcordao, ementaAparentementeIncompleta } from "./busca.js";
+import { limparEmenta } from "./ementaLimpa.js";
 import { buscaAmpla, expandirAgrupadorTrt, type ResultadoAmplo } from "./ampla.js";
 import {
   type CoordenacaoEmArquivo,
@@ -230,6 +231,11 @@ const AVISO_NATUREZA_JURIDICA =
 const AVISO_CITACAO_NA_EMENTA_CORTADA =
   "A ementa parece ter vindo incompleta do JurisprudênciaIA (termina no meio da frase): a citação pode estar no " +
   "trecho que faltou. Confira no inteiro teor.";
+
+/** Ementa que não se separou com segurança do resto do campo da base (ementaLimpa.ts): nunca «encontrado na ementa». */
+const AVISO_CITACAO_NA_EMENTA_INCERTA =
+  "A ementa deste acórdão não pôde ser separada com segurança do resto do campo da base do JurisprudênciaIA (o " +
+  "texto pode ter parte do relatório ou do voto): o Garimpo não diz se a citação está na ementa. Confira no inteiro teor.";
 
 /** Aviso de natureza jurídica das respostas que vêm da tabela de precedentes (fotografia, não consulta ao vivo). */
 const AVISO_DA_TABELA =
@@ -493,7 +499,10 @@ export function criarServidor(
       description:
         "Pesquisa jurisprudência (decisões judiciais publicadas) num tribunal pela busca direta do JurisprudênciaIA " +
         "(sem o chat de IA do site). " +
-        "Devolve acórdãos com a ementa como veio do site (avisoDeEmenta quando ela parece cortada pelo próprio site), " +
+        "Devolve acórdãos com a ementa do site, só ela: quando o campo da base traz também o cabeçalho com nomes das " +
+        "partes, a decisão inteira ou a ementa repetida, vai só o trecho da ementa, sem reescrever, e avisoDeEmenta diz " +
+        "isso (avisoDeEmenta também quando ela parece cortada pelo próprio site; avisoDeData quando cópias juntadas do " +
+        "mesmo acórdão trazem datas de julgamento diferentes), " +
         "número, órgão, data e link oficial (avisoDeLink quando o site mandou, no lugar do link, um endereço que não é " +
         "página do tribunal), e, em lista separada, os " +
         "precedentes qualificados (temas, súmulas). O site costuma devolver poucos acórdãos do STF por busca (de 2 a 7 na medição de out/2026). " +
@@ -650,7 +659,10 @@ export function criarServidor(
     {
       title: "Obter ementa",
       description:
-        "Devolve a ementa como veio do site (avisoDeEmenta quando ela parece cortada pelo próprio site) e os dados de " +
+        "Devolve a ementa do site, só ela: quando o campo da base traz também o cabeçalho com nomes das partes, a " +
+        "decisão inteira ou a ementa repetida, vai só o trecho da ementa, sem reescrever, e avisoDeEmenta diz isso " +
+        "(avisoDeEmenta também quando ela parece cortada pelo próprio site; avisoDeData quando cópias juntadas do mesmo " +
+        "acórdão trazem datas de julgamento diferentes) e os dados de " +
         "um acórdão já devolvido por busca_direta ou busca_ampla, pelo id " +
         "(ex.: \"stj:12345\"), com o mesmo enquadramento927 e o mesmo avisoDeLink da busca e a data e hora em que foi obtido do site " +
         "(obtidoDoSite). A memória do Garimpo guarda os acórdãos por 24 h desde a busca, para todas as janelas " +
@@ -886,11 +898,16 @@ export function criarServidor(
           const a = (await memoria.obter(id))?.acordao;
           const doFalcao = ehDoFalcao(id.split(":")[0]);
           const doPortal = ehTextoDoPortal(id);
-          const conferida = a
-            ? conferirNaEmenta(a.ementa, lida, doFalcao ? "Sem ementa no Falcão: não há ementa para conferir." : undefined)
-            : naoVerificavel(`O acórdão ${id} não está na memória do Garimpo. Refaça a busca que o trouxe e confira de novo.`);
+          // A memória de antes da ementa limpa (até 24 h) guarda o campo inteiro: a limpeza vale também para ela.
+          const limpa = a && !doFalcao ? limparEmenta(a.tribunal, a.ementa) : undefined;
+          const ementa = limpa?.ementa ?? a?.ementa ?? "";
+          const conferida = !a
+            ? naoVerificavel(`O acórdão ${id} não está na memória do Garimpo. Refaça a busca que o trouxe e confira de novo.`)
+            : a.ementaIncerta || limpa?.separacaoIncerta
+              ? naoVerificavel(AVISO_CITACAO_NA_EMENTA_INCERTA)
+              : conferirNaEmenta(ementa, lida, doFalcao ? "Sem ementa no Falcão: não há ementa para conferir." : undefined);
           const cortada =
-            a && !doFalcao && conferida.veredito === "não encontrado" && ementaAparentementeIncompleta(a.ementa)
+            a && !doFalcao && conferida.veredito === "não encontrado" && ementaAparentementeIncompleta(ementa)
               ? { aviso: AVISO_CITACAO_NA_EMENTA_CORTADA }
               : {};
           fontes.push({ fonte: "ementa", id, ...conferida, ...cortada });
