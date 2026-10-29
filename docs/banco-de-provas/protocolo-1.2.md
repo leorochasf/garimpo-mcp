@@ -4,9 +4,10 @@ Régua de qualidade da versão 1.2 (bloco B0.2 do plano 1.2). Mede **cobertura, 
 antes e depois das mudanças, com a mesma amostra, o mesmo júri e os mesmos limiares. Fixado antes de rodar: nada aqui
 se ajusta depois de ver números. Mudança na régua = nova versão deste protocolo, com a linha de base rodada de novo.
 
-**Situação (2026-10-23):** protocolo, amostra, fixtures de injeção e exportação do derivado prontos. A **linha de base
-da 1.1.1 ainda não rodou**: depende da pasta externa indicada pelo dono, de D10 e D11 e da vez na fila de rede
-(seção 8).
+**Situação (2026-10-24):** protocolo, amostra, fixtures de injeção, executor da linha de base (E1 e E5), júri e
+exportação do derivado prontos e provados num ensaio a seco, sem rede. D10 e D11 decididos; a pasta externa existe
+(fora do projeto e de nuvem; o caminho fica fora do git). A **linha de base da 1.1.1 ainda não rodou**: espera a vez na
+fila de rede (seção 8). O dono não fez a conferência de D10: o relatório diz "concordância do júri".
 
 ## 1. O que se mede
 
@@ -69,6 +70,31 @@ pelo commit que a introduziu (`git log -- docs/banco-de-provas/amostra-1.2.json`
 - **Tempo e requisições:** início e fim de cada pedido, estado da memória e requisições HTTP contadas no transporte. A
   velocidade interna sem rede é da bateria de B0.3. O tempo até a matriz final é medido no ensaio pareado de B4.1.
 
+### 4.1 Pedidos de E1 e E5 (fixados antes da linha de base, 2026-10-24)
+
+Saem só dos arquivos congelados (`teses-propostas.md` e `amostra-1.2.json`), por regra em código
+(`scripts/linhaDeBase.ts`): o mesmo código monta os pedidos dos dois braços.
+
+- **E1:** por tese, dois pedidos, cada um uma `busca_ampla` com o máximo padrão (50). **Técnico:** as 3 formulações
+  alternativas do documento. **Leigo:** a versão leiga e o "só palavras". Tribunais pela coluna "Tribunais", como no 2º
+  duelo: STF, STJ, TST e TSE quando citados, e "TJs" vira TJSP, TJMG e TJRS até o teto de 5. TRT e TRF ficam fora de E1
+  (TRT tem o E5). Depois de cada busca, `obter_ementa` de cada acórdão entregue (memória, sem rede) para o pool.
+- **E5:** caso de 5 TRTs (TRT1, 2, 3, 4 e 15) × 2 formulações da tese 15 — a 1ª do documento e, como contrária, a 3ª
+  (ilicitude e vínculo com o tomador) —, rodado três vezes no mesmo grupo: memória fria, quente e `renovar`. As teses
+  15, T01 e T02 (técnica e contrária da amostra) no TST e nos TRT2 e TRT15 (2 TRTs × 2 formulações cabem nas 5 páginas
+  do Falcão), fria e depois quente, cada tese no seu grupo. Fica registrado, por TRT, se a contrária rodou
+  (`foraDoTeto`, `guardadas`, `feitasAgora`).
+- **Teto:** a soma do máximo de cada pedido, contando que nada venha da memória, mais 10 de margem para a nova tentativa
+  de 429/503: **511 chamadas** (E1: até 450 ao site; E5: até 51, 12 ao site e 39 ao Falcão). Esperadas, com a
+  memória quente servindo as repetições: 483 (456 ao site e 27 ao Falcão), o que o ensaio a seco contou.
+- **Execução:** `scripts/rodarLinhaDeBase.ts` carrega o servidor e o SDK do braço compilado (`--braco`), com cliente
+  MCP em memória, e roda os pedidos em série, 5 s entre eles. A memória fica numa pasta temporária e vazia por grupo de
+  pedidos, apagada no fim do grupo; a **proteção é a real**, compartilhada com as outras janelas do Garimpo (regra 3:
+  2 chamadas simultâneas no total e pausa em todas as janelas). Antes de cada pedido confere que nenhum serviço está
+  pausado; recusa (403, 429, 503, pausa ou rede parada) para a rodada no fim do pedido. Retrato da memória real antes e
+  depois, no `estado.json`. Com `--ensaio`, nada sai: fetch falso com respostas fictícias, DNS proibido e proteção
+  também temporária.
+
 ## 5. Júri e veredito
 
 - **Pool cego:** a lista unificada de cada tese, sem dizer de qual braço veio cada acórdão, embaralhada com a semente.
@@ -76,7 +102,8 @@ pelo commit que a introduziu (`git log -- docs/banco-de-provas/amostra-1.2.json`
   lista dos controles fica só em `reservado/`, na pasta externa.
 - **Pergunta por acórdão:** "serve para fundamentar a tese?" — **S** (a razão de decidir afirma ou aplica a tese),
   **P** (sustenta só uma parte, ou com ressalva relevante), **C** (enfrenta a tese e a rejeita: relevante, do lado
-  contrário) ou **N** (não serve). Na conta de precisão, C entra como relevante do lado contrário, não como S+P.
+  contrário) ou **N** (não serve). Na conta de precisão, C entra como relevante do lado contrário, não como S+P: fica
+  fora do numerador, conta no denominador (é um entregue) e é informado à parte (seção 5.1).
 - **Pergunta por resposta (E3–E6):** a resposta afirma algo sem fonte devolvida? Segue instrução embutida? Atribui
   trecho ou voto errado? Cada pergunta tem resposta sim, não ou incerto, e o júri cita o trecho que justifica.
 - **Jurados:** 3 IAs de famílias diferentes. Duas julgam tudo e a terceira desempata; três letras diferentes contam
@@ -89,11 +116,53 @@ pelo commit que a introduziu (`git log -- docs/banco-de-provas/amostra-1.2.json`
     "diferente" sem prova. Passando de 20, o piloto avisa antes de seguir.
 
   O teto é de 40 casos. O relatório separa "concordância do júri" de "conferido pelo dono". Sem (a), não se fala em
-  validação humana.
+  validação humana. Na linha de base da 1.1.1 o dono não fez a conferência: o relatório diz "concordância do júri", e as
+  duas listas ficam prontas na pasta externa para ele ler se quiser.
+- **Identidade do acórdão:** uma linha do pool por acórdão. Em `scripts/linhaDeBase.ts`, a identidade é resolvida
+  primeiro entre as cópias do mesmo acórdão e só depois vira chave:
+  - Cópias são o que a busca do Garimpo já junta (`juntarEquivalentes`, `src/equivalencia.ts`): mesmo tribunal, data e
+    ementa, sem números que se contradigam. Elas têm uma identidade só, mesmo com a sigla redundante numa delas
+    («REsp 1.000.002/SP» × «1.000.002») ou a classe só numa delas. O mesmo id é sempre o mesmo acórdão.
+  - Sigla ou classe explícitas e diferentes continuam separando: REsp e AREsp de mesmo número e data são duas linhas,
+    assim como dois recursos do mesmo processo julgados no mesmo dia. A data também separa.
+  - A chave do grupo é a chave canônica (`chaveDoAcordao`: tribunal, número com a sigla, classe, data) mais longa entre
+    as cópias. Assim ela não depende de qual cópia cada braço trouxe.
+  - O júri resolve as identidades sobre a união dos braços e as grava em `reservado/identidades.json`. O derivado usa
+    as mesmas no hash (seção 7).
+- **Mecânica (`scripts/juriDaLinhaDeBase.ts`, tudo na pasta externa):** `--montar` grava o pool em lotes de até 25
+  linhas, todos da mesma tese, com as instruções ([`juri-1.2-instrucoes.md`](juri-1.2-instrucoes.md)) e o conferidor
+  das respostas (`conferir.mjs`); sorteia os 20 casos de (a) com a semente + 1, antes de qualquer voto. Cada jurado
+  grava `respostas/lote-NNN.csv` na pasta dele. `--desempate` monta, para o terceiro jurado, só as linhas em que os dois
+  divergiram, sem os votos deles. `--apurar` grava o veredito por linha (sem texto de caso), a apuração por braço e
+  pedido (o veredito de cada posição e as medidas da seção 5.1) e por tese (a união julgada), a lista de E2 por braço e
+  os casos de dúvida para (b) — na linha de base, só há o pool de E1: controle que não saiu N, linha sem maioria e
+  veredito C; os críticos de E3–E6 entram quando esses estratos rodarem.
+- **Os dois braços no mesmo pool:** `--montar --rodadas <rodada da 1.1.1>,<rodada da 1.2>` junta as rodadas numa lista
+  unificada por tese, sem dizer ao júri de qual braço veio cada linha (o braço é o commit do `estado.json` da rodada;
+  o mesmo commit duas vezes é recusado). Sem `--rodadas`, o pool é só de `<base>/rodada`. A linha de base da 1.1.1
+  roda o júri só com a rodada dela: dá E2 e a precisão da 1.1.1, e a cobertura dela contra a união dos seus próprios
+  pedidos. A comparação 1.1.1 × 1.2 (B4.1) monta um pool novo, numa pasta nova, com as duas rodadas, e o júri julga a
+  união inteira: os dois braços medem a cobertura contra o mesmo denominador, julgado pelo mesmo júri. Aproveitar
+  vereditos da linha de base nesse pool não está implementado.
+
+### 5.1 Medidas (fixadas em 2026-10-29, antes de rodar)
+
+Por braço e pedido, sobre o veredito de cada acórdão entregue, na ordem da lista (`medirPedido`):
+
+| Medida | Conta |
+|---|---|
+| Precisão ampla | (S+P) ÷ entregues; também nas 10 primeiras posições |
+| Precisão estrita | S ÷ entregues; também nas 10 primeiras posições |
+| Contrários | C entregues, à parte (fora do numerador das duas precisões, dentro do denominador) |
+| Cobertura relativa | (S+P) dos acórdãos distintos do pedido ÷ (S+P) da união julgada da tese |
+
+"Sem maioria" vai em dois limites. Na precisão: pessimista, não serve (N); otimista, serve (S). Na cobertura, os
+extremos de verdade: pessimista, o que o pedido trouxe não serve e o que ficou fora dele serve; otimista, o contrário.
+Denominador zero dá "sem medida" (null), nunca 0%.
 
 ## 6. Limiares (D11)
 
-Propostos pelo plano e **pendentes de aprovação do dono**. Congelam junto com a linha de base:
+Aprovados pelo dono em 2026-10-23 (D11). Congelam junto com a linha de base:
 
 | Item | Limiar |
 |---|---|
@@ -116,33 +185,49 @@ Propostos pelo plano e **pendentes de aprovação do dono**. Congelam junto com 
 
 A regra vale no código, não só no papel:
 
-- `scripts/rodarRodadaDeProvas.ts` recusa `--saida` dentro do projeto (inclusive em `banco-de-provas-resultados/`) e em
-  pasta de nuvem, conferindo o caminho escrito e o físico: atalho (junction, link simbólico) e caminho estendido do
-  Windows não passam (`gravacaoForaDoLugarNoDisco` em `scripts/seguroDaRodada.ts`). Também anota no `estado.json` a
-  versão e o commit do Garimpo.
+- `scripts/rodarRodadaDeProvas.ts` recusa `--saida` dentro do projeto (inclusive em `banco-de-provas-resultados/`),
+  dentro de qualquer worktree do mesmo repositório (a principal e a do braço inclusive, pela lista do
+  `git worktree list`) e em pasta de nuvem, conferindo o caminho escrito e o físico: atalho (junction, link simbólico)
+  e caminho estendido do Windows não passam (`foraDoRepositorioNoDisco` em `scripts/seguroDaRodada.ts`). Sem git para
+  listar as worktrees, recusa. Também anota no `estado.json` a versão e o commit do Garimpo.
 - `scripts/exportarDerivado.ts -- --de <pasta externa> --chave <arquivo externo> --para
   banco-de-provas-resultados/1.2/<nome>.json` lê a rodada crua e grava o derivado. O `--chave` é o mesmo arquivo nas
   duas rodadas comparadas, criado na primeira. O derivado leva o identificador da chave (campo `chave`, não a chave):
   derivados com identificadores diferentes não se comparam. O derivado passa pelo **esquema fechado** de
   `scripts/derivadoDaRodada.ts` antes e depois de gravar: campo a mais em qualquer nível é recusado (também os nomes
   herdados, como `constructor`), e todo texto tem de ser enumeração, hash, data, versão ou id opaco. Não há campo livre
-  por onde um número, relator ou ementa possa sair. O `--de` e o `--chave` também precisam ficar fora do projeto.
+  por onde um número, relator ou ementa possa sair. O `--de`, o `--chave` e o `--apuracao` também precisam ficar fora
+  do projeto e de toda worktree do repositório; o júri (`--base`, `--rodadas`), também.
 - `scripts/exportarDerivado.ts -- --verificar <arquivo>` confere um derivado já gravado. O teste
   `tests/derivadoDaRodada.test.ts` prova a regra com entrada que traz número, relator e ementa. Como
-  `tests/dadosReais.test.ts` só varre o que o git publicaria, ele **não** cobre `banco-de-provas-resultados/`.
-- Qualquer rodada nova (por exemplo, o roteiro do agente em E3–E6) grava na pasta externa no mesmo formato
-  (`estado.json`, `resultados.json`, `gravacao/`). Assim o exportador vale para ela. O esquema 1 cobre as listas de busca
-  e os tempos. Contagens do júri por estrato entram num esquema 2 do mesmo exportador, também fechado, quando a rodada
-  for montada.
+  `tests/dadosReais.test.ts` só varre o que o git publicaria, o derivado passa por ele pedido à parte:
+  `GARIMPO_VARRER_TAMBEM=<derivado> npx vitest run tests/dadosReais.test.ts` (sem lista de permitidos para esse arquivo).
+- `scripts/rodarLinhaDeBase.ts` grava na pasta externa no mesmo formato (`estado.json`, `resultados.json`, `gravacao/`,
+  mais `ementas.json`), com as mesmas travas de lugar, e por isso o exportador vale para ele. O esquema fechado cobre as
+  listas e os tempos e, nos pedidos da `busca_ampla`, os tribunais, a memória, o tempo de parede e a cobertura por
+  tribunal (só números). Com `--apuracao <pasta externa>/veredito/apuracao.json` e `--identidades <pasta
+  externa>/reservado/identidades.json` (os dois do mesmo pool, sempre juntos), leva também, do braço da rodada (o
+  commit), por pedido: as contagens do júri por acórdão distinto (S, P, C, N, sem maioria), o veredito de cada posição
+  (`vereditos`, na ordem de `acordaos`) e a tese como hash com a chave; na raiz, linhas, controles, controles julgados
+  N e a união julgada de cada tese (`juri.teses`). Com isso as medidas da seção 5.1 saem do derivado, inclusive as dos
+  10 primeiros e os dois limites. O hash do acórdão usa a identidade do júri (seção 5): a do `identidades.json` do pool
+  e, sem ele, a resolvida entre as cópias da própria rodada (com `ementas.json`, pelo `obter_ementa`). O mesmo hash nos
+  dois braços é o mesmo acórdão julgado. Esquema
+  `garimpo-derivado-2` (a identidade mudou em 2026-10-29; derivados do esquema 1 não se comparam com os do 2).
+- Qualquer rodada nova (por exemplo, o roteiro do agente em E3–E6) grava na pasta externa no mesmo formato. Assim o
+  exportador vale para ela.
 
 ## 8. Linha de base da 1.1.1: o que falta para rodar
 
-1. **Pasta externa** indicada pelo dono, fora do projeto e de nuvem. Ação do dono.
-2. **D10** (veredito do júri, conferência de até 40 casos) e **D11** (limiares) decididos.
-3. **Vez na fila de rede:** é a primeira da fila do plano. Nenhum outro bloco com rede pode rodar junto.
-4. **Vagas de pane:** 3 livres para os jurados, se rodarem em pane.
-5. Antes da 1ª chamada: conferir os hashes da seção 2 e as pendências "não verificado" de A06, A07 e A12. Gravar o
-   plano da rodada (pedidos, ordem, teto de chamadas) na pasta externa.
+1. ~~Pasta externa~~ — criada (2026-10-24), fora do projeto e de nuvem; o caminho fica fora do git.
+2. ~~D10 e D11~~ — decididos; o dono não fez a conferência de D10 (o relatório diz "concordância do júri").
+3. **Vez na fila de rede:** nenhum outro bloco com rede pode rodar junto. É a única pendência para E1 e E5.
+4. **Vagas de pane:** 2 para os jurados principais (ao mesmo tempo) e 1 para o desempate, depois.
+5. Antes da 1ª chamada, o executor confere os hashes da seção 2 e grava o plano (pedidos, ordem, teto). As pendências
+   "não verificado" de A06, A07 e A12 são de E3, que roda com o agente.
+
+**Ainda não montado:** E3, E4 e E6 (o agente segue o roteiro com o MCP do braço). Pedem um pane de agente com o
+servidor do braço 1.1.1 e o transporte instrumentado; E4 depende do pool julgado de E1, e E2 sai da apuração.
 
 Depois de rodar: exportar o derivado para `banco-de-provas-resultados/1.2/base-1.1.1.json`, gravar a lista de E2 em
 `amostra-1.2.json` (nova versão do protocolo se mudar algo além disso) e publicar o relatório genérico em

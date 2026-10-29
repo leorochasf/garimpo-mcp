@@ -128,7 +128,7 @@ export function cortarEmPalavra(texto: string, maximo = TAMANHO_MAXIMO_DA_BUSCA)
 }
 
 /** Gerador pseudoaleatório fixo (mulberry32): mesma semente, mesmo sorteio. */
-function sorteio(semente: number): () => number {
+export function sorteio(semente: number): () => number {
   let a = semente >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;

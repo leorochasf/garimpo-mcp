@@ -3,6 +3,7 @@
  * lugar da gravação crua, o fetch gravador (sem redirecionamento automático) e o critério de rodada completa.
  */
 
+import { execFileSync } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 
@@ -59,6 +60,35 @@ export function gravacaoForaDoLugarNoDisco(pasta: string, raizDoProjeto: string)
   return gravacaoForaDoLugar(pasta, raizDoProjeto) ?? gravacaoForaDoLugar(caminhoFisico(pasta), caminhoFisico(raizDoProjeto));
 }
 
+/** As pastas de todas as worktrees do repositório de `raiz` (a principal e as outras), como o git as lista. */
+export function worktreesDoRepositorio(raiz: string): string[] {
+  const saida = execFileSync("git", ["worktree", "list", "--porcelain"], { cwd: raiz, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  return saida
+    .split(/\r?\n/)
+    .filter((l) => l.startsWith("worktree "))
+    .map((l) => l.slice("worktree ".length));
+}
+
+/**
+ * gravacaoForaDoLugarNoDisco contra o projeto e contra CADA worktree do mesmo repositório, a principal inclusive
+ * (B02-R03): com o script numa worktree e o braço noutra, uma terceira cópia do repositório também é o projeto. Sem git
+ * para listar as worktrees, recusa.
+ */
+export function foraDoRepositorioNoDisco(pasta: string, raizDoProjeto: string): string | undefined {
+  const doProjeto = gravacaoForaDoLugarNoDisco(pasta, raizDoProjeto);
+  if (doProjeto) return doProjeto;
+  let worktrees: string[];
+  try {
+    worktrees = worktreesDoRepositorio(raizDoProjeto);
+  } catch {
+    return "não deu para listar as worktrees do repositório pelo git: sem isso, a trava não sabe onde estão as outras cópias do projeto.";
+  }
+  for (const w of worktrees)
+    if (gravacaoForaDoLugarNoDisco(pasta, w))
+      return `a gravação crua não pode ficar dentro de outra worktree do repositório (${w}): use uma pasta externa e exporte o derivado.`;
+  return undefined;
+}
+
 export interface Registro {
   seq: number;
   consulta: string;
@@ -100,7 +130,8 @@ export function criarGravador(d: DependenciasDoGravador) {
     const host = new URL(u).host;
     d.hosts.set(host, (d.hosts.get(host) ?? 0) + 1);
     const consulta = d.consultaAtual();
-    const r: Registro = { seq: ++seq, consulta, tribunal: m[1], corpoEnviado: String(init.body), inicio: new Date().toISOString() };
+    // Rota sem tribunal no caminho (o Falcão leva o TRT no corpo): fica o host.
+    const r: Registro = { seq: ++seq, consulta, tribunal: m[1] ?? host, corpoEnviado: String(init.body), inicio: new Date().toISOString() };
     const t0 = performance.now();
     try {
       const resposta = await d.fetch(url, { ...init, redirect: "error" });

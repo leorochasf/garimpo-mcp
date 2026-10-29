@@ -8,13 +8,19 @@
  * vazar. `tests/dadosReais.test.ts` não cobre a pasta (ignorada pelo git), por isso a defesa é esta.
  *
  * Hash = HMAC-SHA-256 com a chave guardada fora do projeto: sem a chave, o hash de um número de processo não se
- * descobre testando números. A mesma chave em rodadas diferentes permite comparar listas (1.1.1 × 1.2).
+ * descobre testando números. A mesma chave em rodadas diferentes permite comparar listas (1.1.1 × 1.2). O acórdão entra
+ * no hash pela identidade do júri (tribunal, número, classe e data do julgamento, resolvida entre as cópias do mesmo
+ * acórdão), então o mesmo hash é o mesmo acórdão julgado, nos dois braços.
+ *
+ * Esquema 2 (B0.2, revisão B02-R02/R04): a identidade do acórdão mudou (era tribunal + número), e o júri passou a ir
+ * por posição. Derivados do esquema 1 não se comparam com os do 2.
  */
 
 import { createHmac } from "node:crypto";
 import { SIGLAS } from "../src/tribunais.js";
+import { acordaoDoItem, chaveDoItem, type Ementas, identidadesPorId, type ItemEntregue } from "./linhaDeBase.js";
 
-export const ESQUEMA = "garimpo-derivado-1";
+export const ESQUEMA = "garimpo-derivado-2";
 
 /** O que a pasta externa tem: estado.json, resultados.json e os registros de gravacao/ (ver rodarRodadaDeProvas.ts). */
 export interface RodadaCrua {
@@ -22,6 +28,33 @@ export interface RodadaCrua {
   resultados: Record<string, any>[];
   /** O registro cru traz também corpo enviado e resposta; daqui só se lê consulta e tempo. */
   registros: { consulta: string; ms?: number; status?: number; [campo: string]: unknown }[];
+  /** ementas.json da linha de base (E1): a identidade do acórdão sai do obter_ementa, como no júri. */
+  ementas?: Ementas;
+  /**
+   * reservado/identidades.json do pool do júri (id do acórdão → identidade resolvida entre as cópias da união dos
+   * braços): com ele, a mesma cópia ou outra do mesmo acórdão dá o mesmo hash nos dois braços.
+   */
+  identidades?: Record<string, string>;
+}
+
+/** Linha do cabeçalho de cobertura da busca_ampla, só os números: diz, por TRT, se a contrária rodou (E5). */
+export interface CoberturaDerivada {
+  tribunal: string;
+  buscasFeitas: number;
+  vazias: number;
+  comErro: number;
+  foraDoTeto: number;
+  guardadas: number;
+  feitasAgora: number;
+}
+
+/** Vereditos do júri (scripts/juriDaLinhaDeBase.ts) entre os acórdãos que a consulta trouxe; controles fora. */
+export interface ContagemDerivada {
+  S: number;
+  P: number;
+  C: number;
+  N: number;
+  semMaioria: number;
 }
 
 export interface ConsultaDerivada {
@@ -29,13 +62,31 @@ export interface ConsultaDerivada {
   hashDoId: string;
   fase: string;
   versao?: string;
-  tribunal: string;
+  /** Um tribunal (busca direta) ou, na busca_ampla, a lista `tribunais`: um dos dois. */
+  tribunal?: string;
+  tribunais?: string[];
+  memoria?: string;
   chamadas: number;
   mostrados: number;
   posicao?: number;
   ms: number;
+  /** Tempo de parede da ferramenta inteira (a soma de `ms` é só o tempo das requisições). */
+  msParede?: number;
   erro: boolean;
   acordaos: string[];
+  cobertura?: CoberturaDerivada[];
+  /** Por acórdão distinto que a consulta trouxe: o numerador da cobertura relativa. */
+  juri?: ContagemDerivada;
+  /** O veredito do júri de cada acórdão, na mesma ordem de `acordaos` (a posição dá os 10 primeiros). */
+  vereditos?: string[];
+  /** A tese do pedido, como hash com a chave: reúne os pedidos da tese e a união julgada dela (`juri.teses`). */
+  tese?: string;
+}
+
+/** A união julgada de uma tese (todos os braços do pool): o denominador da cobertura relativa. */
+export interface TeseDerivada {
+  tese: string;
+  uniao: ContagemDerivada;
 }
 
 export interface Derivado {
@@ -54,11 +105,27 @@ export interface Derivado {
     consultas: number;
   };
   consultas: ConsultaDerivada[];
+  /**
+   * Só com a apuração do júri: linhas do pool, controles negativos e quantos o júri julgou N, linhas sem maioria, e a
+   * união julgada de cada tese.
+   */
+  juri?: { linhas: number; controles: number; controlesN: number; semMaioria: number; teses: TeseDerivada[] };
+}
+
+/** A apuração do júri como scripts/juriDaLinhaDeBase.ts grava (veredito/apuracao.json), só o que o derivado lê. */
+export interface ApuracaoDoJuri {
+  linhas: number;
+  controles: { total: number; julgadosN: number };
+  semMaioria: number;
+  /** Pelo braço (o commit da rodada) e pelo id do pedido. */
+  porBraco: Record<string, { porPedido: Record<string, { distintos?: Partial<ContagemDerivada>; vereditos?: unknown[] }> }>;
+  porTese: Record<string, Partial<ContagemDerivada>>;
 }
 
 /** Fases das rodadas existentes e estratos do protocolo 1.2 (docs/banco-de-provas/protocolo-1.2.md). */
 const FASES = new Set(["paradigma", "tese", "verificacao", "armadilha", "distinguishing", "unilateral", "trt", "injecao"]);
 const VERSOES = new Set(["tecnica", "leiga", "palavras", "contraria"]);
+const MEMORIAS = new Set(["fria", "quente", "renovar"]);
 const TRIBUNAIS = new Set([...SIGLAS, "tcu"]);
 
 const HEX64 = /^[0-9a-f]{64}$/;
@@ -68,45 +135,82 @@ const VERSAO = /^\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 const COMMIT = /^[0-9a-f]{7,40}$/;
 const DATA_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/;
 
-const inteiro = (v: unknown) => (typeof v === "number" && Number.isInteger(v) && v >= 0 ? v : 0);
+/** O veredito do júri como o derivado leva ("sem maioria" da apuração vira `semMaioria`). */
+const VEREDITOS = new Set(["S", "P", "C", "N", "semMaioria"]);
 
-/** CNJ vira só os 20 dígitos; o resto, classe + número sem acento, pontuação nem UF ("REsp 1.234.567/SP" → "resp1234567"). */
-function normalizarNumero(numero: string): string {
-  const digitos = numero.replace(/\D/g, "");
-  if (digitos.length === 20) return digitos;
-  return numero
-    .replace(/\/[A-Za-z]{2}\s*$/, "")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
-}
+const inteiro = (v: unknown) => (typeof v === "number" && Number.isInteger(v) && v >= 0 ? v : 0);
+const contagem = (c: Partial<ContagemDerivada> = {}): ContagemDerivada => ({
+  S: inteiro(c.S),
+  P: inteiro(c.P),
+  C: inteiro(c.C),
+  N: inteiro(c.N),
+  semMaioria: inteiro(c.semMaioria),
+});
 
 function enumeracao(nome: string, valor: unknown, aceitos: ReadonlySet<string>): string {
   if (typeof valor !== "string" || !aceitos.has(valor)) throw new Error(`derivado: ${nome} fora da lista aceita; nada foi exportado`);
   return valor;
 }
 
-export function exportarDerivado(crua: RodadaCrua, chave: string, meta: { versaoDoGarimpo: string; commit: string }): Derivado {
+export function exportarDerivado(
+  crua: RodadaCrua,
+  chave: string,
+  meta: { versaoDoGarimpo: string; commit: string },
+  apuracao?: ApuracaoDoJuri,
+): Derivado {
   if (!HEX64.test(chave)) throw new Error("derivado: a chave precisa de 64 dígitos hexadecimais (32 bytes)");
   const hash = (texto: string) => createHmac("sha256", Buffer.from(chave, "hex")).update(texto).digest("hex");
   const msPorConsulta = new Map<string, number>();
   for (const r of crua.registros) msPorConsulta.set(r.consulta, (msPorConsulta.get(r.consulta) ?? 0) + inteiro(r.ms));
+
+  const doBraco = apuracao && apuracao.porBraco[meta.commit];
+  if (apuracao && !doBraco) throw new Error(`derivado: a apuração do júri não tem o braço ${meta.commit} desta rodada; nada foi exportado`);
+  // O acórdão entra no hash pela identidade do júri (tribunal, número, classe, data; com ementas.json, a do
+  // obter_ementa), resolvida entre as cópias: as do pool do júri (a união dos braços), se vierem, senão as desta rodada.
+  const ementas = crua.ementas ?? {};
+  const itemDe = (r: Record<string, any>, n: unknown, j: number): ItemEntregue => {
+    const item = Array.isArray(r.acordaos) ? r.acordaos[j] : undefined;
+    return { ...item, numero: String(n), tribunal: String(item?.tribunal || r.tribunal || "") };
+  };
+  const itens = crua.resultados.flatMap((r) => (Array.isArray(r.numeros) ? r.numeros : []).map((n: unknown, j: number) => itemDe(r, n, j)));
+  const identidades = new Map([...identidadesPorId(itens.map((item) => acordaoDoItem(item, ementas))), ...Object.entries(crua.identidades ?? {})]);
+  const hashDoAcordao = (r: Record<string, any>, n: unknown, j: number) => hash(`acordao:${chaveDoItem(itemDe(r, n, j), ementas, identidades)}`);
 
   const consultas = crua.resultados.map((r, i): ConsultaDerivada => {
     const c: ConsultaDerivada = {
       id: `c${String(i + 1).padStart(3, "0")}`,
       hashDoId: hash(`id:${String(r.id)}`),
       fase: enumeracao("fase", r.fase, FASES),
-      tribunal: enumeracao("tribunal", r.tribunal, TRIBUNAIS),
       chamadas: inteiro(r.chamadas),
       mostrados: inteiro(r.mostrados),
       ms: msPorConsulta.get(String(r.id)) ?? 0,
       erro: r.erro !== undefined,
-      acordaos: (Array.isArray(r.numeros) ? r.numeros : []).map((n: unknown) => hash(`acordao:${normalizarNumero(String(n))}`)),
+      acordaos: (Array.isArray(r.numeros) ? r.numeros : []).map((n: unknown, j: number) => hashDoAcordao(r, n, j)),
     };
+    if (Array.isArray(r.tribunais)) c.tribunais = r.tribunais.map((t: unknown) => enumeracao("tribunal", t, TRIBUNAIS));
+    else c.tribunal = enumeracao("tribunal", r.tribunal, TRIBUNAIS);
     if (r.versao !== undefined) c.versao = enumeracao("versao", r.versao, VERSOES);
+    if (r.memoria !== undefined) c.memoria = enumeracao("memoria", r.memoria, MEMORIAS);
     if (typeof r.posicao === "number") c.posicao = inteiro(r.posicao);
+    if (typeof r.msParede === "number") c.msParede = inteiro(Math.round(r.msParede));
+    if (Array.isArray(r.cobertura))
+      c.cobertura = r.cobertura.map((t: Record<string, unknown>) => ({
+        tribunal: enumeracao("tribunal", t.tribunal, TRIBUNAIS),
+        buscasFeitas: inteiro(t.buscasFeitas),
+        vazias: inteiro(t.vazias),
+        comErro: inteiro(t.comErro),
+        foraDoTeto: inteiro(t.foraDoTeto),
+        guardadas: inteiro(t.guardadas),
+        feitasAgora: inteiro(t.feitasAgora),
+      }));
+    if (r.tese !== undefined) c.tese = hash(`tese:${String(r.tese)}`);
+    const doJuri = doBraco?.porPedido[String(r.id)];
+    if (doJuri?.distintos) c.juri = contagem(doJuri.distintos);
+    if (Array.isArray(doJuri?.vereditos)) {
+      c.vereditos = doJuri.vereditos.map((v) => enumeracao("veredito", v === "sem maioria" ? "semMaioria" : v, VEREDITOS));
+      if (c.vereditos.length !== c.acordaos.length)
+        throw new Error(`derivado: ${c.id} tem ${c.vereditos.length} vereditos para ${c.acordaos.length} acórdãos; nada foi exportado`);
+    }
     return c;
   });
 
@@ -121,6 +225,14 @@ export function exportarDerivado(crua: RodadaCrua, chave: string, meta: { versao
   };
   if (e.terminadoEm !== undefined) rodada.terminadoEm = String(e.terminadoEm);
   const derivado: Derivado = { esquema: ESQUEMA, versaoDoGarimpo: meta.versaoDoGarimpo, commit: meta.commit, chave: hash("chave").slice(0, 16), rodada, consultas };
+  if (apuracao)
+    derivado.juri = {
+      linhas: inteiro(apuracao.linhas),
+      controles: inteiro(apuracao.controles.total),
+      controlesN: inteiro(apuracao.controles.julgadosN),
+      semMaioria: inteiro(apuracao.semMaioria),
+      teses: Object.entries(apuracao.porTese).map(([n, uniao]) => ({ tese: hash(`tese:${n}`), uniao: contagem(uniao) })),
+    };
   const problemas = validarDerivado(derivado);
   if (problemas.length) throw new Error(`derivado: fora do esquema, nada foi exportado:\n${problemas.join("\n")}`);
   return derivado;
@@ -143,6 +255,16 @@ const numero = (obrigatorio = true): Regra => ({
   descricao: "inteiro não negativo",
 });
 const booleano: Regra = { obrigatorio: true, valida: (v) => typeof v === "boolean", descricao: "verdadeiro ou falso" };
+/** Objeto fechado dentro de outro: vale só se nada nele sai do esquema dele. */
+const fechado = (regras: Record<string, Regra>, descricao: string): Regra => ({
+  obrigatorio: false,
+  valida: (v) => {
+    const problemas: string[] = [];
+    conferir("", v, regras, problemas);
+    return problemas.length === 0;
+  },
+  descricao,
+});
 
 const RAIZ: Record<string, Regra> = {
   esquema: { obrigatorio: true, valida: (v) => v === ESQUEMA, descricao: ESQUEMA },
@@ -159,25 +281,69 @@ const RODADA: Record<string, Regra> = {
   completa: booleano,
   consultas: numero(),
 };
+const COBERTURA: Record<string, Regra> = {
+  tribunal: lista(TRIBUNAIS),
+  buscasFeitas: numero(),
+  vazias: numero(),
+  comErro: numero(),
+  foraDoTeto: numero(),
+  guardadas: numero(),
+  feitasAgora: numero(),
+};
+const CONTAGEM: Record<string, Regra> = { S: numero(), P: numero(), C: numero(), N: numero(), semMaioria: numero() };
+const TESE: Record<string, Regra> = { tese: texto(HEX64, "hash"), uniao: fechado(CONTAGEM, "contagem do júri") };
+const JURI: Record<string, Regra> = {
+  linhas: numero(),
+  controles: numero(),
+  controlesN: numero(),
+  semMaioria: numero(),
+  teses: {
+    obrigatorio: true,
+    valida: (v) => Array.isArray(v) && v.every((t) => objeto(t) && Object.hasOwn(t, "uniao") && fechado(TESE, "").valida(t)),
+    descricao: "lista de teses (hash e união julgada)",
+  },
+};
 const CONSULTA: Record<string, Regra> = {
   id: texto(ID_OPACO, "id opaco cNNN"),
   hashDoId: texto(HEX64, "hash"),
   fase: lista(FASES),
   versao: lista(VERSOES, false),
-  tribunal: lista(TRIBUNAIS),
+  tribunal: lista(TRIBUNAIS, false),
+  tribunais: {
+    obrigatorio: false,
+    valida: (v) => Array.isArray(v) && v.length > 0 && v.every((t) => typeof t === "string" && TRIBUNAIS.has(t)),
+    descricao: "lista de tribunais da lista aceita",
+  },
+  memoria: lista(MEMORIAS, false),
   chamadas: numero(),
   mostrados: numero(),
   posicao: numero(false),
   ms: numero(),
+  msParede: numero(false),
   erro: booleano,
   acordaos: {
     obrigatorio: true,
     valida: (v) => Array.isArray(v) && v.every((h) => typeof h === "string" && HEX64.test(h)),
     descricao: "lista de hashes",
   },
+  cobertura: {
+    obrigatorio: false,
+    valida: (v) => Array.isArray(v) && v.every((t) => fechado(COBERTURA, "").valida(t)),
+    descricao: "lista de coberturas (tribunal e contagens)",
+  },
+  juri: fechado(CONTAGEM, "contagem do júri (S, P, C, N, semMaioria)"),
+  vereditos: {
+    obrigatorio: false,
+    valida: (v) => Array.isArray(v) && v.every((x) => typeof x === "string" && VEREDITOS.has(x)),
+    descricao: "lista de vereditos (S, P, C, N, semMaioria)",
+  },
+  tese: texto(HEX64, "hash", false),
 };
 
 const objeto = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+
+/** Campos da raiz com conferência própria (objeto ou lista de objetos fechados). */
+const DA_RAIZ = new Set(["rodada", "consultas", "juri"]);
 
 function conferir(caminho: string, valor: unknown, regras: Record<string, Regra>, problemas: string[]): void {
   if (!objeto(valor)) {
@@ -186,7 +352,7 @@ function conferir(caminho: string, valor: unknown, regras: Record<string, Regra>
   }
   // Object.hasOwn, não `in`: `in` aceitaria constructor, toString e __proto__, herdados de Object.prototype.
   for (const campo of Object.keys(valor))
-    if (!Object.hasOwn(regras, campo) && !(caminho === "" && (campo === "rodada" || campo === "consultas")))
+    if (!Object.hasOwn(regras, campo) && !(caminho === "" && regras === RAIZ && DA_RAIZ.has(campo)))
       problemas.push(`${caminho ? `${caminho}.` : ""}${campo}: campo fora do esquema`);
   for (const [campo, regra] of Object.entries(regras)) {
     const nome = `${caminho ? `${caminho}.` : ""}${campo}`;
@@ -204,7 +370,13 @@ export function validarDerivado(d: unknown): string[] {
   if (!Object.hasOwn(d, "rodada")) problemas.push("rodada: obrigatório");
   else conferir("rodada", d.rodada, RODADA, problemas);
   if (!Array.isArray(d.consultas)) problemas.push("consultas: precisa ser uma lista");
-  else d.consultas.forEach((c, i) => conferir(`consultas[${i}]`, c, CONSULTA, problemas));
+  else
+    d.consultas.forEach((c, i) => {
+      conferir(`consultas[${i}]`, c, CONSULTA, problemas);
+      if (objeto(c) && Object.hasOwn(c, "tribunal") === Object.hasOwn(c, "tribunais"))
+        problemas.push(`consultas[${i}].tribunal: um, e só um, entre tribunal e tribunais`);
+    });
+  if (Object.hasOwn(d, "juri")) conferir("juri", d.juri, JURI, problemas);
   return problemas;
 }
 
