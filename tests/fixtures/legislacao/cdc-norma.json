@@ -1,0 +1,249 @@
+{
+ "legislationPassedBy": {
+  "@type": "GovernmentOrganization",
+  "@id": "https://www.congressonacional.leg.br/"
+ },
+ "keywords": [
+  "NORMAS",
+  "PROTEÇÃO",
+  "CONSUMIDOR",
+  "APROVAÇÃO",
+  "CODIGO",
+  "CONSUMIDOR"
+ ],
+ "@type": "Legislation",
+ "sdPublisher": {
+  "@type": "GovernmentOrganization",
+  "@id": "https://www.congressonacional.leg.br/"
+ },
+ "legislationJurisdiction": {
+  "@type": "AdministrativeArea",
+  "name": "Governo Federal do Brasil (União)",
+  "@id": "https://www.wikidata.org/wiki/Q5440531"
+ },
+ "legislationDate": "1990-09-11",
+ "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1990-09-11;8078",
+ "headline": "Lei nº 8.078, de 11 de setembro de 1990",
+ "legislationIdentifier": "urn:lex:br:federal:lei:1990-09-11;8078",
+ "inLanguage": "pt",
+ "alternateName": [
+  "LEI-8078-1990-09-11",
+  "Código de Proteção e Defesa do Consumidor (CPDC)",
+  "Código de Defesa do Consumidor (1990) (CDC)"
+ ],
+ "abstract": "Dispõe sobre a proteção do consumidor e dá outras providências.",
+ "legislationAmends": [
+  {
+   "@type": "Legislation",
+   "name": "Art. 5, caput, Inciso 2 de Lei nº 7.347 de 24/07/1985",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1985-07-24;7347!dispositivo_12269366"
+  },
+  {
+   "@type": "Legislation",
+   "name": "Art. 5, § 3 de Lei nº 7.347 de 24/07/1985",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1985-07-24;7347!dispositivo_12264978"
+  },
+  {
+   "@type": "Legislation",
+   "name": "Art. 15 de Lei nº 7.347 de 24/07/1985",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1985-07-24;7347!dispositivo_12269365"
+  },
+  {
+   "@type": "Legislation",
+   "name": "Art. 17 de Lei nº 7.347 de 24/07/1985",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1985-07-24;7347!dispositivo_12291134"
+  },
+  {
+   "@type": "Legislation",
+   "name": "Art. 18 de Lei nº 7.347 de 24/07/1985",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1985-07-24;7347!dispositivo_12282376"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1985-07-24;7347"
+  }
+ ],
+ "sdDatePublished": "2026-10-09",
+ "sdLicense": "https://creativecommons.org/licenses/by/4.0/",
+ "spatialCoverage": {
+  "address": {
+   "addressCountry": "BR",
+   "@type": "PostalAddress"
+  },
+  "@type": "Country",
+  "name": "Brasil",
+  "@id": "https://servicodados.ibge.gov.br/api/v1/localidades/paises/76",
+  "url": "https://pt.wikipedia.org/wiki/Brasil"
+ },
+ "encoding": [
+  {
+   "@type": "LegislationObject",
+   "inLanguage": "pt",
+   "version": "Original",
+   "encodesCreativeWork": {
+    "@type": "Legislation",
+    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1990-09-11;8078@1990-09-11~texto;pt"
+   },
+   "datePublished": "1990-09-12",
+   "license": "https://creativecommons.org/licenses/by/4.0/",
+   "contentUrl": "https://normas.leg.br/api/binario/ee69dc6b-466d-4d5f-aad1-f861c8e97227/texto",
+   "additionalType": "PublicacaoOriginal",
+   "isBasedOn": {
+    "contentUrl": null,
+    "@type": "LegislationObject",
+    "name": "Publicação Original [Lei nº 8.078 de 11/09/1990]  [Diário Oficial da União - Suplemento  de 12/09/1990] (p. 1, col. 1)",
+    "legislationLegalVersion": "OfficialLegalValue",
+    "isPartOf": {
+     "@type": "PublicationVolume",
+     "name": "Diário Oficial da União - Edição de 1990-09-12"
+    },
+    "version": "Original"
+   },
+   "name": "Publicação Original [Lei nº 8.078 de 11/09/1990]  [Diário Oficial da União - Suplemento  de 12/09/1990] (p. 1, col. 1)",
+   "publisher": {
+    "@type": "GovernmentOrganization",
+    "@id": "https://www.congressonacional.leg.br/"
+   },
+   "legislationLegalValue": "UnofficialLegalValue",
+   "encodingFormat": "http://www.iana.org/assignments/media-types/text/html",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1990-09-11;8078@1990-09-11~texto;pt$text-html"
+  },
+  {
+   "@type": "LegislationObject",
+   "inLanguage": "pt",
+   "version": "Intermediate",
+   "encodesCreativeWork": {
+    "@type": "Legislation",
+    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1990-09-11;8078@2007-01-10~texto;pt"
+   },
+   "datePublished": "2007-01-10",
+   "license": "https://creativecommons.org/licenses/by/4.0/",
+   "contentUrl": "https://normas.leg.br/api/binario/89a65b92-cdbf-4e2f-9556-dd7dcef70291/texto",
+   "additionalType": "Retificacao",
+   "isBasedOn": {
+    "contentUrl": "https://pesquisa.in.gov.br/imprensa/jsp/visualiza/index.jsp?jornal=1&pagina=1&data=10/01/2007",
+    "@type": "LegislationObject",
+    "name": "Retificação [Lei nº 8.078 de 11/09/1990] (Seq. 1) [Diário Oficial da União  de 10/01/2007] (p. 1, col. 1)",
+    "legislationLegalVersion": "OfficialLegalValue",
+    "isPartOf": {
+     "volumeNumber": "1",
+     "@type": "PublicationVolume",
+     "pageStart": "1",
+     "name": "Diário Oficial da União - Edição de 10/01/2007"
+    },
+    "version": "Original"
+   },
+   "name": "Retificação [Lei nº 8.078 de 11/09/1990] (Seq. 1) [Diário Oficial da União  de 10/01/2007] (p. 1, col. 1)",
+   "publisher": {
+    "@type": "GovernmentOrganization",
+    "@id": "https://www.congressonacional.leg.br/"
+   },
+   "legislationLegalValue": "UnofficialLegalValue",
+   "encodingFormat": "http://www.iana.org/assignments/media-types/text/html",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1990-09-11;8078@2007-01-10~texto;pt$text-html"
+  },
+  {
+   "license": "https://creativecommons.org/licenses/by/4.0/",
+   "contentUrl": "https://normas.leg.br/api/binario/1cc33b77-e5a0-4723-b7fa-ec501fd65c46/texto",
+   "additionalType": "CompilacaoMonoVigenteNaCD",
+   "@type": "LegislationObject",
+   "name": "Compilação Monovigente na CD [Lei nº 8.078 de 11/09/1990] ",
+   "inLanguage": "pt",
+   "publisher": {
+    "@type": "GovernmentOrganization",
+    "@id": "https://www.congressonacional.leg.br/"
+   },
+   "legislationLegalValue": "UnofficialLegalValue",
+   "encodingFormat": "http://www.iana.org/assignments/media-types/text/html",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1990-09-11;8078@versao.atualizada~texto;pt$text-html",
+   "version": "Current",
+   "encodesCreativeWork": {
+    "@type": "Legislation",
+    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1990-09-11;8078@versao.atualizada~texto;pt"
+   }
+  }
+ ],
+ "@context": {
+  "@vocab": "http://schema.org/",
+  "lexsdo-br": "https://normas.leg.br/sdo/"
+ },
+ "datePublished": "1990-09-12",
+ "license": "https://creativecommons.org/licenses/by/4.0/",
+ "mentions": [
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1850-06-25;556"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:1993-07-09;861"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:1994-11-09;1306"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1995-01-13;8979"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:medida.provisoria:1995-01-26;855"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:2021-02-22;10634"
+  }
+ ],
+ "name": "Lei nº 8.078 de 11/09/1990",
+ "legislationSourceProcess": {
+  "@type": "Legislation",
+  "name": "Projeto de Lei do Senado nº 97/1989 > Projeto de Lei (CD) nº 3683/1989 > Mensagem nº 159/1990 : Lei nº 8.078 de 11/09/1990",
+  "@id": "https://www.congressonacional.leg.br/materias/materias-bicamerais/-/ver/pls-97-1989"
+ },
+ "publisher": {
+  "@type": "GovernmentOrganization",
+  "@id": "https://www.in.gov.br/"
+ },
+ "legislationType": {
+  "@type": "CategoryCode",
+  "@id": "https://normas.leg.br/tipo-de-norma/?urn=urn:lex:br:federal:tipo.norma:lei"
+ },
+ "@reverse": {
+  "legislationApplies": {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:1991-12-27;407"
+  }
+ },
+ "legislationCommences": [
+  {
+   "@type": "Legislation",
+   "name": "Art. 1, caput, Inciso 4 de Lei nº 7.347 de 24/07/1985",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1985-07-24;7347!dispositivo_12282377"
+  },
+  {
+   "@type": "Legislation",
+   "name": "Art. 5, § 4 de Lei nº 7.347 de 24/07/1985",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1985-07-24;7347!dispositivo_12273731"
+  },
+  {
+   "@type": "Legislation",
+   "name": "Art. 5, § 5 de Lei nº 7.347 de 24/07/1985",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1985-07-24;7347!dispositivo_12273735"
+  },
+  {
+   "@type": "Legislation",
+   "name": "Art. 5, § 6 de Lei nº 7.347 de 24/07/1985",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1985-07-24;7347!dispositivo_12273734"
+  },
+  {
+   "@type": "Legislation",
+   "name": "Art. 21 de Lei nº 7.347 de 24/07/1985",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1985-07-24;7347!dispositivo_12273733"
+  }
+ ],
+ "sameAs": [
+  "http://www.lexml.gov.br/urn/urn:lex:br:federal:lei:1990-09-11;8078",
+  "http://legis.senado.leg.br/legislacao/DetalhaSigen.action?id=549954"
+ ]
+}

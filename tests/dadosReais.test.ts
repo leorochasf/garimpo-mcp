@@ -144,6 +144,11 @@ const PERMITIDOS: { arquivo: RegExp; regra: Regra; motivo: string }[] = [
     regra: "formato STJ",
     motivo: "trecho gravado do CSV oficial do Portal de Dados Abertos do STJ (origem em ORIGEM.md, ADR-0015)",
   },
+  {
+    arquivo: /^tests\/fixtures\/legislacao\/(cp|cpp|clt|cdc)-norma\.json$/,
+    regra: "e-mail",
+    motivo: "o identificador LexML da compilação (…;<número>@versao.atualizada) tem a forma de e-mail e não é endereço; JSON público do normas.leg.br (ADR-0026)",
+  },
 ];
 
 /**

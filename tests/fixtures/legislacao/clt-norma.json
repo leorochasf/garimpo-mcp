@@ -1,0 +1,472 @@
+{
+ "legislationPassedBy": {
+  "@type": "GovernmentOrganization",
+  "@id": "https://www.planalto.gov.br/"
+ },
+ "keywords": "CONSOLIDAÇÃO DAS LEIS DO TRABALHO (CLT)",
+ "@type": "Legislation",
+ "sdPublisher": {
+  "@type": "GovernmentOrganization",
+  "@id": "https://www.congressonacional.leg.br/"
+ },
+ "legislationJurisdiction": {
+  "@type": "AdministrativeArea",
+  "name": "Governo Federal do Brasil (União)",
+  "@id": "https://www.wikidata.org/wiki/Q5440531"
+ },
+ "legislationDate": "1943-05-01",
+ "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1943-05-01;5452",
+ "headline": "Decreto-Lei nº 5.452, de 01 de maio de 1943",
+ "legislationIdentifier": "urn:lex:br:federal:decreto.lei:1943-05-01;5452",
+ "inLanguage": "pt",
+ "alternateName": [
+  "DEL-5452-1943-05-01",
+  "Consolidação das Leis do Trabalho (CLT)"
+ ],
+ "abstract": "Aprova a Consolidação das Leis do Trabalho.",
+ "sdDatePublished": "2026-04-16",
+ "sdLicense": "https://creativecommons.org/licenses/by/4.0/",
+ "spatialCoverage": {
+  "address": {
+   "addressCountry": "BR",
+   "@type": "PostalAddress"
+  },
+  "@type": "Country",
+  "name": "Brasil",
+  "@id": "https://servicodados.ibge.gov.br/api/v1/localidades/paises/76",
+  "url": "https://pt.wikipedia.org/wiki/Brasil"
+ },
+ "encoding": [
+  {
+   "@type": "LegislationObject",
+   "inLanguage": "pt",
+   "version": "Original",
+   "encodesCreativeWork": {
+    "@type": "Legislation",
+    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1943-05-01;5452@1943-05-01~texto;pt"
+   },
+   "datePublished": "1943-08-09",
+   "license": "https://creativecommons.org/licenses/by/4.0/",
+   "contentUrl": "https://normas.leg.br/api/binario/f10a4caf-129e-4be2-8956-2661048efabc/texto",
+   "additionalType": "PublicacaoOriginal",
+   "isBasedOn": {
+    "contentUrl": null,
+    "@type": "LegislationObject",
+    "name": "Publicação Original [Decreto-Lei nº 5.452 de 01/05/1943]  [Diário Oficial da União  de 09/08/1943] (p. 11937, col. 1)",
+    "legislationLegalVersion": "OfficialLegalValue",
+    "isPartOf": {
+     "@type": "PublicationVolume",
+     "name": "Diário Oficial da União - Edição de 1943-08-09"
+    },
+    "version": "Original"
+   },
+   "name": "Publicação Original [Decreto-Lei nº 5.452 de 01/05/1943]  [Diário Oficial da União  de 09/08/1943] (p. 11937, col. 1)",
+   "publisher": {
+    "@type": "GovernmentOrganization",
+    "@id": "https://www.congressonacional.leg.br/"
+   },
+   "legislationLegalValue": "UnofficialLegalValue",
+   "encodingFormat": "http://www.iana.org/assignments/media-types/text/html",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1943-05-01;5452@1943-05-01~texto;pt$text-html"
+  },
+  {
+   "license": "https://creativecommons.org/licenses/by/4.0/",
+   "contentUrl": "https://normas.leg.br/api/binario/5e35b26e-26a7-44d7-8a95-b8f0852cabe1/texto",
+   "additionalType": "CompilacaoMonoVigenteNaCD",
+   "@type": "LegislationObject",
+   "name": "Compilação Monovigente na CD [Decreto-Lei nº 5.452 de 01/05/1943] ",
+   "inLanguage": "pt",
+   "publisher": {
+    "@type": "GovernmentOrganization",
+    "@id": "https://www.congressonacional.leg.br/"
+   },
+   "legislationLegalValue": "UnofficialLegalValue",
+   "encodingFormat": "http://www.iana.org/assignments/media-types/text/html",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1943-05-01;5452@versao.atualizada~texto;pt$text-html",
+   "version": "Current",
+   "encodesCreativeWork": {
+    "@type": "Legislation",
+    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1943-05-01;5452@versao.atualizada~texto;pt"
+   }
+  }
+ ],
+ "@context": {
+  "@vocab": "http://schema.org/",
+  "lexsdo-br": "https://normas.leg.br/sdo/"
+ },
+ "datePublished": "1943-08-09",
+ "license": "https://creativecommons.org/licenses/by/4.0/",
+ "mentions": [
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1946-07-24;9509"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1948-09-25;409"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1949-01-05;605"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1952-05-09;1599"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1953-06-13;1890"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1955-06-20;2510"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1955-08-15;2573"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1956-12-19;3030"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1957-07-18;3207"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1957-09-30;3270"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1960-02-11;3726"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1962-07-13;4090"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1963-10-03;4266"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1964-06-01;4330"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1965-07-13;4725"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1965-08-12;4749"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:1965-11-03;57155"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1965-11-18;4839"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1965-12-23;4923"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1966-08-27;5085"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1966-09-13;5107"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1966-09-14;20"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1967-02-24;192"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:1967-07-17;61032"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:1967-12-06;61851"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1968-06-12;5451"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1968-11-13;5530"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1968-12-06;5553"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:1968-12-26;63912"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1968-12-26;389"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1969-04-18;546"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1969-07-18;691"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1971-01-28;1149"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1972-12-11;5859"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1973-06-08;5889"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1974-12-19;6192"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1975-12-15;6297"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1981-04-08;6899"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:1981-11-25;86649"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1983-08-30;7119"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1984-11-13;2171"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1984-12-10;7275"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1985-09-20;7369"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:1985-11-01;91861"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1985-12-09;7415"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1985-12-16;7418"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:1985-12-19;92180"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1986-02-27;2283"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1986-03-10;2284"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:1986-04-30;92608"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1986-04-30;7471"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:1986-10-14;93412"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1986-11-21;2302"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1986-11-21;2292"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:1987-05-18;94338"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1987-08-07;2351"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:1987-11-17;95247"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1988-04-07;2425"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1988-06-29;2445"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1988-09-08;7670"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:1989-01-15;97458"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1989-01-31;7730"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1989-02-14;7731"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1989-06-28;7783"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1989-06-30;7787"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1989-07-03;7788"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:1989-07-10;97936"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1989-10-12;7839"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:1990-01-10;98813"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.legislativo:1990-05-07;3"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1990-05-11;8036"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:1990-08-20;99467"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:1990-11-08;99684"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.legislativo:1990-11-27;48"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1990-12-05;8099"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1990-12-11;8112"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1991-08-29;8218"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:1991-12-07;356"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1991-12-30;8383"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1992-08-04;8452"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1992-11-19;8490"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1992-12-11;8522"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1993-10-11;8716"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2011-10-11;12506"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:medida.provisoria:2020-03-22;927"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:medida.provisoria:2020-04-01;936"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:medida.provisoria:2021-04-27;1045"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:medida.provisoria:2021-04-27;1046"
+  }
+ ],
+ "name": "Decreto-Lei nº 5.452 de 01/05/1943",
+ "publisher": {
+  "@type": "GovernmentOrganization",
+  "@id": "https://www.in.gov.br/"
+ },
+ "legislationType": {
+  "@type": "CategoryCode",
+  "@id": "https://normas.leg.br/tipo-de-norma/?urn=urn:lex:br:federal:tipo.norma:decreto.lei"
+ },
+ "@reverse": {
+  "legislationApplies": {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:1955-01-25;36818"
+  }
+ },
+ "sameAs": [
+  "http://www.lexml.gov.br/urn/urn:lex:br:federal:decreto.lei:1943-05-01;5452",
+  "http://legis.senado.leg.br/legislacao/DetalhaSigen.action?id=530547"
+ ]
+}
