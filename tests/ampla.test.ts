@@ -17,7 +17,7 @@ function bruto(id: string, rerank: number, ementa = `EMENTA FICTÍCIA ${id}.`) {
     numero_processo: `${id}/UF`,
     orgao_julgador: "Turma Exemplo",
     data_julgamento: "2024-01-02T00:00:00.000Z",
-    link_pdf: `https://exemplo.test/${id}`,
+    link_pdf: `https://exemplo.jus.br/${id}`,
     rerank_score: rerank,
   };
 }
@@ -1342,7 +1342,7 @@ describe("busca ampla: decisões em série (mesma ementa)", () => {
     const results = Array.from({ length: 100 }, (_, i) => serie(
       String(i + 1000),
       `2024-01-${String(28 - i % 28).padStart(2, "0")}T00:00:00.000Z`,
-      { link_pdf: `https://exemplo.test/${"caminho/".repeat(35)}${i}` },
+      { link_pdf: `https://exemplo.jus.br/${"caminho/".repeat(35)}${i}` },
     ));
     const { cliente } = site(results);
     const idsDe = (r: Awaited<ReturnType<typeof buscaAmpla>>) =>
