@@ -36,7 +36,8 @@
   armazenamento em nuvem), o Garimpo não o mostra mais e diz por quê no novo campo `avisoDeLink`. A busca de 3
   acórdãos do TJES deixa de passar de 400 mil caracteres. No `obter_inteiro_teor`, esse acórdão segue o caminho de
   quem não tem link (rota de link do site, depois o número no portal do tribunal), com o mesmo aviso. Só passa como
-  link endereço `https` em domínio `.jus.br` (ADR-0031).
+  link endereço `https` em domínio `.jus.br` (ADR-0031). A busca ampla passa a trazer o mesmo `avisoDeLink` da busca direta no
+  acórdão cujo link era um endereço que não é página do tribunal.
 - Peça comum para os portais de tribunal que publicam a íntegra do acórdão numa página aberta: cada tribunal só
   declara onde estão o processo, o segredo de justiça e a íntegra, e as conferências valem para todos — mesmo processo
   da busca, número do processo dentro da íntegra, segredo de justiça, documento trocado e recusa quando a busca não
