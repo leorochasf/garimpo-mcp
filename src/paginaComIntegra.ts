@@ -1,10 +1,12 @@
 /**
  * Molde «página com íntegra»: o portal do tribunal entrega a íntegra do acórdão numa página HTML pública, um GET por
  * documento (o caminho do TJPR, ADR-0030, feito peça comum). Cada tribunal declara só os seus dados — host, caminho do
- * link, onde estão o processo, o segredo de justiça e a íntegra, e o rótulo — e se registra; as guardas ficam aqui,
- * ligadas por padrão. Não é PDF e não tem recibo: é o texto que o portal entrega, guardado na memória pelo id.
+ * link, a região do cabeçalho onde está o processo, o segredo de justiça, a íntegra e o rótulo — e se registra; as
+ * guardas ficam aqui, ligadas por padrão. Não é PDF e não tem recibo: é o texto que o portal entrega, guardado na
+ * memória pelo id.
  */
 
+import { processoNoCabecalho, type RegiaoDoCabecalho, regiaoInvalida } from "./cabecalho.js";
 import { type Cliente, decodificarDoHost } from "./cliente.js";
 import { htmlComConteudoOculto, htmlComIndicioDeCorte, htmlParaTexto } from "./html.js";
 import type { TextoIntegral } from "./memoria.js";
@@ -20,8 +22,11 @@ export interface PortalComIntegra {
   caminho: RegExp;
   /** A fonte, como sai no cabeçalho da leitura. */
   rotulo: string;
-  /** O número do processo que a página mostra. */
-  processo(html: string): string | undefined;
+  /**
+   * Onde fica o cabeçalho do documento e como o número aparece nele (ticket 16): a identidade do processo só se lê ali,
+   * um número só (src/cabecalho.ts). Sem a região, o registro recusa.
+   */
+  cabecalho: RegiaoDoCabecalho;
   /**
    * O que a página diz em «Segredo de Justiça» («Não», «Sim»…); sem o campo, undefined. Portal cuja página não tem
    * o campo declara a guarda desligada, com a justificativa.
@@ -63,8 +68,13 @@ function documentoDoPortal(portal: PortalComIntegra, link: string): URL | undefi
   }
 }
 
-/** Registra o portal de um tribunal no molde; guarda desligada sem justificativa é erro de declaração. */
+/**
+ * Registra o portal de um tribunal no molde; declaração sem a região do cabeçalho, ou com guarda desligada sem
+ * justificativa, é erro de declaração.
+ */
 export function registrarPortal(portal: PortalComIntegra): void {
+  const semRegiao = regiaoInvalida(portal.cabecalho);
+  if (semRegiao) throw new Error(`${portal.sigla}: ${semRegiao}.`);
   const desligadas = { ...portal.desligadas };
   for (const [guarda, porque] of Object.entries(desligadas)) {
     if (!porque?.trim()) throw new Error(`${portal.sigla}: a guarda ${guarda} foi desligada sem justificativa.`);
@@ -111,7 +121,8 @@ export async function textoDaPaginaComIntegra(
   const html = decodificarDoHost(bytes, tipo, portal.host);
   const integra = portal.integra(html, url);
   if (!integra) return { motivo: "a página não traz a íntegra do documento do link (aviso ou erro do portal)" };
-  const processo = portal.processo(html)?.trim();
+  // Só o cabeçalho declarado diz de que processo é a página; número citado no corpo nunca vira a identidade.
+  const processo = processoNoCabecalho(htmlParaTexto(html), portal.cabecalho)?.trim();
   if (!ehNumeroCnj(processo)) return { motivo: "a página não mostra o número do processo" };
   if (algarismos(processo) !== algarismos(numeroCnj)) return { motivo: "a página é de outro processo que o da busca" };
   // Com a guarda ligada, só passa a página que diz expressamente que não há segredo; campo ausente ou valor estranho

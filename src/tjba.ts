@@ -5,6 +5,7 @@
  * e uma Câmara Cível). Não é PDF e não tem recibo.
  */
 
+import type { RegiaoDoCabecalho } from "./cabecalho.js";
 import { htmlParaTexto } from "./html.js";
 import type { PortalComIntegra } from "./paginaComIntegra.js";
 
@@ -20,31 +21,23 @@ const CAMINHO_DO_DOCUMENTO =
 /** O cabeçalho que todo documento do tribunal traz; página de aviso ou erro do portal não o tem. */
 const CABECALHO_DO_TRIBUNAL = /tribunal de justiça do estado da bahia/i;
 
-/** O número do processo no cabeçalho do documento: «PROCESSO Nº <CNJ>» ou «Processo: <classe> n. <CNJ>». */
-const PROCESSO_NO_CABECALHO = /processo\b[^\n]{0,60}?(\d{7}-\d{2}\.\d{4}\.8\.05\.\d{4})/gi;
-/** O cabeçalho termina no primeiro título de seção (a Turma escreve «E M E N T A»; a Câmara, «ACORDÃO»). */
-const TITULO_DE_SECAO = /\b(?:E\s?M\s?E\s?N\s?T\s?A|AC[ÓO]RD[ÃA]O|RELAT[ÓO]RIO|VOTO)\b/i;
-/** O cabeçalho é curto (nas gravações, o número veio a 115 e 228 caracteres do início); mais longe, é citação. */
-const REGIAO_MAXIMA = 600;
-
 /**
- * O número do processo do cabeçalho: só na região antes da primeira seção do documento, e um só. Citação de outro
- * processo no voto nunca vira a identidade da página; cabeçalho sem número, ou com dois, = undefined.
+ * O cabeçalho do documento: vai até o primeiro título de seção (a Turma escreve «E M E N T A»; a Câmara, «ACORDÃO») e
+ * é curto (nas gravações, o número veio a 115 e 228 caracteres do início; mais longe, é citação). O número vem como
+ * «PROCESSO Nº <CNJ>» ou «Processo: <classe> n. <CNJ>». A regra de um número só, nessa região, é do molde.
  */
-function processoDoCabecalho(html: string): string | undefined {
-  const texto = htmlParaTexto(html);
-  const corte = TITULO_DE_SECAO.exec(texto)?.index ?? texto.length;
-  const regiao = texto.slice(0, Math.min(corte, REGIAO_MAXIMA));
-  const numeros = new Set([...regiao.matchAll(PROCESSO_NO_CABECALHO)].map((m) => m[1]));
-  return numeros.size === 1 ? [...numeros][0] : undefined;
-}
+const CABECALHO_DO_DOCUMENTO: RegiaoDoCabecalho = {
+  titulos: /\b(?:E\s?M\s?E\s?N\s?T\s?A|AC[ÓO]RD[ÃA]O|RELAT[ÓO]RIO|VOTO)\b/i,
+  maximo: 600,
+  numero: /processo\b[^\n]{0,60}?(\d{7}-\d{2}\.\d{4}\.8\.05\.\d{4})/gi,
+};
 
 export const PORTAL_TJBA: PortalComIntegra = {
   sigla: "tjba",
   host: HOST_TJBA,
   caminho: CAMINHO_DO_DOCUMENTO,
   rotulo: `portal de jurisprudência do TJBA (${HOST_TJBA})`,
-  processo: processoDoCabecalho,
+  cabecalho: CABECALHO_DO_DOCUMENTO,
   // A página inteira é o documento (a da Câmara Cível nem tem <body>); as imagens embutidas não viram texto.
   integra: (html) => {
     const corpo = /<body[^>]*>([\s\S]*?)(?:<\/body>|$)/i.exec(html)?.[1] ?? html;

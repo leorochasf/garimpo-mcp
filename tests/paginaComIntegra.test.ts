@@ -17,7 +17,7 @@ const PORTAL: PortalComIntegra = {
   host: "portal.exemplo.jus.br",
   caminho: /^\/acordao\/\d+$/,
   rotulo: "portal fictício de jurisprudência do TJAC (portal.exemplo.jus.br)",
-  processo: (html) => /id="processo">([^<]*)</.exec(html)?.[1],
+  cabecalho: { titulos: /\bAC[ÓO]RD[ÃA]O\b/, maximo: 600, numero: /Processo:\s*(\S+)/ },
   segredo: (html) => /id="segredo">([^<]*)</.exec(html)?.[1],
   integra: (html) => /<div id="integra">([\s\S]*?)<\/div>/.exec(html)?.[1],
 };
@@ -97,6 +97,15 @@ describe("registro: desligar uma guarda exige justificativa na declaração do t
   it("sigla declarada em maiúsculas é achada como a do Garimpo (minúscula)", () => {
     registrarPortal({ ...PORTAL, sigla: "TJRO" });
     expect(portalComIntegra("tjro")?.host).toBe(PORTAL.host);
+  });
+
+  it("ticket 16: declaração sem a região do cabeçalho, ou com região sem grupo do número, é recusada no registro", () => {
+    const { cabecalho: _, ...semCabecalho } = PORTAL;
+    expect(() => registrarPortal({ ...semCabecalho, sigla: "tjap" } as PortalComIntegra)).toThrow(/tjap: .*cabeçalho/);
+    expect(() => registrarPortal({ ...PORTAL, sigla: "tjap", cabecalho: { ...PORTAL.cabecalho, numero: /Processo:/ } })).toThrow(
+      /cabeçalho/,
+    );
+    expect(portalComIntegra("tjap")).toBeUndefined();
   });
 
   it("sem o campo de segredo, com justificativa: o registro aceita", () => {
@@ -219,6 +228,19 @@ describe("molde «página com íntegra»: cada guarda, sozinha, barra o texto e 
     ["número incompleto", "0000001-11.2025"],
   ])("B03-R02: página com %s no lugar do número do processo: não guarda", async (_, processo) => {
     const { explicacao } = await barrado(memoriaComAcordao(), [html(pagina({ processo, corpo: `${CORPO} ${processo}` }))]);
+    expect(explicacao).toMatch(/a página não mostra o número do processo/);
+  });
+
+  // Ticket 16: a identidade só se lê na região do cabeçalho declarada; o número citado no corpo nunca a substitui.
+  it("ticket 16: cabeçalho sem número e o número da busca no corpo, com o mesmo rótulo: não guarda", async () => {
+    const corpo = `${CORPO} Processo: ${CNJ}.`;
+    const { explicacao, chamadas } = await barrado(memoriaComAcordao(), [html(pagina({ processo: "", corpo }))]);
+    expect(chamadas).toHaveLength(1);
+    expect(explicacao).toMatch(/a página não mostra o número do processo/);
+  });
+
+  it("ticket 16: dois números diferentes no cabeçalho: não guarda", async () => {
+    const { explicacao } = await barrado(memoriaComAcordao(), [html(pagina({ processo: `${CNJ} Processo: 0000002-22.2025.8.01.0001` }))]);
     expect(explicacao).toMatch(/a página não mostra o número do processo/);
   });
 
