@@ -586,20 +586,30 @@ export function duvidaDaClasse(a: { classe?: string; ementa?: string; numeroCnj?
 
 /** Separadores dos itens do título da ementa ("APELAÇÃO CÍVEL. DIREITO CIVIL. …"); parêntese não separa: cita. */
 const FIM_DE_ITEM = /[.;:–—]|\s-\s/;
+/**
+ * Começo de item: os dois-pontos não separam, porque o rótulo antes deles diz o que o item é ("CLASSE DE ORIGEM:",
+ * "PRECEDENTE:").
+ */
+const COMECO_DE_ITEM = /[.;–—]|\s-\s/;
+/** O que pode vir antes da classe no item do título: nada, o rótulo "EMENTA:" e "RECURSO DE". */
+const ANTES_DA_CLASSE_NO_TITULO = /^(?:ementa\s*:\s*)?(?:recurso\s+de)?$/;
 
 /**
  * A classe de recurso que a ementa dá ao próprio julgamento, como trecho literal, só com evidência escrita:
- * - no começo, um item inteiro do título ("APELAÇÃO CÍVEL." ou "RECURSO DE APELAÇÃO CÍVEL."): "de origem",
- *   "originária", número de processo ou parênteses no item = outra coisa (origem, citação);
+ * - no começo, um item inteiro do título ("APELAÇÃO CÍVEL.", "EMENTA: APELAÇÃO CÍVEL." ou "RECURSO DE APELAÇÃO
+ *   CÍVEL."): outro rótulo antes ("CLASSE DE ORIGEM:", "PRECEDENTE:"), "de origem", "originária", número de processo
+ *   depois, ou parêntese aberto = outra coisa (origem, citação);
  * - no rodapé, entre parênteses e colada ao número CNJ deste acórdão ("(Apelação Cível - <número>, Rel. …").
  * Sem isso: nada.
  */
 function classeDoProprioJulgamento(ementa: string, plano: string, numeroCnj?: string): string | undefined {
   for (const m of plano.slice(0, PONTA_DA_EMENTA).matchAll(new RegExp(RECURSO_NOMEADO, "g"))) {
-    const antes = plano.slice(0, m.index).split(FIM_DE_ITEM).at(-1)!.trim();
+    const ate = plano.slice(0, m.index);
+    const dentroDeParenteses = (ate.match(/\(/g)?.length ?? 0) > (ate.match(/\)/g)?.length ?? 0);
+    const antes = ate.split(COMECO_DE_ITEM).at(-1)!.trim();
     const depois = plano.slice(m.index + m[0].length).split(FIM_DE_ITEM)[0].trim();
     const separado = plano.slice(m.index + m[0].length).search(FIM_DE_ITEM) >= 0;
-    if ((antes === "" || antes === "recurso de") && depois === "" && separado) {
+    if (!dentroDeParenteses && ANTES_DA_CLASSE_NO_TITULO.test(antes) && depois === "" && separado) {
       return ementa.slice(m.index, m.index + m[0].length);
     }
   }

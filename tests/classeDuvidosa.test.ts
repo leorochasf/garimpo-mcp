@@ -42,6 +42,8 @@ describe("classe da base desmentida pelos próprios dados: a ementa nomeia outra
 
   it.each([
     "EMENTA: APELAÇÃO CÍVEL. DIREITO CIVIL E CONSUMIDOR. CONTRATO DE EXEMPLO. SENTENÇA DE ORIGEM.",
+    "EMENTA : APELAÇÃO CÍVEL. DIREITO CIVIL E CONSUMIDOR. CONTRATO DE EXEMPLO.",
+    "APELAÇÃO CÍVEL. DIREITO CIVIL E CONSUMIDOR. CONTRATO DE EXEMPLO.",
     "EMENTA: DIREITO CIVIL E PROCESSUAL CIVIL. RECURSO DE APELAÇÃO CÍVEL. AÇÃO DE EXEMPLO. SENTENÇA MANTIDA.",
   ])("TJCE, a classe na 1ª frase da ementa (%s)", (ementa) => {
     expect(duvidaDaClasse({ classe: TJCE, ementa })).toMatchObject({ tipo: "ementa", nomeada: "APELAÇÃO CÍVEL" });
@@ -81,6 +83,11 @@ describe("classe da base desmentida pelos próprios dados: a ementa nomeia outra
     ["Agravo em Recurso Especial", "APELAÇÃO CÍVEL. ARESP. DECISÃO DE INADMISSÃO MANTIDA."],
     ["Agravo Interno em Apelação Cível", "DIREITO CIVIL. DANO MORAL (TJCE, Apelação Cível 0000009-99.2020.8.06.0001). EXEMPLO."],
     ["Agravo Interno em Apelação Cível", "DIREITO CIVIL. PRECEDENTE: APELAÇÃO CÍVEL Nº 0000009-99.2020.8.06.0001. EXEMPLO."],
+    // Rodada 2 do Revisor: o rótulo antes dos dois-pontos e o parêntese aberto fazem parte do item.
+    [TJCE, "CLASSE DE ORIGEM: APELACAO CIVEL. DECISAO MONOCRATICA MANTIDA."],
+    [TJCE, "DIREITO CIVIL. PRECEDENTE: APELACAO CIVEL. DECISAO MONOCRATICA MANTIDA."],
+    [TJCE, "DIREITO CIVIL (PRECEDENTE: APELACAO CIVEL. ENTENDIMENTO CITADO). DECISAO MONOCRATICA MANTIDA."],
+    [TJCE, "DIREITO CIVIL (VER APELAÇÃO CÍVEL. EXEMPLO). DECISÃO MANTIDA."],
   ])("%s, ementa «%s»: sem dúvida", (classe, ementa) => {
     expect(duvidaDaClasse({ classe, ementa, numeroCnj: "0000001-11.2024.8.06.0001" })).toBeUndefined();
   });
