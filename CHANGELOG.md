@@ -2,6 +2,35 @@
 
 ## 1.2 (não publicada)
 
+- Novo prompt `distinguir_precedente`: monta a ficha do acórdão e uma matriz fato a fato em quatro estados (presente,
+  diferente, não informado, não localizado), cada um com o trecho lido como prova; «diferente» só com fato contrário. A
+  ferramenta não decide se o precedente se aplica, e os fatos do caso não vão às buscas. O `pesquisar_tese` ganha um
+  orçamento orientador de chamadas, a formulação contrária sempre, a regra dos TRTs no teto do Falcão, uma 2ª rodada
+  pela união das formulações e o aviso de busca do contrário incompleta.
+- TCU: cada ano baixado ganha um índice local das palavras do texto, criado ao baixar o ano (o renovar cria o que
+  faltar, sem baixar de novo). A pesquisa usa o índice quando ele confere com o arquivo (sha256) e devolve a mesma
+  resposta da leitura inteira, mais rápido: na medição sem rede, busca quente de 7,1× a 354× mais rápida (mediana), p95
+  até 98 ms em 10 anos. Se o arquivo mudou, ou se o índice falta ou está estragado, o ano é lido inteiro, com o motivo.
+  O aviso antes de baixar estima também o disco do índice.
+- `panorama_da_amostra`: passa a contar também por relator, em cada tribunal. O valor de origem é preservado, os não
+  informados ficam à parte e as grafias diferentes não são fundidas (até 20, o resto em «outros», sem perder
+  contagem). No e-Proc (TRF2, TRF4, TNU), o relator para o acórdão sai à parte. A resposta inteira fica abaixo de 25 mil
+  caracteres.
+- `texto_de_lei`: passa a ler também CP, CPP, CLT e CDC, pela compilação que o normas.leg.br marca como «Current». A
+  resposta traz a URL da norma, o arquivo lido, a versão e o valor legal como a fonte os marca, sem afirmar vigência.
+  Uma faixa de artigos («Arts. 498 a 502.») vem com o parágrafo literal e a observação de que a fonte junta os artigos.
+  Número ilegível na fonte e dispositivo sem texto ficam «não verificado». Identificação repetida volta como
+  «identificação necessária», sem o Garimpo escolher. URL oficial que não comprova a norma pedida para antes de baixar.
+- Só link: a resposta do `obter_inteiro_teor` traz a chamada do `ler_inteiro_teor` pronta pelo id, para ler o PDF que
+  o usuário baixar, com o aviso de que esse PDF pode ser de outro acórdão e que o Garimpo não confirma a identidade. O
+  motivo do «só link» ganha classe (vedação escrita, desafio técnico, rota quebrada ou não testado) e a data da prova
+  registrada, ou diz que não há prova própria, na página `garimpo://tribunais` e na resposta.
+- TJGO: o texto vindo do PDF embutido no arquivo assinado (.p7s) deixa de sair rotulado como «acórdão em HTML» ou
+  «convertido de HTML», na leitura e na conferência.
+- Redação: as instruções e as descrições das ferramentas passam a dizer que o Garimpo pesquisa decisões judiciais
+  públicas, com freios em toda chamada. No `consultar_precedente` do STJ, «restrição de acesso» dá lugar à causa real:
+  o robots.txt do portal veda o acesso automatizado, e o Garimpo respeita. O README ganha a base legal (CF, art. 93,
+  IX, conferido em 23/10/2026; Lei 9.610/98, art. 8º, IV). Nenhum comportamento muda.
 - Só endereço do tribunal vira link: quando o JurisprudênciaIA manda, no lugar do link do acórdão, algo que não abre
   como página (no TJES e no TJMA, o HTML do acórdão embutido num endereço `data:`; no TJPB, um endereço `gs://` de
   armazenamento em nuvem), o Garimpo não o mostra mais e diz por quê no novo campo `avisoDeLink`. A busca de 3
