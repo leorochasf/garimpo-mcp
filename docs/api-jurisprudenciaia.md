@@ -82,6 +82,14 @@ Qualidade observada (amostra de ~300 itens):
 - Mesmo conjunto a cada repetição, **ordem variável** (reranqueamento por IA).
 - Número de tema é por tribunal: "Tema 1199" no STJ é outro assunto que o Tema 1199 do STF.
 - Busca pelo número do processo (STJ ou CNJ do TJGO) traz o próprio acórdão em 1º.
+- `texto_ementa` com mais que a ementa (2026-10-29, amostra pequena: 1 a 2 registros por tribunal; o Garimpo separa a
+  ementa em `src/ementaLimpa.ts`):
+  - TJBA: a decisão inteira: cabeçalho do processo com partes, a ementa depois de «E M E N T A» (Turma Recursal) ou de
+    «ACORDÃO Ementa:» (Câmara Cível), relatório, voto ou «ACÓRDÃO Vistos…», e o rodapé
+    «( Classe: …,Número do Processo: …,Relator(a): …,Publicado em: … )».
+  - TJPE e TJPB: cabeçalho com partes (no TJPB, também advogados com OAB) antes de um segundo «Ementa:» ou «Ementa :».
+  - TJMT: cabeçalho do Recurso Inominado (origem, partes, relator, data) antes de «EMENTA».
+  - TJRJ: o mesmo bloco da ementa repetido (visto 6 vezes, separado por espaço), seguido do rodapé «(… - Julgamento: …)».
 
 Desempenho: mediana ~1 s, pico ~7 s; 100/100 buscas OK numa bateria; 59 buscas em ~33 s com até 4
 simultâneas sem recusa. Um 503 isolado em ~400 chamadas. O teto real **não** foi procurado.
