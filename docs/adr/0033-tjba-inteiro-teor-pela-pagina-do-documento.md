@@ -10,8 +10,16 @@ que é o próprio documento da decisão.
 
 ## O que foi lido e provado (2026-10-29)
 
-- `robots.txt` do host `jurisprudenciaws.tjba.jus.br`: HTTP 404 (erro em JSON) — nenhuma regra publicada. Termo de uso do
-  portal: **não procurado** (sem vedação encontrada não equivale a autorização).
+- `robots.txt` do host `jurisprudenciaws.tjba.jus.br`: HTTP 404 (erro em JSON) — nenhuma regra publicada.
+- Termos do tribunal (ADR-0017), lidos pelo cartão Rede em 2026-10-29, ~15:40: «Política de Privacidade»
+  (`https://www.tjba.jus.br/portal/politica-de-privacidade/`, sem data de vigência) e «Política de Privacidade e
+  Cookies» (`https://www.tjba.jus.br/portal/politica-de-privacidade-e-cookies/`, «Última atualização: 27 de julho de
+  2026»): **nenhuma cláusula sobre robôs ou coleta automatizada**. A página de jurisprudência do portal
+  (`https://www.tjba.jus.br/portal/jurisprudencia/`) não traz aviso de termo e aponta a plataforma
+  `https://jurisprudencia.tjba.jus.br`, cujo texto não foi lido (é aplicativo): **não verificado** se ela tem termo
+  próprio. Limite do método: as páginas foram achadas por busca na web restrita ao domínio do tribunal e lidas por
+  resumo (com instrução de citar trecho literal), não pelo HTML bruto linha a linha; «nenhuma cláusula» vale para o que
+  a leitura devolveu. Sem vedação encontrada não equivale a autorização.
 - Duas páginas gravadas pelo cartão Rede, uma chamada cada, com pausa de pelo menos 6 s: uma de Turma Recursal (HTTP 200,
   `text/html` sem charset, 17 KB, ~3,9 mil caracteres de texto: cabeçalho do tribunal, processo, partes, ementa,
   relatório, voto e assinatura) e uma de Câmara Cível (200, `text/html`, 132 KB com 4 imagens `data:` embutidas, ~14,8
@@ -53,6 +61,6 @@ que é o próprio documento da decisão.
   funcionam pelo id.
 - Como o número do processo vem do próprio documento, a guarda «número dentro da íntegra» passa sempre no TJBA; o que
   protege contra documento trocado é o processo do documento ser o da busca.
-- **Não verificado:** termo de uso do portal; se o portal publica acórdão em segredo de justiça (e como o marcaria); se
+- **Não verificado:** termo próprio da plataforma `jurisprudencia.tjba.jus.br`; se o portal publica acórdão em segredo de justiça (e como o marcaria); se
   ele troca o documento como o do TJPR; o comportamento com o UA honesto do Garimpo; limite de ritmo do host; outras
   classes e órgãos além dos dois gravados.
