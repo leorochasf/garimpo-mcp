@@ -186,20 +186,26 @@ const CNJ = /(?<!\d)(\d{7})-?(\d{2})\.?(\d{4})\.?(\d)\.?(\d{2})\.?(\d{4})(?!\d)/
 const normalizarEmenta = (s: string) =>
   s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/^\s*ementa\s*:?\s*/, "").replace(/[^a-z0-9]+/g, " ").trim();
 
+/** Letras e algarismos, sem acento, pontuação nem a UF do fim: "AgInt no REsp 1.234.567/SP" → "agintnoresp1234567". */
+const numeroNormalizado = (s: string) =>
+  s.replace(/\/\s*[A-Za-z]{2}\s*$/, "").normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
 /**
- * Chave de repetido, como no 2º duelo: tribunal + número (CNJ só os dígitos; senão o maior grupo numérico, sem
- * pontuação nem UF) + data, para não fundir julgamentos diferentes do mesmo processo. Sem número: tribunal + começo da
- * ementa normalizada.
+ * Identidade canônica do acórdão, a mesma no júri e no derivado (B02-R01/R02): tribunal + número + classe + data. Com
+ * CNJ, os 20 dígitos e, à parte, o resto do número (a sigla do recurso, "EDcl no REsp …"); sem CNJ, o número inteiro
+ * com a sigla (REsp e AREsp de mesmo número são dois acórdãos). A classe por extenso entra também, e a data separa
+ * julgamentos do mesmo processo. Só pontuação, acento e UF não distinguem; na dúvida, não funde. Sem número: tribunal +
+ * começo da ementa normalizada; sem ementa também, o id.
  */
 export function chaveDoAcordao(a: AcordaoDaRodada): string {
   const data = (a.dataJulgamento ?? "").slice(0, 10);
-  const cnj = [a.numeroCnj, a.numero].filter(Boolean).join(" ").match(CNJ);
-  let numero = cnj ? cnj.slice(1).join("") : undefined;
-  if (!numero) {
-    const grupos = (a.numero ?? "").match(/\d[\d.\-]*(?:\/\d+)?/g) ?? [];
-    numero = grupos.map((g) => g.replace(/\D/g, "")).sort((x, y) => y.length - x.length)[0] || undefined;
-  }
-  return numero ? `${a.tribunal}|${numero}|${data}` : `${a.tribunal}|em:${normalizarEmenta(a.ementa ?? "").slice(0, 200)}`;
+  const classe = numeroNormalizado(a.classe ?? "").replace(/\d/g, "");
+  const numero = a.numero ?? "";
+  const cnj = [a.numeroCnj, numero].filter(Boolean).join(" ").match(CNJ);
+  if (cnj) return `${a.tribunal}|cnj:${cnj.slice(1).join("")}|${numeroNormalizado(numero.replace(new RegExp(CNJ, "g"), " "))}|${classe}|${data}`;
+  if (numeroNormalizado(numero)) return `${a.tribunal}|n:${numeroNormalizado(numero)}|${classe}|${data}`;
+  const ementa = normalizarEmenta(a.ementa ?? "").slice(0, 200);
+  return ementa ? `${a.tribunal}|em:${ementa}` : `${a.tribunal}|id:${a.id}`;
 }
 
 /** Número como o júri lê: com a classe na frente quando o número não a traz. */
@@ -210,7 +216,75 @@ export const numeroExibido = (a: AcordaoDaRodada) =>
 export interface ItemDaTese {
   chave: string;
   acordao: AcordaoDaRodada;
+  /** Referências `<braço>/<pedido>` (refDoPedido). */
   pedidos: string[];
+}
+
+/** Um acórdão entregue, como resultados.json guarda (scripts/rodarLinhaDeBase.ts). */
+export interface ItemEntregue {
+  id?: string;
+  numero: string;
+  tribunal: string;
+  data?: string;
+  orgao?: string;
+}
+
+/** Um pedido como resultados.json guarda: só o que o júri usa. */
+export interface ResultadoDaRodada {
+  id: string;
+  estrato: string;
+  tese: number | string;
+  erro?: string;
+  mostrados?: number;
+  acordaos?: ItemEntregue[];
+}
+
+/** ementas.json: o obter_ementa de cada acórdão entregue em E1, pelo id (ou o erro dele). */
+export type Ementas = Record<string, AcordaoDaRodada & { erro?: string }>;
+
+/** A rodada de um braço (a pasta que rodarLinhaDeBase.ts gravou), com o rótulo do braço: o commit dele. */
+export interface RodadaDoJuri {
+  braco: string;
+  resultados: readonly ResultadoDaRodada[];
+  ementas: Ementas;
+}
+
+/** O pedido de um braço, como o reservado/ e a apuração o chamam: os braços rodam os mesmos pedidos. */
+export const refDoPedido = (braco: string, pedido: string) => `${braco}/${pedido}`;
+
+/** O acórdão de um item entregue: o obter_ementa dele, ou, se falhou, o que a lista trouxe (sem ementa). */
+export function acordaoDoItem(item: ItemEntregue, ementas: Ementas): AcordaoDaRodada {
+  const e = item.id === undefined ? undefined : ementas[item.id];
+  if (e && !e.erro) return e;
+  return { id: item.id ?? "", tribunal: item.tribunal, numero: item.numero, dataJulgamento: item.data, orgao: item.orgao, ementa: "" };
+}
+
+/**
+ * A lista unificada de cada tese de E1, sem repetidos pela chave canônica, juntando os pedidos de todos os braços
+ * (cobertura relativa mede contra essa união julgada, protocolo 1.2, seção 1). Pedido com erro fica fora. O mesmo
+ * acórdão por dois caminhos fica com o campo mais completo de cada um, sem dizer de onde veio.
+ */
+export function listaUnificada(rodadas: readonly RodadaDoJuri[]): Map<number, ItemDaTese[]> {
+  const maior = (x?: string, y?: string) => ((y ?? "").length > (x ?? "").length ? y : x);
+  const porTese = new Map<number, Map<string, ItemDaTese>>();
+  for (const { braco, resultados, ementas } of rodadas)
+    for (const r of resultados.filter((x) => x.estrato === "E1" && !x.erro)) {
+      const tese = r.tese as number;
+      if (!porTese.has(tese)) porTese.set(tese, new Map());
+      const daTese = porTese.get(tese)!;
+      for (const item of r.acordaos ?? []) {
+        const a = acordaoDoItem(item, ementas);
+        const chave = chaveDoAcordao(a);
+        const ref = refDoPedido(braco, r.id);
+        const ja = daTese.get(chave);
+        if (!ja) daTese.set(chave, { chave, acordao: { ...a }, pedidos: [ref] });
+        else {
+          if (!ja.pedidos.includes(ref)) ja.pedidos.push(ref);
+          for (const c of ["numero", "orgao", "ementa", "dataJulgamento", "classe"] as const) ja.acordao[c] = maior(ja.acordao[c], a[c]) as string;
+        }
+      }
+    }
+  return new Map([...porTese].sort(([a], [b]) => a - b).map(([n, m]) => [n, [...m.values()]]));
 }
 
 /** Linha do pool cego: nada diz de qual pedido ou braço veio, nem se é controle. */
@@ -406,15 +480,102 @@ export function contarVereditos(reservado: readonly LinhaReservada[], vereditos:
 }
 
 /**
+ * O veredito de cada acórdão que o pedido entregou, na ordem da lista (posição 1 primeiro): a chave do item, na tese do
+ * pedido, leva à linha real do pool. Item sem linha é erro: o pool foi montado de outra rodada.
+ */
+export function vereditosNaOrdem(
+  tese: number,
+  chaves: readonly string[],
+  reservado: readonly LinhaReservada[],
+  vereditos: ReadonlyMap<string, Veredito>,
+): Veredito[] {
+  const linhas = new Map(reservado.filter((l) => l.tese === tese && l.controleDaTese === undefined).map((l) => [l.chave, l.id]));
+  return chaves.map((chave, i) => {
+    const v = vereditos.get(linhas.get(chave) ?? "");
+    if (v === undefined) throw new Error(`apuração: o ${i + 1}º acórdão entregue sob a tese ${tese} não está no pool julgado`);
+    return v;
+  });
+}
+
+export const contar = (vs: Iterable<Veredito>): Contagem => {
+  const c = zerada();
+  for (const v of vs) somar(c, v);
+  return c;
+};
+
+/** Os dois limites do "sem maioria" (protocolo 1.2, seção 5); null quando o denominador é zero. */
+export interface Limites {
+  pessimista: number | null;
+  otimista: number | null;
+}
+
+const razao = (num: number, den: number) => (den > 0 ? num / den : null);
+const julgadas = (c: Contagem) => c.S + c.P + c.C + c.N + c.semMaioria;
+
+/** Precisão sobre as posições: "sem maioria" não serve no limite pessimista e serve como S no otimista. */
+const precisaoDe = (c: Contagem, serve: (c: Contagem) => number): Limites => ({
+  pessimista: razao(serve(c), julgadas(c)),
+  otimista: razao(serve(c) + c.semMaioria, julgadas(c)),
+});
+
+export interface MedidaDoPedido {
+  entregues: number;
+  /** Veredito de cada entregue, na ordem da lista. */
+  vereditos: Veredito[];
+  /** Por posição: todas e as 10 primeiras. */
+  todos: Contagem;
+  dezPrimeiros: Contagem;
+  /** Por acórdão distinto (a chave): o numerador da cobertura. */
+  distintos: Contagem;
+  /** A lista unificada julgada da tese (todos os braços do pool): o denominador da cobertura. */
+  uniaoDaTese: Contagem;
+  precisao: { ampla: Limites; estrita: Limites; amplaNosDez: Limites; estritaNosDez: Limites };
+  cobertura: Limites;
+}
+
+/**
+ * As medidas do pedido (protocolo 1.2, seções 1 e 5), com as contas fixadas aqui:
+ * - precisão ampla = (S+P) ÷ entregues; estrita = S ÷ entregues; as mesmas nas 10 primeiras posições. C (relevante do
+ *   lado contrário) nunca entra no numerador: fica no denominador e é contado à parte, em `todos.C`.
+ * - cobertura relativa = (S+P) distintos do pedido ÷ (S+P) da união julgada da tese. Os limites são os extremos de
+ *   decidir cada "sem maioria": pessimista, o que o pedido trouxe não serve e o que ele deixou de fora serve; otimista,
+ *   o contrário.
+ */
+export function medirPedido(vereditos: readonly Veredito[], distintos: Contagem, uniaoDaTese: Contagem): MedidaDoPedido {
+  const todos = contar(vereditos);
+  const dezPrimeiros = contar(vereditos.slice(0, 10));
+  const amplo = (c: Contagem) => c.S + c.P;
+  const fora = uniaoDaTese.semMaioria - distintos.semMaioria;
+  return {
+    entregues: vereditos.length,
+    vereditos: [...vereditos],
+    todos,
+    dezPrimeiros,
+    distintos,
+    uniaoDaTese,
+    precisao: {
+      ampla: precisaoDe(todos, amplo),
+      estrita: precisaoDe(todos, (c) => c.S),
+      amplaNosDez: precisaoDe(dezPrimeiros, amplo),
+      estritaNosDez: precisaoDe(dezPrimeiros, (c) => c.S),
+    },
+    cobertura: {
+      pessimista: razao(amplo(distintos), amplo(uniaoDaTese) + fora),
+      otimista: razao(amplo(distintos) + distintos.semMaioria, amplo(uniaoDaTese) + distintos.semMaioria),
+    },
+  };
+}
+
+/**
  * E2 (U16), pela regra congelada na amostra: tese de E1 cujo pedido técnico (a 1ª rodada do jurista) entregou ≥ 30
  * acórdãos e, entre os julgados, ≥ 80% S+P e nenhum C. "Sem maioria" conta contra no limite pessimista (não é S+P) e não
- * vira C.
+ * vira C. Do braço pedido (a linha de base: o da 1.1.1); `entregues` pelo id do pedido.
  */
-export function tesesDeE2(pedidos: readonly Pedido[], entregues: ReadonlyMap<string, number>, apuracao: Apuracao): number[] {
+export function tesesDeE2(braco: string, pedidos: readonly Pedido[], entregues: ReadonlyMap<string, number>, apuracao: Apuracao): number[] {
   return pedidos
     .filter((p) => p.estrato === "E1" && p.versao === "tecnica")
     .filter((p) => {
-      const c = apuracao.porPedido.get(p.id);
+      const c = apuracao.porPedido.get(refDoPedido(braco, p.id));
       const julgados = c ? c.S + c.P + c.C + c.N + c.semMaioria : 0;
       return (entregues.get(p.id) ?? 0) >= 30 && julgados > 0 && (c!.S + c!.P) / julgados >= 0.8 && c!.C === 0;
     })

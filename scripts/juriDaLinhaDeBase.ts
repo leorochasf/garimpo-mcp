@@ -1,17 +1,22 @@
 /**
  * Júri da linha de base do banco de provas 1.2 (B0.2; docs/banco-de-provas/protocolo-1.2.md, seção 5), sem rede. Tudo
- * na pasta externa da linha de base (<base>, fora do projeto e de nuvem), nunca no projeto:
+ * na pasta externa da linha de base (<base>, fora do projeto, de toda worktree do repositório e de nuvem), nunca no
+ * projeto:
  *
- *   npx vite-node scripts/juriDaLinhaDeBase.ts -- --montar --base <pasta externa>
+ *   npx vite-node scripts/juriDaLinhaDeBase.ts -- --montar --base <pasta externa> [--rodadas <rodada>,<rodada>]
  *   npx vite-node scripts/juriDaLinhaDeBase.ts -- --desempate --base <pasta externa>
  *   npx vite-node scripts/juriDaLinhaDeBase.ts -- --apurar --base <pasta externa>
  *
- * --montar lê <base>/rodada (scripts/rodarLinhaDeBase.ts) e grava o pool cego de E1: juri/ (instruções, lotes,
- * conferir.mjs e as pastas dos dois jurados), reservado/ (o pool estruturado, o mapa de cada linha, os controles
- * negativos e a semente) e conferencia-do-dono/ (20 linhas reais sorteadas com a semente ANTES de o júri rodar, D10 a).
+ * --montar lê as rodadas (scripts/rodarLinhaDeBase.ts; sem --rodadas, só <base>/rodada) e grava o pool cego de E1 com a
+ * lista unificada de cada tese, a união dos braços: juri/ (instruções, lotes, conferir.mjs e as pastas dos dois
+ * jurados), reservado/ (o pool estruturado, o mapa de cada linha com os pedidos `<braço>/<pedido>`, as rodadas, os
+ * controles negativos e a semente) e conferencia-do-dono/ (20 linhas reais sorteadas com a semente ANTES de o júri
+ * rodar, D10 a). O braço é o commit do estado.json da rodada. Para comparar 1.1.1 × 1.2, um pool só com as duas rodadas:
+ * a cobertura relativa dos dois mede contra o mesmo denominador, a união julgada.
  * --desempate, com os dois jurados principais completos, grava em juri/desempate/ só as linhas em que divergiram.
- * --apurar grava veredito/ (veredito por linha, sem texto de caso, e a apuração por pedido e por tese, com E2) e os
- * casos de dúvida para o dono (D10 b, até 20). Nenhum passo grava por cima de pasta que já existe.
+ * --apurar grava veredito/ (veredito por linha, sem texto de caso, e a apuração: por braço e pedido, o veredito de cada
+ * posição, as contagens e as medidas de medirPedido; por tese, a união julgada; E2 por braço) e os casos de dúvida para
+ * o dono (D10 b, até 20). Nenhum passo grava por cima de pasta que já existe.
  */
 
 import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -19,24 +24,31 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { conferirPasta } from "./conferirVotos.mjs";
 import {
-  type AcordaoDaRodada,
+  acordaoDoItem,
   apurar,
   casosParaODono,
   chaveDoAcordao,
+  contar,
   contarVereditos,
-  type ItemDaTese,
+  type Ementas,
   lerSecoes,
   type LinhaDoPool,
   type LinhaReservada,
+  listaUnificada,
   lotesDoPool,
+  medirPedido,
   montarPool,
   type Pedido,
   paraDesempate,
+  refDoPedido,
+  type ResultadoDaRodada,
+  type RodadaDoJuri,
   sortearConferencia,
   tesesDeE2,
+  vereditosNaOrdem,
   type Voto,
 } from "./linhaDeBase.js";
-import { gravacaoForaDoLugarNoDisco } from "./seguroDaRodada.js";
+import { foraDoRepositorioNoDisco } from "./seguroDaRodada.js";
 
 const arg = (nome: string) => {
   const i = process.argv.indexOf(nome);
@@ -53,9 +65,29 @@ const raizDoProjeto = fileURLToPath(new URL("..", import.meta.url));
 const baseArg = arg("--base");
 if (!baseArg || baseArg.startsWith("-")) parar("informe a pasta externa da linha de base: --base <pasta> (com rodada/ dentro).");
 const base = resolve(baseArg!);
-const fora = gravacaoForaDoLugarNoDisco(base, raizDoProjeto);
+const fora = foraDoRepositorioNoDisco(base, raizDoProjeto);
 if (fora) parar(fora);
 const pasta = (...partes: string[]) => join(base, ...partes);
+
+/** Uma rodada lida da pasta dela, com o braço (o commit do estado.json). */
+interface RodadaLida extends RodadaDoJuri {
+  pasta: string;
+  plano: { semente: number; pedidos: Pedido[] };
+}
+
+function lerRodada(pastaDaRodada: string): RodadaLida {
+  const recusa = foraDoRepositorioNoDisco(pastaDaRodada, raizDoProjeto);
+  if (recusa) parar(`${pastaDaRodada}: ${recusa}`);
+  const estado = ler(pastaDaRodada, "estado.json") as { commit?: unknown };
+  if (typeof estado.commit !== "string" || !/^[0-9a-f]{7,40}$/.test(estado.commit)) parar(`${pastaDaRodada}/estado.json não diz o commit do braço.`);
+  return {
+    pasta: pastaDaRodada,
+    braco: estado.commit as string,
+    plano: ler(pastaDaRodada, "plano.json"),
+    resultados: ler(pastaDaRodada, "resultados.json") as ResultadoDaRodada[],
+    ementas: ler(pastaDaRodada, "ementas.json") as Ementas,
+  };
+}
 
 /** Um acórdão para o júri ler, no formato do lote (Markdown, a ementa citada linha a linha). */
 function blocoDoAcordao(l: LinhaDoPool): string {
@@ -95,28 +127,11 @@ const votosDe = (lotes: string, respostas: string, quem: string): Map<string, Vo
 
 if (process.argv.includes("--montar")) {
   if (existsSync(pasta("juri"))) parar(`${pasta("juri")} já existe: o pool é montado uma vez só.`);
-  const plano = ler(base, "rodada", "plano.json") as { semente: number; pedidos: Pedido[] };
-  const resultados = ler(base, "rodada", "resultados.json") as { id: string; estrato: string; tese: number; erro?: string; acordaos?: { id: string; numero: string; tribunal: string; data?: string; orgao?: string }[] }[];
-  const ementas = ler(base, "rodada", "ementas.json") as Record<string, AcordaoDaRodada & { erro?: string }>;
-  const maior = (x?: string, y?: string) => ((y ?? "").length > (x ?? "").length ? y : x);
-  const porTese = new Map<number, Map<string, ItemDaTese>>();
-  for (const r of resultados.filter((x) => x.estrato === "E1" && !x.erro)) {
-    if (!porTese.has(r.tese)) porTese.set(r.tese, new Map());
-    const daTese = porTese.get(r.tese)!;
-    for (const item of r.acordaos ?? []) {
-      const e = ementas[item.id];
-      const a: AcordaoDaRodada = e && !e.erro ? e : { id: item.id, tribunal: item.tribunal, numero: item.numero, dataJulgamento: item.data, orgao: item.orgao, ementa: "" };
-      const chave = chaveDoAcordao(a);
-      const ja = daTese.get(chave);
-      if (!ja) daTese.set(chave, { chave, acordao: { ...a }, pedidos: [r.id] });
-      else {
-        if (!ja.pedidos.includes(r.id)) ja.pedidos.push(r.id);
-        // Mesmo acórdão por dois caminhos: o campo mais completo, sem dizer de onde veio.
-        for (const c of ["numero", "orgao", "ementa", "dataJulgamento", "classe"] as const) ja.acordao[c] = maior(ja.acordao[c], a[c]) as string;
-      }
-    }
-  }
-  const teses = new Map([...porTese].sort(([a], [b]) => a - b).map(([n, m]) => [n, [...m.values()]]));
+  const rodadas = (arg("--rodadas")?.split(",") ?? [pasta("rodada")]).map((p) => lerRodada(resolve(p)));
+  if (new Set(rodadas.map((r) => r.braco)).size !== rodadas.length) parar("duas rodadas do mesmo commit: cada braço entra no pool uma vez só.");
+  if (new Set(rodadas.map((r) => r.plano.semente)).size !== 1) parar("as rodadas não têm a mesma semente: não são da mesma amostra.");
+  const plano = rodadas[0].plano;
+  const teses = listaUnificada(rodadas);
   const pool = montarPool(teses, { semente: plano.semente });
   const enunciados = enunciadosDasTeses();
   const lotes = gravarLotes(pasta("juri", "lotes"), pool.linhas, enunciados);
@@ -127,9 +142,11 @@ if (process.argv.includes("--montar")) {
   mkdirSync(pasta("reservado"), { recursive: true });
   gravar(pasta("reservado", "pool.json"), pool.linhas);
   gravar(pasta("reservado", "mapa.json"), pool.reservado);
+  gravar(pasta("reservado", "rodadas.json"), rodadas.map((r) => ({ braco: r.braco, pasta: r.pasta })));
   writeFileSync(pasta("reservado", "semente.txt"), `${plano.semente} (mulberry32; embaralha o pool, sorteia os controles e, com semente + 1, a conferência do dono — scripts/linhaDeBase.ts)\n`);
   const controles = pool.reservado.filter((l) => l.controleDaTese !== undefined);
   const resumo = {
+    bracos: rodadas.map((r) => r.braco),
     linhas: pool.linhas.length,
     reais: pool.linhas.length - controles.length,
     controles: controles.length,
@@ -178,9 +195,26 @@ if (process.argv.includes("--montar")) {
   const ids = reservado.map((l) => l.id);
   const vereditos = apurar(ids, a, b, c);
   const apuracao = contarVereditos(reservado, vereditos);
-  const plano = ler(base, "rodada", "plano.json") as { pedidos: Pedido[] };
-  const resultados = ler(base, "rodada", "resultados.json") as { id: string; mostrados?: number }[];
-  const entregues = new Map(resultados.map((r) => [r.id, r.mostrados ?? 0]));
+  const rodadas = (ler(base, "reservado", "rodadas.json") as { pasta: string }[]).map((r) => lerRodada(r.pasta));
+  const zero = contar([]);
+  // Por braço e pedido: o veredito de cada posição (a chave do item leva à linha da tese) e as medidas (B02-R04).
+  const porBraco = Object.fromEntries(
+    rodadas.map(({ braco, plano, resultados, ementas }) => {
+      const doPlano = plano.pedidos.filter((p) => p.estrato === "E1");
+      const porPedido = Object.fromEntries(
+        doPlano.map((p) => {
+          const r = resultados.find((x) => x.id === p.id);
+          if (!r || r.erro) return [p.id, { tese: p.tese, erro: true, entregues: 0 }];
+          const tese = p.tese as number;
+          const chaves = (r.acordaos ?? []).map((item) => chaveDoAcordao(acordaoDoItem(item, ementas)));
+          const medida = medirPedido(vereditosNaOrdem(tese, chaves, reservado, vereditos), apuracao.porPedido.get(refDoPedido(braco, p.id)) ?? zero, apuracao.porTese.get(tese) ?? zero);
+          return [p.id, { tese, ...medida }];
+        }),
+      );
+      const entregues = new Map(resultados.map((r) => [r.id, r.mostrados ?? 0]));
+      return [braco, { porPedido, e2: tesesDeE2(braco, plano.pedidos, entregues, apuracao) }];
+    }),
+  );
   const iguais = ids.filter((id) => a.get(id)!.letra === b.get(id)!.letra).length;
   const serve = (l: string) => l === "S" || l === "P";
   const iguaisServe = ids.filter((id) => serve(a.get(id)!.letra) === serve(b.get(id)!.letra)).length;
@@ -196,9 +230,8 @@ if (process.argv.includes("--montar")) {
     controles: apuracao.controles,
     semMaioria: [...vereditos.values()].filter((v) => v === "sem maioria").length,
     concordancia: { exataAB: iguais / ids.length, serveOuNaoAB: iguaisServe / ids.length, desempates: divergentes.length },
-    porPedido: Object.fromEntries(plano.pedidos.filter((p) => p.estrato === "E1").map((p) => [p.id, { entregues: entregues.get(p.id) ?? 0, ...apuracao.porPedido.get(p.id) }])),
+    porBraco,
     porTese: Object.fromEntries(apuracao.porTese),
-    e2: tesesDeE2(plano.pedidos, entregues, apuracao),
     duvidasParaODono: { total: duvidas.total, excedeuOTeto: duvidas.excedeu },
   };
   gravar(pasta("veredito", "apuracao.json"), apuracaoGravada);
@@ -214,7 +247,7 @@ if (process.argv.includes("--montar")) {
       ...duvidas.casos.map(({ id, motivo }) => `**${motivo}.** Tese ${pool.get(id)!.tese}: ${enunciados.get(pool.get(id)!.tese)}\n\n${blocoDoAcordao(pool.get(id)!)}`),
     ].join("\n"),
   );
-  console.log(JSON.stringify({ ...apuracaoGravada, porPedido: undefined, porTese: undefined }, null, 1));
+  console.log(JSON.stringify({ ...apuracaoGravada, porBraco: Object.fromEntries(Object.entries(porBraco).map(([b, x]) => [b, { e2: x.e2 }])), porTese: undefined }, null, 1));
 } else {
   parar("use --montar, --desempate ou --apurar, com --base <pasta externa>.");
 }

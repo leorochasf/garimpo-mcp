@@ -11,7 +11,9 @@ import {
   contarVereditos,
   type ItemDaTese,
   lerSecoes,
+  listaUnificada,
   lotesDoPool,
+  medirPedido,
   montarPool,
   paraDesempate,
   pedidosE1,
@@ -22,6 +24,7 @@ import {
   TESES_VIZINHAS,
   tribunaisDaRodada,
   type Veredito,
+  vereditosNaOrdem,
   type Voto,
 } from "../scripts/linhaDeBase.js";
 
@@ -88,20 +91,63 @@ const acordao = (tribunal: string, seq: number, extra: Partial<AcordaoDaRodada> 
   ...extra,
 });
 
-describe("chaveDoAcordao (como no 2º duelo)", () => {
+describe("chaveDoAcordao (identidade canônica: na dúvida, não funde)", () => {
   it("CNJ vira só os dígitos, com tribunal e data; a pontuação não importa", () => {
-    expect(chaveDoAcordao(acordao("stj", 12))).toBe("stj|00000121120208990000|2024-01-15");
+    expect(chaveDoAcordao(acordao("stj", 12))).toContain("00000121120208990000");
     expect(chaveDoAcordao(acordao("stj", 12, { numero: "00000121120208990000" }))).toBe(chaveDoAcordao(acordao("stj", 12)));
+    expect(chaveDoAcordao(acordao("stj", 12, { numero: "", numeroCnj: "0000012-11.2020.8.99.0000" }))).toBe(chaveDoAcordao(acordao("stj", 12)));
   });
 
-  it("sem CNJ: o maior grupo numérico; mesmo processo em outra data é outro acórdão", () => {
-    const a = acordao("stj", 1, { numero: "AgInt no REsp 1.234.567/SP" });
-    expect(chaveDoAcordao(a)).toBe("stj|1234567|2024-01-15");
+  it("sem CNJ: classe e número, sem pontuação nem UF; mesmo processo em outra data é outro acórdão", () => {
+    const a = acordao("stj", 1, { numero: "REsp 1.234.567/SP" });
+    expect(chaveDoAcordao({ ...a, numero: "REsp 1234567" })).toBe(chaveDoAcordao(a));
     expect(chaveDoAcordao({ ...a, dataJulgamento: "2024-02-01" })).not.toBe(chaveDoAcordao(a));
   });
 
-  it("sem número: o começo da ementa normalizada", () => {
+  it("B02-R01: classes diferentes com o mesmo número e a mesma data são acórdãos diferentes", () => {
+    const resp = acordao("stj", 1, { numero: "REsp 1.000.002/SP" });
+    expect(chaveDoAcordao({ ...resp, numero: "AREsp 1.000.002/SP" })).not.toBe(chaveDoAcordao(resp));
+    expect(chaveDoAcordao({ ...resp, numero: "AgInt no REsp 1.000.002/SP" })).not.toBe(chaveDoAcordao(resp));
+    expect(chaveDoAcordao({ ...resp, classe: "Recurso Especial" })).not.toBe(chaveDoAcordao({ ...resp, classe: "Agravo em Recurso Especial" }));
+  });
+
+  it("B02-R01: recursos diferentes do mesmo processo (mesmo CNJ) julgados no mesmo dia não se fundem", () => {
+    const apelacao = acordao("tjsp", 7, { classe: "Apelação Cível" });
+    expect(chaveDoAcordao({ ...apelacao, classe: "Embargos de Declaração Cível" })).not.toBe(chaveDoAcordao(apelacao));
+    const comCnj = acordao("stj", 7, { numeroCnj: "0000007-11.2020.8.99.0000", numero: "REsp 1.000.003/SP" });
+    expect(chaveDoAcordao({ ...comCnj, numero: "EDcl no REsp 1.000.003/SP" })).not.toBe(chaveDoAcordao(comCnj));
+  });
+
+  it("sem número: o começo da ementa normalizada; sem número nem ementa, o id (nunca uma chave vazia comum)", () => {
     expect(chaveDoAcordao({ id: "tst:1", tribunal: "tst", numero: "", ementa: "Ementa: Recurso Fictício." })).toBe("tst|em:recurso ficticio");
+    expect(chaveDoAcordao({ id: "tst:1", tribunal: "tst", numero: "" })).not.toBe(chaveDoAcordao({ id: "tst:2", tribunal: "tst", numero: "" }));
+  });
+});
+
+describe("listaUnificada (o montador do júri: uma linha por acórdão, a união dos braços)", () => {
+  const resp = acordao("stj", 1, { id: "stj:1", numero: "REsp 1.000.002/SP", ementa: "EMENTA FICTÍCIA DO RECURSO ESPECIAL." });
+  const aresp = acordao("stj", 2, { id: "stj:2", numero: "AREsp 1.000.002/SP", ementa: "EMENTA FICTÍCIA DO AGRAVO." });
+  const item = (a: AcordaoDaRodada) => ({ id: a.id, numero: a.numero, tribunal: a.tribunal, data: a.dataJulgamento });
+  const resultado = (id: string, acordaos: AcordaoDaRodada[], extra = {}) => ({ id, estrato: "E1", tese: 1, mostrados: acordaos.length, acordaos: acordaos.map(item), ...extra });
+
+  it("B02-R01: REsp e AREsp de mesmo número e data, do mesmo tribunal, são duas linhas, cada uma com o seu pedido e a sua ementa", () => {
+    const lista = listaUnificada([
+      { braco: "cc956b4", resultados: [resultado("e1-t01-tecnica", [resp]), resultado("e1-t01-leiga", [aresp])], ementas: { "stj:1": resp, "stj:2": aresp } },
+    ]).get(1)!;
+    expect(lista).toHaveLength(2);
+    expect(lista.map((i) => [i.acordao.numero, i.acordao.ementa, i.pedidos])).toEqual([
+      ["REsp 1.000.002/SP", "EMENTA FICTÍCIA DO RECURSO ESPECIAL.", ["cc956b4/e1-t01-tecnica"]],
+      ["AREsp 1.000.002/SP", "EMENTA FICTÍCIA DO AGRAVO.", ["cc956b4/e1-t01-leiga"]],
+    ]);
+  });
+
+  it("o mesmo acórdão por dois braços é uma linha com os dois pedidos; pedido com erro fica fora; sem ementa, o que a lista trouxe", () => {
+    const lista = listaUnificada([
+      { braco: "cc956b4", resultados: [resultado("e1-t01-tecnica", [resp]), resultado("e1-t01-leiga", [aresp], { erro: "Error: falhou" })], ementas: { "stj:1": resp } },
+      { braco: "abc1234", resultados: [resultado("e1-t01-tecnica", [resp, aresp])], ementas: { "stj:1": resp, "stj:2": { ...aresp, erro: "falhou" } } },
+    ]).get(1)!;
+    expect(lista.map((i) => i.pedidos)).toEqual([["cc956b4/e1-t01-tecnica", "abc1234/e1-t01-tecnica"], ["abc1234/e1-t01-tecnica"]]);
+    expect(lista[1].acordao).toMatchObject({ numero: "AREsp 1.000.002/SP", ementa: "" });
   });
 });
 
@@ -181,21 +227,70 @@ describe("apuração", () => {
 
   it("conta por pedido e por tese sem os controles; controle que não sai N é falho; E2 e os casos do dono", () => {
     const reservado = [
-      ...Array.from({ length: 30 }, (_, i) => ({ id: `J-${String(i + 1).padStart(4, "0")}`, tese: 1, chave: `k${i}`, pedidos: ["e1-t01-tecnica"] })),
+      ...Array.from({ length: 30 }, (_, i) => ({ id: `J-${String(i + 1).padStart(4, "0")}`, tese: 1, chave: `k${i}`, pedidos: ["cc956b4/e1-t01-tecnica"] })),
       { id: "J-0031", tese: 1, chave: "x", pedidos: [], controleDaTese: 16 },
-      { id: "J-0032", tese: 2, chave: "y", pedidos: ["e1-t02-tecnica"] },
+      { id: "J-0032", tese: 2, chave: "y", pedidos: ["cc956b4/e1-t02-tecnica"] },
     ];
     const vereditos = new Map(reservado.map((l, i) => [l.id, i < 26 ? "S" : i < 30 ? "P" : "N"] as [string, Veredito]));
     vereditos.set("J-0031", "P");
     vereditos.set("J-0032", "C");
     const apuracao = contarVereditos(reservado, vereditos);
-    expect(apuracao.porPedido.get("e1-t01-tecnica")).toEqual({ S: 26, P: 4, C: 0, N: 0, semMaioria: 0 });
+    expect(apuracao.porPedido.get("cc956b4/e1-t01-tecnica")).toEqual({ S: 26, P: 4, C: 0, N: 0, semMaioria: 0 });
     expect(apuracao.controles).toEqual({ total: 1, julgadosN: 0, falhos: ["J-0031"] });
     const pedidos = pedidosE1(teses, [1, 2]);
-    expect(tesesDeE2(pedidos, new Map([["e1-t01-tecnica", 30], ["e1-t02-tecnica", 50]]), apuracao)).toEqual([1]);
-    expect(tesesDeE2(pedidos, new Map([["e1-t01-tecnica", 29]]), apuracao)).toEqual([]);
+    expect(tesesDeE2("cc956b4", pedidos, new Map([["e1-t01-tecnica", 30], ["e1-t02-tecnica", 50]]), apuracao)).toEqual([1]);
+    expect(tesesDeE2("cc956b4", pedidos, new Map([["e1-t01-tecnica", 29]]), apuracao)).toEqual([]);
+    expect(tesesDeE2("abc1234", pedidos, new Map([["e1-t01-tecnica", 30]]), apuracao)).toEqual([]);
     const casos = casosParaODono(apuracao, reservado, vereditos, 1);
     expect(casos).toEqual({ casos: [{ id: "J-0031", motivo: "controle negativo que o júri não julgou N" }], excedeu: true, total: 2 });
+  });
+});
+
+describe("B02-R04: medidas do pedido (precisão nos 10 primeiros, cobertura relativa, limites do sem maioria)", () => {
+  const S10N10: Veredito[] = [...Array(10).fill("S"), ...Array(10).fill("N")];
+  const zero = { S: 0, P: 0, C: 0, N: 0, semMaioria: 0 };
+
+  it("20 entregues, 10 S e 10 N: com os S no topo, 100% nos 10 primeiros; com os S no fim, 0% — a lista toda dá 50% nos dois", () => {
+    const topo = medirPedido(S10N10, zero, zero);
+    const fim = medirPedido([...S10N10].reverse(), zero, zero);
+    expect(topo.precisao.amplaNosDez).toEqual({ pessimista: 1, otimista: 1 });
+    expect(fim.precisao.amplaNosDez).toEqual({ pessimista: 0, otimista: 0 });
+    expect(topo.precisao.ampla).toEqual({ pessimista: 0.5, otimista: 0.5 });
+    expect(fim.precisao.ampla).toEqual(topo.precisao.ampla);
+    expect(topo.todos).toEqual(fim.todos);
+    expect(topo.vereditos).toEqual(S10N10);
+    expect(topo.dezPrimeiros).toEqual({ S: 10, P: 0, C: 0, N: 0, semMaioria: 0 });
+  });
+
+  it("C fica fora do numerador das duas precisões e no denominador; sem maioria: N no pessimista, S no otimista", () => {
+    const m = medirPedido(["S", "P", "C", "N", "sem maioria"], zero, zero);
+    expect(m.precisao.ampla).toEqual({ pessimista: 2 / 5, otimista: 3 / 5 });
+    expect(m.precisao.estrita).toEqual({ pessimista: 1 / 5, otimista: 2 / 5 });
+    expect(m.todos.C).toBe(1);
+    expect(medirPedido([], zero, zero).precisao.ampla).toEqual({ pessimista: null, otimista: null });
+  });
+
+  it("cobertura relativa contra a união julgada da tese, com os extremos de cada sem maioria", () => {
+    // O pedido trouxe 3 que servem e 1 sem maioria; a união da tese tem 6 que servem e 3 sem maioria (2 fora do pedido).
+    const distintos = { S: 2, P: 1, C: 0, N: 4, semMaioria: 1 };
+    const uniao = { S: 4, P: 2, C: 1, N: 9, semMaioria: 3 };
+    // Pessimista: o sem maioria do pedido não serve; os 2 de fora servem → 3 ÷ (6 + 2). Otimista: o do pedido serve,
+    // os de fora não → (3 + 1) ÷ (6 + 1).
+    expect(medirPedido([], distintos, uniao).cobertura).toEqual({ pessimista: 3 / 8, otimista: 4 / 7 });
+    expect(medirPedido([], zero, zero).cobertura).toEqual({ pessimista: null, otimista: null });
+  });
+
+  it("o veredito de cada entregue sai da linha real da tese do pedido, pela chave, na ordem da lista", () => {
+    const reservado = [
+      { id: "J-0001", tese: 1, chave: "a", pedidos: ["cc956b4/e1-t01-tecnica"] },
+      { id: "J-0002", tese: 1, chave: "b", pedidos: ["cc956b4/e1-t01-tecnica"] },
+      { id: "J-0003", tese: 2, chave: "a", pedidos: ["cc956b4/e1-t02-tecnica"] },
+      { id: "J-0004", tese: 1, chave: "c", pedidos: [], controleDaTese: 16 },
+    ];
+    const vereditos = new Map<string, Veredito>([["J-0001", "S"], ["J-0002", "N"], ["J-0003", "C"], ["J-0004", "N"]]);
+    expect(vereditosNaOrdem(1, ["b", "a", "a"], reservado, vereditos)).toEqual(["N", "S", "S"]);
+    expect(vereditosNaOrdem(2, ["a"], reservado, vereditos)).toEqual(["C"]);
+    expect(() => vereditosNaOrdem(1, ["c"], reservado, vereditos)).toThrow(/1º acórdão entregue sob a tese 1/);
   });
 });
 
