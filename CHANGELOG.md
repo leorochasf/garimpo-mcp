@@ -60,6 +60,12 @@
   como trecho do texto do site, sem reescrever, e avisa em avisoDeEmenta. Sem separação segura, vai só o começo, com
   aviso, e a conferência de citação na ementa diz «não verificável». A ementa repetida fica uma vez só em qualquer
   tribunal.
+- TJBA: o `obter_inteiro_teor` passa a trazer o texto do acórdão da página pública dele no portal de jurisprudência do
+  tribunal, que é o próprio documento da decisão (ementa, relatório e voto), como «texto do portal do tribunal» (HTML,
+  sem PDF e sem recibo); dá para ler por partes e conferir citações pelo id. Só guarda o documento cujo cabeçalho traz
+  um só número de processo, o da busca. A página não informa segredo de justiça; o Garimpo segue mesmo assim, por decisão do dono,
+  conferindo o processo (ADR-0034). O `robots.txt` do portal não existe (404); as políticas de privacidade do tribunal, lidas em
+  29/10/2026, não falam de robôs, e o termo próprio da plataforma de jurisprudência não foi verificado; não há autorização do TJBA.
 - Windows com antivírus lento: o Garimpo podia parar de usar a rede com um falso «não tem permissão» sobre o estado
   compartilhado de proteção, quando o antivírus segurava o arquivo por mais de 2 s. Agora espera até ~10 s antes de
   tratar como permissão negada de verdade. Com a permissão negada de fato, o aviso chega em até ~10 s.
