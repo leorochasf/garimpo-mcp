@@ -494,7 +494,8 @@ export function criarServidor(
         "Pesquisa jurisprudência (decisões judiciais publicadas) num tribunal pela busca direta do JurisprudênciaIA " +
         "(sem o chat de IA do site). " +
         "Devolve acórdãos com a ementa como veio do site (avisoDeEmenta quando ela parece cortada pelo próprio site), " +
-        "número, órgão, data e link oficial, e, em lista separada, os " +
+        "número, órgão, data e link oficial (avisoDeLink quando o site mandou, no lugar do link, um endereço que não é " +
+        "página do tribunal), e, em lista separada, os " +
         "precedentes qualificados (temas, súmulas). O site costuma devolver poucos acórdãos do STF por busca (de 2 a 7 na medição de out/2026). " +
         "O campo cabecalhoDeCobertura diz se veio o número pedido (pode haver mais) ou menos (a base não tem mais " +
         "para o texto; no STF, que devolve poucos por busca, pode haver mais). " +
@@ -651,7 +652,7 @@ export function criarServidor(
       description:
         "Devolve a ementa como veio do site (avisoDeEmenta quando ela parece cortada pelo próprio site) e os dados de " +
         "um acórdão já devolvido por busca_direta ou busca_ampla, pelo id " +
-        "(ex.: \"stj:12345\"), com o mesmo enquadramento927 da busca e a data e hora em que foi obtido do site " +
+        "(ex.: \"stj:12345\"), com o mesmo enquadramento927 e o mesmo avisoDeLink da busca e a data e hora em que foi obtido do site " +
         "(obtidoDoSite). A memória do Garimpo guarda os acórdãos por 24 h desde a busca, para todas as janelas " +
         "(com GARIMPO_SEM_MEMORIA=1, só na janela que fez a busca, enquanto ela estiver aberta). " +
         "Não faz nova busca no site: fora da memória, refaça a busca que o trouxe. " +

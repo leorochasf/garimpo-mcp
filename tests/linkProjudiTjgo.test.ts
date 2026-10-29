@@ -80,9 +80,9 @@ describe("link do TJGO abre o processo no Projudi", () => {
 
   it("o padrão vale só no TJGO", () => {
     const [a] = normalizar("tjmg", {
-      results: [{ id: 1, texto_ementa: "EMENTA.", numero_processo_cnj: "0000001-11.2025.8.13.0001", link_pdf: "https://exemplo.test/x" }],
+      results: [{ id: 1, texto_ementa: "EMENTA.", numero_processo_cnj: "0000001-11.2025.8.13.0001", link_pdf: "https://exemplo.jus.br/x" }],
     }).acordaos;
-    expect(a.link).toBe("https://exemplo.test/x");
+    expect(a.link).toBe("https://exemplo.jus.br/x");
   });
 
   it("o aviso diz que o link abre o processo, não o arquivo do acórdão, e não fala em «Sem Permissão»", () => {
@@ -211,7 +211,7 @@ describe("link do Projudi do TJGO", () => {
                 texto_ementa: `DANO MORAL. FICTÍCIO STJ ${i}. ${longo}`,
                 numero_processo: `${i}/DF`,
                 orgao_julgador: "Turma Exemplo ".repeat(10),
-                link_pdf: `https://exemplo.test/${i}/${longo}`,
+                link_pdf: `https://exemplo.jus.br/${i}/${longo}`,
                 rerank_score: 0.9,
               }));
           return respostaJson({ results: itens });
@@ -237,7 +237,7 @@ describe("link do Projudi do TJGO", () => {
               id: `s${i}`,
               texto_ementa: `DANO MORAL. FICTÍCIO STJ ${i}. ${"x".repeat(400)}`,
               numero_processo: `${i}/DF`,
-              link_pdf: `https://exemplo.test/${i}/${"x".repeat(400)}`,
+              link_pdf: `https://exemplo.jus.br/${i}/${"x".repeat(400)}`,
               rerank_score: 0.5,
             }));
         return respostaJson({ results: itens });
