@@ -694,6 +694,8 @@ civil do Estado por omissão."*
 - **STF:** poucos acórdãos por busca, qualquer que seja o limite pedido (de 2 a 7 na medição de 2026-10-08); na
   busca ampla, a cobertura do STF depende do número de formulações.
 - **STJ:** a maioria dos números de processo vem sem a classe (ex.: `1.234.567/SP`).
+- **TJBA:** a base do site traz cópias do mesmo acórdão com datas diferentes; viram um resultado só, pelo documento
+  do portal no link. A data mostrada é a da cópia que ficou.
 - **TJGO:** dados completos, mas com cerca de 2 meses de defasagem.
 - **TJPR:** na amostra de 2026-10-29, a base do site ia de cerca de 2020 até o 1º semestre de 2026 nas Câmaras e até
   o fim de 2025 nas Turmas Recursais ([estudo](docs/estudos/2026-10-29-tjpr-cobertura.md)). Cópias do mesmo acórdão

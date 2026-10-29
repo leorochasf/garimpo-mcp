@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.2 (não publicada)
+
+- Só endereço do tribunal vira link: quando o JurisprudênciaIA manda, no lugar do link do acórdão, algo que não abre
+  como página (no TJES e no TJMA, o HTML do acórdão embutido num endereço `data:`; no TJPB, um endereço `gs://` de
+  armazenamento em nuvem), o Garimpo não o mostra mais e diz por quê no novo campo `avisoDeLink`. A busca de 3
+  acórdãos do TJES deixa de passar de 400 mil caracteres. No `obter_inteiro_teor`, esse acórdão segue o caminho de
+  quem não tem link (rota de link do site, depois o número no portal do tribunal), com o mesmo aviso. Só passa como
+  link endereço `https` em domínio `.jus.br` (ADR-0031).
+- TJBA: cópias do mesmo acórdão na base do JurisprudênciaIA (mesmo link do portal, datas diferentes) viram um
+  resultado só, pelo documento do portal no link; números de processo que se contradigam continuam separados.
+- `listar_tribunais` e `obter_inteiro_teor`: o motivo do «só link» de TJPB, TJPE, TJRS, TJSE, TJRJ, TJSC, TJRO, TJAL,
+  TJAM, TJAC, TJAP, TJMT e TJPA passa a dizer a barreira observada e a data (29/10/2026), no lugar do «ainda não
+  testou» ou da data de 14/10. TJRN segue inconclusivo.
+
 ## 1.1.2 (2026-10-29)
 
 - TJPR: o `obter_inteiro_teor` passa a trazer o texto do acórdão da página pública dele no portal de jurisprudência do
