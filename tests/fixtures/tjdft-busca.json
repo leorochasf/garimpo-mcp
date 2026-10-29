@@ -1,0 +1,154 @@
+{
+ "hits": {
+  "value": 268023
+ },
+ "agregacoes": {
+  "relator": [],
+  "relatorDesignado": [],
+  "revisor": [],
+  "orgaoJulgador": [],
+  "base": [
+   {
+    "nome": "acordaos",
+    "total": 232942,
+    "filhos": [
+     {
+      "nome": "acordaos",
+      "total": 164541
+     },
+     {
+      "nome": "acordaos-tr",
+      "total": 68401
+     }
+    ]
+   },
+   {
+    "nome": "decisoes",
+    "total": 34351,
+    "filhos": [
+     {
+      "nome": "decisoes-monocraticas",
+      "total": 34351
+     }
+    ]
+   }
+  ],
+  "segredoJustica": [],
+  "classe": []
+ },
+ "paginacao": {
+  "pagina": 0,
+  "tamanho": 5
+ },
+ "registros": [
+  {
+   "sequencial": 1,
+   "base": "acordaos",
+   "subbase": "acordaos-tr",
+   "uuid": "00000001-1111-4222-8333-444444444441",
+   "identificador": "9100001",
+   "dataJulgamento": "2026-10-21T03:00:00.000Z",
+   "dataPublicacao": "2026-10-29T16:31:50.000Z",
+   "decisao": "CONHECIDO. PROVIDO. UNÂNIME.",
+   "ementa": "EMENTA FICTÍCIA 1. DANO MORAL. EXEMPLO PARA TESTE DA BUSCA OFICIAL DO TJDFT. RECURSO CONHECIDO E PROVIDO.",
+   "localDePublicacao": "PJe",
+   "processo": "0000001-11.2025.8.07.0001",
+   "nomeRelator": "RELATOR FICTÍCIO 1",
+   "relatorAtivo": true,
+   "uf": "DF",
+   "segredoJustica": false,
+   "turmaRecursal": true,
+   "descricaoOrgaoJulgador": "1ª TURMA RECURSAL",
+   "versao": "01",
+   "codigoClasseCnj": 460,
+   "codigoSistjOrgaoJulgador": 51,
+   "marcadores": {},
+   "possuiInteiroTeor": true
+  },
+  {
+   "sequencial": 2,
+   "base": "acordaos",
+   "subbase": "acordaos-tr",
+   "uuid": "00000002-1111-4222-8333-444444444442",
+   "identificador": "9100002",
+   "dataJulgamento": "2026-10-21T03:00:00.000Z",
+   "dataPublicacao": "2026-10-29T16:31:50.000Z",
+   "decisao": "CONHECIDO. PROVIDO. UNÂNIME.",
+   "ementa": "EMENTA FICTÍCIA 2. DANO MORAL. EXEMPLO PARA TESTE DA BUSCA OFICIAL DO TJDFT. RECURSO CONHECIDO E PROVIDO.",
+   "localDePublicacao": "PJe",
+   "processo": "0000002-11.2025.8.07.0001",
+   "nomeRelator": "RELATOR FICTÍCIO 2",
+   "relatorAtivo": true,
+   "uf": "DF",
+   "segredoJustica": false,
+   "turmaRecursal": true,
+   "descricaoOrgaoJulgador": "1ª TURMA RECURSAL",
+   "versao": "01",
+   "codigoClasseCnj": 460,
+   "codigoSistjOrgaoJulgador": 52,
+   "marcadores": {},
+   "possuiInteiroTeor": true
+  },
+  {
+   "sequencial": 3,
+   "base": "acordaos",
+   "subbase": "acordaos",
+   "uuid": "00000003-1111-4222-8333-444444444443",
+   "identificador": "9100003",
+   "dataJulgamento": "2026-10-14T03:00:00.000Z",
+   "dataPublicacao": "2026-10-29T16:31:50.000Z",
+   "decisao": "CONHECIDO. PROVIDO. UNÂNIME.",
+   "ementa": "EMENTA FICTÍCIA 3. DANO MORAL. EXEMPLO PARA TESTE DA BUSCA OFICIAL DO TJDFT. RECURSO CONHECIDO E PROVIDO.",
+   "localDePublicacao": "PJe",
+   "processo": "0000003-11.2025.8.07.0001",
+   "nomeRelator": "RELATOR FICTÍCIO 3",
+   "relatorAtivo": true,
+   "uf": "DF",
+   "segredoJustica": false,
+   "turmaRecursal": false,
+   "descricaoOrgaoJulgador": "2ª TURMA CÍVEL",
+   "versao": "01",
+   "codigoClasseCnj": 198,
+   "codigoSistjOrgaoJulgador": 53,
+   "marcadores": {},
+   "possuiInteiroTeor": true
+  },
+  {
+   "sequencial": 4,
+   "base": "acordaos",
+   "subbase": "acordaos",
+   "uuid": "00000004-1111-4222-8333-444444444444",
+   "identificador": "9100004",
+   "dataJulgamento": "2026-10-22T03:00:00.000Z",
+   "dataPublicacao": "2026-10-29T16:31:50.000Z",
+   "decisao": "CONHECIDO. PROVIDO. UNÂNIME.",
+   "ementa": "EMENTA FICTÍCIA 4. DANO MORAL. EXEMPLO PARA TESTE DA BUSCA OFICIAL DO TJDFT. RECURSO CONHECIDO E PROVIDO.",
+   "localDePublicacao": "PJe",
+   "processo": "0000004-11.2025.8.07.0001",
+   "nomeRelator": "RELATOR FICTÍCIO 4",
+   "relatorAtivo": true,
+   "uf": "DF",
+   "segredoJustica": false,
+   "turmaRecursal": false,
+   "descricaoOrgaoJulgador": "2ª TURMA CÍVEL",
+   "versao": "01",
+   "codigoClasseCnj": 417,
+   "codigoSistjOrgaoJulgador": 54,
+   "marcadores": {},
+   "possuiInteiroTeor": true
+  },
+  {
+   "sequencial": 5,
+   "base": "decisoes",
+   "subbase": "decisoes-monocraticas",
+   "uuid": "00000005-1111-4222-8333-444444444445",
+   "identificador": "91000005",
+   "ementa": "DECISÃO MONOCRÁTICA FICTÍCIA. TEXTO LONGO DA DECISÃO PARA TESTE.",
+   "processo": "0000005-11.2025.8.07.0001",
+   "nomeRelator": "RELATOR FICTÍCIO 5",
+   "possuiInteiroTeor": false,
+   "codigoClasseCnj": 202,
+   "inteiroTeor": "TEXTO FICTÍCIO DA DECISÃO MONOCRÁTICA."
+  }
+ ]
+}
