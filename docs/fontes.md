@@ -303,6 +303,26 @@ técnica do TJSP (`baixarEsaj`), com o host do tribunal. Só PDF reconhecido vir
   PDF dos demais; o limite de ritmo do portal (um projeto de terceiros cita 403 depois de ~50 downloads seguidos; o
   Garimpo fica muito abaixo); os termos de uso.
 
+## eSAJ do TJCE (PDF do acórdão)
+
+Usado por `obter_inteiro_teor` no TJCE (ticket b22-06): o **PDF oficial** do acórdão pelo `getArquivo.do` do eSAJ do
+tribunal, mesmo desenho do TJSP/TJMS, mas num GET direto (sem a volta pela verificação de login). Só PDF reconhecido vira
+inteiro teor, com recibo (ADR-0005). Fatos lidos em 2026-10-29 (matriz ao vivo dos TJs, local).
+
+- **robots.txt (2026-10-29):** `esaj.tjce.jus.br/robots.txt` devolve HTTP 404 (página de erro do servidor): nenhuma regra
+  publicada. Lido em chamada separada, antes de abrir o link.
+- **Termos de uso:** não procurados. Sem vedação encontrada ≠ autorização: fica **não verificado**.
+- **Prova (2026-10-29):** 1 GET do link `esaj.tjce.jus.br/cjsg/getArquivo.do?cdAcordao=<n>&cdForo=0`: HTTP 200
+  `application/pdf;charset=UTF-8`, `Content-Disposition: inline`, 716 192 bytes, PDF de 5 páginas, sem login, captcha ou
+  bloqueio; cookie de sessão do portal enviado na resposta. O mesmo desenho do endereço em TJAL, TJAM e TJAC pede captcha:
+  é configuração do eSAJ de cada tribunal, não do software; vale só para o TJCE.
+- **Freios:** serviço `tjce` no disjuntor (regra 3 do `CLAUDE.md`); 403, captcha ou desafio = recusa final, sem recomeço.
+- **Guarda do número do processo:** o PDF só é guardado se o número CNJ do processo do registro da busca aparecer no texto
+  dele; sem isso, nada é guardado e a resposta diz «não verificado» (a base do site e o portal já trocaram documento em
+  outros tribunais, ADR-0030).
+- **Não verificado:** que o PDF é o acórdão assinado inteiro (a conferência do conteúdo é a do Rede, 2 acórdãos); o limite
+  de ritmo do eSAJ do TJCE; redirecionamentos; os termos de uso.
+
 ## Busca oficial do e-Proc do TRF4 (ementa e texto do portal do tribunal)
 
 Usada por `busca_direta` com `tribunal: "trf4"` e por `obter_inteiro_teor` (D-07 / G-31, [ADR-0024](adr/0024-trf4-busca-oficial-do-eproc-e-texto-do-portal.md)).
