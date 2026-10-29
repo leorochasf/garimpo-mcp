@@ -28,10 +28,12 @@ const CORPO =
   ". RELATÓRIO fictício para teste do molde, sem nenhum dado real. VOTO fictício: o recurso é conhecido e provido, " +
   "nos termos do voto do relator fictício, com texto bastante para passar do mínimo de texto útil do molde.";
 
-function pagina({ processo = CNJ, segredo = "Não", corpo = CORPO } = {}): string {
+/** `segredo: null` tira o campo de segredo de justiça da página. */
+function pagina({ processo = CNJ, segredo = "Não" as string | null, corpo = CORPO } = {}): string {
+  const campoDeSegredo = segredo === null ? "" : ` <span>Segredo de Justiça:</span> <b id="segredo">${segredo}</b>`;
   return (
     `<html><body><div class="menu">Início | Pesquisa</div>` +
-    `<span>Processo:</span> <b id="processo">${processo}</b> <span>Segredo de Justiça:</span> <b id="segredo">${segredo}</b>` +
+    `<span>Processo:</span> <b id="processo">${processo}</b>${campoDeSegredo}` +
     `<div id="integra">${corpo}</div><footer>Rodapé do portal</footer></body></html>`
   );
 }
@@ -177,6 +179,47 @@ describe("molde «página com íntegra»: cada guarda, sozinha, barra o texto e 
     const { cliente } = clienteFalso([html(pagina({ corpo: CORPO.replace(CNJ, "número omitido") }))]);
     await obterInteiroTeor({ id: "tjam:77" }, () => cliente, memoria);
     expect((await memoria.obterTexto("tjam:77"))?.texto).toMatch(/^ACÓRDÃO FICTÍCIO\./);
+  });
+
+  // Revisão do 03 (B03-R01): com a guarda ligada, só a página que diz expressamente que não há segredo passa.
+  it("B03-R01: página sem o campo de segredo de justiça (guarda ligada): não guarda e diz o motivo", async () => {
+    const { explicacao, chamadas } = await barrado(memoriaComAcordao(), [html(pagina({ segredo: null }))]);
+    expect(chamadas).toHaveLength(1);
+    expect(explicacao).toMatch(
+      /a página não informa se o acórdão está em segredo de justiça, e o Garimpo só guarda o texto quando ela diz que não está/,
+    );
+  });
+
+  it("B03-R01: com a exceção justificada na declaração, a página sem o campo de segredo é guardada", async () => {
+    const { segredo: _, ...semSegredo } = PORTAL;
+    registrarPortal({
+      ...semSegredo,
+      sigla: "tjma",
+      rotulo: "portal fictício do TJMA",
+      desligadas: { segredoDeJustica: "na prova do portal fictício, a página não tem o campo e segredo não é publicado" },
+    });
+    const memoria = memoriaComAcordao({ id: "tjma:77", tribunal: "tjma" });
+    const { cliente } = clienteFalso([html(pagina({ segredo: null }))]);
+    await obterInteiroTeor({ id: "tjma:77" }, () => cliente, memoria);
+    expect((await memoria.obterTexto("tjma:77"))?.texto).toMatch(/^ACÓRDÃO FICTÍCIO\./);
+  });
+
+  // Revisão do 03 (B03-R02): número CNJ só vale com os 20 algarismos, na busca e na página; dois vazios nunca são iguais.
+  it.each([
+    ["marcador textual", "não informado"],
+    ["número incompleto", "0000001-11.2025"],
+  ])("B03-R02: busca com %s no lugar do número CNJ: recusa antes de chamar o portal", async (_, numeroCnj) => {
+    const { explicacao, chamadas } = await barrado(memoriaComAcordao({ numeroCnj }), [html(pagina({ processo: numeroCnj }))]);
+    expect(chamadas).toHaveLength(0);
+    expect(explicacao).toMatch(/a busca não trouxe o número CNJ do acórdão, e sem ele o Garimpo não confere/);
+  });
+
+  it.each([
+    ["marcador textual", "não informado"],
+    ["número incompleto", "0000001-11.2025"],
+  ])("B03-R02: página com %s no lugar do número do processo: não guarda", async (_, processo) => {
+    const { explicacao } = await barrado(memoriaComAcordao(), [html(pagina({ processo, corpo: `${CORPO} ${processo}` }))]);
+    expect(explicacao).toMatch(/a página não mostra o número do processo/);
   });
 
   it("número da página sem máscara, igual em algarismos ao da busca, passa", async () => {
