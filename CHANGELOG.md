@@ -83,7 +83,9 @@ ao vivo curta.
 - Classe processual posta em dúvida pelo próprio acórdão (visto no TJCE e no TJMT): quando o campo de classe da base
   do JurisprudênciaIA traz um nome de órgão julgador, ou a ementa nomeia outra classe e não a que a base informa, a
   busca_direta e o obter_ementa mantêm a classe como veio e avisam em avisoDeClasse. O enquadramento927 ganha a mesma
-  ressalva, sem mudar o inciso, e o aviso de recurso sem recorrido continua, com a ressalva.
+  ressalva, sem mudar o inciso, e o aviso de recurso sem recorrido continua, com a ressalva. A busca ampla passa a trazer
+  o mesmo `avisoDeClasse` da busca direta no acórdão cuja classe os próprios dados põem em dúvida, e o aviso de recurso
+  sem recorrido dela leva a mesma ressalva.
 - Windows com antivírus lento: o Garimpo podia parar de usar a rede com um falso «não tem permissão» sobre o estado
   compartilhado de proteção, quando o antivírus segurava o arquivo por mais de 2 s. Agora espera até ~10 s antes de
   tratar como permissão negada de verdade. Com a permissão negada de fato, o aviso chega em até ~10 s.
