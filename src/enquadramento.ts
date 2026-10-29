@@ -69,6 +69,8 @@ export interface AcordaoParaEnquadrar {
   orgao?: string;
   /** Número do tema a que o site liga o acórdão do STF (numero_tema). Só gera nota. */
   numeroTema?: string;
+  /** A classe da base posta em dúvida pelos próprios dados (duvidaDaClasse). Só gera nota. */
+  duvidaDaClasse?: DuvidaDaClasse;
 }
 
 /** O que a regra lê de um item das listas de precedentes qualificados do site. */
@@ -463,6 +465,15 @@ function notasDoAcordao(a: AcordaoParaEnquadrar, paradigmas: readonly ParadigmaD
   if (a.tribunal === "stf" && a.numeroTema) {
     notas.push(`o site liga este acórdão ao tema nº ${a.numeroTema} do STF; o acórdão não herda o enquadramento nem a tese do tema`);
   }
+  if (a.duvidaDaClasse) {
+    const porque = a.duvidaDaClasse.tipo === "orgao"
+      ? "é nome de órgão julgador"
+      : `a ementa nomeia "${a.duvidaDaClasse.nomeada}"`;
+    notas.push(
+      `a classe informada pelo site é posta em dúvida pelos próprios dados (${porque}): este enquadramento depende ` +
+        "dela e pode estar errado (ver avisoDeClasse)",
+    );
+  }
   if (a.orgao && ORGAOS_DE_CUPULA.includes(comparavel(a.orgao))) {
     const corteEspecial = comparavel(a.orgao) === "corte especial"
       ? "; equivalência da Corte Especial ao órgão especial não verificada"
@@ -497,6 +508,92 @@ function identificadorCompleto(numero: string): boolean {
 
 function espacosSimples(s: string): string {
   return s.replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Classe da base posta em dúvida pelos próprios dados (decisão do dono, 2026-10-29): o Garimpo mantém a classe como
+ * veio e avisa; nunca a troca. Só quando a contradição está escrita: o campo traz um nome de órgão, ou a ementa nomeia, no
+ * começo ou no rodapé, outra classe de recurso, e a classe principal da base (antes do 1º "em") não aparece nela.
+ */
+export type DuvidaDaClasse =
+  | { tipo: "orgao"; classe: string }
+  | { tipo: "ementa"; classe: string; principal: string; nomeada: string };
+
+/** Começo de nome de órgão julgador (forma comparável), com ordinal opcional: nenhuma classe processual começa assim. */
+const NOME_DE_ORGAO =
+  /^(?:(?:\d+\s*[ªºa°o]?|primeira|segunda|terceira|quarta|quinta|sexta|setima|oitava|nona|decima|unica)\s+)?(?:turma|camara|secao|plenario|pleno|tribunal pleno|orgao especial|corte especial|vara|juizado|gabinete|colegio recursal)\b/;
+
+/**
+ * Classes de recurso que a ementa pode nomear (forma comparável). Ação de origem (mandado de segurança, embargos à
+ * execução…) fica fora: aparece no começo da ementa de uma apelação sem desmentir a classe.
+ */
+const RECURSOS_NOMEADOS = [
+  "apelacao civel", "apelacao criminal", "apelacao", "agravo de instrumento", "agravo interno", "agravo regimental",
+  "agravo em recurso especial", "agravo em recurso extraordinario", "embargos de declaracao", "embargos infringentes",
+  "embargos de divergencia", "recurso inominado", "recurso especial", "recurso extraordinario",
+  "recurso em sentido estrito", "remessa necessaria",
+];
+/** A classe principal da base só conta se for uma delas, ou o gênero ("agravo", "embargos"). */
+const PRINCIPAIS_RECONHECIDAS = [...RECURSOS_NOMEADOS, "agravo", "embargos"];
+const RECURSO_NOMEADO = new RegExp(
+  `\\b(?:${[...RECURSOS_NOMEADOS].sort((a, b) => b.length - a.length).map(comEspacos).join("|")})\\b`,
+);
+/** O começo e o rodapé da ementa, onde ela diz a própria classe. */
+const PONTA_DA_EMENTA = 300;
+
+export function duvidaDaClasse(a: { classe?: string; ementa?: string }): DuvidaDaClasse | undefined {
+  const classe = a.classe?.trim();
+  if (!classe) return undefined;
+  if (NOME_DE_ORGAO.test(comparavel(classe))) return { tipo: "orgao", classe };
+  const ementa = (a.ementa ?? "").normalize("NFC");
+  const principal = classe.split(/\s+em\s+/i)[0];
+  const daBase = comparavel(principal);
+  if (!PRINCIPAIS_RECONHECIDAS.includes(daBase)) return undefined;
+  const plano = letraPorLetra(ementa);
+  if (new RegExp(`\\b${comEspacos(daBase)}\\b`).test(plano)) return undefined;
+  const nomeada = nomeadaNaPonta(ementa, plano);
+  if (!nomeada) return undefined;
+  const outra = comparavel(nomeada);
+  if (outra.startsWith(daBase) || daBase.startsWith(outra)) return undefined;
+  return { tipo: "ementa", classe, principal, nomeada };
+}
+
+/** A primeira classe de recurso nomeada no começo da ementa ou, sem ela, no rodapé: o trecho literal. */
+function nomeadaNaPonta(ementa: string, plano: string): string | undefined {
+  const rodape = Math.max(0, ementa.length - PONTA_DA_EMENTA);
+  for (const inicio of [0, rodape]) {
+    const m = RECURSO_NOMEADO.exec(plano.slice(inicio, inicio + PONTA_DA_EMENTA));
+    if (m) return ementa.slice(inicio + m.index, inicio + m.index + m[0].length);
+  }
+  return undefined;
+}
+
+/** O aviso ao usuário: a classe e o que dela depende podem estar errados. */
+export function avisoDeClasse(d: DuvidaDaClasse): string {
+  const ressalva =
+    "O Garimpo a mostra como veio, mas ela pode estar errada, e o que depende dela também (o enquadramento927 e, se " +
+    "vier, o aviso de recurso sem recorrido). Confira a classe no inteiro teor.";
+  if (d.tipo === "orgao") {
+    return `A classe que o JurisprudênciaIA informa ("${d.classe}") é nome de órgão julgador, não de classe processual. ${ressalva}`;
+  }
+  return (
+    `A classe que o JurisprudênciaIA informa ("${d.classe}") começa por "${d.principal}", que não aparece na ementa ` +
+    `deste acórdão; a ementa nomeia outra classe ("${d.nomeada}"). ${ressalva}`
+  );
+}
+
+function comEspacos(nome: string): string {
+  return nome.replace(/ /g, "\\s+");
+}
+
+/** Minúsculas e sem acento, letra por letra: cada posição do resultado é a mesma do texto (NFC) de origem. */
+function letraPorLetra(s: string): string {
+  return [...s]
+    .map((c) => {
+      const p = c.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+      return p.length === c.length ? p : c;
+    })
+    .join("");
 }
 
 /** Minúsculas, sem acento e com espaços simples: só para comparar nomes de classe e de órgão vindos do site. */
