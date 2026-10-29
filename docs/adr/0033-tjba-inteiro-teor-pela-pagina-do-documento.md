@@ -38,8 +38,12 @@ que é o próprio documento da decisão.
 - **A íntegra é o documento inteiro**: o corpo da página (ou a página toda, sem `<body>`), desde que traga o cabeçalho
   «Tribunal de Justiça do Estado da Bahia»; página de aviso ou erro do portal não o tem. As imagens embutidas não viram
   texto.
-- **Processo da página**: o primeiro número CNJ do TJBA (segmento 8.05) que vem logo depois da palavra «processo» no
-  texto do documento; tem de ser o da busca (molde: 20 algarismos, comparados sem máscara).
+- **Processo da página**: o número CNJ do TJBA (segmento 8.05) que vem logo depois da palavra «processo» **no
+  cabeçalho** do documento — o texto antes do primeiro título de seção (EMENTA, também escrita «E M E N T A»; ACÓRDÃO,
+  também «ACORDÃO»; RELATÓRIO; VOTO), no máximo 600 caracteres (nas gravações, o número veio a 115 e 228 caracteres do
+  início) — e **um só**; tem de ser o da busca (molde: 20 algarismos, comparados sem máscara). Cabeçalho sem número, ou
+  com dois diferentes, é recusa: uma citação «processo <CNJ>» no voto nunca vira a identidade da página (revisão do
+  ticket 04, B04-R01).
 - **Segredo de justiça: exceção justificada na declaração** (decisão do dono em 2026-10-29), porque a página não tem o
   campo: «a página do TJBA é só o documento da decisão, sem campo de segredo de justiça (gravações de 2026-10-29, Turma
   Recursal e Câmara Cível); o processo da página continua conferido com o da busca». As demais guardas do molde ficam
@@ -60,7 +64,7 @@ que é o próprio documento da decisão.
   `listar_tribunais` passa a dizer texto do portal; `obter_inteiro_teor`, `ler_inteiro_teor` e `conferir_citacao`
   funcionam pelo id.
 - Como o número do processo vem do próprio documento, a guarda «número dentro da íntegra» passa sempre no TJBA; o que
-  protege contra documento trocado é o processo do documento ser o da busca.
+  protege contra documento trocado é o processo **do cabeçalho** do documento ser o da busca.
 - **Não verificado:** termo próprio da plataforma `jurisprudencia.tjba.jus.br`; se o portal publica acórdão em segredo de justiça (e como o marcaria); se
   ele troca o documento como o do TJPR; o comportamento com o UA honesto do Garimpo; limite de ritmo do host; outras
   classes e órgãos além dos dois gravados.

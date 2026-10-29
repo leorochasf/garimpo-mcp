@@ -119,6 +119,30 @@ describe("TJBA: as guardas do molde valem", () => {
     expect(explicacao).toMatch(/a página é de outro processo que o da busca/);
   });
 
+  // Revisão do 04 (B04-R01): o número do processo só vale no cabeçalho, antes da primeira seção do documento; uma
+  // citação «processo <CNJ>» no voto nunca vira a identidade da página.
+  it("B04-R01: cabeçalho sem o número e o CNJ da busca citado no voto: nada guardado", async () => {
+    const semNumero = TURMA.replace(`PROCESSO N&ordm; ${CNJ_TURMA}`, "PROCESSO N&ordm; IDENTIFICADOR AUSENTE").replace(
+      "<p dir=\"ltr\" style=\"line-height:1.38;margin-top:0pt;margin-bottom:0pt;text-align:center;\"><span style=\"font-size:12pt;font-family:Arial,sans-serif;white-space:pre-wrap;\">Relatora</span></p>",
+      `<p>Precedente citado no voto: processo ${CNJ_TURMA}.</p><p>Relatora</p>`,
+    );
+    expect(semNumero).not.toContain(`PROCESSO N&ordm; ${CNJ_TURMA}`);
+    expect(semNumero).toContain(`Precedente citado no voto: processo ${CNJ_TURMA}.`);
+    const { texto, explicacao } = await obter(memoriaComAcordao(), [pagina(semNumero)]);
+    expect(texto).toBeUndefined();
+    expect(explicacao).toMatch(/a página não mostra o número do processo/);
+  });
+
+  it("B04-R01: dois números diferentes no cabeçalho (ambíguo): nada guardado", async () => {
+    const dois = TURMA.replace(
+      `PROCESSO N&ordm; ${CNJ_TURMA}`,
+      `PROCESSO N&ordm; ${CNJ_TURMA} (PROCESSO DE ORIGEM 0000009-99.2024.8.05.0001)`,
+    );
+    const { texto, explicacao } = await obter(memoriaComAcordao(), [pagina(dois)]);
+    expect(texto).toBeUndefined();
+    expect(explicacao).toMatch(/a página não mostra o número do processo/);
+  });
+
   it("página de aviso do portal, sem o documento do tribunal: nada guardado", async () => {
     const aviso = "<html><body><h1>Documento não encontrado</h1><p>Verifique o endereço.</p></body></html>";
     const { texto, explicacao } = await obter(memoriaComAcordao(), [pagina(aviso)]);
