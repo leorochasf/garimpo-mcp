@@ -5,10 +5,12 @@
  *     [--apuracao <pasta externa>/veredito/apuracao.json]
  *   npx vite-node scripts/exportarDerivado.ts -- --verificar <arquivo .json>
  *
- * `--de` é a pasta que rodarRodadaDeProvas.ts ou rodarLinhaDeBase.ts gravou (fora do projeto): lê estado.json,
- * resultados.json e, de gravacao/, só consulta, tempo e status de cada chamada. `--apuracao` (opcional, também fora do
- * projeto) traz as contagens do júri de scripts/juriDaLinhaDeBase.ts. `--chave` é o arquivo da chave dos hashes, fora do projeto e
- * de nuvem, o MESMO para todas as rodadas que forem comparadas (1.1.1 × 1.2): sem ele os hashes não batem. Criado na
+ * `--de` é a pasta que rodarRodadaDeProvas.ts ou rodarLinhaDeBase.ts gravou: lê estado.json, resultados.json, ementas.json
+ * (se houver: a identidade do acórdão, como no júri) e, de gravacao/, só consulta, tempo e status de cada chamada.
+ * `--apuracao` (opcional) traz o júri de scripts/juriDaLinhaDeBase.ts: do braço desta rodada (o commit), as contagens e
+ * o veredito de cada posição por pedido, e a união julgada de cada tese. `--chave` é o arquivo da chave dos hashes, o
+ * MESMO para todas as rodadas que forem comparadas (1.1.1 × 1.2): sem ele os hashes não batem. Os três ficam fora do
+ * projeto, de toda worktree do repositório e de nuvem (foraDoRepositorioNoDisco). Criado na
  * primeira exportação, se não existir. O derivado leva o identificador da chave (campo `chave`, não a chave), para que
  * derivados de chaves diferentes não sejam comparados. Ele passa pelo esquema fechado antes de gravar e é relido e
  * conferido depois. `--verificar` confere um derivado já gravado (em `banco-de-provas-resultados/`, que o teste de dados
@@ -20,7 +22,7 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { type ApuracaoDoJuri, destinoInvalido, exportarDerivado, validarDerivado, type RodadaCrua } from "./derivadoDaRodada.js";
-import { caminhoFisico, gravacaoForaDoLugarNoDisco } from "./seguroDaRodada.js";
+import { caminhoFisico, foraDoRepositorioNoDisco } from "./seguroDaRodada.js";
 
 const arg = (nome: string) => {
   const i = process.argv.indexOf(nome);
@@ -52,14 +54,14 @@ if (!de || !para || !chaveArg || [de, para, chaveArg].some((v) => v.startsWith("
 if (!para!.endsWith(".json")) parar("--para precisa terminar em .json.");
 const raizDoProjeto = fileURLToPath(new URL("..", import.meta.url));
 const pastaCrua = resolve(de!);
-const recusa = gravacaoForaDoLugarNoDisco(pastaCrua, raizDoProjeto);
+const recusa = foraDoRepositorioNoDisco(pastaCrua, raizDoProjeto);
 if (recusa) parar(`--de: ${recusa}`);
 const chaveArquivo = resolve(chaveArg!);
-const recusaDaChave = gravacaoForaDoLugarNoDisco(chaveArquivo, raizDoProjeto);
+const recusaDaChave = foraDoRepositorioNoDisco(chaveArquivo, raizDoProjeto);
 if (recusaDaChave) parar(`--chave: ${recusaDaChave}`);
 const apuracaoArg = arg("--apuracao");
-if (apuracaoArg !== undefined && (apuracaoArg.startsWith("-") || gravacaoForaDoLugarNoDisco(resolve(apuracaoArg), raizDoProjeto)))
-  parar("--apuracao precisa de um arquivo fora do projeto e de nuvem (a apuração do júri fica na pasta externa).");
+if (apuracaoArg !== undefined && (apuracaoArg.startsWith("-") || foraDoRepositorioNoDisco(resolve(apuracaoArg), raizDoProjeto)))
+  parar("--apuracao precisa de um arquivo fora do projeto, de toda worktree do repositório e de nuvem (a apuração do júri fica na pasta externa).");
 const apuracao = apuracaoArg === undefined ? undefined : (ler(resolve(apuracaoArg)) as ApuracaoDoJuri);
 const destino = resolve(para!);
 const recusaDoDestino = destinoInvalido(
@@ -85,7 +87,8 @@ const registros = existsSync(pastaGravacao)
         return { consulta: String(r.consulta), ms: r.ms, status: r.status };
       })
   : [];
-const crua: RodadaCrua = { estado, resultados: ler(join(pastaCrua, "resultados.json")), registros };
+const ementas = existsSync(join(pastaCrua, "ementas.json")) ? ler(join(pastaCrua, "ementas.json")) : undefined;
+const crua: RodadaCrua = { estado, resultados: ler(join(pastaCrua, "resultados.json")), registros, ...(ementas && { ementas }) };
 
 const versaoDoGarimpo = arg("--versao") ?? estado.versaoDoGarimpo;
 const commit = arg("--commit") ?? estado.commit;

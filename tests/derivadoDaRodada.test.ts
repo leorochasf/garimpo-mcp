@@ -70,6 +70,7 @@ describe("exportarDerivado", () => {
   it("o mesmo acórdão dá o mesmo hash com a mesma chave (pontuação não importa) e outro com outra chave", () => {
     const r = crua();
     r.resultados[1].numeros = ["0000123452019899" + "0000"];
+    r.resultados[1].acordaos = [{ numero: "0000123452019899" + "0000", tribunal: "stj", data: "2020-01-01" }];
     const a = exportarDerivado(r, CHAVE, meta);
     expect(a.consultas[1].acordaos[0]).toBe(a.consultas[0].acordaos[0]);
     expect(a.consultas[0].hashDoId).toBe(exportarDerivado(crua(), CHAVE, meta).consultas[0].hashDoId);
@@ -111,6 +112,7 @@ describe("exportarDerivado da linha de base (busca_ampla em vários tribunais, E
       {
         id: "e1-t01-tecnica",
         fase: "tese",
+        tese: 1,
         versao: "tecnica",
         tribunais: ["stf", "stj"],
         chamadas: 6,
@@ -133,18 +135,65 @@ describe("exportarDerivado da linha de base (busca_ampla em vários tribunais, E
     ],
     registros: [{ seq: 1, consulta: "e1-t01-tecnica", ms: 300, status: 200, resposta: EMENTA }],
   });
-  const apuracao = { linhas: 40, controles: { total: 4, julgadosN: 4 }, semMaioria: 1, porPedido: { "e1-t01-tecnica": { S: 1, P: 1, C: 0, N: 0, semMaioria: 0 } } };
+  const apuracao = (vereditos: string[] = ["S", "sem maioria"]) => ({
+    linhas: 40,
+    controles: { total: 4, julgadosN: 4 },
+    semMaioria: 1,
+    porBraco: { cc956b4: { porPedido: { "e1-t01-tecnica": { tese: 1, distintos: { S: 1, P: 0, C: 0, N: 0, semMaioria: 1 }, vereditos } } } },
+    porTese: { "1": { S: 3, P: 1, C: 1, N: 4, semMaioria: 1 } },
+  });
 
   it("leva tribunais, memória, tempo de parede, cobertura e contagens do júri, e nada de texto de caso", () => {
-    const d = exportarDerivado(ampla(), CHAVE, meta, apuracao);
+    const d = exportarDerivado(ampla(), CHAVE, meta, apuracao());
     expect(validarDerivado(d)).toEqual([]);
+    expect(d.esquema).toBe("garimpo-derivado-2");
     const texto = JSON.stringify(d);
     for (const proibido of [NUMERO, RELATOR, "Fictício", "EMENTA", "24/10", "maisAntiga", "achados"]) expect(texto).not.toContain(proibido);
     const [e1, e5] = d.consultas;
-    expect(e1).toMatchObject({ tribunais: ["stf", "stj"], msParede: 1234, ms: 300, juri: { S: 1, P: 1, C: 0, N: 0, semMaioria: 0 } });
+    expect(e1).toMatchObject({ tribunais: ["stf", "stj"], msParede: 1234, ms: 300, juri: { S: 1, P: 0, C: 0, N: 0, semMaioria: 1 } });
     expect(e1.tribunal).toBeUndefined();
     expect(e5).toMatchObject({ memoria: "fria", cobertura: [{ tribunal: "trt1", buscasFeitas: 1, vazias: 1, comErro: 0, foraDoTeto: 1, guardadas: 0, feitasAgora: 0 }] });
-    expect(d.juri).toEqual({ linhas: 40, controles: 4, controlesN: 4, semMaioria: 1 });
+    expect(d.juri).toMatchObject({ linhas: 40, controles: 4, controlesN: 4, semMaioria: 1 });
+  });
+
+  it("B02-R04: o veredito de cada posição e a tese opaca: os mesmos totais com o S no topo ou no fim se distinguem", () => {
+    const topo = exportarDerivado(ampla(), CHAVE, meta, apuracao(["S", "N"]));
+    const fim = exportarDerivado(ampla(), CHAVE, meta, apuracao(["N", "S"]));
+    expect(topo.consultas[0].vereditos).toEqual(["S", "N"]);
+    expect(fim.consultas[0].vereditos).toEqual(["N", "S"]);
+    expect(topo.consultas[0].juri).toEqual(fim.consultas[0].juri);
+    expect(exportarDerivado(ampla(), CHAVE, meta, apuracao()).consultas[0].vereditos).toEqual(["S", "semMaioria"]);
+    // A tese vai como hash com a chave: reúne os pedidos da tese e a união julgada dela, que é o denominador da cobertura.
+    const tese = topo.consultas[0].tese!;
+    expect(tese).toMatch(/^[0-9a-f]{64}$/);
+    expect(topo.juri!.teses).toEqual([{ tese, uniao: { S: 3, P: 1, C: 1, N: 4, semMaioria: 1 } }]);
+    expect(topo.consultas[1].tese).toBeUndefined();
+    expect(topo.consultas[1].vereditos).toBeUndefined();
+  });
+
+  it("B02-R04: recusa veredito fora da lista, vereditos em número diferente dos acórdãos e apuração sem o braço do commit", () => {
+    expect(() => exportarDerivado(ampla(), CHAVE, meta, apuracao([RELATOR, "S"]))).toThrow(/veredito/);
+    expect(() => exportarDerivado(ampla(), CHAVE, meta, apuracao(["S"]))).toThrow(/vereditos/);
+    expect(() => exportarDerivado(ampla(), CHAVE, { ...meta, commit: "abc1234" }, apuracao())).toThrow(/abc1234/);
+  });
+
+  it("B02-R02: a identidade do júri — outro julgamento do mesmo processo é outro hash; com ementas.json, a classe dele conta", () => {
+    const item = (extra = {}) => ({ id: "stj:1", numero: NUMERO, tribunal: "stj", data: "2020-01-01", ...extra });
+    const dois = (a: object, b: object, ementas?: RodadaCrua["ementas"]): RodadaCrua => ({
+      ...ampla(),
+      resultados: [{ id: "x", fase: "tese", tribunais: ["stj"], numeros: [NUMERO, NUMERO], acordaos: [a, b] }],
+      ...(ementas && { ementas }),
+    });
+    const hashes = (r: RodadaCrua) => exportarDerivado(r, CHAVE, meta).consultas[0].acordaos;
+    const [jan, fev] = hashes(dois(item(), item({ id: "stj:2", data: "2020-02-01" })));
+    expect(jan).not.toBe(fev);
+    const [comPontos, semPontos] = hashes(dois(item(), item({ id: "stj:2", numero: "00001234520198990000" })));
+    expect(comPontos).toBe(semPontos);
+    const ementa = (id: string, classe: string) => ({ id, tribunal: "stj", numero: NUMERO, classe, dataJulgamento: "2020-01-01", ementa: EMENTA });
+    const comClasse = dois(item(), item({ id: "stj:2" }), { "stj:1": ementa("stj:1", "Recurso Especial"), "stj:2": ementa("stj:2", "Embargos de Declaração") });
+    const [resp, edcl] = hashes(comClasse);
+    expect(resp).not.toBe(edcl);
+    expect(JSON.stringify(exportarDerivado(comClasse, CHAVE, meta))).not.toContain("Embargos");
   });
 
   it("o mesmo número em dois tribunais são dois acórdãos (o tribunal entra no hash)", () => {
@@ -153,8 +202,13 @@ describe("exportarDerivado da linha de base (busca_ampla em vários tribunais, E
   });
 
   it("um, e só um, entre tribunal e tribunais; cobertura e júri são objetos fechados; memória só da lista", () => {
-    const bom = () => JSON.parse(JSON.stringify(exportarDerivado(ampla(), CHAVE, meta, apuracao)));
+    const bom = () => JSON.parse(JSON.stringify(exportarDerivado(ampla(), CHAVE, meta, apuracao())));
     const casos: [string, (d: Record<string, any>) => void][] = [
+      ["consultas\\[0\\]\\.vereditos", (d) => (d.consultas[0].vereditos = [RELATOR, "S"])],
+      ["consultas\\[0\\]\\.tese", (d) => (d.consultas[0].tese = "1")],
+      ["juri\\.teses", (d) => (d.juri.teses[0].tese = "1")],
+      ["juri\\.teses", (d) => (d.juri.teses[0].uniao.motivo = EMENTA)],
+      ["juri\\.teses", (d) => (d.juri.teses[0].relator = RELATOR)],
       ["consultas\\[0\\]\\.tribunal", (d) => (d.consultas[0].tribunal = "stf")],
       ["consultas\\[1\\]\\.tribunal", (d) => delete d.consultas[1].tribunais],
       ["consultas\\[0\\]\\.tribunais", (d) => (d.consultas[0].tribunais = [RELATOR])],

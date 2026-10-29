@@ -8,13 +8,19 @@
  * vazar. `tests/dadosReais.test.ts` não cobre a pasta (ignorada pelo git), por isso a defesa é esta.
  *
  * Hash = HMAC-SHA-256 com a chave guardada fora do projeto: sem a chave, o hash de um número de processo não se
- * descobre testando números. A mesma chave em rodadas diferentes permite comparar listas (1.1.1 × 1.2).
+ * descobre testando números. A mesma chave em rodadas diferentes permite comparar listas (1.1.1 × 1.2). O acórdão entra
+ * no hash pela identidade canônica do júri (chaveDoAcordao: tribunal, número, classe e data do julgamento), então o
+ * mesmo hash é o mesmo acórdão julgado, nos dois braços.
+ *
+ * Esquema 2 (B0.2, revisão B02-R02/R04): a identidade do acórdão mudou (era tribunal + número), e o júri passou a ir
+ * por posição. Derivados do esquema 1 não se comparam com os do 2.
  */
 
 import { createHmac } from "node:crypto";
 import { SIGLAS } from "../src/tribunais.js";
+import { acordaoDoItem, chaveDoAcordao, type Ementas } from "./linhaDeBase.js";
 
-export const ESQUEMA = "garimpo-derivado-1";
+export const ESQUEMA = "garimpo-derivado-2";
 
 /** O que a pasta externa tem: estado.json, resultados.json e os registros de gravacao/ (ver rodarRodadaDeProvas.ts). */
 export interface RodadaCrua {
@@ -22,6 +28,8 @@ export interface RodadaCrua {
   resultados: Record<string, any>[];
   /** O registro cru traz também corpo enviado e resposta; daqui só se lê consulta e tempo. */
   registros: { consulta: string; ms?: number; status?: number; [campo: string]: unknown }[];
+  /** ementas.json da linha de base (E1): a identidade do acórdão sai do obter_ementa, como no júri. */
+  ementas?: Ementas;
 }
 
 /** Linha do cabeçalho de cobertura da busca_ampla, só os números: diz, por TRT, se a contrária rodou (E5). */
@@ -62,7 +70,18 @@ export interface ConsultaDerivada {
   erro: boolean;
   acordaos: string[];
   cobertura?: CoberturaDerivada[];
+  /** Por acórdão distinto que a consulta trouxe: o numerador da cobertura relativa. */
   juri?: ContagemDerivada;
+  /** O veredito do júri de cada acórdão, na mesma ordem de `acordaos` (a posição dá os 10 primeiros). */
+  vereditos?: string[];
+  /** A tese do pedido, como hash com a chave: reúne os pedidos da tese e a união julgada dela (`juri.teses`). */
+  tese?: string;
+}
+
+/** A união julgada de uma tese (todos os braços do pool): o denominador da cobertura relativa. */
+export interface TeseDerivada {
+  tese: string;
+  uniao: ContagemDerivada;
 }
 
 export interface Derivado {
@@ -81,8 +100,11 @@ export interface Derivado {
     consultas: number;
   };
   consultas: ConsultaDerivada[];
-  /** Só com a apuração do júri: linhas do pool, controles negativos e quantos o júri julgou N, linhas sem maioria. */
-  juri?: { linhas: number; controles: number; controlesN: number; semMaioria: number };
+  /**
+   * Só com a apuração do júri: linhas do pool, controles negativos e quantos o júri julgou N, linhas sem maioria, e a
+   * união julgada de cada tese.
+   */
+  juri?: { linhas: number; controles: number; controlesN: number; semMaioria: number; teses: TeseDerivada[] };
 }
 
 /** A apuração do júri como scripts/juriDaLinhaDeBase.ts grava (veredito/apuracao.json), só o que o derivado lê. */
@@ -90,7 +112,9 @@ export interface ApuracaoDoJuri {
   linhas: number;
   controles: { total: number; julgadosN: number };
   semMaioria: number;
-  porPedido: Record<string, Partial<ContagemDerivada>>;
+  /** Pelo braço (o commit da rodada) e pelo id do pedido. */
+  porBraco: Record<string, { porPedido: Record<string, { distintos?: Partial<ContagemDerivada>; vereditos?: unknown[] }> }>;
+  porTese: Record<string, Partial<ContagemDerivada>>;
 }
 
 /** Fases das rodadas existentes e estratos do protocolo 1.2 (docs/banco-de-provas/protocolo-1.2.md). */
@@ -106,19 +130,17 @@ const VERSAO = /^\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 const COMMIT = /^[0-9a-f]{7,40}$/;
 const DATA_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/;
 
-const inteiro = (v: unknown) => (typeof v === "number" && Number.isInteger(v) && v >= 0 ? v : 0);
+/** O veredito do júri como o derivado leva ("sem maioria" da apuração vira `semMaioria`). */
+const VEREDITOS = new Set(["S", "P", "C", "N", "semMaioria"]);
 
-/** CNJ vira só os 20 dígitos; o resto, classe + número sem acento, pontuação nem UF ("REsp 1.234.567/SP" → "resp1234567"). */
-function normalizarNumero(numero: string): string {
-  const digitos = numero.replace(/\D/g, "");
-  if (digitos.length === 20) return digitos;
-  return numero
-    .replace(/\/[A-Za-z]{2}\s*$/, "")
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
-}
+const inteiro = (v: unknown) => (typeof v === "number" && Number.isInteger(v) && v >= 0 ? v : 0);
+const contagem = (c: Partial<ContagemDerivada> = {}): ContagemDerivada => ({
+  S: inteiro(c.S),
+  P: inteiro(c.P),
+  C: inteiro(c.C),
+  N: inteiro(c.N),
+  semMaioria: inteiro(c.semMaioria),
+});
 
 function enumeracao(nome: string, valor: unknown, aceitos: ReadonlySet<string>): string {
   if (typeof valor !== "string" || !aceitos.has(valor)) throw new Error(`derivado: ${nome} fora da lista aceita; nada foi exportado`);
@@ -136,9 +158,16 @@ export function exportarDerivado(
   const msPorConsulta = new Map<string, number>();
   for (const r of crua.registros) msPorConsulta.set(r.consulta, (msPorConsulta.get(r.consulta) ?? 0) + inteiro(r.ms));
 
+  const doBraco = apuracao && apuracao.porBraco[meta.commit];
+  if (apuracao && !doBraco) throw new Error(`derivado: a apuração do júri não tem o braço ${meta.commit} desta rodada; nada foi exportado`);
+  // O acórdão entra no hash pela identidade do júri (tribunal, número, classe, data): com ementas.json, a do obter_ementa.
+  const hashDoAcordao = (r: Record<string, any>, n: unknown, j: number) => {
+    const item = Array.isArray(r.acordaos) ? r.acordaos[j] : undefined;
+    const a = acordaoDoItem({ ...item, numero: String(n), tribunal: String(item?.tribunal || r.tribunal || "") }, crua.ementas ?? {});
+    return hash(`acordao:${chaveDoAcordao(a)}`);
+  };
+
   const consultas = crua.resultados.map((r, i): ConsultaDerivada => {
-    // O tribunal entra no hash: na busca_ampla a lista mistura tribunais, e o mesmo número em dois deles são dois acórdãos.
-    const tribunalDoItem = (j: number) => String((Array.isArray(r.acordaos) && r.acordaos[j]?.tribunal) || r.tribunal || "").toLowerCase();
     const c: ConsultaDerivada = {
       id: `c${String(i + 1).padStart(3, "0")}`,
       hashDoId: hash(`id:${String(r.id)}`),
@@ -147,7 +176,7 @@ export function exportarDerivado(
       mostrados: inteiro(r.mostrados),
       ms: msPorConsulta.get(String(r.id)) ?? 0,
       erro: r.erro !== undefined,
-      acordaos: (Array.isArray(r.numeros) ? r.numeros : []).map((n: unknown, j: number) => hash(`acordao:${tribunalDoItem(j)}|${normalizarNumero(String(n))}`)),
+      acordaos: (Array.isArray(r.numeros) ? r.numeros : []).map((n: unknown, j: number) => hashDoAcordao(r, n, j)),
     };
     if (Array.isArray(r.tribunais)) c.tribunais = r.tribunais.map((t: unknown) => enumeracao("tribunal", t, TRIBUNAIS));
     else c.tribunal = enumeracao("tribunal", r.tribunal, TRIBUNAIS);
@@ -165,8 +194,14 @@ export function exportarDerivado(
         guardadas: inteiro(t.guardadas),
         feitasAgora: inteiro(t.feitasAgora),
       }));
-    const doJuri = apuracao?.porPedido[String(r.id)];
-    if (doJuri) c.juri = { S: inteiro(doJuri.S), P: inteiro(doJuri.P), C: inteiro(doJuri.C), N: inteiro(doJuri.N), semMaioria: inteiro(doJuri.semMaioria) };
+    if (r.tese !== undefined) c.tese = hash(`tese:${String(r.tese)}`);
+    const doJuri = doBraco?.porPedido[String(r.id)];
+    if (doJuri?.distintos) c.juri = contagem(doJuri.distintos);
+    if (Array.isArray(doJuri?.vereditos)) {
+      c.vereditos = doJuri.vereditos.map((v) => enumeracao("veredito", v === "sem maioria" ? "semMaioria" : v, VEREDITOS));
+      if (c.vereditos.length !== c.acordaos.length)
+        throw new Error(`derivado: ${c.id} tem ${c.vereditos.length} vereditos para ${c.acordaos.length} acórdãos; nada foi exportado`);
+    }
     return c;
   });
 
@@ -187,6 +222,7 @@ export function exportarDerivado(
       controles: inteiro(apuracao.controles.total),
       controlesN: inteiro(apuracao.controles.julgadosN),
       semMaioria: inteiro(apuracao.semMaioria),
+      teses: Object.entries(apuracao.porTese).map(([n, uniao]) => ({ tese: hash(`tese:${n}`), uniao: contagem(uniao) })),
     };
   const problemas = validarDerivado(derivado);
   if (problemas.length) throw new Error(`derivado: fora do esquema, nada foi exportado:\n${problemas.join("\n")}`);
@@ -246,7 +282,18 @@ const COBERTURA: Record<string, Regra> = {
   feitasAgora: numero(),
 };
 const CONTAGEM: Record<string, Regra> = { S: numero(), P: numero(), C: numero(), N: numero(), semMaioria: numero() };
-const JURI: Record<string, Regra> = { linhas: numero(), controles: numero(), controlesN: numero(), semMaioria: numero() };
+const TESE: Record<string, Regra> = { tese: texto(HEX64, "hash"), uniao: fechado(CONTAGEM, "contagem do júri") };
+const JURI: Record<string, Regra> = {
+  linhas: numero(),
+  controles: numero(),
+  controlesN: numero(),
+  semMaioria: numero(),
+  teses: {
+    obrigatorio: true,
+    valida: (v) => Array.isArray(v) && v.every((t) => objeto(t) && Object.hasOwn(t, "uniao") && fechado(TESE, "").valida(t)),
+    descricao: "lista de teses (hash e união julgada)",
+  },
+};
 const CONSULTA: Record<string, Regra> = {
   id: texto(ID_OPACO, "id opaco cNNN"),
   hashDoId: texto(HEX64, "hash"),
@@ -276,6 +323,12 @@ const CONSULTA: Record<string, Regra> = {
     descricao: "lista de coberturas (tribunal e contagens)",
   },
   juri: fechado(CONTAGEM, "contagem do júri (S, P, C, N, semMaioria)"),
+  vereditos: {
+    obrigatorio: false,
+    valida: (v) => Array.isArray(v) && v.every((x) => typeof x === "string" && VEREDITOS.has(x)),
+    descricao: "lista de vereditos (S, P, C, N, semMaioria)",
+  },
+  tese: texto(HEX64, "hash", false),
 };
 
 const objeto = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
