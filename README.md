@@ -710,6 +710,9 @@ civil do Estado por omissão."*
 - **TJBA, TJPE, TJMT, TJPB, TJRJ:** o campo de ementa da base pode trazer mais que a ementa (cabeçalho com nomes das
   partes, a decisão inteira, a ementa repetida); o Garimpo mostra só o trecho da ementa e avisa. Fora da ementa, o
   texto (relatório, voto) fica no inteiro teor.
+- **Classe processual da base:** em alguns tribunais (TJCE, TJMT) o campo de classe pode vir errado (nome de órgão, ou
+  classe de outro recurso). O Garimpo não a corrige: avisa quando os próprios dados a põem em dúvida. Classe ausente ou
+  «NÃO INFORMADO» não gera aviso.
 - Mesma busca repetida traz o mesmo conjunto em **ordem variável** (o site reordena por IA).
 - **Busca ampla:** aderência mede proximidade de texto com a formulação, não relevância jurídica. A nota de
   relevância do site não entra na ordem: o site só reranqueia os primeiros de cada busca e dá aos demais uma nota
