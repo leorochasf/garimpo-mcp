@@ -225,3 +225,32 @@ describe("busca ampla: o acórdão com link descartado traz o avisoDeLink", () =
     }
   });
 });
+
+// Pergunta do coordenador no 17: o teto de 25 mil caracteres da busca ampla conta o avisoDeLink? (O corte mede a
+// resposta final inteira, src/ampla.ts ajustarAoTeto.) TJES real: todos os links são data:, todos os itens com aviso.
+describe("busca ampla com TODOS os itens com aviso de link: o teto vale e o corte é dito", () => {
+  it("100 acórdãos do TJES, todos com data: e ementa longa: resposta ≤ 25 mil, todos os mostrados com o aviso, corte declarado", async () => {
+    const ementaLonga = (n: number) =>
+      `EMENTA FICTÍCIA ${n}. APELAÇÃO CÍVEL. DANO MORAL. ` + "Texto fictício de ementa de tamanho realista para o teste do teto. ".repeat(40);
+    const registros = Array.from({ length: 100 }, (_, i) => ({
+      ...registro(1, dataComAcordao(i)),
+      id: 1000 + i,
+      texto_ementa: ementaLonga(i),
+      numero_processo: `${String(1000 + i).padStart(7, "0")}-11.2025.8.08.0001`,
+      numero_processo_cnj: `${String(1000 + i).padStart(7, "0")}-11.2025.8.08.0001`,
+    }));
+    const { cliente } = siteFalso(registros);
+    const texto = await chamar(await conectar(cliente), "busca_ampla", {
+      formulacoes: ["dano moral"],
+      tribunais: ["tjes"],
+      maximo: 200,
+    });
+    expect(texto.length).toBeLessThanOrEqual(25_000);
+    expect(texto).not.toMatch(/data:text|base64/);
+    const r = JSON.parse(texto) as { acordaos: { avisoDeLink?: string }[]; cabecalhoDeCobertura: { listaCortada?: string } };
+    expect(r.acordaos.length).toBeGreaterThan(0);
+    expect(r.acordaos.length).toBeLessThan(100);
+    for (const item of r.acordaos) expect(item.avisoDeLink).toMatch(/\(endereço do tipo data:\); o Garimpo não o mostra\.$/);
+    expect(r.cabecalhoDeCobertura.listaCortada).toMatch(new RegExp(`^mostrando ${r.acordaos.length} de 100; resposta limitada a cerca de 25 mil caracteres`));
+  });
+});
