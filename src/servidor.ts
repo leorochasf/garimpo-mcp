@@ -720,7 +720,7 @@ export function criarServidor(
         "Acórdão que veio da busca sem link nenhum: pede o link oficial, uma vez, à rota de link do JurisprudênciaIA " +
         "(exceto TST) e diz que ele veio de lá; sem link também ali, diz como achar o acórdão pelo número CNJ. " +
         "Baixa do TJMG, TJMS, TJRR, TJSP e TSE. STJ: não baixa (o robots.txt de processo.stj.jus.br veda o acesso automatizado); devolve o link para conferência manual, e o PDF baixado antes com recibo, ou trazido pelo usuário, é lido normalmente. TRT (Falcão): não há PDF a baixar; explica e aponta o ler_inteiro_teor pelo " +
-        "id. TJGO, TJPI, TJPR, TJTO, TRF2, TRF4 e TNU: o portal entrega o acórdão em HTML; o Garimpo o traz como texto do portal do tribunal (sem PDF " +
+        "id. TJBA, TJGO, TJPI, TJPR, TJTO, TRF2, TRF4 e TNU: o portal entrega o acórdão em HTML; o Garimpo o traz como texto do portal do tribunal (sem PDF " +
         "nem recibo) para a memória e aponta o ler_inteiro_teor e o conferir_citacao pelo id. No TJGO, só o julgamento " +
         "exato que a busca achou (mesma data e hora, conferido pela ementa); sem casamento seguro, devolve o link do " +
         "processo e o motivo. Para STF e demais devolve o link e explica como obter no navegador " +
@@ -770,8 +770,9 @@ export function criarServidor(
         "chamada para a parte seguinte. TRT (Falcão): informe só o id que veio na busca, sem caminho: devolve o " +
         "texto integral do repositório oficial, convertido de HTML (não é PDF, sem recibo de origem), em partes por " +
         "tamanho (não são páginas de PDF), com cabeçalho de fonte, julgado em e juntado em; o texto fica na memória " +
-        "por 24 h desde a busca, e texto com indício de corte vem marcado como incompleto. TJTO, só com o id, depois " +
-        "do obter_inteiro_teor: o texto do portal do tribunal, do mesmo jeito. " +
+        "por 24 h desde a busca, e texto com indício de corte vem marcado como incompleto. Tribunais com texto do " +
+        "portal do tribunal (TJBA, TJDFT, TJGO, TJPI, TJPR, TJTO, TRF2, TRF4 e TNU), só com o id, depois do " +
+        "obter_inteiro_teor: o texto do portal, do mesmo jeito. " +
         "TJES e TJMA, só com o id: o texto da base do JurisprudênciaIA, não oficial.",
       annotations: { readOnlyHint: true, openWorldHint: false },
       inputSchema: {
@@ -787,7 +788,10 @@ export function criarServidor(
         id: z
           .string()
           .optional()
-          .describe("TRT ou TJTO: id do acórdão (lê o texto da memória). PDF trazido, opcional: id do acórdão que ele seria"),
+          .describe(
+            "TRT ou tribunal com texto do portal: id do acórdão (lê o texto da memória). PDF trazido, opcional: id do " +
+              "acórdão que ele seria",
+          ),
         tribunal: tribunal.optional().describe("Opcional, PDF trazido: tribunal do acórdão que ele seria"),
         numero: z.string().optional().describe("Opcional, PDF trazido: número do processo do acórdão que ele seria"),
       },
@@ -801,7 +805,8 @@ export function criarServidor(
           }
           throw new Error(
             "Informe o caminho do PDF (o campo arquivo do obter_inteiro_teor ou o de um PDF que você baixou). Sem " +
-              "caminho, só o id de um acórdão de TRT (Falcão) ou do TJTO (depois do obter_inteiro_teor), cujo texto " +
+              "caminho, só o id de um acórdão de TRT (Falcão) ou de tribunal com texto do portal (depois do " +
+              "obter_inteiro_teor), cujo texto " +
               "fica na memória do Garimpo.",
           );
         }
@@ -1407,7 +1412,9 @@ export function criarServidor(
         "oficial para conferência. Mais recentes primeiro. Acórdão de relação traz só o texto do acórdão (sem sumário, " +
         "relatório nem voto). INVALIDADO e sigilosos não entram (a resposta diz quantos). Toda resposta traz a data da " +
         "base de cada ano (atualização no TCU e data do download), quantos anos foram percorridos e o tempo gasto e, em " +
-        "indiceLocal, os anos pesquisados pelo índice local (criado ao baixar; a pesquisa não lê o arquivo inteiro) e " +
+        "indiceLocal, os anos pesquisados pelo índice local (criado ao baixar; com ele a pesquisa não percorre todos os " +
+        "registros, mas a primeira pesquisa depois que o Garimpo abre, ou depois que o arquivo muda, confere o arquivo " +
+        "inteiro) e " +
         "os que leram o arquivo inteiro, com o motivo (cada um leva cerca de 10 a 20 s; para criar o índice, use " +
         "baixar_anos_tcu com renovar: true e confirmar: true), a atribuição à fonte, o aviso de que o texto oficial " +
         "cita nomes de pessoas e os " +

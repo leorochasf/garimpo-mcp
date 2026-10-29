@@ -321,7 +321,7 @@ export const TRIBUNAIS: InfoTribunal[] = [
   { ...tj("tjal", "TJ de Alagoas"), motivoLink: explicaCaptchaEsaj("TJAL", "www2.tjal.jus.br"), classeDoMotivo: "desafio técnico", dataDaProva: "2026-10-29" },
   { ...tj("tjam", "TJ do Amazonas"), motivoLink: explicaCaptchaEsaj("TJAM", "consultasaj.tjam.jus.br"), classeDoMotivo: "desafio técnico", dataDaProva: "2026-10-29" },
   { ...tj("tjap", "TJ do Amapá"), motivoLink: EXPLICA_TJAP, classeDoMotivo: "desafio técnico", dataDaProva: "2026-10-29" },
-  { ...tj("tjba", "TJ da Bahia") },
+  { ...tj("tjba", "TJ da Bahia"), inteiroTeor: "portal", ...SEM_MOTIVO },
   { ...tj("tjce", "TJ do Ceará"), inteiroTeor: "baixa", ...SEM_MOTIVO },
   { ...tj("tjdft", "TJ do Distrito Federal e Territórios"), inteiroTeor: "portal", ...SEM_MOTIVO },
   { ...tj("tjes", "TJ do Espírito Santo"), inteiroTeor: "base", ...SEM_MOTIVO },

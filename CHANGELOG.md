@@ -55,6 +55,11 @@
   pedir o código da figura, o Garimpo trata como recusa e pausa só o TJCE, sem contornar. O `robots.txt` do host não existe (404);
   a política de navegação do portal, lida em 29/10/2026, não traz regra sobre robôs, o que não equivale a autorização; não há
   autorização do TJCE (ADR-0033).
+- TJBA, TJPE, TJMT, TJPB e TJRJ: quando o campo de ementa da base do JurisprudênciaIA traz também o cabeçalho do
+  processo com nomes das partes, a decisão inteira (TJBA) ou a mesma ementa repetida (TJRJ), a busca mostra só a ementa,
+  como trecho do texto do site, sem reescrever, e avisa em avisoDeEmenta. Sem separação segura, vai só o começo, com
+  aviso, e a conferência de citação na ementa diz «não verificável». A ementa repetida fica uma vez só em qualquer
+  tribunal.
 - Windows com antivírus lento: o Garimpo podia parar de usar a rede com um falso «não tem permissão» sobre o estado
   compartilhado de proteção, quando o antivírus segurava o arquivo por mais de 2 s. Agora espera até ~10 s antes de
   tratar como permissão negada de verdade. Com a permissão negada de fato, o aviso chega em até ~10 s.

@@ -8,6 +8,7 @@
 import { type Cliente, decodificarDoHost } from "./cliente.js";
 import { htmlComConteudoOculto, htmlComIndicioDeCorte, htmlParaTexto } from "./html.js";
 import type { TextoIntegral } from "./memoria.js";
+import { PORTAL_TJBA } from "./tjba.js";
 
 /** O que um tribunal declara para usar o molde. */
 export interface PortalComIntegra {
@@ -144,3 +145,6 @@ export async function textoDaPaginaComIntegra(
 export function naturezaDoPortal(portal: PortalComIntegra): string {
   return `texto do portal do tribunal (${portal.sigla.toUpperCase()}), convertido de HTML pelo Garimpo: não é PDF e não tem recibo de origem`;
 }
+
+// Os tribunais no molde, cada um com a sua ADR.
+registrarPortal(PORTAL_TJBA);

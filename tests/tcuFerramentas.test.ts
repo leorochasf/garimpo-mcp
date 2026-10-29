@@ -54,6 +54,8 @@ describe("ferramentas do TCU", () => {
     expect(d).toMatch(/indiceLocal/);
     expect(d).toMatch(/renovar: true/);
     expect(d).not.toMatch(/cada ano leva cerca de 10 a 20 s/);
+    expect(d).toMatch(/a primeira pesquisa depois que o Garimpo abre, ou depois que o arquivo muda, confere o arquivo inteiro/);
+    expect(d).not.toMatch(/a pesquisa não lê o arquivo inteiro/);
   });
 
   it("sem anos, lista o que o TCU publica (tamanho, data da lista) e o que já está no computador; uma só chamada", async () => {
