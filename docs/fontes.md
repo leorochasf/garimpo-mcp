@@ -277,6 +277,27 @@ Usado por `obter_inteiro_teor` no TJPR ([ADR-0030](adr/0030-tjpr-inteiro-teor-pe
 - **Não verificado:** limite de ritmo do portal; estabilidade da rota; decisões monocráticas; acórdãos cujas imagens ou
   tabelas importem para o sentido.
 
+## Portal de jurisprudência do TJBA (o documento da decisão em HTML)
+
+Usado por `obter_inteiro_teor` no TJBA ([ADR-0033](adr/0033-tjba-inteiro-teor-pela-pagina-do-documento.md)), pelo molde
+«página com íntegra» ([ADR-0032](adr/0032-molde-pagina-com-integra-e-registro-de-portais.md)).
+
+- **Host:** `jurisprudenciaws.tjba.jus.br` (serviço `tjba` dos freios), só `https`, caminho exato `/inteiroTeor/<uuid>`
+  (o link que vem da busca).
+- **Regras lidas em 2026-10-29:** `robots.txt` do host responde 404 (erro em JSON): nenhuma regra publicada. Termo de uso
+  do portal: **não procurado** (sem vedação encontrada não equivale a autorização).
+- **O que o Garimpo lê:** um GET na página do link (UA honesto, redirecionamento não seguido). A página é o próprio
+  documento da decisão (cabeçalho do tribunal, processo, partes, ementa, acórdão, relatório e voto); o Garimpo guarda o
+  texto inteiro dela se trouxer o cabeçalho «Tribunal de Justiça do Estado da Bahia», o número do processo do cabeçalho
+  for o número CNJ da busca e o texto tiver pelo menos 200 caracteres. As imagens embutidas (`data:`) não viram texto.
+  A página não tem campo de segredo de justiça: exceção justificada na declaração do tribunal (ADR-0033). Rótulo «texto
+  do portal do tribunal (TJBA)», sem PDF nem recibo.
+- **Freios:** pelo cliente único; 429/503 = espera e uma nova tentativa; recusa de novo abre o disjuntor do serviço `tjba`.
+- **Prova (2026-10-29, cartão Rede, UA «Mozilla/5.0»):** 2 páginas, uma de Turma Recursal (17 KB, ~3,9 mil caracteres) e
+  uma de Câmara Cível (132 KB com 4 imagens embutidas, ~14,8 mil caracteres), 200 `text/html` sem charset, sem login nem
+  captcha. Com o UA do Garimpo: não verificado até a prova ao vivo curta.
+- **Não verificado:** se o portal publica acórdão em segredo de justiça; termo de uso; limite de ritmo do host.
+
 ## eSAJ do TJMS (PDF do acórdão)
 
 Usado por `obter_inteiro_teor` no TJMS (I-14 / G-21): o **PDF oficial** do acórdão pelo `getArquivo.do` do eSAJ, a mesma
