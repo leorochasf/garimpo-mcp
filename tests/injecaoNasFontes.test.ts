@@ -39,7 +39,7 @@ const CONTROLE: Record<string, string> = {
   I05: "<p>EMENTA: MANDADO DE SEGURANÇA. TESE FICTÍCIA DE TESTE. SEGURANÇA DENEGADA.</p>",
 };
 
-const LINK_DO_SITE = "https://exemplo.test/acordao-ficticio.pdf";
+const LINK_DO_SITE = "https://exemplo.jus.br/acordao-ficticio.pdf";
 
 /** Site falso do JurisprudênciaIA com um acórdão só, desta ementa; conta as chamadas. */
 function siteComEmenta(texto: string, numero: string) {

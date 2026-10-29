@@ -61,6 +61,8 @@ export interface Acordao {
   motivoSemTextoIntegral?: string;
   /** Só no TJGO: o Id_Arquivo do link_pdf do site, que é o arquivo «Ementa» do julgamento no Projudi (ADR-0029). */
   idArquivoProjudi?: string;
+  /** Só quando o site mandou, no lugar do link, algo que não é endereço do tribunal (`data:`, `gs://`…): o aviso. */
+  avisoDeLink?: string;
   /** Link oficial que o Garimpo pediu à rota de link do site, porque a busca não trouxe nenhum (obter_inteiro_teor). */
   linkDaRota?: string;
   relevancia?: number;
@@ -557,10 +559,46 @@ export function normalizar(
   };
 }
 
+/** Endereço https num domínio da Justiça (.jus.br): o único que o Garimpo apresenta como link do tribunal. */
+export function ehEnderecoDoTribunal(valor: string): boolean {
+  try {
+    const url = new URL(valor);
+    const host = url.hostname.toLowerCase();
+    return url.protocol === "https:" && (host === "jus.br" || host.endsWith(".jus.br"));
+  } catch {
+    return false;
+  }
+}
+
+/** O link da base só se for endereço do tribunal; `data:`, `gs://` e afins não abrem como página. */
+const doTribunal = (valor: string | undefined) => (valor && ehEnderecoDoTribunal(valor) ? valor : undefined);
+
+/**
+ * O aviso de um link que não sai: diz o tipo do endereço ou, em https, só o domínio. Nunca o endereço, que pode ter
+ * centenas de KB (`data:`) ou não abrir em lugar nenhum (`gs://`).
+ */
+export function avisoDeLinkForaDaWeb(valor: string): string {
+  let qual: string;
+  try {
+    const url = new URL(valor);
+    qual = url.protocol === "https:" ? `endereço em ${url.hostname}` : `endereço do tipo ${url.protocol}`;
+  } catch {
+    qual = "endereço ilegível";
+  }
+  return `O JurisprudênciaIA mandou, no lugar do link, um endereço que não é página do tribunal (${qual}); o Garimpo não o mostra.`;
+}
+
 function paraAcordao(tribunal: string, x: Bruto, paradigmas: readonly ParadigmaDoSite[]): Acordao {
   const sigla = texto(x.sigla_classe);
   const numeroDeVerdade = texto(x.numero_processo) ?? texto(x.numero_processo_cnj);
   const numero = numeroDeVerdade ?? String(x.id);
+  // No TJGO, o link_pdf do site não abre fora da sessão do portal; o processo abre pelo número CNJ.
+  const linkDaBase =
+    (tribunal === "tjgo" &&
+      (linkDoProcessoNoTjgo(texto(x.numero_processo_cnj)) ?? linkDoProcessoNoTjgo(texto(x.numero_processo)))) ||
+    texto(x.link_pdf);
+  const consultaDaBase = texto(x.link_consulta) ?? texto(x.url_acordao) ?? texto(x.link_processo);
+  const foraDaWeb = [linkDaBase, consultaDaBase].find((l) => l !== undefined && !ehEnderecoDoTribunal(l));
   const acordao = limpar({
     id: `${tribunal}:${x.id}`,
     tribunal,
@@ -574,12 +612,9 @@ function paraAcordao(tribunal: string, x: Bruto, paradigmas: readonly ParadigmaD
     dataPublicacao: data(x.data_publicacao_extraida),
     ementa: texto(x.texto_ementa) ?? "",
     avisoDeEmenta: ementaAparentementeIncompleta(texto(x.texto_ementa) ?? "") ? AVISO_EMENTA_INCOMPLETA : undefined,
-    // No TJGO, o link_pdf do site não abre fora da sessão do portal; o processo abre pelo número CNJ.
-    link:
-      (tribunal === "tjgo" &&
-        (linkDoProcessoNoTjgo(texto(x.numero_processo_cnj)) ?? linkDoProcessoNoTjgo(texto(x.numero_processo)))) ||
-      texto(x.link_pdf),
-    linkConsulta: texto(x.link_consulta) ?? texto(x.url_acordao) ?? texto(x.link_processo),
+    link: doTribunal(linkDaBase),
+    linkConsulta: doTribunal(consultaDaBase),
+    avisoDeLink: foraDaWeb && avisoDeLinkForaDaWeb(foraDaWeb),
     idArquivoProjudi: tribunal === "tjgo" ? /[?&]Id_Arquivo=(\d+)/.exec(texto(x.link_pdf) ?? "")?.[1] : undefined,
     relevancia: numeroOuNada(x.rerank_score) ?? numeroOuNada(x.score),
   });

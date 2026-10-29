@@ -89,7 +89,7 @@ describe("busca direta", () => {
         results: [
           // Cópia sem número de processo (o site põe só o id) e com "Ementa:" no começo.
           { id: "copia-a", texto_ementa: `Ementa: ${ementa}`, ...comum },
-          { id: "copia-b", texto_ementa: ementa, numero_processo: "0000009-99.2024.8.21.0001", link_pdf: "https://exemplo.test/b", ...comum },
+          { id: "copia-b", texto_ementa: ementa, numero_processo: "0000009-99.2024.8.21.0001", link_pdf: "https://exemplo.jus.br/b", ...comum },
           { id: "outro", texto_ementa: "OUTRA EMENTA FICTÍCIA.", numero_processo: "0000008-88.2024.8.21.0001", ...comum },
         ],
       }),
@@ -99,7 +99,7 @@ describe("busca direta", () => {
 
     expect(r.acordaos.map((a) => a.id)).toEqual(["tjrs:copia-b", "tjrs:outro"]);
     expect((await memoria.obter("tjrs:copia-a"))?.acordao.numero).toBe("0000009-99.2024.8.21.0001");
-    expect((await memoria.obter("tjrs:copia-a"))?.acordao.link).toBe("https://exemplo.test/b");
+    expect((await memoria.obter("tjrs:copia-a"))?.acordao.link).toBe("https://exemplo.jus.br/b");
   });
 
   it("formato inesperado vira erro claro, não lista vazia", () => {
@@ -239,7 +239,7 @@ describe("campos que o site não mandou (faltam)", () => {
     numero_processo: `${id}/UF`,
     orgao_julgador: "Turma Exemplo",
     data_julgamento: "2024-01-02T00:00:00.000Z",
-    link_pdf: `https://exemplo.test/${id}`,
+    link_pdf: `https://exemplo.jus.br/${id}`,
   });
   const buscar = async (results: object[], memoria?: Memoria) => {
     const { cliente } = clienteFalso([respostaJson({ results })]);
@@ -260,7 +260,7 @@ describe("campos que o site não mandou (faltam)", () => {
 
   it("sem data: faltam data; o link de consulta no lugar do PDF conta como link", async () => {
     const { data_julgamento: _d, link_pdf: _l, ...resto } = completo("x3");
-    const r = await buscar([{ ...resto, link_consulta: "https://exemplo.test/consulta/x3" }]);
+    const r = await buscar([{ ...resto, link_consulta: "https://exemplo.jus.br/consulta/x3" }]);
     expect(r.acordaos[0].faltam).toEqual(["data"]);
   });
 

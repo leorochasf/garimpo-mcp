@@ -12,7 +12,7 @@ import { constants } from "node:fs";
 import { copyFile, link as ligar, lstat, mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
-import { type Acordao, SITE } from "./busca.js";
+import { type Acordao, avisoDeLinkForaDaWeb, ehEnderecoDoTribunal, SITE } from "./busca.js";
 import { Cliente, decodificarDoHost, ehDocumentoTjto, HOST_TJTO, type OpcoesCliente, RecusaError, VERSAO } from "./cliente.js";
 import { RedeParadaError } from "./coordenacao.js";
 import {
@@ -25,7 +25,7 @@ import {
   ORIGEM_DOWNLOAD,
 } from "./leitura.js";
 import { htmlComConteudoOculto, htmlComIndicioDeCorte, htmlParaTexto } from "./html.js";
-import type { Guardado, Memoria, TextoIntegral } from "./memoria.js";
+import type { Memoria, TextoIntegral } from "./memoria.js";
 import { textoDoTjdft } from "./tjdft.js";
 import { textoDoTjgo } from "./tjgo.js";
 import { textoDoTjpi } from "./tjpi.js";
@@ -179,12 +179,12 @@ export function pastaPadrao(): string {
  * link: o que sai como link oficial é só o do portal do tribunal.
  */
 async function comLinkDaRota(
-  guardado: Guardado | undefined,
+  acordao: Acordao | undefined,
+  obtidoEm: number | undefined,
   site: Cliente | undefined,
   memoria: Memoria | undefined,
 ): Promise<Acordao | undefined> {
-  const acordao = guardado?.acordao;
-  if (!guardado || !acordao || !site || !memoria) return acordao;
+  if (!acordao || obtidoEm === undefined || !site || !memoria) return acordao;
   if (acordao.link || acordao.linkConsulta || acordao.linkDaRota || acordao.tribunal === "tst") return acordao;
   const id = acordao.id.slice(acordao.id.indexOf(":") + 1);
   let link: string | undefined;
@@ -194,20 +194,33 @@ async function comLinkDaRota(
       headers: { Origin: SITE, Referer: `${SITE}/` },
     });
     const valor = ((await r.json()) as { link?: unknown } | null)?.link;
-    if (typeof valor === "string" && ehDoTribunal(new URL(valor.trim()))) link = valor.trim();
+    if (typeof valor === "string" && ehEnderecoDoTribunal(valor.trim())) link = valor.trim();
   } catch (e) {
     if (e instanceof RecusaError || e instanceof RedeParadaError) throw e;
   }
   if (!link) return acordao;
   const comLink = { ...acordao, linkDaRota: link };
-  memoria.lembrar([{ ids: [acordao.id], registro: comLink }], guardado.obtidoEm);
+  memoria.lembrar([{ ids: [acordao.id], registro: comLink }], obtidoEm);
   return comLink;
 }
 
-/** Endereço https num domínio da Justiça (.jus.br): o único que o Garimpo apresenta como link oficial vindo da rota. */
-function ehDoTribunal(url: URL): boolean {
-  const host = url.hostname.toLowerCase();
-  return url.protocol === "https:" && (host === "jus.br" || host.endsWith(".jus.br"));
+/** Endereço web (http ou https); o resto (data:, gs:…) não abre como página. */
+const ehEnderecoWeb = (valor: string) => /^https?:\/\//i.test(valor);
+
+/**
+ * O acórdão da memória sem o que não é endereço web nos campos de link (memória de antes da regra da busca), com o
+ * aviso do primeiro valor descartado. http e host estranho ficam: as guardas de cada tribunal os recusam com erro.
+ */
+function semLinkForaDaWeb(a: Acordao): Acordao {
+  const fora = [a.link, a.linkConsulta].find((l) => l !== undefined && !ehEnderecoWeb(l));
+  if (fora === undefined) return a;
+  const { link, linkConsulta, ...resto } = a;
+  return {
+    ...resto,
+    ...(link && ehEnderecoWeb(link) && { link }),
+    ...(linkConsulta && ehEnderecoWeb(linkConsulta) && { linkConsulta }),
+    avisoDeLink: a.avisoDeLink ?? avisoDeLinkForaDaWeb(fora),
+  };
 }
 
 export async function obterInteiroTeor(
@@ -217,7 +230,8 @@ export async function obterInteiroTeor(
   site?: Cliente,
 ): Promise<ResultadoInteiroTeor> {
   const guardado = pedido.id ? await memoria?.obter(pedido.id) : undefined;
-  let acordao = guardado?.acordao;
+  // Memória de antes da regra da busca: o que não é endereço web sai dos campos de link, com o aviso.
+  let acordao = guardado?.acordao && semLinkForaDaWeb(guardado.acordao);
   const tribunal = (acordao?.tribunal ?? pedido.tribunal ?? pedido.id?.split(":")[0] ?? "").toLowerCase();
   // TRT: o Falcão entrega texto, não PDF; nada a baixar, nenhuma chamada.
   if (ehDoFalcao(tribunal)) {
@@ -230,7 +244,12 @@ export async function obterInteiroTeor(
         "memória do Garimpo por 24 h desde a busca); confira citações com o conferir_citacao pelo mesmo id.",
     };
   }
-  const link = pedido.link ?? acordao?.link;
+  // O link pedido que não é endereço web (data:, gs:…) também não sai. http e host estranho continuam recusados com
+  // erro no caminho de cada tribunal, como antes.
+  const linkDoPedido = pedido.link && ehEnderecoWeb(pedido.link) ? pedido.link : undefined;
+  const link = linkDoPedido ?? acordao?.link;
+  const avisoDeLink = pedido.link && !linkDoPedido ? avisoDeLinkForaDaWeb(pedido.link) : acordao?.avisoDeLink;
+  const naoTrouxeLink = avisoDeLink ?? "O JurisprudênciaIA não trouxe link para este acórdão.";
   const pasta = resolve(pedido.pasta ?? pastaPadrao());
   // Antes de qualquer chamada, e sem depender da memória: o PDF que o Garimpo já baixou nesta pasta, pelo recibo.
   const jaBaixado = await procurarNaPasta(pasta, tribunal, [pedido.id, acordao?.id], link);
@@ -243,14 +262,14 @@ export async function obterInteiroTeor(
   }
   const info = infoTribunal(tribunal);
   if (!info) throw new Error("Informe o id do acórdão (como veio na busca) ou o tribunal e o link.");
-  // Sem link nem link de consulta na busca: o link pedido à rota de link do site, quando ela tem.
-  if (!pedido.link) acordao = await comLinkDaRota(guardado, site, memoria);
+  // Sem link utilizável (nem no pedido, nem na busca): o link pedido à rota de link do site, quando ela tem.
+  if (!linkDoPedido) acordao = await comLinkDaRota(acordao, guardado?.obtidoEm, site, memoria);
   const linkDaRota = link || acordao?.linkConsulta ? undefined : acordao?.linkDaRota;
   const origemDaRota = " Link pedido à rota de link do JurisprudênciaIA: não veio na busca.";
   const id = acordao?.id ?? pedido.id;
   const pronta = chamadaPronta(id, tribunal);
 
-  if (info.inteiroTeor === "portal") return textoDoPortal(info.nome, acordao, link ?? (tribunal === "tjpi" ? acordao?.linkConsulta : undefined) ?? linkDaRota, clienteDe(tribunal), memoria, pronta);
+  if (info.inteiroTeor === "portal") return textoDoPortal(info.nome, acordao, link ?? (tribunal === "tjpi" ? acordao?.linkConsulta : undefined) ?? linkDaRota, clienteDe(tribunal), memoria, pronta, naoTrouxeLink);
 
   if (info.inteiroTeor === "link") {
     // Sem link do PDF (comum no STF), o link oficial de consulta serve para o usuário abrir no navegador.
@@ -260,7 +279,7 @@ export async function obterInteiroTeor(
     if (!linkOficial) {
       // Sem link, o "abra o link no navegador" do texto de tribunal não testado não tem o que abrir.
       const semLink = motivo.replace(/; abra o link no navegador\.$/, ".");
-      const explicacao = `${semLink} O JurisprudênciaIA não trouxe link para este acórdão. ${caminhoSemLink(info.nome, acordao, id)}`;
+      const explicacao = `${semLink} ${naoTrouxeLink} ${caminhoSemLink(info.nome, acordao, id)}`;
       return { baixado: false, explicacao: explicacao.trim(), ...classificado, ...pronta };
     }
     let explicacao = motivo;
@@ -273,7 +292,9 @@ export async function obterInteiroTeor(
     return {
       baixado: false,
       explicacao:
-        "O JurisprudênciaIA não trouxe link do inteiro teor para este acórdão; não há de onde baixar. " +
+        (avisoDeLink
+          ? `${avisoDeLink} Não há de onde baixar. `
+          : "O JurisprudênciaIA não trouxe link do inteiro teor para este acórdão; não há de onde baixar. ") +
         caminhoSemLink(info.nome, acordao, id),
       ...pronta,
     };
@@ -334,12 +355,13 @@ async function textoDoPortal(
   cliente: Cliente,
   memoria: Memoria | undefined,
   pronta: { chamadaPronta: ChamadaPronta },
+  naoTrouxeLink: string,
 ): Promise<ResultadoInteiroTeor> {
   const id = pronta.chamadaPronta.argumentos.id;
   if (!link) {
     return {
       baixado: false,
-      explicacao: `O JurisprudênciaIA não trouxe link para este acórdão. ${caminhoSemLink(nomeTribunal, acordao, id)}`,
+      explicacao: `${naoTrouxeLink} ${caminhoSemLink(nomeTribunal, acordao, id)}`,
       ...pronta,
     };
   }
