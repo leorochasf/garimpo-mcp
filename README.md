@@ -512,7 +512,7 @@ a busca; nunca busca sozinho.
 ## Instalação
 
 Requer **Node.js 22.13 ou mais novo** (o leitor de PDF, `pdfjs-dist`, exige essa versão). Confira com
-`node --version`; se aparecer uma versão mais antiga (por exemplo, `v20.x`), instale a versão LTS atual em
+`node --version` (no Windows, abra o Terminal pelo menu Iniciar e digite o comando); se aparecer uma versão mais antiga (por exemplo, `v20.x`), instale a versão LTS atual em
 [nodejs.org](https://nodejs.org/) (ou, se usa um gerenciador de versões, `nvm install --lts` / `fnm install --lts`)
 e reinicie o cliente MCP.
 
@@ -540,6 +540,18 @@ claude mcp add garimpo -- npx -y garimpo-mcp
   }
 }
 ```
+
+No Windows, o arquivo fica em `%APPDATA%\Claude\claude_desktop_config.json`, mas a pasta pode mudar conforme a
+instalação: chegue a ele pelo botão Editar configuração (Edit config, com a interface em inglês). O botão não abre um
+editor: abre a pasta no Explorador de Arquivos, com o arquivo já selecionado. Abra-o com um editor de texto.
+
+O arquivo pode já ter outras configurações (o próprio Claude grava nele). Não apague nada: acrescente o bloco
+`garimpo` dentro de `mcpServers` (crie `mcpServers` se não houver).
+
+Depois de salvar, feche o Claude de verdade: clique com o botão direito no ícone do Claude perto do relógio (às vezes
+atrás da seta ^) e escolha Sair (Exit). Fechar no X não basta: o Claude continua aberto na bandeja. Abra-o de novo e
+confira em Configurações → Desenvolvedor (Settings → Developer): o `garimpo` aparece como "Running" (rótulo visto com
+a interface em inglês).
 
 No Windows, se o Claude Desktop não achar o `npx`, use `"command": "cmd"` e
 `"args": ["/c", "npx", "-y", "garimpo-mcp"]`.
