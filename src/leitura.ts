@@ -218,12 +218,32 @@ export function ehTextoDaBase(id: string): boolean {
   return infoTribunal(sigla)?.inteiroTeor === "base" && !portalComIntegra(sigla);
 }
 
+/**
+ * O texto guardado é o da base? Vale a origem gravada com ele. Entrada sem origem (gravada antes do campo) de TJES ou TJMA,
+ * os únicos que tiveram texto da base, é tratada como da base: nunca vale como texto de portal. Em outro tribunal, a
+ * entrada sem origem segue como sempre (texto de portal ou do Falcão).
+ */
+export function textoEhDaBase(texto: { origem?: "base" | "portal" } | undefined, id: string): boolean {
+  if (!texto) return false;
+  if (texto.origem) return texto.origem === "base";
+  return ["tjes", "tjma"].includes(id.split(":")[0]);
+}
+
+/** O aviso de corte do texto, com a fonte certa (o HTML da base não é do Falcão nem do portal). */
+export function avisoDeCorteDoTexto(origem: "base" | "portal" | "falcao"): string {
+  return origem === "base"
+    ? AVISO_DE_CORTE.replace("o HTML do Falcão", "o HTML da base")
+    : origem === "portal"
+      ? AVISO_DE_CORTE.replace("do Falcão", "do portal")
+      : AVISO_DE_CORTE;
+}
+
 /** O que o registro é quando o Falcão não deu texto integral de verdade (só a ementa repetida): nada de "repositório oficial". */
 export const NATUREZA_SEM_TEXTO_INTEGRAL = "sem texto integral: o Falcão não mandou o acórdão, só a ementa";
 
 /** O que o texto guardado na memória é: sem texto integral, texto do portal do tribunal (um dos 7) ou texto do Falcão. */
-export function naturezaDoTexto(semTexto: boolean, doPortal: boolean, id = ""): string {
-  if (id && ehTextoDaBase(id)) return semTexto ? "sem texto integral: texto da base do JurisprudênciaIA não verificado" : NATUREZA_DO_TEXTO_DA_BASE;
+export function naturezaDoTexto(semTexto: boolean, doPortal: boolean, id = "", daBase = id !== "" && ehTextoDaBase(id)): string {
+  if (daBase) return semTexto ? "sem texto integral: texto da base do JurisprudênciaIA não verificado" : NATUREZA_DO_TEXTO_DA_BASE;
   // Tribunal registrado no molde: a natureza vem do registro, nunca da de outro tribunal.
   const portal = doPortal ? portalComIntegra(id.split(":")[0]) : undefined;
   if (portal) return semTexto ? `sem texto integral: texto do ${portal.sigla.toUpperCase()} não verificado` : naturezaDoPortal(portal);
@@ -297,7 +317,8 @@ export async function lerTextoIntegral(id: string, parte = 1, memoria?: Memoria)
   if (!guardado) throw new Error(textoForaDaMemoria(id));
   const a = (await memoria?.obter(id))?.acordao;
   const doPortal = ehTextoDoPortal(id);
-  const daBase = ehTextoDaBase(id);
+  // A origem efetiva é a do texto guardado: texto da base nunca vira texto de portal, mesmo se o tribunal ganhou portal.
+  const daBase = textoEhDaBase(guardado, id);
   const semTexto =
     guardado.motivoSemTexto ?? (guardado.texto ? undefined : `o texto integral veio vazio ${daBase ? "da base" : doPortal ? "do portal" : "do Falcão"}`);
   const base = (partes: string, proxima?: number): ParteDoTextoIntegral => ({
@@ -312,7 +333,7 @@ export async function lerTextoIntegral(id: string, parte = 1, memoria?: Memoria)
         : doPortal
         ? (portalComIntegra(id.split(":")[0])?.rotulo ?? (id.startsWith("tjdft:") ? ROTULO_PORTAL_TJDFT : id.startsWith("trf2:") ? ROTULO_PORTAL_TRF2 : id.startsWith("trf4:") ? ROTULO_PORTAL_TRF4 : id.startsWith("tnu:") ? ROTULO_PORTAL_TNU : id.startsWith("tjgo:") ? ROTULO_PORTAL_TJGO : id.startsWith("tjpi:") ? ROTULO_PORTAL_TJPI : id.startsWith("tjpr:") ? ROTULO_PORTAL_TJPR : ROTULO_PORTAL_TJTO))
         : ROTULO_FALCAO,
-      natureza: naturezaDoTexto(Boolean(semTexto), doPortal, id),
+      natureza: naturezaDoTexto(Boolean(semTexto), doPortal, id, daBase),
       partes,
       ...(semTexto
         ? { completo: `não: ${semTexto}` }
@@ -323,7 +344,7 @@ export async function lerTextoIntegral(id: string, parte = 1, memoria?: Memoria)
     avisos: semTexto
       ? [avisoSemTextoIntegral(semTexto)]
       : [
-          ...(guardado.indicioDeCorte ? [daBase ? AVISO_DE_CORTE.replace("o HTML do Falcão", "o HTML da base") : doPortal ? AVISO_DE_CORTE.replace("do Falcão", "do portal") : AVISO_DE_CORTE] : []),
+          ...(guardado.indicioDeCorte ? [avisoDeCorteDoTexto(daBase ? "base" : doPortal ? "portal" : "falcao")] : []),
           ...(guardado.conteudoOculto ? [AVISO_CONTEUDO_OCULTO] : []),
         ],
     texto: "",

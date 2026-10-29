@@ -38,6 +38,8 @@ import {
   lerParaConferir,
   lerTextoIntegral,
   naturezaDoTexto,
+  avisoDeCorteDoTexto,
+  textoEhDaBase,
   avisoSemTextoIntegral,
   textoForaDaMemoria,
 } from "./leitura.js";
@@ -924,6 +926,8 @@ export function criarServidor(
           if (doFalcao || doPortal) {
             const t = await memoria.obterTexto(id);
             const semTexto = t?.motivoSemTexto;
+            // A origem efetiva é a do texto guardado, não a configuração atual do tribunal.
+            const daBase = t ? textoEhDaBase(t, id) : ehTextoDaBase(id);
             const noTexto = semTexto
               ? naoVerificavel(`${avisoSemTextoIntegral(semTexto)} Não há acórdão para conferir além da ementa.`)
               : t
@@ -931,12 +935,12 @@ export function criarServidor(
                 : naoVerificavel(textoForaDaMemoria(id));
             const corte =
               t?.indicioDeCorte && noTexto.veredito !== "não verificável"
-                ? { aviso: `${AVISO_DE_CORTE} Uma citação "não encontrada" pode estar no trecho que faltou.` }
+                ? { aviso: `${daBase ? avisoDeCorteDoTexto("base") : AVISO_DE_CORTE} Uma citação "não encontrada" pode estar no trecho que faltou.` }
                 : {};
             const avisos = [(corte as { aviso?: string }).aviso, t?.conteudoOculto ? AVISO_CONTEUDO_OCULTO : undefined].filter(Boolean);
             fontes.push({
               fonte: "texto integral", id,
-              origem: naturezaDoTexto(Boolean(semTexto), doPortal, id),
+              origem: naturezaDoTexto(Boolean(semTexto), doPortal, id, daBase),
               ...noTexto,
               ...(avisos.length > 0 && { aviso: avisos.join(" ") }),
             });

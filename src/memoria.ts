@@ -76,6 +76,11 @@ export interface TextoIntegral {
   conteudoOculto?: boolean;
   /** Por que este id não tem texto integral (texto vazio de propósito); decide a leitura e a conferência deste id, não do acórdão juntado. */
   motivoSemTexto?: string;
+  /**
+   * De onde o texto veio: "base" = texto que a busca do JurisprudênciaIA embute no registro (não oficial); "portal" =
+   * trazido do portal do tribunal pelas guardas do obter_inteiro_teor. Ausente = entrada antiga (ver textoEhDaBase).
+   */
+  origem?: "base" | "portal";
 }
 
 export interface TextoGuardado extends TextoIntegral {
@@ -486,6 +491,7 @@ async function lerTexto(arquivo: string) {
     indicioDeCorte: r.indicioDeCorte,
     ...(r.conteudoOculto === true && { conteudoOculto: true }),
     ...(typeof r.motivoSemTexto === "string" && { motivoSemTexto: r.motivoSemTexto }),
+    ...((r.origem === "base" || r.origem === "portal") && { origem: r.origem }),
     obtidoEm: lido.obtidoEm,
   };
   return { id: r.id as string, obtidoEm: lido.obtidoEm, bytes: lido.bytes, guardado };

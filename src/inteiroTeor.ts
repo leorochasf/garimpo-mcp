@@ -24,6 +24,7 @@ import {
   LIMITE_BYTES_PDF,
   NAO_INFORMADO,
   ORIGEM_DOWNLOAD,
+  textoEhDaBase,
 } from "./leitura.js";
 import { htmlComConteudoOculto, htmlComIndicioDeCorte, htmlParaTexto } from "./html.js";
 import type { Memoria, TextoIntegral } from "./memoria.js";
@@ -424,6 +425,8 @@ async function textoDoPortal(
     `Leia com o ler_inteiro_teor com o id ${acordao.id} (fica na memória do Garimpo por 24 h) e confira citações ` +
     "com o conferir_citacao pelo mesmo id.";
   let textoGuardado: TextoIntegral | undefined = await memoria.obterTexto(acordao.id);
+  // Texto da base nunca satisfaz o cache do texto do portal: sem passar pelas guardas do portal, não é texto dele.
+  if (textoEhDaBase(textoGuardado, acordao.id)) textoGuardado = undefined;
   // Tribunal registrado no molde «página com íntegra»: as guardas e o motivo vêm de lá; os antigos seguem abaixo.
   const portal = portalComIntegra(acordao.tribunal);
   if (!textoGuardado && portal) {
@@ -437,7 +440,7 @@ async function textoDoPortal(
           "verificado, nada foi guardado. Abra o link no navegador para conferir o documento.",
       };
     }
-    textoGuardado = { id: acordao.id, ...daPagina };
+    textoGuardado = { id: acordao.id, origem: "portal", ...daPagina };
     memoria.lembrarTextos([textoGuardado]);
   }
   if (!textoGuardado) {
@@ -491,7 +494,7 @@ async function textoDoPortal(
             "conferir o documento.",
       };
     }
-    textoGuardado = { id: acordao.id, ...trazido };
+    textoGuardado = { id: acordao.id, origem: "portal", ...trazido };
     memoria.lembrarTextos([textoGuardado]);
   }
   if (textoGuardado.motivoSemTexto || !textoGuardado.texto) {

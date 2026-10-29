@@ -219,6 +219,11 @@ export interface OpcoesBuscaDireta {
   tabelaStf?: TabelaDoStf;
   /** Cliente do Falcão, para os TRTs (padrão: um novo, com os mesmos freios compartilhados). */
   falcao?: Cliente;
+  /**
+   * Só com guardarAcordaos falso (busca ampla): recebe os textos da base do site (pelo id do registro do site), para quem
+   * guarda os acórdãos depois da junção guardar também os textos. Nunca vai à resposta.
+   */
+  coletorDeTextosDaBase?: Map<string, TextoIntegral>;
   /** Cliente do e-Proc (TRF2, TRF4 ou TNU; padrão: um novo da fonte do pedido, com os mesmos freios compartilhados). */
   eproc?: Cliente;
 }
@@ -305,7 +310,7 @@ export async function buscaDiretaSemMarca(
   cliente: Cliente,
   p: ParametrosBusca,
   memoria?: Memoria,
-  { renovar = false, guardarAcordaos = true, tabela, tabelaStf, falcao, eproc }: OpcoesBuscaDireta = {},
+  { renovar = false, guardarAcordaos = true, tabela, tabelaStf, falcao, eproc, coletorDeTextosDaBase }: OpcoesBuscaDireta = {},
 ): Promise<ResultadoBusca> {
   if (ehDoFalcao(p.tribunal)) {
     if (p.decisoes) return buscaDecisoesNoFalcao(falcao ?? clienteDoFalcao(), p);
@@ -357,15 +362,18 @@ export async function buscaDiretaSemMarca(
     resultado.acordaos.map((registro, posicao) => ({ registro, formulacoes: new Set<number>(), melhorPosicao: posicao })),
   );
   acordaos.sort((a, b) => a.melhorPosicao - b.melhorPosicao);
+  // Texto da base (ADR do b22-07): fica no id do acórdão que a busca mostra, venha de qual cópia vier.
+  const doTexto = new Map(resultado.textosDaBase.map((t) => [t.id, t]));
+  const textos = acordaos.flatMap(({ ids, registro }) => {
+    const t = ids.map((i) => doTexto.get(i)).find(Boolean);
+    return t ? [{ ...t, id: registro.id }] : [];
+  });
   if (guardarAcordaos) {
     memoria?.lembrar(acordaos);
-    // Texto da base (ADR do b22-07): fica no id do acórdão que a busca mostra, venha de qual cópia vier.
-    const doTexto = new Map(resultado.textosDaBase.map((t) => [t.id, t]));
-    const textos = acordaos.flatMap(({ ids, registro }) => {
-      const t = ids.map((i) => doTexto.get(i)).find(Boolean);
-      return t ? [{ ...t, id: registro.id }] : [];
-    });
     if (textos.length) memoria?.lembrarTextos(textos);
+  } else {
+    // Busca ampla: ela guarda depois de juntar as cópias de todas as buscas.
+    for (const t of textos) coletorDeTextosDaBase?.set(t.id, t);
   }
   resultado.acordaos = acordaos.map((a) => a.registro);
   if (tribunal === "stf") {
@@ -561,6 +569,7 @@ export function normalizar(
       textosDaBase.push({
         id: `${tribunal}:${x.id}`,
         texto: t.texto,
+        origem: "base",
         indicioDeCorte: t.indicioDeCorte,
         ...(t.conteudoOculto && { conteudoOculto: true }),
       });
