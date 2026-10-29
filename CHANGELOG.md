@@ -49,6 +49,12 @@
 - `listar_tribunais` e `obter_inteiro_teor`: o motivo do «só link» de TJPB, TJPE, TJRS, TJSE, TJRJ, TJSC, TJRO, TJAL,
   TJAM, TJAC, TJAP, TJMT e TJPA passa a dizer a barreira observada e a data (29/10/2026), no lugar do «ainda não
   testou» ou da data de 14/10. TJRN segue inconclusivo.
+- TJCE: o `obter_inteiro_teor` passa a baixar o PDF oficial do acórdão no eSAJ do tribunal, com recibo de origem. O PDF só é
+  guardado se o cabeçalho «Processo:» da primeira página for o número do processo da busca (o acórdão pode citar outros números no
+  corpo); sem isso, ou sem número no registro da busca, nada é guardado e a resposta diz «texto não verificado». Se o eSAJ
+  pedir o código da figura, o Garimpo trata como recusa e pausa só o TJCE, sem contornar. O `robots.txt` do host não existe (404);
+  a política de navegação do portal, lida em 29/10/2026, não traz regra sobre robôs, o que não equivale a autorização; não há
+  autorização do TJCE (ADR-0033).
 - Windows com antivírus lento: o Garimpo podia parar de usar a rede com um falso «não tem permissão» sobre o estado
   compartilhado de proteção, quando o antivírus segurava o arquivo por mais de 2 s. Agora espera até ~10 s antes de
   tratar como permissão negada de verdade. Com a permissão negada de fato, o aviso chega em até ~10 s.
