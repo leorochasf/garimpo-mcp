@@ -251,6 +251,32 @@ Leitura de regras registrada na execução de 2026-10-14 (PV-06; revisão poster
   frescor; se o TJPI mantém o texto integral em todos os acórdãos (visto em 1). A prova registra coincidência do
   número do processo nos dois tribunais, mas não a conferência da data de julgamento no documento: **não verificada**.
 
+## Portal de jurisprudência do TJPR (íntegra na página do acórdão)
+
+Usado por `obter_inteiro_teor` no TJPR ([ADR-0030](adr/0030-tjpr-inteiro-teor-pela-pagina-do-acordao.md); estudo
+[`estudos/2026-10-29-tjpr-cobertura.md`](estudos/2026-10-29-tjpr-cobertura.md)).
+
+- **Host:** `portal.tjpr.jus.br` (serviço `tjpr` dos freios), só `https`, caminho `/jurisprudencia/j/<n>` com ou sem o
+  nome depois (o link que vem da busca).
+- **Regras lidas em 2026-10-29:** `robots.txt` com `User-agent: *` e só `Disallow: /tjpr-assinador/`; a página traz
+  `<meta name="robots" content="nofollow">` (não veda leitura). Resolução TJPR n.º 532-OE/2026: acesso automatizado a
+  movimentações processuais pelo SCMPP, com possíveis «limitações quantitativas de acessos simultâneos»; não trata de
+  jurisprudência nem proíbe acesso automatizado. Termo de uso do portal de jurisprudência: **não encontrado** (sem
+  vedação encontrada não equivale a autorização).
+- **O que o Garimpo lê:** um GET na página do acórdão (UA honesto, redirecionamento não seguido). O texto vem do bloco
+  «Íntegra do Acórdão» (`<div id="texto<n>">`, do mesmo `<n>` do link), depois do aviso do tribunal «O texto abaixo
+  representa a transcrição de Acórdão. Eventuais imagens serão suprimidas.», com pelo menos 200 caracteres; o campo
+  «Processo:» tem de existir e ser o número CNJ da busca, quando ela o trouxe; e a íntegra tem de conter o número do
+  processo da página. **Motivo:** em 2026-10-29 o portal pôs na página certa a íntegra de outro acórdão em 4 de 11
+  chamadas (cabeçalho certo, corpo de outro caso); só o número dentro do texto separou as certas das trocadas. «Segredo de Justiça» diferente de «Não»: nenhum
+  texto guardado, só o motivo. Rótulo «texto do portal do tribunal (TJPR)», sem PDF nem recibo.
+- **Freios:** pelo cliente único; 429, 503 e também 502 (visto duas vezes em ~12 chamadas no estudo) = espera e uma
+  nova tentativa; recusa de novo abre o disjuntor do serviço `tjpr`.
+- **Prova (2026-10-29):** 2 páginas, uma de Câmara Cível (~33 mil caracteres de íntegra) e uma de Turma Recursal (~8 mil),
+  200 `text/html; charset=UTF-8`, sem login nem captcha.
+- **Não verificado:** limite de ritmo do portal; estabilidade da rota; decisões monocráticas; acórdãos cujas imagens ou
+  tabelas importem para o sentido.
+
 ## eSAJ do TJMS (PDF do acórdão)
 
 Usado por `obter_inteiro_teor` no TJMS (I-14 / G-21): o **PDF oficial** do acórdão pelo `getArquivo.do` do eSAJ, a mesma

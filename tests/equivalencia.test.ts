@@ -153,3 +153,56 @@ describe("equivalência de registros", () => {
     expect(resultado.porId.get("tjxx:502")).toBe(acordao);
   });
 });
+
+describe("equivalência no TJPR (ADR-0030): o mesmo documento do portal no link é o mesmo acórdão", () => {
+  const CNJ = "0000001-11.2024.8.16.0001";
+  const comOrgao = (id: string, extra: Partial<Registro> = {}): Registro =>
+    registro(id, {
+      id: `tjpr:${id}`,
+      tribunal: "tjpr",
+      numero: CNJ,
+      orgao: "99ª Câmara Cível",
+      ementa: `EMENTA: APELAÇÃO. EXEMPLO FICTÍCIO. (TJPR - 99ª Câmara Cível - ${CNJ} - Cidade - J. 05.03.2024)`,
+      link: `https://portal.tjpr.jus.br/jurisprudencia/j/4100000000000001/Ac%C3%B3rd%C3%A3o-${CNJ}`,
+      ...extra,
+    });
+  const doOutroLote = (id: string, extra: Partial<Registro> = {}): Registro =>
+    comOrgao(id, {
+      orgao: undefined,
+      ementa: `Ementa: APELAÇÃO. EXEMPLO FICTÍCIO. (TJPR – AC ${CNJ}, julg.: 05/03/2024, public.: 07/03/2024)`,
+      link: "https://portal.tjpr.jus.br/jurisprudencia/j/4100000000000001/Acórdão",
+      ...extra,
+    });
+
+  it("cópias de lotes diferentes, com rodapés de ementa diferentes, viram um acórdão só; fica a com órgão", () => {
+    const fica = comOrgao("701");
+    const { acordaos, porId } = juntarEquivalentes([ocorrencia(doOutroLote("702"), [0], 0), ocorrencia(fica, [1], 1)]);
+
+    expect(acordaos).toHaveLength(1);
+    expect(acordaos[0].registro).toBe(fica);
+    expect(acordaos[0].melhorPosicao).toBe(0);
+    expect(porId.get("tjpr:702")).toBe(acordaos[0]);
+  });
+
+  it("documentos diferentes no link continuam acórdãos distintos, mesmo com a mesma ementa", () => {
+    const outro = doOutroLote("704", { link: "https://portal.tjpr.jus.br/jurisprudencia/j/4100000000000009/Acórdão" });
+    const { acordaos } = juntarEquivalentes([ocorrencia(comOrgao("703"), [0]), ocorrencia(outro, [0])]);
+    expect(acordaos).toHaveLength(2);
+  });
+
+  it("mesmo documento com números de processo que se contradizem: não junta", () => {
+    const outro = doOutroLote("706", { numero: "0000002-22.2024.8.16.0001" });
+    const { acordaos } = juntarEquivalentes([ocorrencia(comOrgao("705"), [0]), ocorrencia(outro, [0])]);
+    expect(acordaos).toHaveLength(2);
+  });
+
+  it("o link no formato do portal do TJPR não junta registros de outro tribunal", () => {
+    const deOutro = (id: string, ementa: string) =>
+      comOrgao(id, { id: `tjxx:${id}`, tribunal: "tjxx", ementa });
+    const { acordaos } = juntarEquivalentes([
+      ocorrencia(deOutro("707", "APELAÇÃO. UMA EMENTA."), [0]),
+      ocorrencia(deOutro("708", "APELAÇÃO. OUTRA EMENTA."), [0]),
+    ]);
+    expect(acordaos).toHaveLength(2);
+  });
+});

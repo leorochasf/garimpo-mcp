@@ -1,8 +1,10 @@
 /**
  * Equivalência de registros: reconhece quando dois registros da base do site são o mesmo acórdão
  * (mesmo tribunal + mesma data de julgamento + mesma ementa, sem números de processo que se contradigam)
- * e os junta num acórdão só.
+ * e os junta num acórdão só. No TJPR, o mesmo documento do portal no link também basta (ADR-0030).
  */
+
+import { documentoDoTjpr } from "./tribunais.js";
 
 /** O mínimo de um registro que a regra precisa olhar. */
 export interface Registro {
@@ -50,9 +52,16 @@ export function juntarEquivalentes<R extends Registro>(ocorrencias: Ocorrencia<R
   const grupos = new Map<string, Ocorrencia<R>[]>();
   ocorrencias.forEach((o, i) => {
     const ementa = ementaNormalizada(o.registro.ementa);
+    // TJPR (ADR-0030): a base do site tem o mesmo acórdão em dois lotes, com rodapés de ementa diferentes; o número do
+    // documento no link do portal é o mesmo nas duas cópias.
+    const documento =
+      o.registro.tribunal === "tjpr" ? documentoDoTjpr(o.registro.link ?? o.registro.linkConsulta) : undefined;
     // Sem data ou sem ementa não há como afirmar que é o mesmo acórdão: o registro fica sozinho.
-    const chave =
-      o.registro.dataJulgamento && ementa ? `${o.registro.tribunal}|${o.registro.dataJulgamento}|${ementa}` : `sozinho:${i}`;
+    const chave = documento
+      ? `tjpr|documento:${documento}`
+      : o.registro.dataJulgamento && ementa
+        ? `${o.registro.tribunal}|${o.registro.dataJulgamento}|${ementa}`
+        : `sozinho:${i}`;
     const grupo = grupos.get(chave);
     if (grupo) grupo.push(o);
     else grupos.set(chave, [o]);
