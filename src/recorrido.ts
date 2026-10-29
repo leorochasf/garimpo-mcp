@@ -85,7 +85,8 @@ export function avisoDeRecorridoAusente(acordaos: readonly Acordao[]): string | 
 
 /**
  * O aviso da busca ampla, uma vez, curto: só os mostrados entram, mas o recorrido achado e cortado da lista (ou
- * filtrado) não está ausente. Com vários tribunais, cada número vai com a sigla.
+ * filtrado) não está ausente. Com vários tribunais, cada número vai com a sigla. A classe desmentida pelo próprio
+ * acórdão (avisoDeClasse) leva a ressalva R1, como na busca direta (ticket 19).
  */
 export function avisoDeRecorridoAusenteAmplo(mostrados: readonly Acordao[], achados: readonly Acordao[]): string | undefined {
   const lista = ausentes(mostrados, achados);
@@ -93,10 +94,15 @@ export function avisoDeRecorridoAusenteAmplo(mostrados: readonly Acordao[], acha
   const tribunais = new Set(lista.map((a) => a.tribunal));
   const varios = tribunais.size > 1;
   const rotulo = (a: Acordao) => (varios ? `${a.numeroCnj} (${a.tribunal.toUpperCase()})` : a.numeroCnj!);
+  const duvidosos = lista.filter((a) => a.avisoDeClasse);
   return (
     `Recurso contra acórdão sem o recorrido nesta busca (embargos de declaração e similares): ` +
     `${numeros(lista, TETO_DE_NUMEROS_AMPLA, rotulo)}. O recorrido pode não estar na base do JurisprudênciaIA: ` +
-    "veja os julgamentos com julgamentos_do_processo."
+    "veja os julgamentos com julgamentos_do_processo." +
+    (duvidosos.length
+      ? ` A classe de ${numeros(duvidosos, TETO_DE_NUMEROS_AMPLA, rotulo)} é posta em dúvida pelo próprio acórdão ` +
+        "(avisoDeClasse): pode não ser recurso contra outro acórdão."
+      : "")
   );
 }
 
