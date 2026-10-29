@@ -1,7 +1,7 @@
 /**
  * Equivalência de registros: reconhece quando dois registros da base do site são o mesmo acórdão
  * (mesmo tribunal + mesma data de julgamento + mesma ementa, sem números de processo que se contradigam)
- * e os junta num acórdão só. No TJPR, o mesmo documento do portal no link também basta (ADR-0030).
+ * e os junta num acórdão só. No TJPR (ADR-0030) e no TJBA, o mesmo documento do portal no link também basta.
  */
 
 import { documentoDoTjpr } from "./tribunais.js";
@@ -24,6 +24,8 @@ export interface Registro {
   link?: string;
   /** Página oficial de consulta, quando não há PDF. */
   linkConsulta?: string;
+  /** Posto pela junção quando as cópias juntadas trazem datas de julgamento diferentes; nunca vem do site. */
+  avisoDeData?: string;
 }
 
 /** Um registro como foi achado na busca: por quais formulações e em que melhor posição. */
@@ -52,13 +54,10 @@ export function juntarEquivalentes<R extends Registro>(ocorrencias: Ocorrencia<R
   const grupos = new Map<string, Ocorrencia<R>[]>();
   ocorrencias.forEach((o, i) => {
     const ementa = ementaNormalizada(o.registro.ementa);
-    // TJPR (ADR-0030): a base do site tem o mesmo acórdão em dois lotes, com rodapés de ementa diferentes; o número do
-    // documento no link do portal é o mesmo nas duas cópias.
-    const documento =
-      o.registro.tribunal === "tjpr" ? documentoDoTjpr(o.registro.link ?? o.registro.linkConsulta) : undefined;
+    const documento = documentoNoTribunal(o.registro);
     // Sem data ou sem ementa não há como afirmar que é o mesmo acórdão: o registro fica sozinho.
     const chave = documento
-      ? `tjpr|documento:${documento}`
+      ? `${o.registro.tribunal}|documento:${documento}`
       : o.registro.dataJulgamento && ementa
         ? `${o.registro.tribunal}|${o.registro.dataJulgamento}|${ementa}`
         : `sozinho:${i}`;
@@ -88,16 +87,54 @@ export function juntarEquivalentes<R extends Registro>(ocorrencias: Ocorrencia<R
   return { acordaos, porId };
 }
 
+/**
+ * O documento do portal no link, nos tribunais em que a base do site traz o mesmo acórdão em cópias de texto ou data
+ * diferentes: o documento é o mesmo nas cópias.
+ */
+function documentoNoTribunal(r: Registro): string | undefined {
+  // TJPR (ADR-0030): dois lotes, com rodapés de ementa diferentes.
+  if (r.tribunal === "tjpr") return documentoDoTjpr(r.link ?? r.linkConsulta);
+  // TJBA: duas cópias com datas diferentes, e a data muda também no rodapé da ementa.
+  if (r.tribunal === "tjba") return documentoDoTjba(r.link) ?? documentoDoTjba(r.linkConsulta);
+  return undefined;
+}
+
+const HOST_TJBA = "jurisprudenciaws.tjba.jus.br";
+// O caminho é o exato da prova; só os dígitos hexadecimais do uuid podem vir em maiúsculas.
+const CAMINHO_DO_DOCUMENTO_TJBA =
+  /^\/inteiroTeor\/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$/;
+
+function documentoDoTjba(link: string | undefined): string | undefined {
+  if (!link) return undefined;
+  try {
+    const url = new URL(link);
+    if (url.protocol !== "https:" || url.host !== HOST_TJBA) return undefined;
+    return CAMINHO_DO_DOCUMENTO_TJBA.exec(url.pathname)?.[1].toLowerCase();
+  } catch {
+    return undefined;
+  }
+}
+
 function juntar<R extends Registro>(copias: Ocorrencia<R>[]): AcordaoJuntado<R> {
   const escolhida = copias.reduce(maisCompleta);
   const formulacoes = new Set<number>();
   for (const o of copias) for (const f of o.formulacoes) formulacoes.add(f);
+  // Junção pelo documento no link: as cópias podem ter datas diferentes, e a escolha não prova qual é a do julgamento.
+  const datas = [...new Set(copias.flatMap((o) => (o.registro.dataJulgamento ? [o.registro.dataJulgamento] : [])))].sort();
   return {
-    registro: escolhida.registro,
+    registro: datas.length > 1 ? { ...escolhida.registro, avisoDeData: avisoDeDatas(datas) } : escolhida.registro,
     ids: copias.map((o) => o.registro.id),
     formulacoes,
     melhorPosicao: Math.min(...copias.map((o) => o.melhorPosicao)),
   };
+}
+
+function avisoDeDatas(datas: string[]): string {
+  const lista = `${datas.slice(0, -1).join(", ")} e ${datas[datas.length - 1]}`;
+  return (
+    `As cópias deste acórdão na base do JurisprudênciaIA trazem datas de julgamento diferentes (${lista}); ` +
+    "a data mostrada é a de uma das cópias e não foi conferida no tribunal."
+  );
 }
 
 /** Critérios de completude, em ordem de importância; o empate final vai para a melhor posição. */

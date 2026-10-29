@@ -184,6 +184,17 @@ describe("equivalência no TJPR (ADR-0030): o mesmo documento do portal no link 
     expect(porId.get("tjpr:702")).toBe(acordaos[0]);
   });
 
+  it("cópias do mesmo documento com datas de julgamento diferentes: o registro devolvido avisa", () => {
+    const { acordaos } = juntarEquivalentes([
+      ocorrencia(comOrgao("709"), [0]),
+      ocorrencia(doOutroLote("710", { dataJulgamento: "2024-03-07" }), [0]),
+    ]);
+
+    expect(acordaos).toHaveLength(1);
+    expect(acordaos[0].registro.dataJulgamento).toBe("2024-03-05");
+    expect(acordaos[0].registro.avisoDeData).toContain("(2024-03-05 e 2024-03-07)");
+  });
+
   it("documentos diferentes no link continuam acórdãos distintos, mesmo com a mesma ementa", () => {
     const outro = doOutroLote("704", { link: "https://portal.tjpr.jus.br/jurisprudencia/j/4100000000000009/Acórdão" });
     const { acordaos } = juntarEquivalentes([ocorrencia(comOrgao("703"), [0]), ocorrencia(outro, [0])]);
@@ -202,6 +213,126 @@ describe("equivalência no TJPR (ADR-0030): o mesmo documento do portal no link 
     const { acordaos } = juntarEquivalentes([
       ocorrencia(deOutro("707", "APELAÇÃO. UMA EMENTA."), [0]),
       ocorrencia(deOutro("708", "APELAÇÃO. OUTRA EMENTA."), [0]),
+    ]);
+    expect(acordaos).toHaveLength(2);
+  });
+});
+
+describe("equivalência no TJRS: as duas cópias da base juntam pela regra geral", () => {
+  // Par visto na base: uma cópia com «Ementa:» no começo e link da consulta processual, outra sem o prefixo, com o
+  // número sem máscara e link do ementário. Dados fictícios.
+  const CNJ = "0000001-11.2021.8.21.0001";
+  const daConsulta = (id: string, extra: Partial<Registro> = {}): Registro =>
+    registro(id, {
+      id: `tjrs:${id}`,
+      tribunal: "tjrs",
+      numero: CNJ,
+      orgao: "99ª Câmara Cível",
+      ementa: "Ementa: APELAÇÃO CÍVEL. EXEMPLO FICTÍCIO. DANO MORAL. RECURSO DESPROVIDO.",
+      linkConsulta: `https://consulta.tjrs.jus.br/consulta-processual/processo/resumo?numeroProcesso=${CNJ.replace(/\D/g, "")}`,
+      ...extra,
+    });
+  const doEmentario = (id: string, extra: Partial<Registro> = {}): Registro =>
+    daConsulta(id, {
+      numero: CNJ.replace(/\D/g, ""),
+      ementa: "APELAÇÃO CÍVEL. EXEMPLO FICTÍCIO. DANO MORAL. RECURSO DESPROVIDO.",
+      linkConsulta: `https://www.tjrs.jus.br/novo/buscas-solr/?aba=jurisprudencia&q=${CNJ}&site=ementario`,
+      ...extra,
+    });
+
+  it("cópia com «Ementa:» e cópia sem o prefixo, de links diferentes, viram um acórdão só", () => {
+    const { acordaos, porId } = juntarEquivalentes([ocorrencia(daConsulta("801"), [0]), ocorrencia(doEmentario("802"), [1])]);
+
+    expect(acordaos).toHaveLength(1);
+    expect(porId.get("tjrs:801")).toBe(acordaos[0]);
+    expect(porId.get("tjrs:802")).toBe(acordaos[0]);
+  });
+
+  it("mesma ementa e data com números de processo diferentes continuam acórdãos distintos", () => {
+    const outro = doEmentario("804", { numero: "00000022220218210001" });
+    expect(juntarEquivalentes([ocorrencia(daConsulta("803"), [0]), ocorrencia(outro, [0])]).acordaos).toHaveLength(2);
+  });
+});
+
+describe("equivalência no TJBA: o mesmo documento do portal no link é o mesmo acórdão", () => {
+  // Par visto na base: o mesmo link do portal e o mesmo número em duas cópias com datas diferentes (5 dias); o texto
+  // só muda na data do rodapé, que acompanha a do campo. Dados fictícios.
+  const CNJ = "0000001-11.2018.8.05.0001";
+  const UUID = "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
+  const linkDoPortal = (uuid: string) => `https://jurisprudenciaws.tjba.jus.br/inteiroTeor/${uuid}`;
+  const comRodape = (publicado: string) =>
+    `APELAÇÃO. EXEMPLO FICTÍCIO. RECURSO PROVIDO. ( Classe: Apelação,Número do Processo: ${CNJ},` +
+    `Relator(a): EXEMPLO,Publicado em: ${publicado} )`;
+  const copia = (id: string, extra: Partial<Registro> = {}): Registro =>
+    registro(id, {
+      id: `tjba:${id}`,
+      tribunal: "tjba",
+      numero: CNJ,
+      orgao: "99ª Câmara Cível",
+      dataJulgamento: "2024-03-20",
+      ementa: comRodape("20/03/2024"),
+      link: linkDoPortal(UUID),
+      ...extra,
+    });
+  const daOutraData = (id: string, extra: Partial<Registro> = {}): Registro =>
+    copia(id, { dataJulgamento: "2024-03-15", ementa: comRodape("15/03/2024"), ...extra });
+
+  it("cópias com o mesmo documento no link e datas diferentes viram um acórdão só", () => {
+    const { acordaos, porId } = juntarEquivalentes([ocorrencia(copia("901"), [0], 3), ocorrencia(daOutraData("902"), [1], 1)]);
+
+    expect(acordaos).toHaveLength(1);
+    expect(acordaos[0].melhorPosicao).toBe(1);
+    expect([...acordaos[0].formulacoes].sort()).toEqual([0, 1]);
+    expect(porId.get("tjba:901")).toBe(acordaos[0]);
+  });
+
+  it("datas de julgamento diferentes nas cópias juntadas: o registro devolvido avisa, com as duas datas em ordem", () => {
+    const { acordaos } = juntarEquivalentes([ocorrencia(copia("911"), [0], 0), ocorrencia(daOutraData("912"), [0], 1)]);
+
+    expect(acordaos[0].registro.avisoDeData).toBe(
+      "As cópias deste acórdão na base do JurisprudênciaIA trazem datas de julgamento diferentes (2024-03-15 e " +
+        "2024-03-20); a data mostrada é a de uma das cópias e não foi conferida no tribunal.",
+    );
+    // A data e o resto do registro continuam os da cópia escolhida; a cópia de entrada não é mexida.
+    expect(acordaos[0].registro).toEqual({ ...copia("911"), avisoDeData: acordaos[0].registro.avisoDeData });
+    expect(copia("911").avisoDeData).toBeUndefined();
+  });
+
+  it("cópias juntadas com a mesma data: sem aviso, e o registro é o próprio escolhido", () => {
+    const fica = copia("913");
+    const { acordaos } = juntarEquivalentes([ocorrencia(fica, [0], 0), ocorrencia(copia("914"), [0], 1)]);
+
+    expect(acordaos[0].registro).toBe(fica);
+    expect(acordaos[0].registro.avisoDeData).toBeUndefined();
+  });
+
+  it("o documento vale também na página de consulta e sem diferença de maiúsculas", () => {
+    const naConsulta = daOutraData("904", { link: undefined, linkConsulta: linkDoPortal(UUID.toUpperCase()) });
+    expect(juntarEquivalentes([ocorrencia(copia("903"), [0]), ocorrencia(naConsulta, [0])]).acordaos).toHaveLength(1);
+  });
+
+  it("mesmo documento com números de processo que se contradizem: não junta", () => {
+    const outro = daOutraData("906", { numero: "0000002-22.2018.8.05.0001" });
+    expect(juntarEquivalentes([ocorrencia(copia("905"), [0]), ocorrencia(outro, [0])]).acordaos).toHaveLength(2);
+  });
+
+  it.each([
+    { caso: "documento diferente", link: linkDoPortal("ffffffff-4e5f-4a6b-8c7d-9e0f1a2b3c4d") },
+    { caso: "sem https", link: `http://jurisprudenciaws.tjba.jus.br/inteiroTeor/${UUID}` },
+    { caso: "outro host", link: `https://exemplo.test/inteiroTeor/${UUID}` },
+    { caso: "outro caminho", link: `https://jurisprudenciaws.tjba.jus.br/inteiroTeor/${UUID}/anexo` },
+    { caso: "o caminho com outra caixa", link: `https://jurisprudenciaws.tjba.jus.br/INTEIROTEOR/${UUID}` },
+    { caso: "o caminho todo em minúsculas", link: `https://jurisprudenciaws.tjba.jus.br/inteiroteor/${UUID}` },
+  ])("não junta pelo link quando é $caso", ({ link }) => {
+    const { acordaos } = juntarEquivalentes([ocorrencia(copia("907"), [0]), ocorrencia(daOutraData("908", { link }), [0])]);
+    expect(acordaos).toHaveLength(2);
+  });
+
+  it("o link no formato do portal do TJBA não junta registros de outro tribunal", () => {
+    const deOutro = (id: string) => daOutraData(id, { id: `tjxx:${id}`, tribunal: "tjxx" });
+    const { acordaos } = juntarEquivalentes([
+      ocorrencia(copia("909", { id: "tjxx:909", tribunal: "tjxx" }), [0]),
+      ocorrencia(deOutro("910"), [0]),
     ]);
     expect(acordaos).toHaveLength(2);
   });
