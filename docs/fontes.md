@@ -311,19 +311,27 @@ inteiro teor, com recibo (ADR-0005). Fatos lidos em 2026-10-29 (matriz ao vivo d
 
 - **robots.txt (2026-10-29):** `esaj.tjce.jus.br/robots.txt` devolve HTTP 404 (página de erro do servidor): nenhuma regra
   publicada. Lido em chamada separada, antes de abrir o link.
-- **Termos de uso:** não procurados. Sem vedação encontrada ≠ autorização: fica **não verificado**.
+- **Termos de uso (lidos pelo Rede em 2026-10-29, ~15:40):** a «Política de Privacidade para Navegação no Portal do TJCE»
+  (`https://www.tjce.jus.br/lgpd/politica-de-navegacao-no-portal-do-tjce/`, sem data de vigência; rodapé «versão 1.198.0»)
+  **não traz cláusula sobre robôs, crawlers, scraping ou coleta automatizada**; a única menção a «automatizado» é o
+  tratamento automatizado do próprio tribunal (consulta unificada de processos e certidões). A página da pesquisa
+  eSAJ (`esaj.tjce.jus.br/cjsg/consultaCompleta.do`) não traz aviso, termo ou condição de uso. Termos de aplicativos do
+  tribunal (TJCE Mobile, SIMTJ Mobile), a Portaria 153/2026 (robôs **internos** do tribunal) e a Resolução do Órgão
+  Especial 40/2022 apareceram na busca e não foram lidos por inteiro; nenhum veda robô de terceiros no portal.
+  **Limite do método:** páginas lidas por ferramenta que resume (não o HTML bruto linha a linha); «não encontrado» não
+  prova inexistência de outro texto. Sem vedação encontrada ≠ autorização.
 - **Prova (2026-10-29):** 1 GET do link `esaj.tjce.jus.br/cjsg/getArquivo.do?cdAcordao=<n>&cdForo=0`: HTTP 200
   `application/pdf;charset=UTF-8`, `Content-Disposition: inline`, 716 192 bytes, PDF de 5 páginas, sem login, captcha ou
   bloqueio; cookie de sessão do portal enviado na resposta. O mesmo desenho do endereço em TJAL, TJAM e TJAC pede captcha:
   é configuração do eSAJ de cada tribunal, não do software; vale só para o TJCE.
-- **Freios:** serviço `tjce` no disjuntor (regra 3 do `CLAUDE.md`); 403, captcha ou desafio = recusa final, sem recomeço.
-- **Guarda do número do processo:** o PDF só é guardado se o cabeçalho «Processo: <CNJ>» do início do texto for o número
+- **Freios:** serviço `tjce` no disjuntor (regra 3 do `CLAUDE.md`); 403, captcha ou desafio = recusa final, sem recomeço. A frase «digite o código da figura» (a do eSAJ de TJAL, TJAM e TJAC), mesmo sem título, vale como página de desafio no TJCE.
+- **Guarda do número do processo:** o PDF só é guardado se o cabeçalho «Processo: <CNJ>» da primeira página (antes de EMENTA, ACÓRDÃO, RELATÓRIO ou VOTO) for o número
   do processo do registro da busca (não vale qualquer ocorrência: o PDF de 19 páginas observado cita outros 6 CNJs no
   corpo); sem isso, ou sem número no registro, nada é guardado e a resposta diz «não verificado».
 - **Conferência do Rede (2026-10-29):** 2 acórdãos (PDFs de 5 e 19 páginas, HTTP 200 `application/pdf`, sem captcha nem
   login); o cabeçalho «Processo:» da 1ª página é o número do registro da busca; têm EMENTA, ACÓRDÃO, RELATÓRIO e VOTO.
 - **Não verificado:** que o PDF é sempre o acórdão assinado inteiro (visto em 2); o limite
-  de ritmo do eSAJ do TJCE; redirecionamentos; os termos de uso.
+  de ritmo do eSAJ do TJCE; redirecionamentos.
 
 ## Busca oficial do e-Proc do TRF4 (ementa e texto do portal do tribunal)
 
@@ -459,13 +467,24 @@ A busca segue no JurisprudênciaIA. Leituras de 2026-10-22:
 ## Motivo do «só link» com prova própria (I-23 / G-24, DQ-24b)
 
 O texto de `motivoLink` (src/tribunais.ts) só diz o motivo real onde o Garimpo tem prova própria, com a data; os demais
-seguem «ainda não testou». Provas registradas em 14/10/2026 (STJ em 13/10/2026, seção D-18 acima):
+seguem «ainda não testou». Provas registradas em 14/10/2026 (STJ em 13/10/2026, seção D-18 acima), as de TJ reconferidas em 29/10/2026 abaixo:
 
-- **TJRJ:** termo de uso do portal veda robôs e coleta automática sem permissão expressa por escrito.
-- **TJSE:** `robots.txt` com `Disallow: /` e só `/portal` liberado.
-- **TJPA:** a rota de documento devolveu só a casca do aplicativo, sem o acórdão.
-- **TJSC:** a leitura do `robots.txt` do eproc devolveu página de bloqueio (F5).
 - **STF:** `redir.stf.jus.br` respondeu 202 de WAF à leitura do `robots.txt`.
+
+Provas de 29/10/2026 (matriz ao vivo dos TJs, local; leitura, sem contorno, de uma amostra por tribunal):
+
+- **TJRJ:** termo de uso do portal veda robôs e coleta automática sem permissão expressa por escrito (reconferido).
+- **TJSE:** `robots.txt` com `Disallow: /` e só `/portal` liberado (reconferido).
+- **TJPE:** `robots.txt` de `www.tjpe.jus.br` com `User-agent: *` e `Disallow: /`.
+- **TJRS:** `robots.txt` de `www.tjrs.jus.br` com `Disallow: /busca`; o endereço de dados da busca (`/buscas/jurisprudencia/`) começa por `/busca`.
+- **TJSC:** a leitura do `robots.txt` de `eproc1g.tjsc.jus.br` devolveu página de bloqueio.
+- **TJRO:** o endereço do acórdão em `juris.tjro.jus.br` devolveu HTTP 200 com script de verificação anti-robô, sem o acórdão.
+- **TJAL, TJAM, TJAC:** o endereço do acórdão no eSAJ pede o código da figura (captcha) antes do texto.
+- **TJAP:** o `robots.txt` de `tucujuris.tjap.jus.br` devolveu HTTP 403 com o desafio do Cloudflare.
+- **TJPB:** os dois portais oficiais de jurisprudência estão barrados: `robots.txt` de `juris.tjpb.jus.br` com `Disallow: /` e `pje-jurisprudencia.tjpb.jus.br` com o desafio do Cloudflare (HTTP 403).
+- **TJPA:** o endereço do documento abriu só a tela de pesquisa, sem o acórdão, e a pesquisa do portal não isola um acórdão pelo número do processo (antes, em 14/10: só a casca do aplicativo).
+- **TJMT:** o serviço da pesquisa (`hellsgate.tjmt.jus.br`) respondeu HTTP 401 pedindo chave de API.
+- **TJRN:** segue inconclusivo (busca do site com HTTP 504 em 09/10 e 14/10; nova tentativa de 29/10 também 504 no JurisprudênciaIA).
 
 TRF6 não consta da tabela de tribunais do Garimpo; não foi tratado. O TRF2 entrou pelo e-Proc (ADR-0028).
 

@@ -47,6 +47,15 @@ describe("ferramentas do TCU", () => {
     expect(tools.find((t) => t.name === "pesquisar_acordaos_tcu")!.description).toMatch(/sumário/);
   });
 
+  it("a descrição da pesquisa fala do índice local, do motivo de ler o ano inteiro e de como criar o índice", async () => {
+    const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "janela-"));
+    const { tools } = await (await conectar(clienteFalso([]).cliente, dados)).listTools();
+    const d = tools.find((t) => t.name === "pesquisar_acordaos_tcu")!.description!;
+    expect(d).toMatch(/indiceLocal/);
+    expect(d).toMatch(/renovar: true/);
+    expect(d).not.toMatch(/cada ano leva cerca de 10 a 20 s/);
+  });
+
   it("sem anos, lista o que o TCU publica (tamanho, data da lista) e o que já está no computador; uma só chamada", async () => {
     const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "janela-"));
     await gravarAnoTcu(dados, 2021, [acordaoFicticio(1)]);

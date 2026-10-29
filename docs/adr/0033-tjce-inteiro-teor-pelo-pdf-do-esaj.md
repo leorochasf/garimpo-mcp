@@ -17,7 +17,11 @@ PDF do acórdão por GET comum, sem login nem captcha. Caso avaliado pelo crité
 - Conferido pelo Rede (2 acórdãos, PDFs de 5 e 19 páginas, HTTP 200, sem captcha nem login): o cabeçalho «Processo:» da
   primeira página é o número do registro da busca. O PDF de 19 páginas cita outros 6 CNJs no corpo.
 - Prova ao vivo curta pelo cartão Rede: pendente.
-- Não verificado: termos de uso; limite de ritmo; redirecionamentos; que o PDF seja sempre o acórdão assinado inteiro.
+- **Termos de uso (lidos pelo Rede em 2026-10-29, ~15:40):** a «Política de Privacidade para Navegação no Portal do TJCE»
+  (`https://www.tjce.jus.br/lgpd/politica-de-navegacao-no-portal-do-tjce/`) não traz cláusula sobre robôs, crawlers, scraping
+  ou coleta automatizada; a página da pesquisa eSAJ não traz termo. Limite do método: lido por ferramenta que resume, e
+  «não encontrado» não prova inexistência de outro texto. Sem vedação encontrada ≠ autorização.
+- Não verificado: limite de ritmo; redirecionamentos; que o PDF seja sempre o acórdão assinado inteiro.
 
 ## Decisões
 
@@ -29,7 +33,7 @@ PDF do acórdão por GET comum, sem login nem captcha. Caso avaliado pelo crité
 - **PDF reconhecido**: começa por `%PDF`, até 50 MB. Recibo de origem (URL final, sha256, data), «já na pasta» e leitura
   pelo caminho vêm do modo `baixa`.
 - **Guarda do documento certo (novo para PDF, só TJCE)**: depois de baixar, o Garimpo extrai o texto do PDF e confere o
-  cabeçalho «Processo: <CNJ>» do início (primeira página) com o número CNJ do processo do registro da busca (máscara
+  cabeçalho «Processo: <CNJ>» da PRIMEIRA página física (região antes de EMENTA, ACÓRDÃO, RELATÓRIO ou VOTO, nos primeiros 300 caracteres; primeira página sem texto = recusa; dois números diferentes no cabeçalho = recusa) com o número CNJ do processo do registro da busca (máscara
   ou só dígitos). **Não vale qualquer ocorrência do número no texto**: o PDF de 19 páginas observado cita outros 6 CNJs
   no corpo (precedentes). Cabeçalho ausente, diferente do registro, ou registro da busca sem número do processo: **nada é
   guardado** e a resposta diz «texto não verificado: o PDF não traz, no cabeçalho, o número do processo da busca». PDF sem
@@ -40,7 +44,7 @@ PDF do acórdão por GET comum, sem login nem captcha. Caso avaliado pelo crité
 - **Rótulo**: PDF oficial do tribunal, com recibo; não é «texto do portal».
 - **Tabela**: `inteiroTeor: "baixa"`, sem motivo de só link (`SEM_MOTIVO`); `listar_tribunais` e `garimpo://tribunais` passam
   a dizer «baixado pelo Garimpo».
-- **Freios**: serviço `tjce` no disjuntor; 403, captcha ou desafio = recusa final, sem nova tentativa; 429/503 seguem a
+- **Freios**: serviço `tjce` no disjuntor; 403, captcha ou desafio = recusa final, sem nova tentativa (o Cliente reconhece, só no TJCE, a instrução «digite o código da figura» do eSAJ como página de desafio, mesmo sem título); 429/503 seguem a
   regra geral (espera e UMA nova tentativa).
 - **Cópia da base com a classe errada** (3 de 3: «Agravo Interno em Recurso Especial em Apelação Cível» onde a ementa diz
   «Apelação Cível»): problema de dados da base, não deste ADR; fica registrado para o ticket de ementa/classe.
@@ -59,4 +63,4 @@ PDF do acórdão por GET comum, sem login nem captcha. Caso avaliado pelo crité
 - O TJCE passa a «completo»: `obter_inteiro_teor` baixa e dá recibo; `ler_inteiro_teor` e `conferir_citacao` funcionam.
 - Se o eSAJ do TJCE passar a pedir captcha ou bloquear, o serviço pausa em todas as janelas e o tribunal volta a «só link»
   com o motivo datado, sem contornar.
-- Não há autorização do TJCE; o termo de uso não foi lido.
+- Não há autorização do TJCE; o termo de uso lido (acima) não veda robô, o que não equivale a autorização.

@@ -17,6 +17,11 @@ Ligar um tribunal novo exigia ramos em quatro arquivos, e o rótulo da leitura c
   redirecionamento (não seguido), resposta que não é HTML ou grande demais, página sem a íntegra, página sem o número do
   processo, página de outro processo (comparado só pelos algarismos), segredo de justiça, texto útil curto demais e
   íntegra que não traz o número do próprio processo.
+- **Número CNJ utilizável** é o que tem os 20 algarismos, com ou sem máscara, na busca e na página; texto no lugar do
+  número («não informado») ou número incompleto conta como ausente, e dois ausentes nunca se confirmam um ao outro.
+- **Segredo de justiça**: com a guarda ligada, só é guardada a página que diz expressamente que **não** há segredo. Campo
+  ausente ou valor que não seja «Sim»/«Não» dá o motivo «a página não informa se o acórdão está em segredo de justiça, e o
+  Garimpo só guarda o texto quando ela diz que não está» — sem afirmar que há segredo.
 - **Um registro de portais**: cada tribunal declara só os seus dados — sigla, host, caminho do link, onde estão na
   página o processo, o segredo de justiça e a íntegra, e o rótulo da fonte. O `obter_inteiro_teor` consulta o registro
   **antes** dos caminhos antigos; a leitura e a conferência tiram dele o rótulo e a natureza do texto («texto do portal do

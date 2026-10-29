@@ -46,6 +46,10 @@ const LIMITE_BYTES = 5_000_000;
 /** Números de processo comparados só pelos algarismos: com ou sem máscara, é o mesmo processo. */
 const algarismos = (numero: string) => numero.replace(/\D/g, "");
 
+/** Número CNJ utilizável: os 20 algarismos, com ou sem máscara. Texto no lugar do número ou número incompleto não é. */
+const ehNumeroCnj = (numero: string | undefined): numero is string =>
+  numero !== undefined && algarismos(numero).length === 20;
+
 const portais = new Map<string, PortalComIntegra>();
 
 /** O link, se for https no host e no caminho declarados do portal; senão, undefined (nada é chamado). */
@@ -86,7 +90,8 @@ export async function textoDaPaginaComIntegra(
   acordao: { numeroCnj?: string },
 ): Promise<TextoDaPagina> {
   // Sem o número da busca não há como conferir que a página é do mesmo processo: recusa, sem chamar o portal.
-  if (!acordao.numeroCnj) {
+  const numeroCnj = acordao.numeroCnj;
+  if (!ehNumeroCnj(numeroCnj)) {
     return { motivo: "a busca não trouxe o número CNJ do acórdão, e sem ele o Garimpo não confere se a página é do mesmo processo" };
   }
   const url = documentoDoPortal(portal, link);
@@ -106,14 +111,24 @@ export async function textoDaPaginaComIntegra(
   const integra = portal.integra(html, url);
   if (!integra) return { motivo: "a página não traz a íntegra do documento do link (aviso ou erro do portal)" };
   const processo = portal.processo(html)?.trim();
-  if (!processo) return { motivo: "a página não mostra o número do processo" };
-  if (algarismos(processo) !== algarismos(acordao.numeroCnj)) return { motivo: "a página é de outro processo que o da busca" };
-  const segredo = portal.segredo?.(html)?.trim();
-  if (segredo !== undefined && segredo.toLowerCase() !== "não") return { motivo: "o acórdão está em segredo de justiça" };
+  if (!ehNumeroCnj(processo)) return { motivo: "a página não mostra o número do processo" };
+  if (algarismos(processo) !== algarismos(numeroCnj)) return { motivo: "a página é de outro processo que o da busca" };
+  // Com a guarda ligada, só passa a página que diz expressamente que não há segredo; campo ausente ou valor estranho
+  // não é prova de documento público. Só a exceção justificada na declaração dispensa o campo.
+  if (!portal.desligadas?.segredoDeJustica) {
+    const segredo = portal.segredo?.(html)?.trim() ?? "";
+    if (/^sim$/i.test(segredo)) return { motivo: "o acórdão está em segredo de justiça" };
+    if (!/^n[ãa]o$/i.test(segredo)) {
+      return {
+        motivo:
+          "a página não informa se o acórdão está em segredo de justiça, e o Garimpo só guarda o texto quando ela diz que não está",
+      };
+    }
+  }
   const texto = htmlParaTexto(integra);
   if (texto.length < MINIMO_TEXTO) return { motivo: "a íntegra veio curta demais para ser o acórdão" };
   // O portal pode pôr na página certa a íntegra de outro acórdão (o TJPR o fez, ADR-0030): a certa traz o próprio número.
-  if (!portal.desligadas?.numeroNaIntegra && !texto.includes(processo) && !texto.includes(acordao.numeroCnj)) {
+  if (!portal.desligadas?.numeroNaIntegra && !texto.includes(processo) && !texto.includes(numeroCnj)) {
     return {
       motivo: "a íntegra não traz o número do próprio processo (o portal pode ter mostrado a íntegra de outro acórdão)",
     };

@@ -14,6 +14,7 @@ import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { type Acordao, avisoDeLinkForaDaWeb, ehEnderecoDoTribunal, SITE } from "./busca.js";
 import { Cliente, decodificarDoHost, ehDocumentoTjto, HOST_TJTO, type OpcoesCliente, RecusaError, VERSAO } from "./cliente.js";
+import { processoDoCabecalhoDoTjce } from "./cabecalhoTjce.js";
 import { RedeParadaError } from "./coordenacao.js";
 import {
   avisoJaNaPasta,
@@ -23,7 +24,6 @@ import {
   LIMITE_BYTES_PDF,
   NAO_INFORMADO,
   ORIGEM_DOWNLOAD,
-  textoDoPdfEmMemoria,
 } from "./leitura.js";
 import { htmlComConteudoOculto, htmlComIndicioDeCorte, htmlParaTexto } from "./html.js";
 import type { Memoria, TextoIntegral } from "./memoria.js";
@@ -264,6 +264,10 @@ export async function obterInteiroTeor(
   }
   const info = infoTribunal(tribunal);
   if (!info) throw new Error("Informe o id do acórdão (como veio na busca) ou o tribunal e o link.");
+  // TJCE sem número de processo no registro: recusa antes de qualquer chamada, inclusive à rota de link do site.
+  if (tribunal === "tjce" && info.inteiroTeor === "baixa" && !acordao?.numeroCnj) {
+    return recusaSemNumeroDoTjce(link, pedido.id, acordao);
+  }
   // Sem link utilizável (nem no pedido, nem na busca): o link pedido à rota de link do site, quando ela tem.
   if (!linkDoPedido) acordao = await comLinkDaRota(acordao, guardado?.obtidoEm, site, memoria);
   const linkDaRota = link || acordao?.linkConsulta ? undefined : acordao?.linkDaRota;
@@ -307,16 +311,7 @@ export async function obterInteiroTeor(
   if (tribunal === "tjce") {
     const endereco = enderecoDoPdfDoTjce(linkPdf);
     const numeroDoRegistro = acordao?.numeroCnj;
-    if (!numeroDoRegistro) {
-      return {
-        baixado: false,
-        link: linkPdf,
-        explicacao:
-          "O registro da busca não trouxe o número do processo, e o Garimpo só guarda o PDF do TJCE depois de conferir " +
-          `o cabeçalho «Processo:» dele com esse número; nada foi baixado nem salvo. ${ponte(id, acordao)}`,
-        ...pronta,
-      };
-    }
+    if (!numeroDoRegistro) return recusaSemNumeroDoTjce(linkPdf, id, acordao);
     baixado = await baixarDireto(cliente, endereco, HOST_TJCE, "TJCE");
     if (!(await cabecalhoDoTjceConfere(baixado.pdf, numeroDoRegistro))) {
       return {
@@ -796,16 +791,21 @@ function enderecoDoPdfDoTjce(link: string): string {
   return url.href;
 }
 
-/**
- * O PDF do TJCE é o do processo da busca: o cabeçalho «Processo: <CNJ>» do início do texto tem o mesmo número do
- * registro. Não vale qualquer ocorrência do número no texto: o acórdão cita CNJs de precedentes no corpo. PDF sem texto
- * ou que o extrator não leia = não confere.
- */
+function recusaSemNumeroDoTjce(link: string | undefined, id: string | undefined, acordao: Acordao | undefined): ResultadoInteiroTeor {
+  return {
+    baixado: false,
+    ...(link && { link }),
+    explicacao:
+      "O registro da busca não trouxe o número do processo, e o Garimpo só guarda o PDF do TJCE depois de conferir " +
+      `o cabeçalho «Processo:» dele com esse número; nada foi baixado nem salvo. ${ponte(id, acordao)}`,
+    ...chamadaPronta(id, "tjce"),
+  };
+}
+
+/** O PDF do TJCE é o do processo da busca: o cabeçalho «Processo:» da 1ª página tem o número do registro. */
 async function cabecalhoDoTjceConfere(pdf: Uint8Array, numero: string): Promise<boolean> {
   try {
-    const { texto } = await textoDoPdfEmMemoria(pdf, "PDF do TJCE");
-    const cabecalho = /Processo:\s*(\d{7}-?\d{2}\.?\d{4}\.?\d\.?\d{2}\.?\d{4})/.exec(texto.slice(0, 2000))?.[1];
-    return !!cabecalho && cabecalho.replace(/\D/g, "") === numero.replace(/\D/g, "");
+    return (await processoDoCabecalhoDoTjce(pdf)) === numero.replace(/\D/g, "");
   } catch {
     return false;
   }

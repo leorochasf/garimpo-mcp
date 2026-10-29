@@ -156,15 +156,16 @@ const ehPermissao = (e: unknown) => codigo(e) === "EACCES" || codigo(e) === "EPE
 
 /**
  * Erros passageiros do Windows (antivírus ou indexador segurando o arquivo, apagamento ainda pendente): tenta de
- * novo por até ~2 s antes de tratar o erro como permissão de verdade.
+ * novo por até ~10 s antes de tratar o erro como permissão de verdade (com a máquina carregada, o antivírus segura
+ * o arquivo por mais de 2 s).
  */
-async function insistir<T>(fazer: () => Promise<T>): Promise<T> {
+export async function insistir<T>(fazer: () => Promise<T>): Promise<T> {
   for (let tentativa = 1; ; tentativa++) {
     try {
       return await fazer();
     } catch (e) {
       const passageiro = ehPermissao(e) || codigo(e) === "EBUSY";
-      if (!passageiro || tentativa >= 40) throw e;
+      if (!passageiro || tentativa >= 200) throw e;
       await new Promise((r) => setTimeout(r, 50));
     }
   }

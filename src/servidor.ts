@@ -8,6 +8,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { Cliente, PausaPreventivaError, RecusaError, VERSAO } from "./cliente.js";
 import { buscaDireta, conferirDadosDoAcordao, ementaAparentementeIncompleta } from "./busca.js";
+import { limparEmenta } from "./ementaLimpa.js";
 import { buscaAmpla, expandirAgrupadorTrt, type ResultadoAmplo } from "./ampla.js";
 import {
   type CoordenacaoEmArquivo,
@@ -230,6 +231,11 @@ const AVISO_NATUREZA_JURIDICA =
 const AVISO_CITACAO_NA_EMENTA_CORTADA =
   "A ementa parece ter vindo incompleta do JurisprudênciaIA (termina no meio da frase): a citação pode estar no " +
   "trecho que faltou. Confira no inteiro teor.";
+
+/** Ementa que não se separou com segurança do resto do campo da base (ementaLimpa.ts): nunca «encontrado na ementa». */
+const AVISO_CITACAO_NA_EMENTA_INCERTA =
+  "A ementa deste acórdão não pôde ser separada com segurança do resto do campo da base do JurisprudênciaIA (o " +
+  "texto pode ter parte do relatório ou do voto): o Garimpo não diz se a citação está na ementa. Confira no inteiro teor.";
 
 /** Aviso de natureza jurídica das respostas que vêm da tabela de precedentes (fotografia, não consulta ao vivo). */
 const AVISO_DA_TABELA =
@@ -493,7 +499,10 @@ export function criarServidor(
       description:
         "Pesquisa jurisprudência (decisões judiciais publicadas) num tribunal pela busca direta do JurisprudênciaIA " +
         "(sem o chat de IA do site). " +
-        "Devolve acórdãos com a ementa como veio do site (avisoDeEmenta quando ela parece cortada pelo próprio site), " +
+        "Devolve acórdãos com a ementa do site, só ela: quando o campo da base traz também o cabeçalho com nomes das " +
+        "partes, a decisão inteira ou a ementa repetida, vai só o trecho da ementa, sem reescrever, e avisoDeEmenta diz " +
+        "isso (avisoDeEmenta também quando ela parece cortada pelo próprio site; avisoDeData quando cópias juntadas do " +
+        "mesmo acórdão trazem datas de julgamento diferentes), " +
         "número, órgão, data e link oficial (avisoDeLink quando o site mandou, no lugar do link, um endereço que não é " +
         "página do tribunal), e, em lista separada, os " +
         "precedentes qualificados (temas, súmulas). O site costuma devolver poucos acórdãos do STF por busca (de 2 a 7 na medição de out/2026). " +
@@ -650,7 +659,10 @@ export function criarServidor(
     {
       title: "Obter ementa",
       description:
-        "Devolve a ementa como veio do site (avisoDeEmenta quando ela parece cortada pelo próprio site) e os dados de " +
+        "Devolve a ementa do site, só ela: quando o campo da base traz também o cabeçalho com nomes das partes, a " +
+        "decisão inteira ou a ementa repetida, vai só o trecho da ementa, sem reescrever, e avisoDeEmenta diz isso " +
+        "(avisoDeEmenta também quando ela parece cortada pelo próprio site; avisoDeData quando cópias juntadas do mesmo " +
+        "acórdão trazem datas de julgamento diferentes) e os dados de " +
         "um acórdão já devolvido por busca_direta ou busca_ampla, pelo id " +
         "(ex.: \"stj:12345\"), com o mesmo enquadramento927 e o mesmo avisoDeLink da busca e a data e hora em que foi obtido do site " +
         "(obtidoDoSite). A memória do Garimpo guarda os acórdãos por 24 h desde a busca, para todas as janelas " +
@@ -886,11 +898,16 @@ export function criarServidor(
           const a = (await memoria.obter(id))?.acordao;
           const doFalcao = ehDoFalcao(id.split(":")[0]);
           const doPortal = ehTextoDoPortal(id);
-          const conferida = a
-            ? conferirNaEmenta(a.ementa, lida, doFalcao ? "Sem ementa no Falcão: não há ementa para conferir." : undefined)
-            : naoVerificavel(`O acórdão ${id} não está na memória do Garimpo. Refaça a busca que o trouxe e confira de novo.`);
+          // A memória de antes da ementa limpa (até 24 h) guarda o campo inteiro: a limpeza vale também para ela.
+          const limpa = a && !doFalcao ? limparEmenta(a.tribunal, a.ementa) : undefined;
+          const ementa = limpa?.ementa ?? a?.ementa ?? "";
+          const conferida = !a
+            ? naoVerificavel(`O acórdão ${id} não está na memória do Garimpo. Refaça a busca que o trouxe e confira de novo.`)
+            : a.ementaIncerta || limpa?.separacaoIncerta
+              ? naoVerificavel(AVISO_CITACAO_NA_EMENTA_INCERTA)
+              : conferirNaEmenta(ementa, lida, doFalcao ? "Sem ementa no Falcão: não há ementa para conferir." : undefined);
           const cortada =
-            a && !doFalcao && conferida.veredito === "não encontrado" && ementaAparentementeIncompleta(a.ementa)
+            a && !doFalcao && conferida.veredito === "não encontrado" && ementaAparentementeIncompleta(ementa)
               ? { aviso: AVISO_CITACAO_NA_EMENTA_CORTADA }
               : {};
           fontes.push({ fonte: "ementa", id, ...conferida, ...cortada });
@@ -1271,15 +1288,19 @@ export function criarServidor(
         `(hoje: ${diplomasSuportados()}; outra sigla é recusada com a lista) e o dispositivo por escrito (ex.: "art. 85", ` +
         "\"art. 85, § 2º, inciso I\", \"art. 9º, parágrafo único\", \"art. 699-A\"). Dispositivo sem texto na fonte " +
         "volta como \"não verificado\"; dois dispositivos com a mesma identificação, como \"identificação necessária\" " +
-        "(o Garimpo não escolhe). As redações vêm todas (versoesNaFonte), mesmo quando há só uma, da mais antiga para " +
-        "a mais recente, com as marcas que a fonte põe (tipo da versão, lei alteradora, nota, período, força marcada); " +
-        "o Garimpo não conclui qual redação vale, não reconstitui alteração e não afirma vigência: confira na página " +
-        "oficial antes de citar. Uso conforme a licença CC BY 4.0 que a fonte declara (citar a fonte). A norma inteira " +
-        "pesa mais de 4 MB: cada consulta é uma chamada, 1 s entre chamadas; a repetida volta da memória do Garimpo " +
-        "(24 h), com a data da obtenção original.",
+        "(o Garimpo não escolhe). No CPC, no CC e na CF, as redações vêm todas (versoesNaFonte), mesmo quando há só " +
+        "uma, da mais antiga para a mais recente, com as marcas que a fonte põe (tipo da versão, lei alteradora, nota, " +
+        "período, força marcada). No CP, no CPP, na CLT e no CDC, a fonte não traz a árvore de dispositivos: o texto " +
+        "vem do arquivo da compilação que ela marca como \"Current\" (uma só versão, sem as redações anteriores), " +
+        "indicado em arquivoDaFonte com a versão e o valor legal como a fonte os marca; faixa de artigos (\"Arts. 498 " +
+        "a 502.\") vem com o parágrafo literal e a observação de que a fonte junta os artigos. Em nenhum caso o Garimpo " +
+        "conclui qual redação vale, reconstitui alteração ou afirma vigência: confira na página oficial antes de citar. " +
+        "Uso conforme a licença CC BY 4.0 que a fonte declara (citar a fonte). A norma inteira pesa mais de 4 MB: cada " +
+        "consulta é uma chamada (duas no CP, no CPP, na CLT e no CDC: a norma e o arquivo da compilação), 1 s entre " +
+        "chamadas; a repetida volta da memória do Garimpo (24 h), com a data da obtenção original.",
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
       inputSchema: {
-        diploma: z.string().describe("Sigla do diploma (CPC, CC ou CF)"),
+        diploma: z.string().describe(`Sigla do diploma (${diplomasSuportados()})`),
         dispositivo: z.string().describe('O dispositivo, por escrito (ex.: "art. 85, § 2º, inciso I")'),
       },
     },
@@ -1379,8 +1400,11 @@ export function criarServidor(
         "da sessão, colegiado, relator, tipo, situação, sumário (o resumo do TCU: sumário, não ementa), trechos e link " +
         "oficial para conferência. Mais recentes primeiro. Acórdão de relação traz só o texto do acórdão (sem sumário, " +
         "relatório nem voto). INVALIDADO e sigilosos não entram (a resposta diz quantos). Toda resposta traz a data da " +
-        "base de cada ano (atualização no TCU e data do download), quantos anos foram percorridos e o tempo gasto (cada " +
-        "ano leva cerca de 10 a 20 s), a atribuição à fonte, o aviso de que o texto oficial cita nomes de pessoas e os " +
+        "base de cada ano (atualização no TCU e data do download), quantos anos foram percorridos e o tempo gasto e, em " +
+        "indiceLocal, os anos pesquisados pelo índice local (criado ao baixar; a pesquisa não lê o arquivo inteiro) e " +
+        "os que leram o arquivo inteiro, com o motivo (cada um leva cerca de 10 a 20 s; para criar o índice, use " +
+        "baixar_anos_tcu com renovar: true e confirmar: true), a atribuição à fonte, o aviso de que o texto oficial " +
+        "cita nomes de pessoas e os " +
         "anos pedidos que não estão baixados. Relatório, voto ou sumário que o TCU classificou como sigilosos aparecem em " +
         "partesSigilosas (o acórdão continua listado). Interessados e advogados do arquivo nunca são lidos nem mostrados. Para o texto, use ler_acordao_tcu.",
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },

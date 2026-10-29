@@ -50,7 +50,7 @@ afterEach(async () => {
   await Promise.all(saidas);
   await Promise.all(fechar.map((f) => f()));
   fechar = [];
-  await rm(pasta, { recursive: true, force: true });
+  await rm(pasta, { recursive: true, force: true, maxRetries: 10 });
 });
 
 async function subir(demoraMs = 0) {

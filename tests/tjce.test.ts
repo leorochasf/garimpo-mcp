@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buscaDireta } from "../src/busca.js";
+import { RecusaError } from "../src/cliente.js";
 import { servicoDe } from "../src/disjuntor.js";
 import { obterInteiroTeor } from "../src/inteiroTeor.js";
 import { Memoria } from "../src/memoria.js";
@@ -117,6 +118,40 @@ describe("TJCE — guarda: o cabeçalho «Processo:» do PDF tem de ser o do reg
     await nadaGuardado(await obterInteiroTeor({ id: "tjce:7", pasta }, () => cliente, memoria));
   });
 
+  it("primeira página sem texto e «Processo: <CNJ>» na página 2 (citação com o rótulo exato): não guarda", async () => {
+    const memoria = await buscar();
+    const pdf = pdfSintetico([[], [`Processo: ${CNJ} - Apelacao Civel`, ...ENCHIMENTO]]);
+    const { cliente } = clienteFalso([comoPdf(pdf)]);
+    await nadaGuardado(await obterInteiroTeor({ id: "tjce:7", pasta }, () => cliente, memoria));
+  });
+
+  it("citação com o rótulo exato «Processo:» na 1ª página, depois dos títulos de seção, sem cabeçalho real: não guarda", async () => {
+    const memoria = await buscar();
+    const pdf = pdfSintetico([["EMENTA: texto ficticio.", ...ENCHIMENTO, "ACORDAO", `Precedente - Processo: ${CNJ} - Apelacao Civel`]]);
+    const { cliente } = clienteFalso([comoPdf(pdf)]);
+    await nadaGuardado(await obterInteiroTeor({ id: "tjce:7", pasta }, () => cliente, memoria));
+  });
+
+  it("dois números diferentes no cabeçalho (ambíguo): não guarda", async () => {
+    const memoria = await buscar();
+    const pdf = pdfSintetico([[`Processo: ${CNJ} - Apelacao Civel`, `Processo: ${OUTRO_CNJ} - Agravo`, "EMENTA: x", ...ENCHIMENTO]]);
+    const { cliente } = clienteFalso([comoPdf(pdf)]);
+    await nadaGuardado(await obterInteiroTeor({ id: "tjce:7", pasta }, () => cliente, memoria));
+  });
+
+  it("registro sem número e sem link: recusa ANTES da rota de link do site (nenhuma chamada, nem ao site)", async () => {
+    const busca = clienteFalso([respostaJson({ results: [{ id: 7, texto_ementa: "EMENTA FICTÍCIA." }] })]);
+    const memoria = new Memoria();
+    await buscaDireta(busca.cliente, { tribunal: "tjce", texto: "exemplo" }, memoria);
+    const tribunal = clienteFalso([]);
+    const site = clienteFalso([respostaJson({ link: LINK })]);
+    const r = await obterInteiroTeor({ id: "tjce:7", pasta }, () => tribunal.cliente, memoria, site.cliente);
+    expect(r.baixado).toBe(false);
+    if (!r.baixado) expect(r.explicacao).toMatch(/número do processo/);
+    expect(site.chamadas).toHaveLength(0);
+    expect(tribunal.chamadas).toHaveLength(0);
+  });
+
   it("registro da busca sem número de processo: não guarda, com o motivo", async () => {
     const memoria = await buscar(null);
     const { cliente } = clienteFalso([comoPdf(acordaoDoTjce(`Processo: ${CNJ} - Apelacao Civel`))]);
@@ -134,9 +169,8 @@ describe("TJCE — guarda: o cabeçalho «Processo:» do PDF tem de ser o do reg
 });
 
 describe("TJCE — endereço e resposta", () => {
-  const pedido = (link: string) => ({ tribunal: "tjce", link, pasta });
-
   it("link fora do eSAJ do TJCE: erro, nenhuma chamada", async () => {
+    const memoria = await buscar();
     for (const link of [
       "http://esaj.tjce.jus.br/cjsg/getArquivo.do?cdAcordao=1&cdForo=0",
       "https://esaj.tjce.jus.br.exemplo.test/cjsg/getArquivo.do?cdAcordao=1&cdForo=0",
@@ -145,17 +179,47 @@ describe("TJCE — endereço e resposta", () => {
       "https://esaj.tjce.jus.br/cjsg/getArquivo.do?cdAcordao=abc&cdForo=0",
     ]) {
       const { cliente, chamadas } = clienteFalso([]);
-      await expect(obterInteiroTeor(pedido(link), () => cliente), link).rejects.toThrow();
+      await expect(obterInteiroTeor({ id: "tjce:7", link, pasta }, () => cliente, memoria), link).rejects.toThrow();
       expect(chamadas, link).toHaveLength(0);
     }
   });
 
-  it("página no lugar do PDF (captcha): erro, nada guardado", async () => {
-    const pagina = new Response("<html>digite o código da figura</html>", { headers: { "content-type": "text/html" } });
+  it("página comum no lugar do PDF (sem desafio): erro, nada guardado", async () => {
+    const pagina = new Response("<html><title>Manutenção</title>serviço fora do ar</html>", { headers: { "content-type": "text/html" } });
     const { cliente } = clienteFalso([pagina]);
     const memoria = await buscar();
     await expect(obterInteiroTeor({ id: "tjce:7", pasta }, () => cliente, memoria)).rejects.toThrow(/no lugar do PDF/);
     expect(await readdir(pasta)).toEqual([]);
+  });
+
+  describe("captcha do eSAJ sem título: recusa do serviço tjce, como o 403 (regra 3)", () => {
+    const captcha = () =>
+      new Response("<html><body>Para acessar o conteúdo do Acórdão, por favor digite o código da figura no campo abaixo.</body></html>", {
+        headers: { "content-type": "text/html" },
+      });
+
+    it("é RecusaError, nada é guardado e a 2ª chamada ao TJCE nem sai", async () => {
+      const memoria = await buscar();
+      const { cliente, chamadas } = clienteFalso([captcha(), comoPdf(acordaoDoTjce(`Processo: ${CNJ} - Apelacao Civel`))]);
+      const e = await obterInteiroTeor({ id: "tjce:7", pasta }, () => cliente, memoria).catch((x) => x);
+      expect(e).toBeInstanceOf(RecusaError);
+      expect(e.message).toMatch(/pausadas em todas as janelas/);
+      const depois = await obterInteiroTeor({ id: "tjce:7", pasta }, () => cliente, memoria).catch((x) => x);
+      expect(depois.message).toMatch(/não foi feita/);
+      expect(chamadas).toHaveLength(1);
+      expect(await readdir(pasta)).toEqual([]);
+    });
+
+    it("a pausa vale para o serviço tjce e não para as outras fontes", async () => {
+      const { cliente, chamadas } = clienteFalso([captcha(), respostaJson({ ok: 1 }), respostaJson({ ok: 2 })]);
+      await cliente.requisitar(LINK).catch((x) => x);
+      expect(await cliente.requisitar(LINK).catch((x) => x)).toBeInstanceOf(RecusaError);
+      const outroTribunal = await cliente.requisitar("https://www.tjxx.jus.br/acordao?id=1");
+      expect(await outroTribunal.json()).toEqual({ ok: 1 });
+      const site = await cliente.requisitar("https://www.jurisprudenciaia.com.br/api/tribunais/tjxx/search");
+      expect(await site.json()).toEqual({ ok: 2 });
+      expect(chamadas).toHaveLength(3);
+    });
   });
 
   it("redirecionamento: dentro do host segue; para fora, erro", async () => {
