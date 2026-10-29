@@ -11,6 +11,7 @@ import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import type { Acordao } from "./busca.js";
 import { AVISO_CONTEUDO_OCULTO } from "./html.js";
 import type { Memoria } from "./memoria.js";
+import { naturezaDoPortal, portalComIntegra } from "./paginaComIntegra.js";
 import { infoTribunal, ROTULO_FALCAO } from "./tribunais.js";
 
 /**
@@ -201,7 +202,8 @@ export const NATUREZA_DO_TEXTO_DO_PORTAL_TNU =
 
 /** O tribunal do id entrega o texto do portal do tribunal (TJTO, TJDFT, TJGO, TJPI, TJPR, TRF2, TRF4, TNU), não o do Falcão. */
 export function ehTextoDoPortal(id: string): boolean {
-  return infoTribunal(id.split(":")[0])?.inteiroTeor === "portal";
+  const sigla = id.split(":")[0];
+  return Boolean(portalComIntegra(sigla)) || infoTribunal(sigla)?.inteiroTeor === "portal";
 }
 
 /** O que o registro é quando o Falcão não deu texto integral de verdade (só a ementa repetida): nada de "repositório oficial". */
@@ -209,6 +211,9 @@ export const NATUREZA_SEM_TEXTO_INTEGRAL = "sem texto integral: o Falcão não m
 
 /** O que o texto guardado na memória é: sem texto integral, texto do portal do tribunal (um dos 7) ou texto do Falcão. */
 export function naturezaDoTexto(semTexto: boolean, doPortal: boolean, id = ""): string {
+  // Tribunal registrado no molde: a natureza vem do registro, nunca da de outro tribunal.
+  const portal = doPortal ? portalComIntegra(id.split(":")[0]) : undefined;
+  if (portal) return semTexto ? `sem texto integral: texto do ${portal.sigla.toUpperCase()} não verificado` : naturezaDoPortal(portal);
   if (semTexto && doPortal && id.startsWith("tjdft:")) return "sem texto integral: texto do TJDFT não verificado";
   if (semTexto && doPortal && id.startsWith("trf2:")) return "sem texto integral: texto do TRF2 não verificado";
   if (semTexto && doPortal && id.startsWith("trf4:")) return "sem texto integral: texto do TRF4 não verificado";
@@ -283,7 +288,7 @@ export async function lerTextoIntegral(id: string, parte = 1, memoria?: Memoria)
       juntadoEm: a?.dataJuntada ?? NAO_INFORMADO,
       id,
       fonte: doPortal
-        ? (id.startsWith("tjdft:") ? ROTULO_PORTAL_TJDFT : id.startsWith("trf2:") ? ROTULO_PORTAL_TRF2 : id.startsWith("trf4:") ? ROTULO_PORTAL_TRF4 : id.startsWith("tnu:") ? ROTULO_PORTAL_TNU : id.startsWith("tjgo:") ? ROTULO_PORTAL_TJGO : id.startsWith("tjpi:") ? ROTULO_PORTAL_TJPI : id.startsWith("tjpr:") ? ROTULO_PORTAL_TJPR : ROTULO_PORTAL_TJTO)
+        ? (portalComIntegra(id.split(":")[0])?.rotulo ?? (id.startsWith("tjdft:") ? ROTULO_PORTAL_TJDFT : id.startsWith("trf2:") ? ROTULO_PORTAL_TRF2 : id.startsWith("trf4:") ? ROTULO_PORTAL_TRF4 : id.startsWith("tnu:") ? ROTULO_PORTAL_TNU : id.startsWith("tjgo:") ? ROTULO_PORTAL_TJGO : id.startsWith("tjpi:") ? ROTULO_PORTAL_TJPI : id.startsWith("tjpr:") ? ROTULO_PORTAL_TJPR : ROTULO_PORTAL_TJTO))
         : ROTULO_FALCAO,
       natureza: naturezaDoTexto(Boolean(semTexto), doPortal, id),
       partes,
