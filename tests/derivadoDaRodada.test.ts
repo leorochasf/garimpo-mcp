@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { destinoInvalido, exportarDerivado, validarDerivado, type RodadaCrua } from "../scripts/derivadoDaRodada.js";
+import { identidadesDasRodadas } from "../scripts/linhaDeBase.js";
 
 // Rodada crua falsa, no formato que o gravador escreve na pasta externa. Número fictício (tribunal 99), relator e
 // ementa inventados: o teste prova que nada disso passa para o derivado.
@@ -194,6 +195,30 @@ describe("exportarDerivado da linha de base (busca_ampla em vários tribunais, E
     const [resp, edcl] = hashes(comClasse);
     expect(resp).not.toBe(edcl);
     expect(JSON.stringify(exportarDerivado(comClasse, CHAVE, meta))).not.toContain("Embargos");
+  });
+
+  it("B02-R01 (rodada 2): cópias do mesmo acórdão têm o mesmo hash — nos dois braços, com as identidades do júri, e numa rodada só", () => {
+    const copia = (id: string, numero: string, classe?: string) => ({
+      id, tribunal: "stj", numero, semNumero: false, dataJulgamento: "2020-01-01", ementa: EMENTA, ...(classe && { classe }),
+    });
+    const c1 = copia("stj:11", "REsp 1.000.002/SP", "Recurso Especial");
+    const c2 = copia("stj:12", "1.000.002");
+    const rodada = (...cs: (typeof c1)[]): RodadaCrua => ({
+      ...ampla(),
+      resultados: [{ id: "e1-t01-tecnica", estrato: "E1", fase: "tese", tese: 1, tribunais: ["stj"], numeros: cs.map((c) => c.numero), acordaos: cs.map((c) => ({ id: c.id, numero: c.numero, tribunal: "stj", data: c.dataJulgamento })) }],
+      ementas: Object.fromEntries(cs.map((c) => [c.id, c])),
+    });
+    // Cada braço trouxe uma cópia; o júri resolveu as identidades sobre a união e o exportador as recebe.
+    const identidades = Object.fromEntries(identidadesDasRodadas([
+      { braco: "a", resultados: rodada(c1).resultados as any, ementas: rodada(c1).ementas! },
+      { braco: "b", resultados: rodada(c2).resultados as any, ementas: rodada(c2).ementas! },
+    ]));
+    const [h1] = exportarDerivado({ ...rodada(c1), identidades }, CHAVE, meta).consultas[0].acordaos;
+    const [h2] = exportarDerivado({ ...rodada(c2), identidades }, CHAVE, meta).consultas[0].acordaos;
+    expect(h1).toBe(h2);
+    // Sem o júri, a rodada que traz as duas cópias também as reconhece.
+    const [a, b] = exportarDerivado(rodada(c1, c2), CHAVE, meta).consultas[0].acordaos;
+    expect(a).toBe(b);
   });
 
   it("o mesmo número em dois tribunais são dois acórdãos (o tribunal entra no hash)", () => {

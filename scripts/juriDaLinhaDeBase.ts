@@ -24,13 +24,13 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { conferirPasta } from "./conferirVotos.mjs";
 import {
-  acordaoDoItem,
   apurar,
   casosParaODono,
-  chaveDoAcordao,
+  chaveDoItem,
   contar,
   contarVereditos,
   type Ementas,
+  identidadesDasRodadas,
   lerSecoes,
   type LinhaDoPool,
   type LinhaReservada,
@@ -143,6 +143,8 @@ if (process.argv.includes("--montar")) {
   gravar(pasta("reservado", "pool.json"), pool.linhas);
   gravar(pasta("reservado", "mapa.json"), pool.reservado);
   gravar(pasta("reservado", "rodadas.json"), rodadas.map((r) => ({ braco: r.braco, pasta: r.pasta })));
+  // A identidade de cada acórdão entregue, resolvida entre as cópias da união dos braços: o exportador a usa no hash.
+  gravar(pasta("reservado", "identidades.json"), Object.fromEntries(identidadesDasRodadas(rodadas)));
   writeFileSync(pasta("reservado", "semente.txt"), `${plano.semente} (mulberry32; embaralha o pool, sorteia os controles e, com semente + 1, a conferência do dono — scripts/linhaDeBase.ts)\n`);
   const controles = pool.reservado.filter((l) => l.controleDaTese !== undefined);
   const resumo = {
@@ -196,6 +198,7 @@ if (process.argv.includes("--montar")) {
   const vereditos = apurar(ids, a, b, c);
   const apuracao = contarVereditos(reservado, vereditos);
   const rodadas = (ler(base, "reservado", "rodadas.json") as { pasta: string }[]).map((r) => lerRodada(r.pasta));
+  const identidades = identidadesDasRodadas(rodadas);
   const zero = contar([]);
   // Por braço e pedido: o veredito de cada posição (a chave do item leva à linha da tese) e as medidas (B02-R04).
   const porBraco = Object.fromEntries(
@@ -206,7 +209,7 @@ if (process.argv.includes("--montar")) {
           const r = resultados.find((x) => x.id === p.id);
           if (!r || r.erro) return [p.id, { tese: p.tese, erro: true, entregues: 0 }];
           const tese = p.tese as number;
-          const chaves = (r.acordaos ?? []).map((item) => chaveDoAcordao(acordaoDoItem(item, ementas)));
+          const chaves = (r.acordaos ?? []).map((item) => chaveDoItem(item, ementas, identidades));
           const medida = medirPedido(vereditosNaOrdem(tese, chaves, reservado, vereditos), apuracao.porPedido.get(refDoPedido(braco, p.id)) ?? zero, apuracao.porTese.get(tese) ?? zero);
           return [p.id, { tese, ...medida }];
         }),

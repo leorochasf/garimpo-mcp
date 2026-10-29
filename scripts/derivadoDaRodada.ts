@@ -9,8 +9,8 @@
  *
  * Hash = HMAC-SHA-256 com a chave guardada fora do projeto: sem a chave, o hash de um número de processo não se
  * descobre testando números. A mesma chave em rodadas diferentes permite comparar listas (1.1.1 × 1.2). O acórdão entra
- * no hash pela identidade canônica do júri (chaveDoAcordao: tribunal, número, classe e data do julgamento), então o
- * mesmo hash é o mesmo acórdão julgado, nos dois braços.
+ * no hash pela identidade do júri (tribunal, número, classe e data do julgamento, resolvida entre as cópias do mesmo
+ * acórdão), então o mesmo hash é o mesmo acórdão julgado, nos dois braços.
  *
  * Esquema 2 (B0.2, revisão B02-R02/R04): a identidade do acórdão mudou (era tribunal + número), e o júri passou a ir
  * por posição. Derivados do esquema 1 não se comparam com os do 2.
@@ -18,7 +18,7 @@
 
 import { createHmac } from "node:crypto";
 import { SIGLAS } from "../src/tribunais.js";
-import { acordaoDoItem, chaveDoAcordao, type Ementas } from "./linhaDeBase.js";
+import { acordaoDoItem, chaveDoItem, type Ementas, identidadesPorId, type ItemEntregue } from "./linhaDeBase.js";
 
 export const ESQUEMA = "garimpo-derivado-2";
 
@@ -30,6 +30,11 @@ export interface RodadaCrua {
   registros: { consulta: string; ms?: number; status?: number; [campo: string]: unknown }[];
   /** ementas.json da linha de base (E1): a identidade do acórdão sai do obter_ementa, como no júri. */
   ementas?: Ementas;
+  /**
+   * reservado/identidades.json do pool do júri (id do acórdão → identidade resolvida entre as cópias da união dos
+   * braços): com ele, a mesma cópia ou outra do mesmo acórdão dá o mesmo hash nos dois braços.
+   */
+  identidades?: Record<string, string>;
 }
 
 /** Linha do cabeçalho de cobertura da busca_ampla, só os números: diz, por TRT, se a contrária rodou (E5). */
@@ -160,12 +165,16 @@ export function exportarDerivado(
 
   const doBraco = apuracao && apuracao.porBraco[meta.commit];
   if (apuracao && !doBraco) throw new Error(`derivado: a apuração do júri não tem o braço ${meta.commit} desta rodada; nada foi exportado`);
-  // O acórdão entra no hash pela identidade do júri (tribunal, número, classe, data): com ementas.json, a do obter_ementa.
-  const hashDoAcordao = (r: Record<string, any>, n: unknown, j: number) => {
+  // O acórdão entra no hash pela identidade do júri (tribunal, número, classe, data; com ementas.json, a do
+  // obter_ementa), resolvida entre as cópias: as do pool do júri (a união dos braços), se vierem, senão as desta rodada.
+  const ementas = crua.ementas ?? {};
+  const itemDe = (r: Record<string, any>, n: unknown, j: number): ItemEntregue => {
     const item = Array.isArray(r.acordaos) ? r.acordaos[j] : undefined;
-    const a = acordaoDoItem({ ...item, numero: String(n), tribunal: String(item?.tribunal || r.tribunal || "") }, crua.ementas ?? {});
-    return hash(`acordao:${chaveDoAcordao(a)}`);
+    return { ...item, numero: String(n), tribunal: String(item?.tribunal || r.tribunal || "") };
   };
+  const itens = crua.resultados.flatMap((r) => (Array.isArray(r.numeros) ? r.numeros : []).map((n: unknown, j: number) => itemDe(r, n, j)));
+  const identidades = new Map([...identidadesPorId(itens.map((item) => acordaoDoItem(item, ementas))), ...Object.entries(crua.identidades ?? {})]);
+  const hashDoAcordao = (r: Record<string, any>, n: unknown, j: number) => hash(`acordao:${chaveDoItem(itemDe(r, n, j), ementas, identidades)}`);
 
   const consultas = crua.resultados.map((r, i): ConsultaDerivada => {
     const c: ConsultaDerivada = {

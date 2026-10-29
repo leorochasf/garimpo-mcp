@@ -2,14 +2,16 @@
  * Exporta o derivado de uma rodada do banco de provas (B0.2 do plano 1.2, N03/F06), sem rede.
  *
  *   npx vite-node scripts/exportarDerivado.ts -- --de <pasta externa da rodada> --chave <arquivo externo> --para <arquivo .json>
- *     [--apuracao <pasta externa>/veredito/apuracao.json]
+ *     [--apuracao <pasta externa>/veredito/apuracao.json --identidades <pasta externa>/reservado/identidades.json]
  *   npx vite-node scripts/exportarDerivado.ts -- --verificar <arquivo .json>
  *
  * `--de` é a pasta que rodarRodadaDeProvas.ts ou rodarLinhaDeBase.ts gravou: lê estado.json, resultados.json, ementas.json
  * (se houver: a identidade do acórdão, como no júri) e, de gravacao/, só consulta, tempo e status de cada chamada.
  * `--apuracao` (opcional) traz o júri de scripts/juriDaLinhaDeBase.ts: do braço desta rodada (o commit), as contagens e
- * o veredito de cada posição por pedido, e a união julgada de cada tese. `--chave` é o arquivo da chave dos hashes, o
- * MESMO para todas as rodadas que forem comparadas (1.1.1 × 1.2): sem ele os hashes não batem. Os três ficam fora do
+ * o veredito de cada posição por pedido, e a união julgada de cada tese; com ela vai `--identidades`, a identidade de
+ * cada acórdão resolvida entre as cópias da união dos braços (o hash usa essa, para bater com o júri e com o outro
+ * braço). `--chave` é o arquivo da chave dos hashes, o MESMO para todas as rodadas que forem comparadas (1.1.1 × 1.2):
+ * sem ele os hashes não batem. Todos ficam fora do
  * projeto, de toda worktree do repositório e de nuvem (foraDoRepositorioNoDisco). Criado na
  * primeira exportação, se não existir. O derivado leva o identificador da chave (campo `chave`, não a chave), para que
  * derivados de chaves diferentes não sejam comparados. Ele passa pelo esquema fechado antes de gravar e é relido e
@@ -63,6 +65,12 @@ const apuracaoArg = arg("--apuracao");
 if (apuracaoArg !== undefined && (apuracaoArg.startsWith("-") || foraDoRepositorioNoDisco(resolve(apuracaoArg), raizDoProjeto)))
   parar("--apuracao precisa de um arquivo fora do projeto, de toda worktree do repositório e de nuvem (a apuração do júri fica na pasta externa).");
 const apuracao = apuracaoArg === undefined ? undefined : (ler(resolve(apuracaoArg)) as ApuracaoDoJuri);
+const identidadesArg = arg("--identidades");
+if ((apuracaoArg === undefined) !== (identidadesArg === undefined))
+  parar("--apuracao e --identidades vão juntos (o reservado/identidades.json do mesmo pool do júri).");
+if (identidadesArg !== undefined && (identidadesArg.startsWith("-") || foraDoRepositorioNoDisco(resolve(identidadesArg), raizDoProjeto)))
+  parar("--identidades precisa de um arquivo fora do projeto, de toda worktree do repositório e de nuvem (fica no reservado/ do júri).");
+const identidades = identidadesArg === undefined ? undefined : (ler(resolve(identidadesArg)) as Record<string, string>);
 const destino = resolve(para!);
 const recusaDoDestino = destinoInvalido(
   caminhoFisico(destino),
@@ -88,7 +96,7 @@ const registros = existsSync(pastaGravacao)
       })
   : [];
 const ementas = existsSync(join(pastaCrua, "ementas.json")) ? ler(join(pastaCrua, "ementas.json")) : undefined;
-const crua: RodadaCrua = { estado, resultados: ler(join(pastaCrua, "resultados.json")), registros, ...(ementas && { ementas }) };
+const crua: RodadaCrua = { estado, resultados: ler(join(pastaCrua, "resultados.json")), registros, ...(ementas && { ementas }), ...(identidades && { identidades }) };
 
 const versaoDoGarimpo = arg("--versao") ?? estado.versaoDoGarimpo;
 const commit = arg("--commit") ?? estado.commit;

@@ -118,11 +118,17 @@ Saem só dos arquivos congelados (`teses-propostas.md` e `amostra-1.2.json`), po
   O teto é de 40 casos. O relatório separa "concordância do júri" de "conferido pelo dono". Sem (a), não se fala em
   validação humana. Na linha de base da 1.1.1 o dono não fez a conferência: o relatório diz "concordância do júri", e as
   duas listas ficam prontas na pasta externa para ele ler se quiser.
-- **Identidade do acórdão:** uma linha do pool por acórdão, pela chave canônica (`chaveDoAcordao` em
-  `scripts/linhaDeBase.ts`): tribunal, número (com CNJ, os 20 dígitos e, à parte, a sigla do recurso; sem CNJ, o número
-  com a sigla), classe e data do julgamento. Só pontuação, acento e UF não distinguem. Na dúvida, não funde: REsp e
-  AREsp de mesmo número e data são duas linhas, assim como dois recursos do mesmo processo julgados no mesmo dia. O
-  derivado usa a mesma chave no hash (seção 7).
+- **Identidade do acórdão:** uma linha do pool por acórdão. Em `scripts/linhaDeBase.ts`, a identidade é resolvida
+  primeiro entre as cópias do mesmo acórdão e só depois vira chave:
+  - Cópias são o que a busca do Garimpo já junta (`juntarEquivalentes`, `src/equivalencia.ts`): mesmo tribunal, data e
+    ementa, sem números que se contradigam. Elas têm uma identidade só, mesmo com a sigla redundante numa delas
+    («REsp 1.000.002/SP» × «1.000.002») ou a classe só numa delas. O mesmo id é sempre o mesmo acórdão.
+  - Sigla ou classe explícitas e diferentes continuam separando: REsp e AREsp de mesmo número e data são duas linhas,
+    assim como dois recursos do mesmo processo julgados no mesmo dia. A data também separa.
+  - A chave do grupo é a chave canônica (`chaveDoAcordao`: tribunal, número com a sigla, classe, data) mais longa entre
+    as cópias. Assim ela não depende de qual cópia cada braço trouxe.
+  - O júri resolve as identidades sobre a união dos braços e as grava em `reservado/identidades.json`. O derivado usa
+    as mesmas no hash (seção 7).
 - **Mecânica (`scripts/juriDaLinhaDeBase.ts`, tudo na pasta externa):** `--montar` grava o pool em lotes de até 25
   linhas, todos da mesma tese, com as instruções ([`juri-1.2-instrucoes.md`](juri-1.2-instrucoes.md)) e o conferidor
   das respostas (`conferir.mjs`); sorteia os 20 casos de (a) com a semente + 1, antes de qualquer voto. Cada jurado
@@ -199,12 +205,14 @@ A regra vale no código, não só no papel:
 - `scripts/rodarLinhaDeBase.ts` grava na pasta externa no mesmo formato (`estado.json`, `resultados.json`, `gravacao/`,
   mais `ementas.json`), com as mesmas travas de lugar, e por isso o exportador vale para ele. O esquema fechado cobre as
   listas e os tempos e, nos pedidos da `busca_ampla`, os tribunais, a memória, o tempo de parede e a cobertura por
-  tribunal (só números). Com `--apuracao <pasta externa>/veredito/apuracao.json`, leva também, do braço da rodada (o
+  tribunal (só números). Com `--apuracao <pasta externa>/veredito/apuracao.json` e `--identidades <pasta
+  externa>/reservado/identidades.json` (os dois do mesmo pool, sempre juntos), leva também, do braço da rodada (o
   commit), por pedido: as contagens do júri por acórdão distinto (S, P, C, N, sem maioria), o veredito de cada posição
   (`vereditos`, na ordem de `acordaos`) e a tese como hash com a chave; na raiz, linhas, controles, controles julgados
   N e a união julgada de cada tese (`juri.teses`). Com isso as medidas da seção 5.1 saem do derivado, inclusive as dos
-  10 primeiros e os dois limites. O hash do acórdão usa a chave canônica do júri (tribunal, número, classe, data; com
-  `ementas.json`, a do `obter_ementa`): o mesmo hash nos dois braços é o mesmo acórdão julgado. Esquema
+  10 primeiros e os dois limites. O hash do acórdão usa a identidade do júri (seção 5): a do `identidades.json` do pool
+  e, sem ele, a resolvida entre as cópias da própria rodada (com `ementas.json`, pelo `obter_ementa`). O mesmo hash nos
+  dois braços é o mesmo acórdão julgado. Esquema
   `garimpo-derivado-2` (a identidade mudou em 2026-10-29; derivados do esquema 1 não se comparam com os do 2).
 - Qualquer rodada nova (por exemplo, o roteiro do agente em E3–E6) grava na pasta externa no mesmo formato. Assim o
   exportador vale para ela.

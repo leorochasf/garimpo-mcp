@@ -10,6 +10,7 @@ import {
   chaveDoAcordao,
   contarVereditos,
   type ItemDaTese,
+  identidadesDasRodadas,
   lerSecoes,
   listaUnificada,
   lotesDoPool,
@@ -148,6 +149,44 @@ describe("listaUnificada (o montador do júri: uma linha por acórdão, a união
     ]).get(1)!;
     expect(lista.map((i) => i.pedidos)).toEqual([["cc956b4/e1-t01-tecnica", "abc1234/e1-t01-tecnica"], ["abc1234/e1-t01-tecnica"]]);
     expect(lista[1].acordao).toMatchObject({ numero: "AREsp 1.000.002/SP", ementa: "" });
+  });
+
+  // Rodada 2 do R01: cópias do mesmo acórdão (a regra da busca, src/equivalencia.ts) são uma linha, mesmo vindas de
+  // braços diferentes, com a sigla redundante ou a classe só numa delas.
+  const EMENTA = "EMENTA FICTÍCIA DA CÓPIA. TEXTO IGUAL NAS DUAS.";
+  const copia = (id: string, extra: Partial<AcordaoDaRodada>) =>
+    acordao("stj", 3, { id, ementa: EMENTA, classe: "Recurso Especial", semNumero: false, ...extra });
+  const umPorBraco = (a: AcordaoDaRodada, b: AcordaoDaRodada) =>
+    listaUnificada([
+      { braco: "cc956b4", resultados: [resultado("e1-t01-tecnica", [a])], ementas: { [a.id]: a } },
+      { braco: "abc1234", resultados: [resultado("e1-t01-tecnica", [b])], ementas: { [b.id]: b } },
+    ]).get(1)!;
+
+  it("B02-R01 (rodada 2): «REsp 1.000.002/SP» × «1.000.002», mesma classe, data e ementa, um em cada braço: uma linha", () => {
+    const lista = umPorBraco(copia("stj:11", { numero: "REsp 1.000.002/SP" }), copia("stj:12", { numero: "1.000.002" }));
+    expect(lista).toHaveLength(1);
+    expect(lista[0].pedidos).toEqual(["cc956b4/e1-t01-tecnica", "abc1234/e1-t01-tecnica"]);
+  });
+
+  it("B02-R01 (rodada 2): classe preenchida numa cópia e ausente na outra: uma linha", () => {
+    const lista = umPorBraco(copia("stj:11", { numero: "REsp 1.000.002/SP" }), copia("stj:12", { numero: "REsp 1.000.002/SP", classe: undefined }));
+    expect(lista).toHaveLength(1);
+  });
+
+  it("B02-R01 (rodada 2): mesma ementa, data e algarismos, mas siglas ou classes que se contradizem: continuam duas linhas", () => {
+    expect(umPorBraco(copia("stj:11", { numero: "REsp 1.000.002/SP" }), copia("stj:12", { numero: "AREsp 1.000.002/SP" }))).toHaveLength(2);
+    expect(
+      umPorBraco(copia("stj:11", { numero: "1.000.002" }), copia("stj:12", { numero: "1.000.002", classe: "Agravo em Recurso Especial" })),
+    ).toHaveLength(2);
+  });
+
+  it("a identidade do grupo não depende da ordem dos braços nem de qual cópia cada um trouxe", () => {
+    const a = copia("stj:11", { numero: "REsp 1.000.002/SP" });
+    const b = copia("stj:12", { numero: "1.000.002" });
+    expect(umPorBraco(a, b)[0].chave).toBe(umPorBraco(b, a)[0].chave);
+    expect(identidadesDasRodadas([{ braco: "x", resultados: [resultado("e1-t01-tecnica", [b, a])], ementas: { "stj:11": a, "stj:12": b } }])).toEqual(
+      new Map([["stj:12", umPorBraco(a, b)[0].chave], ["stj:11", umPorBraco(a, b)[0].chave]]),
+    );
   });
 });
 

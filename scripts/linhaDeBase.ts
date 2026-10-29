@@ -8,6 +8,7 @@
  * o mesmo código monta os pedidos do braço 1.1.1 e do braço 1.2, então os dois braços recebem os mesmos pedidos.
  */
 
+import { juntarEquivalentes } from "../src/equivalencia.js";
 import { lerTeses, sorteio } from "./montarRodadaDeProvas.js";
 
 export type Versao = "tecnica" | "leiga";
@@ -180,9 +181,11 @@ export interface AcordaoDaRodada {
   dataJulgamento?: string;
   orgao?: string;
   ementa?: string;
+  /** O site não trouxe número de processo (o `numero` é o id do site): a regra das cópias da busca precisa saber. */
+  semNumero?: boolean;
 }
 
-const CNJ = /(?<!\d)(\d{7})-?(\d{2})\.?(\d{4})\.?(\d)\.?(\d{2})\.?(\d{4})(?!\d)/;
+const CNJ =/(?<!\d)(\d{7})-?(\d{2})\.?(\d{4})\.?(\d)\.?(\d{2})\.?(\d{4})(?!\d)/;
 const normalizarEmenta = (s: string) =>
   s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/^\s*ementa\s*:?\s*/, "").replace(/[^a-z0-9]+/g, " ").trim();
 
@@ -259,13 +262,92 @@ export function acordaoDoItem(item: ItemEntregue, ementas: Ementas): AcordaoDaRo
   return { id: item.id ?? "", tribunal: item.tribunal, numero: item.numero, dataJulgamento: item.data, orgao: item.orgao, ementa: "" };
 }
 
+/** A sigla do recurso no número (as letras fora do CNJ e da UF) e a classe por extenso: o que distingue recursos. */
+const siglaDoNumero = (a: AcordaoDaRodada) => numeroNormalizado((a.numero ?? "").replace(new RegExp(CNJ, "g"), " ")).replace(/\d/g, "");
+const classeNormalizada = (a: AcordaoDaRodada) => numeroNormalizado(a.classe ?? "").replace(/\d/g, "");
+
 /**
- * A lista unificada de cada tese de E1, sem repetidos pela chave canônica, juntando os pedidos de todos os braços
- * (cobertura relativa mede contra essa união julgada, protocolo 1.2, seção 1). Pedido com erro fica fora. O mesmo
- * acórdão por dois caminhos fica com o campo mais completo de cada um, sem dizer de onde veio.
+ * Separa um grupo de cópias pelo atributo quando ele traz dois valores explícitos que se contradizem; quem não tem o
+ * atributo, nesse caso, não tem a qual se juntar e fica sozinho (como o registro sem número em src/equivalencia.ts).
+ */
+function separarPor(membros: readonly number[], atributo: (i: number) => string): number[][] {
+  if (new Set(membros.map(atributo).filter(Boolean)).size <= 1) return [[...membros]];
+  const porValor = new Map<string, number[]>();
+  const sozinhos: number[][] = [];
+  for (const i of membros) {
+    const v = atributo(i);
+    if (v) porValor.set(v, [...(porValor.get(v) ?? []), i]);
+    else sozinhos.push([i]);
+  }
+  return [...porValor.values(), ...sozinhos];
+}
+
+/**
+ * A identidade de cada acórdão do conjunto, resolvida entre as cópias ANTES da chave (B02-R01, rodada 2): duas cópias
+ * do mesmo acórdão (a regra da busca, `juntarEquivalentes` de src/equivalencia.ts: mesmo tribunal, data e ementa, sem
+ * números que se contradigam) têm uma identidade só, mesmo com a sigla redundante numa delas («REsp 1.000.002/SP» ×
+ * «1.000.002») ou a classe só numa delas. Siglas ou classes explícitas diferentes continuam separando (REsp × AREsp,
+ * REsp × EDcl no REsp), e o mesmo id é sempre o mesmo acórdão. A chave do grupo é a mais longa das chaves canônicas dos
+ * membros (empate: a primeira em ordem alfabética), então não depende da ordem nem de qual cópia cada braço trouxe.
+ */
+export function identidadesDosAcordaos(acordaos: readonly AcordaoDaRodada[]): string[] {
+  const pai = acordaos.map((_, i) => i);
+  const raiz = (i: number): number => (pai[i] === i ? i : (pai[i] = raiz(pai[i])));
+  const unir = (grupo: readonly number[]) => {
+    for (const i of grupo.slice(1)) pai[raiz(i)] = raiz(grupo[0]);
+  };
+  const { acordaos: grupos } = juntarEquivalentes(
+    acordaos.map((a, i) => ({
+      registro: { id: String(i), tribunal: a.tribunal, numero: a.numero ?? "", semNumero: a.semNumero ?? false, dataJulgamento: a.dataJulgamento, ementa: a.ementa ?? "" },
+      formulacoes: new Set<number>(),
+      melhorPosicao: i,
+    })),
+  );
+  for (const g of grupos)
+    for (const parte of separarPor(g.ids.map(Number), (i) => siglaDoNumero(acordaos[i])).flatMap((p) => separarPor(p, (i) => classeNormalizada(acordaos[i]))))
+      unir(parte);
+  const primeiroDoId = new Map<string, number>();
+  acordaos.forEach((a, i) => {
+    if (!a.id) return;
+    if (primeiroDoId.has(a.id)) unir([primeiroDoId.get(a.id)!, i]);
+    else primeiroDoId.set(a.id, i);
+  });
+  const escolhida = new Map<number, string>();
+  acordaos.forEach((a, i) => {
+    const chave = chaveDoAcordao(a);
+    const atual = escolhida.get(raiz(i));
+    if (atual === undefined || chave.length > atual.length || (chave.length === atual.length && chave < atual)) escolhida.set(raiz(i), chave);
+  });
+  return acordaos.map((_, i) => escolhida.get(raiz(i))!);
+}
+
+/** identidadesDosAcordaos pelo id do acórdão (quem não tem id fica com a própria chave canônica, em chaveDoItem). */
+export function identidadesPorId(acordaos: readonly AcordaoDaRodada[]): Map<string, string> {
+  const chaves = identidadesDosAcordaos(acordaos);
+  return new Map(acordaos.flatMap((a, i): [string, string][] => (a.id ? [[a.id, chaves[i]]] : [])));
+}
+
+/** As identidades dos acórdãos de E1 entregues por todas as rodadas do pool (a união dos braços). */
+export function identidadesDasRodadas(rodadas: readonly RodadaDoJuri[]): Map<string, string> {
+  return identidadesPorId(
+    rodadas.flatMap(({ resultados, ementas }) =>
+      resultados.filter((r) => r.estrato === "E1" && !r.erro).flatMap((r) => (r.acordaos ?? []).map((item) => acordaoDoItem(item, ementas))),
+    ),
+  );
+}
+
+/** A identidade de um item entregue: a resolvida entre as cópias, ou a chave canônica dele. */
+export const chaveDoItem = (item: ItemEntregue, ementas: Ementas, identidades: ReadonlyMap<string, string>) =>
+  (item.id !== undefined && identidades.get(item.id)) || chaveDoAcordao(acordaoDoItem(item, ementas));
+
+/**
+ * A lista unificada de cada tese de E1, sem repetidos pela identidade resolvida entre as cópias, juntando os pedidos de
+ * todos os braços (cobertura relativa mede contra essa união julgada, protocolo 1.2, seção 1). Pedido com erro fica
+ * fora. O mesmo acórdão por dois caminhos fica com o campo mais completo de cada um, sem dizer de onde veio.
  */
 export function listaUnificada(rodadas: readonly RodadaDoJuri[]): Map<number, ItemDaTese[]> {
   const maior = (x?: string, y?: string) => ((y ?? "").length > (x ?? "").length ? y : x);
+  const identidades = identidadesDasRodadas(rodadas);
   const porTese = new Map<number, Map<string, ItemDaTese>>();
   for (const { braco, resultados, ementas } of rodadas)
     for (const r of resultados.filter((x) => x.estrato === "E1" && !x.erro)) {
@@ -274,7 +356,7 @@ export function listaUnificada(rodadas: readonly RodadaDoJuri[]): Map<number, It
       const daTese = porTese.get(tese)!;
       for (const item of r.acordaos ?? []) {
         const a = acordaoDoItem(item, ementas);
-        const chave = chaveDoAcordao(a);
+        const chave = chaveDoItem(item, ementas, identidades);
         const ref = refDoPedido(braco, r.id);
         const ja = daTese.get(chave);
         if (!ja) daTese.set(chave, { chave, acordao: { ...a }, pedidos: [ref] });
