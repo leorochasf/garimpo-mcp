@@ -503,6 +503,8 @@ export function criarServidor(
         "partes, a decisão inteira ou a ementa repetida, vai só o trecho da ementa, sem reescrever, e avisoDeEmenta diz " +
         "isso (avisoDeEmenta também quando ela parece cortada pelo próprio site; avisoDeData quando cópias juntadas do " +
         "mesmo acórdão trazem datas de julgamento diferentes), " +
+        "a classe como o site informa (avisoDeClasse quando os próprios dados a põem em dúvida: nome de órgão no lugar " +
+        "da classe, ou a ementa nomeia outra classe; a classe não é trocada, e o enquadramento927 leva a ressalva), " +
         "número, órgão, data e link oficial (avisoDeLink quando o site mandou, no lugar do link, um endereço que não é " +
         "página do tribunal), e, em lista separada, os " +
         "precedentes qualificados (temas, súmulas). O site costuma devolver poucos acórdãos do STF por busca (de 2 a 7 na medição de out/2026). " +
@@ -669,7 +671,10 @@ export function criarServidor(
         "(com GARIMPO_SEM_MEMORIA=1, só na janela que fez a busca, enquanto ela estiver aberta). " +
         "Não faz nova busca no site: fora da memória, refaça a busca que o trouxe. " +
         "Acórdão de embargos de declaração, agravo interno e similares, com número CNJ, traz avisoRecorrido: o " +
-        "acórdão recorrido não vem nesta resposta e pode não estar na base.",
+        "acórdão recorrido não vem nesta resposta e pode não estar na base. " +
+        "avisoDeClasse, como na busca: a classe que o site informa é posta em dúvida pelos próprios dados (nome de " +
+        "órgão no lugar da classe, ou a ementa nomeia outra classe); vem como veio, e o que depende dela " +
+        "(enquadramento927, avisoRecorrido) leva a ressalva.",
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
       inputSchema: { id: z.string().describe("Id do acórdão, como veio na busca (tribunal:id)") },
     },
