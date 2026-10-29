@@ -706,7 +706,7 @@ export function criarServidor(
         "Acórdão que veio da busca sem link nenhum: pede o link oficial, uma vez, à rota de link do JurisprudênciaIA " +
         "(exceto TST) e diz que ele veio de lá; sem link também ali, diz como achar o acórdão pelo número CNJ. " +
         "Baixa do TJMG, TJMS, TJRR, TJSP e TSE. STJ: não baixa (o robots.txt de processo.stj.jus.br veda o acesso automatizado); devolve o link para conferência manual, e o PDF baixado antes com recibo, ou trazido pelo usuário, é lido normalmente. TRT (Falcão): não há PDF a baixar; explica e aponta o ler_inteiro_teor pelo " +
-        "id. TJGO, TJPI, TJPR, TJTO, TRF2, TRF4 e TNU: o portal entrega o acórdão em HTML; o Garimpo o traz como texto do portal do tribunal (sem PDF " +
+        "id. TJBA, TJGO, TJPI, TJPR, TJTO, TRF2, TRF4 e TNU: o portal entrega o acórdão em HTML; o Garimpo o traz como texto do portal do tribunal (sem PDF " +
         "nem recibo) para a memória e aponta o ler_inteiro_teor e o conferir_citacao pelo id. No TJGO, só o julgamento " +
         "exato que a busca achou (mesma data e hora, conferido pela ementa); sem casamento seguro, devolve o link do " +
         "processo e o motivo. Para STF e demais devolve o link e explica como obter no navegador " +
@@ -755,8 +755,9 @@ export function criarServidor(
         "chamada para a parte seguinte. TRT (Falcão): informe só o id que veio na busca, sem caminho: devolve o " +
         "texto integral do repositório oficial, convertido de HTML (não é PDF, sem recibo de origem), em partes por " +
         "tamanho (não são páginas de PDF), com cabeçalho de fonte, julgado em e juntado em; o texto fica na memória " +
-        "por 24 h desde a busca, e texto com indício de corte vem marcado como incompleto. TJTO, só com o id, depois " +
-        "do obter_inteiro_teor: o texto do portal do tribunal, do mesmo jeito.",
+        "por 24 h desde a busca, e texto com indício de corte vem marcado como incompleto. Tribunais com texto do " +
+        "portal do tribunal (TJBA, TJDFT, TJGO, TJPI, TJPR, TJTO, TRF2, TRF4 e TNU), só com o id, depois do " +
+        "obter_inteiro_teor: o texto do portal, do mesmo jeito.",
       annotations: { readOnlyHint: true, openWorldHint: false },
       inputSchema: {
         caminho: z
@@ -771,7 +772,10 @@ export function criarServidor(
         id: z
           .string()
           .optional()
-          .describe("TRT ou TJTO: id do acórdão (lê o texto da memória). PDF trazido, opcional: id do acórdão que ele seria"),
+          .describe(
+            "TRT ou tribunal com texto do portal: id do acórdão (lê o texto da memória). PDF trazido, opcional: id do " +
+              "acórdão que ele seria",
+          ),
         tribunal: tribunal.optional().describe("Opcional, PDF trazido: tribunal do acórdão que ele seria"),
         numero: z.string().optional().describe("Opcional, PDF trazido: número do processo do acórdão que ele seria"),
       },
@@ -785,7 +789,8 @@ export function criarServidor(
           }
           throw new Error(
             "Informe o caminho do PDF (o campo arquivo do obter_inteiro_teor ou o de um PDF que você baixou). Sem " +
-              "caminho, só o id de um acórdão de TRT (Falcão) ou do TJTO (depois do obter_inteiro_teor), cujo texto " +
+              "caminho, só o id de um acórdão de TRT (Falcão) ou de tribunal com texto do portal (depois do " +
+              "obter_inteiro_teor), cujo texto " +
               "fica na memória do Garimpo.",
           );
         }
