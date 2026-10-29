@@ -10,7 +10,10 @@ import { mkdir, open, readFile, rename, rm, rmdir, stat, writeFile } from "node:
 import { join } from "node:path";
 import { Cliente, ErroHttp, FormatoInesperadoError, type OpcoesCliente } from "./cliente.js";
 import { analisarListaTcu, blocosDoArquivo, lerRegistrosTcu, HOST_TCU, type ListaDoTcu, URL_LISTA_TCU, urlDoAnoTcu } from "./tcu.js";
-import { anosBaixadosTcu, caminhoDoAnoTcu, caminhoDoReciboTcu, lerReciboTcu, pastaDoTcu, type ReciboTcu } from "./tcuLocal.js";
+import {
+  anosBaixadosTcu, caminhoDoAnoTcu, caminhoDoReciboTcu, criarIndiceTcu, type IndiceCriadoTcu, indiceDoAnoTcu, lerReciboTcu, pastaDoTcu,
+  type ReciboTcu,
+} from "./tcuLocal.js";
 
 /** Um arquivo de 400 MB leva tempo: 30 min por chamada (o parcial fica guardado se estourar). 1 s entre chamadas ao TCU. */
 export function clienteDoTcu(extra: Partial<OpcoesCliente> = {}): Cliente {
@@ -35,14 +38,24 @@ export interface AvisoDeBaixaTcu {
   anos: { ano: number; tamanhoMb?: number; jaBaixado: boolean }[];
   /** Soma dos que ainda faltam baixar (os que têm tamanho na lista). */
   totalMb: number;
+  /** Disco a mais para o índice local desses anos, estimado (FRACAO_DO_INDICE). */
+  indiceEstimadoMb: number;
   pasta: string;
   mensagem: string;
 }
 
-/** Decisão da 1.0: a pesquisa varre o arquivo de cada ano (7 a 19 s por ano medidos); sem índice local ainda. */
+/**
+ * Índice local / arquivo do ano, medido no TCU sintético da bateria (B1.2: 35,1 a 35,6 % na escala reduzida, 33,9 % num
+ * ano do tamanho do real). O arquivo real tem mais marcação HTML por palavra; a fração dele não foi medida.
+ */
+export const FRACAO_DO_INDICE = 0.35;
+
+/** Decisão de velocidade 1.2 (ADR-0025): índice local criado ao baixar; sem ele, a varredura de 7 a 19 s por ano. */
 export const AVISO_DE_VELOCIDADE =
-  "Cada ano baixado acrescenta cerca de 10 a 20 s a cada pesquisa no TCU (o Garimpo lê o arquivo inteiro do ano); " +
-  "baixe poucos anos, só os que a pesquisa precisa.";
+  "Ao baixar, o Garimpo cria ao lado de cada arquivo um índice local de pesquisa (no disco, até cerca de 35 % do " +
+  "tamanho do arquivo a mais; cerca de 1 minuto por ano grande), e a pesquisa no TCU deixa de ler o arquivo inteiro. Ano " +
+  "sem índice (baixado por versão anterior, ou se a criação falhar) acrescenta cerca de 10 a 20 s a cada pesquisa: para " +
+  "criar o índice, use renovar: true com confirmar: true. Baixe poucos anos, só os que a pesquisa precisa.";
 
 const mb = (n: number) => `${n.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} MB`;
 
@@ -56,14 +69,15 @@ export async function avisoDeBaixaTcu(dados: string, lista: ListaDoTcu, anosPedi
   });
   const faltam = renovar ? anos : anos.filter((a) => !a.jaBaixado);
   const totalMb = Math.round(faltam.reduce((s, a) => s + (a.tamanhoMb ?? 0), 0) * 100) / 100;
+  const indiceEstimadoMb = Math.round(totalMb * FRACAO_DO_INDICE * 100) / 100;
   const pasta = pastaDoTcu(dados);
   const mensagem = faltam.length
     ? "Para pesquisar o TCU, o Garimpo precisa baixar os arquivos anuais de acórdãos para este computador: " +
       `${faltam.map((a) => `${a.ano} (${a.tamanhoMb ? mb(a.tamanhoMb) : "tamanho não informado"})`).join(", ")}; ` +
-      `total de cerca de ${mb(totalMb)}, guardados em ${pasta}. Cada arquivo vem direto do TCU, um por vez, e pode levar ` +
+      `total de cerca de ${mb(totalMb)}, mais até cerca de ${mb(indiceEstimadoMb)} do índice local, guardados em ${pasta}. Cada arquivo vem direto do TCU, um por vez, e pode levar ` +
       "vários minutos. " + (renovar ? "Na renovação, só baixa novamente se o TCU informar mudança. " : "") + AVISO_DE_VELOCIDADE + " Nada foi baixado: para baixar, chame de novo com confirmar: true."
     : `Os anos pedidos já estão baixados em ${pasta}. Para conferir se o TCU atualizou algum, use renovar: true com confirmar: true.`;
-  return { listaDoTcuEm: lista.baseEm ?? "não informada", precisaConfirmar: faltam.length > 0, anos, totalMb, pasta, mensagem };
+  return { listaDoTcuEm: lista.baseEm ?? "não informada", precisaConfirmar: faltam.length > 0, anos, totalMb, indiceEstimadoMb, pasta, mensagem };
 }
 
 export type SituacaoDaBaixa = "baixado" | "retomado" | "atualizado" | "sem-mudanca" | "ja-baixado";
@@ -84,6 +98,17 @@ export interface ResultadoDaBaixaTcu {
   situacao: SituacaoDaBaixa;
   bytes?: number;
   sha256?: string;
+  /** O índice local criado agora (tamanho e tempo), ou por que não foi; ausente se o índice que havia já valia. */
+  indice?: IndiceCriadoTcu | { erro: string };
+}
+
+/** Cria o índice do ano recém-conferido; falha aqui não desfaz o download (a pesquisa lê o arquivo inteiro). */
+async function indiceDoDownload(dados: string, ano: number): Promise<Pick<ResultadoDaBaixaTcu, "indice">> {
+  try {
+    return { indice: await criarIndiceTcu(dados, ano) };
+  } catch (e) {
+    return { indice: { erro: `O índice local de ${ano} não foi criado (${(e as Error).message}); a pesquisa lê o arquivo inteiro do ano.` } };
+  }
 }
 
 const CABECALHO_ESPERADO = /^﻿?"KEY"\|"TIPO"\|"TITULO"/;
@@ -202,7 +227,7 @@ export async function baixarAnoTcu(p: PedidoDeBaixaTcu): Promise<ResultadoDaBaix
       if (!existente || retomando || !Object.keys(cabecalhos).length) {
         throw new FormatoInesperadoError(`O TCU respondeu 304 inesperado para ${ano}; nenhuma cópia foi alterada.`);
       }
-      return { ano, situacao: "sem-mudanca" };
+      return { ano, situacao: "sem-mudanca", ...("indice" in (await indiceDoAnoTcu(dados, ano)) ? {} : await indiceDoDownload(dados, ano)) };
     }
     if (resposta.status >= 300) {
       await resposta.body?.cancel();
@@ -269,7 +294,7 @@ export async function baixarAnoTcu(p: PedidoDeBaixaTcu): Promise<ResultadoDaBaix
     }
     await rm(anterior, { force: true }).catch(() => {});
     await rm(meta, { force: true }).catch(() => {});
-    return { ano, situacao: existente ? "atualizado" : emContinuacao ? "retomado" : "baixado", bytes, sha256 };
+    return { ano, situacao: existente ? "atualizado" : emContinuacao ? "retomado" : "baixado", bytes, sha256, ...(await indiceDoDownload(dados, ano)) };
   } finally {
     await rm(trava, { force: true });
   }

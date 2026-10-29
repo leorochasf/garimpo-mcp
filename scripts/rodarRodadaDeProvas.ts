@@ -5,7 +5,9 @@
  * vez, espaçada. Rode UMA vez, sozinho, com nenhum outro programa fazendo rede.
  *
  * Uso: npx vite-node scripts/rodarRodadaDeProvas.ts -- --saida <pasta> --ao-vivo
- * (sem os dois, recusa; pasta com plano.json ou gravacao/ também recusa — ver recusaDaRodada).
+ * (sem os dois, recusa; pasta com plano.json ou gravacao/ também recusa — ver recusaDaRodada). A pasta tem de ficar
+ * FORA do projeto e fora de nuvem, também seguindo atalhos (gravacaoForaDoLugarNoDisco): a gravação é crua, com números
+ * e relatores reais. Para dentro do projeto vai só o derivado, por scripts/exportarDerivado.ts.
  *
  * Teto: 80 chamadas ao site na rodada inteira, contando a nova tentativa de 429/503 (decisão do piloto). Fora do teto
  * nada sai: a trava está no fetch embrulhado, não só na lista. Ordem: temas da amostra → teses (técnica e leiga) →
@@ -14,11 +16,13 @@
  *
  * Grava, em <saida>: plano.json (declarado antes de rodar), gravacao/NNN-<id>.json (a resposta crua de cada chamada),
  * resultados.json (por consulta: a lista de números devolvida, a posição do paradigma) e estado.json (chamadas por
- * host, recusas, se terminou).
+ * host, recusas, se terminou, versão e commit do Garimpo).
  */
 
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { buscaDireta, SITE } from "../src/busca.js";
 import { Cliente, RecusaError } from "../src/cliente.js";
 import { coordenacaoPadrao } from "../src/coordenacao.js";
@@ -34,7 +38,7 @@ import {
   recusaDaRodada,
   TOPO,
 } from "./montarRodadaDeProvas.js";
-import { criarGravador, rodadaCompleta, saidaInvalida } from "./seguroDaRodada.js";
+import { criarGravador, gravacaoForaDoLugarNoDisco, rodadaCompleta, saidaInvalida } from "./seguroDaRodada.js";
 
 const ESPACO_ENTRE_CHAMADAS_MS = 10_000;
 const MARGEM_DO_TETO = 2;
@@ -49,7 +53,8 @@ const saida = resolve(pasta ?? ".");
 const dormir = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const gravar = (caminho: string, valor: unknown) => writeFileSync(caminho, JSON.stringify(valor, null, 1));
 
-const recusa = saidaInvalida(pasta) ?? recusaDaRodada({ saida: pasta, aoVivo: process.argv.includes("--ao-vivo") }, (c) => existsSync(join(saida, c)));
+const raizDoProjeto = fileURLToPath(new URL("..", import.meta.url));
+const recusa = saidaInvalida(pasta) ?? gravacaoForaDoLugarNoDisco(saida, raizDoProjeto) ?? recusaDaRodada({ saida: pasta, aoVivo: process.argv.includes("--ao-vivo") }, (c) => existsSync(join(saida, c)));
 if (recusa) {
   console.error(`NÃO RODA: ${recusa}`);
   process.exit(1);
@@ -103,7 +108,12 @@ const gravador = criarGravador({
 
 const site = new Cliente({ nome: "O JurisprudênciaIA", fetch: gravador as typeof fetch });
 const resultados: Record<string, unknown>[] = [];
-const estado: Record<string, unknown> = { teto: rodada.teto, iniciadoEm: new Date().toISOString() };
+const estado: Record<string, unknown> = {
+  teto: rodada.teto,
+  iniciadoEm: new Date().toISOString(),
+  versaoDoGarimpo: (JSON.parse(readFileSync(join(raizDoProjeto, "package.json"), "utf8")) as { version: string }).version,
+  commit: execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: raizDoProjeto, encoding: "utf8" }).trim(),
+};
 let parou: string | undefined;
 
 async function rodar(c: Consulta): Promise<{ numeros: string[]; posicao?: number } | undefined> {
