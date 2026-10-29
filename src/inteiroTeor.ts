@@ -26,6 +26,7 @@ import {
 } from "./leitura.js";
 import { htmlComConteudoOculto, htmlComIndicioDeCorte, htmlParaTexto } from "./html.js";
 import type { Memoria, TextoIntegral } from "./memoria.js";
+import { portalComIntegra, textoDaPaginaComIntegra } from "./paginaComIntegra.js";
 import { textoDoTjdft } from "./tjdft.js";
 import { textoDoTjgo } from "./tjgo.js";
 import { textoDoTjpi } from "./tjpi.js";
@@ -269,7 +270,7 @@ export async function obterInteiroTeor(
   const id = acordao?.id ?? pedido.id;
   const pronta = chamadaPronta(id, tribunal);
 
-  if (info.inteiroTeor === "portal") return textoDoPortal(info.nome, acordao, link ?? (tribunal === "tjpi" ? acordao?.linkConsulta : undefined) ?? linkDaRota, clienteDe(tribunal), memoria, pronta, naoTrouxeLink);
+  if (portalComIntegra(tribunal) || info.inteiroTeor === "portal") return textoDoPortal(info.nome, acordao, link ?? (tribunal === "tjpi" ? acordao?.linkConsulta : undefined) ?? linkDaRota, clienteDe(tribunal), memoria, pronta, naoTrouxeLink);
 
   if (info.inteiroTeor === "link") {
     // Sem link do PDF (comum no STF), o link oficial de consulta serve para o usuário abrir no navegador.
@@ -379,6 +380,22 @@ async function textoDoPortal(
     `Leia com o ler_inteiro_teor com o id ${acordao.id} (fica na memória do Garimpo por 24 h) e confira citações ` +
     "com o conferir_citacao pelo mesmo id.";
   let textoGuardado: TextoIntegral | undefined = await memoria.obterTexto(acordao.id);
+  // Tribunal registrado no molde «página com íntegra»: as guardas e o motivo vêm de lá; os antigos seguem abaixo.
+  const portal = portalComIntegra(acordao.tribunal);
+  if (!textoGuardado && portal) {
+    const daPagina = await textoDaPaginaComIntegra(portal, cliente, link, acordao);
+    if ("motivo" in daPagina) {
+      return {
+        baixado: false,
+        link,
+        explicacao:
+          `O Garimpo não trouxe o texto deste acórdão do portal do ${nomeTribunal}: ${daPagina.motivo}. Texto não ` +
+          "verificado, nada foi guardado. Abra o link no navegador para conferir o documento.",
+      };
+    }
+    textoGuardado = { id: acordao.id, ...daPagina };
+    memoria.lembrarTextos([textoGuardado]);
+  }
   if (!textoGuardado) {
     const doTjdft = acordao.tribunal === "tjdft";
     const doTjgo = acordao.tribunal === "tjgo" ? await textoDoTjgo(cliente, acordao) : undefined;
