@@ -626,6 +626,7 @@ function paraAcordao(tribunal: string, x: Bruto, paradigmas: readonly ParadigmaD
   const duvida = duvidaDaClasse({
     classe: texto(x.classe_processual),
     ementa: limpa.separacaoIncerta ? undefined : limpa.ementa,
+    numeroCnj: texto(x.numero_processo_cnj),
   });
   const acordao = limpar({
     id: `${tribunal}:${x.id}`,

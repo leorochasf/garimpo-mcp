@@ -109,6 +109,19 @@ describe("classe da base desmentida pelo acórdão: avisa e continua classifican
     );
   });
 
+  it("TJCE só pelo rodapé com o número deste acórdão: o número CNJ da base chega à regra", async () => {
+    const soRodape = {
+      ...TJCE,
+      texto_ementa:
+        "EMENTA: DIREITO CIVIL E CONSUMIDOR. CONTRATO DE EXEMPLO. SENTENÇA DE ORIGEM. RECURSO CONHECIDO E PROVIDO. " +
+        `(Apelação Cível - ${CNJ_TJCE}, Rel. Desembargador(a) FULANO DE TAL, 2ª Câmara Direito Privado, data do ` +
+        "julgamento: 29/05/2024, data da publicação: 29/05/2024)",
+    };
+    const { acordao } = await buscaEEmenta("tjce", soRodape);
+
+    expect(acordao.avisoDeClasse).toBe(AVISO_TJCE.replace("APELAÇÃO CÍVEL", "Apelação Cível"));
+  });
+
   it("agravo interno de verdade (a ementa diz agravo interno): sem avisoDeClasse, sem nota e recorrido sem ressalva", async () => {
     const verdadeiro = {
       ...TJCE,

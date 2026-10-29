@@ -512,8 +512,9 @@ function espacosSimples(s: string): string {
 
 /**
  * Classe da base posta em dúvida pelos próprios dados (decisão do dono, 2026-10-29): o Garimpo mantém a classe como
- * veio e avisa; nunca a troca. Só quando a contradição está escrita: o campo traz um nome de órgão, ou a ementa nomeia, no
- * começo ou no rodapé, outra classe de recurso, e a classe principal da base (antes do 1º "em") não aparece nela.
+ * veio e avisa; nunca a troca. Só quando a contradição está escrita: o campo traz um nome de órgão, ou a ementa se diz
+ * de outra classe de recurso e a classe principal da base (antes do 1º "em") não aparece nela, nem abreviada. Na dúvida,
+ * não avisa.
  */
 export type DuvidaDaClasse =
   | { tipo: "orgao"; classe: string }
@@ -541,7 +542,31 @@ const RECURSO_NOMEADO = new RegExp(
 /** O começo e o rodapé da ementa, onde ela diz a própria classe. */
 const PONTA_DA_EMENTA = 300;
 
-export function duvidaDaClasse(a: { classe?: string; ementa?: string }): DuvidaDaClasse | undefined {
+/**
+ * Abreviações da classe principal (forma comparável, como fragmento de regex): qualquer uma na ementa basta para não
+ * haver contradição escrita ("AGINT.", "Ag. Interno", "REsp").
+ */
+const ABREVIACOES: Record<string, string[]> = {
+  "agravo interno": ["agint", "ag\\.?\\s*interno", "agr\\.?\\s*interno", "agravo\\s+int\\."],
+  "agravo regimental": ["agrg", "ag\\.?\\s*regimental", "agr\\.?\\s*reg\\."],
+  "agravo de instrumento": ["ai", "agi", "ag\\.?\\s*(?:de\\s+)?instrumento"],
+  "agravo em recurso especial": ["aresp", "agresp"],
+  "agravo em recurso extraordinario": ["are", "agre"],
+  "embargos de declaracao": ["edcl", "ed", "emb\\.?\\s*(?:de\\s+)?decl", "declaratorios"],
+  "embargos infringentes": ["ei", "emb\\.?\\s*infr"],
+  "embargos de divergencia": ["eresp", "earesp", "ediv", "edv"],
+  "recurso inominado": ["ri", "rec\\.?\\s*inominado"],
+  "recurso especial": ["resp"],
+  "recurso extraordinario": ["re", "rext"],
+  "recurso em sentido estrito": ["rese", "rse"],
+  "remessa necessaria": ["reexame", "remessa\\s+oficial"],
+  apelacao: ["ap", "apl", "apc", "apciv", "apcrim", "apelo"],
+  agravo: ["ag", "agint", "agrg", "aresp", "are", "ai", "agi"],
+  embargos: ["ed", "edcl", "ei", "eresp", "emb\\."],
+};
+ABREVIACOES["apelacao civel"] = ABREVIACOES["apelacao criminal"] = ABREVIACOES.apelacao;
+
+export function duvidaDaClasse(a: { classe?: string; ementa?: string; numeroCnj?: string }): DuvidaDaClasse | undefined {
   const classe = a.classe?.trim();
   if (!classe) return undefined;
   if (NOME_DE_ORGAO.test(comparavel(classe))) return { tipo: "orgao", classe };
@@ -550,20 +575,44 @@ export function duvidaDaClasse(a: { classe?: string; ementa?: string }): DuvidaD
   const daBase = comparavel(principal);
   if (!PRINCIPAIS_RECONHECIDAS.includes(daBase)) return undefined;
   const plano = letraPorLetra(ementa);
-  if (new RegExp(`\\b${comEspacos(daBase)}\\b`).test(plano)) return undefined;
-  const nomeada = nomeadaNaPonta(ementa, plano);
+  const formas = [comEspacos(daBase), ...(ABREVIACOES[daBase] ?? [])];
+  if (new RegExp(`(?<![a-z0-9])(?:${formas.join("|")})(?![a-z0-9])`).test(plano)) return undefined;
+  const nomeada = classeDoProprioJulgamento(ementa, plano, a.numeroCnj);
   if (!nomeada) return undefined;
   const outra = comparavel(nomeada);
   if (outra.startsWith(daBase) || daBase.startsWith(outra)) return undefined;
   return { tipo: "ementa", classe, principal, nomeada };
 }
 
-/** A primeira classe de recurso nomeada no começo da ementa ou, sem ela, no rodapé: o trecho literal. */
-function nomeadaNaPonta(ementa: string, plano: string): string | undefined {
+/** Separadores dos itens do título da ementa ("APELAÇÃO CÍVEL. DIREITO CIVIL. …"); parêntese não separa: cita. */
+const FIM_DE_ITEM = /[.;:–—]|\s-\s/;
+
+/**
+ * A classe de recurso que a ementa dá ao próprio julgamento, como trecho literal, só com evidência escrita:
+ * - no começo, um item inteiro do título ("APELAÇÃO CÍVEL." ou "RECURSO DE APELAÇÃO CÍVEL."): "de origem",
+ *   "originária", número de processo ou parênteses no item = outra coisa (origem, citação);
+ * - no rodapé, entre parênteses e colada ao número CNJ deste acórdão ("(Apelação Cível - <número>, Rel. …").
+ * Sem isso: nada.
+ */
+function classeDoProprioJulgamento(ementa: string, plano: string, numeroCnj?: string): string | undefined {
+  for (const m of plano.slice(0, PONTA_DA_EMENTA).matchAll(new RegExp(RECURSO_NOMEADO, "g"))) {
+    const antes = plano.slice(0, m.index).split(FIM_DE_ITEM).at(-1)!.trim();
+    const depois = plano.slice(m.index + m[0].length).split(FIM_DE_ITEM)[0].trim();
+    const separado = plano.slice(m.index + m[0].length).search(FIM_DE_ITEM) >= 0;
+    if ((antes === "" || antes === "recurso de") && depois === "" && separado) {
+      return ementa.slice(m.index, m.index + m[0].length);
+    }
+  }
+  const digitos = numeroCnj?.replace(/\D/g, "");
+  if (!digitos || digitos.length !== 20) return undefined;
   const rodape = Math.max(0, ementa.length - PONTA_DA_EMENTA);
-  for (const inicio of [0, rodape]) {
-    const m = RECURSO_NOMEADO.exec(plano.slice(inicio, inicio + PONTA_DA_EMENTA));
-    if (m) return ementa.slice(inicio + m.index, inicio + m.index + m[0].length);
+  for (const m of plano.slice(rodape).matchAll(new RegExp(RECURSO_NOMEADO, "g"))) {
+    const inicio = rodape + m.index;
+    const antes = plano.slice(0, inicio);
+    const abre = antes.lastIndexOf("(");
+    if (abre < 0 || !/^\(\s*(?:tj-?[a-z]{2},\s*)?$/.test(antes.slice(abre))) continue;
+    const numero = /^\s*(?:-|,|n[º°o.]*)?\s*([\d.\-]{20,25})/.exec(plano.slice(inicio + m[0].length));
+    if (numero && numero[1].replace(/\D/g, "") === digitos) return ementa.slice(inicio, inicio + m[0].length);
   }
   return undefined;
 }

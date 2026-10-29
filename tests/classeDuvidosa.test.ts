@@ -47,16 +47,42 @@ describe("classe da base desmentida pelos próprios dados: a ementa nomeia outra
     expect(duvidaDaClasse({ classe: TJCE, ementa })).toMatchObject({ tipo: "ementa", nomeada: "APELAÇÃO CÍVEL" });
   });
 
-  it("TJCE, a classe só no rodapé: também vale", () => {
-    const d = duvidaDaClasse({
-      classe: TJCE,
-      ementa:
-        "EMENTA: DIREITO DO CONSUMIDOR. DANO MORAL. EXEMPLO FICTÍCIO DE TEXTO LONGO. ".repeat(10) +
-        "ACÓRDÃO Acordam os Desembargadores integrantes da Câmara de Exemplo, unanimemente, em conhecer do recurso. " +
-        "(Apelação Cível - 0000001-11.2024.8.06.0001, Rel. Desembargador(a) FULANO DE TAL, 2ª Câmara Direito " +
-        "Privado, data do julgamento: 29/05/2024, data da publicação: 29/05/2024)",
-    });
+  const SO_NO_RODAPE =
+    "EMENTA: DIREITO DO CONSUMIDOR. DANO MORAL. EXEMPLO FICTÍCIO DE TEXTO LONGO. ".repeat(10) +
+    "ACÓRDÃO Acordam os Desembargadores integrantes da Câmara de Exemplo, unanimemente, em conhecer do recurso. " +
+    "(Apelação Cível - 0000001-11.2024.8.06.0001, Rel. Desembargador(a) FULANO DE TAL, 2ª Câmara Direito " +
+    "Privado, data do julgamento: 29/05/2024, data da publicação: 29/05/2024)";
+
+  it("TJCE, a classe só no rodapé, colada ao número do próprio acórdão: também vale", () => {
+    const d = duvidaDaClasse({ classe: TJCE, numeroCnj: "0000001-11.2024.8.06.0001", ementa: SO_NO_RODAPE });
     expect(d).toMatchObject({ tipo: "ementa", principal: "Agravo Interno", nomeada: "Apelação Cível" });
+  });
+
+  it.each([
+    ["sem número do acórdão", undefined],
+    ["com o número de outro processo", "0000009-99.2020.8.06.0001"],
+  ])("rodapé que não prova ser deste acórdão (%s): sem dúvida", (_caso, numeroCnj) => {
+    expect(duvidaDaClasse({ classe: TJCE, numeroCnj, ementa: SO_NO_RODAPE })).toBeUndefined();
+    // Ementa curta: o rodapé cai dentro dos 300 primeiros caracteres e, entre parênteses, não é item do título.
+    expect(duvidaDaClasse({ classe: TJCE, numeroCnj, ementa: SO_NO_RODAPE.slice(-260) })).toBeUndefined();
+  });
+
+  // B18-R01: a classe de origem, a citação e a abreviação da classe atual não demonstram contradição.
+  it.each([
+    ["Agravo Interno em Apelação Cível", "APELAÇÃO CÍVEL DE ORIGEM. AGINT. RECURSO CONTRA DECISAO MONOCRATICA. IMPROVIMENTO."],
+    ["Agravo Interno em Apelação Cível", "APELAÇÃO CÍVEL. AGINT. RECURSO CONTRA DECISÃO MONOCRÁTICA. IMPROVIMENTO."],
+    ["Agravo Interno em Apelação Cível", "APELAÇÃO CÍVEL. AG. INTERNO. DECISÃO MONOCRÁTICA MANTIDA."],
+    ["Agravo Interno em Apelação Cível", "APELAÇÃO CÍVEL DE ORIGEM. DIREITO CIVIL. DECISÃO MONOCRÁTICA MANTIDA."],
+    ["Agravo Interno em Apelação Cível", "DIREITO CIVIL. APELAÇÃO CÍVEL ORIGINÁRIA. DECISÃO MONOCRÁTICA MANTIDA."],
+    ["Agravo Regimental em Apelação Cível", "APELAÇÃO CÍVEL. AGRG. DECISÃO MANTIDA."],
+    ["Embargos de Declaração em Apelação Cível", "APELAÇÃO CÍVEL. EDCL. OMISSÃO INEXISTENTE."],
+    ["Recurso Especial", "AGRAVO DE INSTRUMENTO DE ORIGEM. RESP. RECURSO CONHECIDO."],
+    ["Recurso Especial", "AGRAVO DE INSTRUMENTO. RESP. RECURSO CONHECIDO."],
+    ["Agravo em Recurso Especial", "APELAÇÃO CÍVEL. ARESP. DECISÃO DE INADMISSÃO MANTIDA."],
+    ["Agravo Interno em Apelação Cível", "DIREITO CIVIL. DANO MORAL (TJCE, Apelação Cível 0000009-99.2020.8.06.0001). EXEMPLO."],
+    ["Agravo Interno em Apelação Cível", "DIREITO CIVIL. PRECEDENTE: APELAÇÃO CÍVEL Nº 0000009-99.2020.8.06.0001. EXEMPLO."],
+  ])("%s, ementa «%s»: sem dúvida", (classe, ementa) => {
+    expect(duvidaDaClasse({ classe, ementa, numeroCnj: "0000001-11.2024.8.06.0001" })).toBeUndefined();
   });
 
   it.each([
