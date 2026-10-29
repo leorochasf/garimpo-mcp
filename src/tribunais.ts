@@ -146,6 +146,22 @@ export function avisoDeLinkDoTjgo(
   return [`Link do Projudi do TJGO: ${partes.join("; ")}. Caminho público para o acórdão, sem login: ${pesquisa}`];
 }
 
+export const HOST_TJPR = "portal.tjpr.jus.br";
+/** Como o portal do TJPR aponta o documento: /jurisprudencia/j/<n>, com ou sem o nome depois (/Acórdão, /Acórdão-<processo>). */
+const CAMINHO_DO_DOCUMENTO_TJPR = /^\/jurisprudencia\/j\/(\d+)(?:\/[^/]*)?$/;
+
+/** O número do documento no link do portal do TJPR (só https no host do portal); outro endereço = undefined (ADR-0030). */
+export function documentoDoTjpr(link: string | undefined): string | undefined {
+  if (!link) return undefined;
+  try {
+    const url = new URL(link);
+    if (url.protocol !== "https:" || url.host !== HOST_TJPR) return undefined;
+    return CAMINHO_DO_DOCUMENTO_TJPR.exec(url.pathname)?.[1];
+  } catch {
+    return undefined;
+  }
+}
+
 const EXPLICA_GENERICO =
   "O Garimpo ainda não testou o download automático do portal deste tribunal; abra o link no navegador.";
 
@@ -254,7 +270,7 @@ export const TRIBUNAIS: InfoTribunal[] = [
   { ...tj("tjpb", "TJ da Paraíba") },
   { ...tj("tjpe", "TJ de Pernambuco") },
   { ...tj("tjpi", "TJ do Piauí"), inteiroTeor: "portal", motivoLink: undefined },
-  { ...tj("tjpr", "TJ do Paraná") },
+  { ...tj("tjpr", "TJ do Paraná"), inteiroTeor: "portal", motivoLink: undefined },
   { ...tj("tjrj", "TJ do Rio de Janeiro"), motivoLink: EXPLICA_TJRJ },
   { ...tj("tjrn", "TJ do Rio Grande do Norte"), motivoLink: EXPLICA_TJRN },
   { ...tj("tjro", "TJ de Rondônia") },

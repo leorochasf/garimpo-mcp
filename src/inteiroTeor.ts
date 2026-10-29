@@ -12,7 +12,7 @@ import { copyFile, link as ligar, lstat, mkdir, readdir, readFile, rm, writeFile
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { type Acordao, SITE } from "./busca.js";
-import { Cliente, decodificarDoHost, ehDocumentoTjto, HOST_TJTO, RecusaError, VERSAO } from "./cliente.js";
+import { Cliente, decodificarDoHost, ehDocumentoTjto, HOST_TJTO, type OpcoesCliente, RecusaError, VERSAO } from "./cliente.js";
 import { RedeParadaError } from "./coordenacao.js";
 import {
   avisoJaNaPasta,
@@ -28,6 +28,7 @@ import type { Guardado, Memoria, TextoIntegral } from "./memoria.js";
 import { textoDoTjdft } from "./tjdft.js";
 import { textoDoTjgo } from "./tjgo.js";
 import { textoDoTjpi } from "./tjpi.js";
+import { textoDoTjpr } from "./tjpr.js";
 import { textoDaTnu } from "./tnu.js";
 import { textoDoTrf2 } from "./trf2.js";
 import { textoDoTrf4 } from "./trf4.js";
@@ -66,14 +67,21 @@ export const PAUSA_TSE_MS = 10_000;
 
 const clientes = new Map<string, Cliente>();
 
+/** As opções do cliente de cada tribunal, as mesmas do cliente padrão. */
+export function opcoesDoTribunal(sigla: string): OpcoesCliente {
+  return {
+    nome: `O ${sigla.toUpperCase()}`,
+    intervaloMinimoPorHost: { "sjur-servicos.tse.jus.br": PAUSA_TSE_MS },
+    esperaPadraoMs: sigla === "tse" ? PAUSA_TSE_MS : undefined,
+    // O portal do TJPR devolveu 502 passageiro no estudo de 2026-10-29 (ADR-0030): mesma espera e única nova tentativa.
+    statusAdicionaisDeEspera: sigla === "tjpr" ? [502] : undefined,
+  };
+}
+
 export const clientePadrao: ClientePorTribunal = (sigla) => {
   let c = clientes.get(sigla);
   if (!c) {
-    c = new Cliente({
-      nome: `O ${sigla.toUpperCase()}`,
-      intervaloMinimoPorHost: { "sjur-servicos.tse.jus.br": PAUSA_TSE_MS },
-      esperaPadraoMs: sigla === "tse" ? PAUSA_TSE_MS : undefined,
-    });
+    c = new Cliente(opcoesDoTribunal(sigla));
     clientes.set(sigla, c);
   }
   return c;
@@ -301,6 +309,7 @@ async function textoDoPortal(
       doTjgo ? doTjgo
       : doTjdft ? await textoDoTjdft(cliente, link, acordao)
       : acordao.tribunal === "tjpi" ? await textoDoTjpi(cliente, link, acordao)
+      : acordao.tribunal === "tjpr" ? await textoDoTjpr(cliente, link, acordao)
       : acordao.tribunal === "trf2" ? await textoDoTrf2(cliente, link, acordao)
       : acordao.tribunal === "trf4" ? await textoDoTrf4(cliente, link, acordao)
       : acordao.tribunal === "tnu" ? await textoDaTnu(cliente, link, acordao)
@@ -321,6 +330,11 @@ async function textoDoPortal(
           ? `O portal do ${nomeTribunal} não entregou uma página com texto verificável deste acórdão ` +
             "(formato ou processo divergente, seção Acórdão sem texto ou redirecionamento): texto não verificado, " +
             "nada foi guardado. Abra o link no navegador para conferir o documento."
+          : acordao.tribunal === "tjpr"
+          ? `O portal do ${nomeTribunal} não entregou uma página com a íntegra verificável deste acórdão ` +
+            "(sem o bloco «Íntegra do Acórdão» do documento do link, processo divergente, íntegra sem o número do " +
+            "processo — o portal às vezes mostra nesta página a íntegra de outro acórdão —, texto curto demais ou " +
+            "redirecionamento): texto não verificado, nada foi guardado. Abra o link no navegador para conferir o documento."
           : doTjdft
           ? `A API do ${nomeTribunal} não devolveu o registro deste acórdão (identificador e uuid do link): texto não ` +
             "verificado, nada foi guardado. Abra o link no navegador para conferir o documento."
