@@ -278,7 +278,7 @@ export const TRIBUNAIS: InfoTribunal[] = [
   { ...tj("tjal", "TJ de Alagoas") },
   { ...tj("tjam", "TJ do Amazonas") },
   { ...tj("tjap", "TJ do Amapá") },
-  { ...tj("tjba", "TJ da Bahia") },
+  { ...tj("tjba", "TJ da Bahia"), inteiroTeor: "portal", ...SEM_MOTIVO },
   { ...tj("tjce", "TJ do Ceará") },
   { ...tj("tjdft", "TJ do Distrito Federal e Territórios"), inteiroTeor: "portal", ...SEM_MOTIVO },
   { ...tj("tjes", "TJ do Espírito Santo") },

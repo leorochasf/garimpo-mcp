@@ -134,23 +134,23 @@ describe("inteiro teor — acórdão sem link", () => {
   }
 
   it("tribunal de link sem link: não manda abrir link nenhum e dá o número CNJ e o portal", async () => {
-    const memoria = await semLink("tjba", "701");
+    const memoria = await semLink("stm", "701");
     const { cliente } = clienteFalso([]);
-    const r = await obterInteiroTeor({ id: "tjba:701", pasta }, () => cliente, memoria);
+    const r = await obterInteiroTeor({ id: "stm:701", pasta }, () => cliente, memoria);
     expect(r.baixado).toBe(false);
     if (r.baixado) return;
     expect(r.link).toBeUndefined();
     expect(r.explicacao).not.toMatch(/abr(a|ir) o link/i);
     expect(r.explicacao).toMatch(/não trouxe link/);
     expect(r.explicacao).toContain(CNJ);
-    expect(r.explicacao).toMatch(/portal de jurisprudência do TJ da Bahia/);
+    expect(r.explicacao).toMatch(/portal de jurisprudência do Superior Tribunal Militar/);
     expect(r.explicacao).toMatch(/ler_inteiro_teor/);
   });
 
   it("tribunal de link com link: mantém o texto de abrir o link", async () => {
     const { cliente } = clienteFalso([]);
-    const link = "https://exemplo.tjba.jus.br/acordao/1";
-    const r = await obterInteiroTeor({ tribunal: "tjba", link, pasta }, () => cliente);
+    const link = "https://exemplo.stm.jus.br/acordao/1";
+    const r = await obterInteiroTeor({ tribunal: "stm", link, pasta }, () => cliente);
     expect(r).toMatchObject({ baixado: false, link });
     if (!r.baixado) expect(r.explicacao).toMatch(/abra o link no navegador/i);
   });
@@ -198,19 +198,19 @@ describe("inteiro teor — link pedido à rota de link do site", () => {
   });
 
   it("sem link na busca: 1 chamada à rota, link devolvido com a origem dita; de novo, 0 chamadas (memória)", async () => {
-    const memoria = await semLink("tjba", "801");
-    const link = "https://jurisprudencia.tjba.jus.br/#/documento/801";
+    const memoria = await semLink("stm", "801");
+    const link = "https://jurisprudencia.stm.jus.br/#/documento/801";
     const site = clienteFalso([respostaJson({ link })]);
     const tribunal = clienteFalso([]);
-    const r = await obterInteiroTeor({ id: "tjba:801", pasta }, () => tribunal.cliente, memoria, site.cliente);
+    const r = await obterInteiroTeor({ id: "stm:801", pasta }, () => tribunal.cliente, memoria, site.cliente);
     expect(r).toMatchObject({ baixado: false, link });
     if (!r.baixado) {
       expect(r.explicacao).toMatch(/pedido à rota de link do JurisprudênciaIA/);
       expect(r.explicacao).toMatch(/abra o link no navegador/i);
     }
-    expect(site.chamadas.map((c) => c.url)).toEqual([`${ROTA}?tribunal=tjba&id=801`]);
+    expect(site.chamadas.map((c) => c.url)).toEqual([`${ROTA}?tribunal=stm&id=801`]);
 
-    const deNovo = await obterInteiroTeor({ id: "tjba:801", pasta }, () => tribunal.cliente, memoria, site.cliente);
+    const deNovo = await obterInteiroTeor({ id: "stm:801", pasta }, () => tribunal.cliente, memoria, site.cliente);
     expect(deNovo).toMatchObject({ baixado: false, link });
     if (!deNovo.baixado) expect(deNovo.explicacao).toMatch(/pedido à rota de link/);
     expect(site.chamadas).toHaveLength(1);
@@ -223,9 +223,9 @@ describe("inteiro teor — link pedido à rota de link do site", () => {
     ["link que não é https", () => respostaJson({ link: "javascript:alert(1)" })],
     ["link fora de domínio .jus.br", () => respostaJson({ link: "https://exemplo.test/documento/802" })],
   ])("rota falhou (%s): resposta sem link do ticket 02, sem erro e sem link inventado", async (_caso, resposta) => {
-    const memoria = await semLink("tjba", "802");
+    const memoria = await semLink("stm", "802");
     const site = clienteFalso([resposta()]);
-    const r = await obterInteiroTeor({ id: "tjba:802", pasta }, () => clienteFalso([]).cliente, memoria, site.cliente);
+    const r = await obterInteiroTeor({ id: "stm:802", pasta }, () => clienteFalso([]).cliente, memoria, site.cliente);
     expect(r.baixado).toBe(false);
     if (r.baixado) return;
     expect(r.link).toBeUndefined();

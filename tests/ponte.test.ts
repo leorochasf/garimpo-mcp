@@ -29,28 +29,28 @@ async function guardado(tribunal: string, id: string, linkPdf: string | null) {
 
 describe("ponte do só link: chamada pronta pelo id", () => {
   it("TJBA com link: a resposta traz a chamada do ler_inteiro_teor com o id, faltando só o caminho, sem chamada", async () => {
-    const memoria = await guardado("tjba", "901", "https://exemplo.tjba.jus.br/acordao/901");
+    const memoria = await guardado("stm", "901", "https://exemplo.stm.jus.br/acordao/901");
     const { cliente, chamadas } = clienteFalso([]);
-    const r = await obterInteiroTeor({ id: "tjba:901", pasta }, () => cliente, memoria);
+    const r = await obterInteiroTeor({ id: "stm:901", pasta }, () => cliente, memoria);
     expect(r).toMatchObject({
       baixado: false,
-      link: "https://exemplo.tjba.jus.br/acordao/901",
+      link: "https://exemplo.stm.jus.br/acordao/901",
       chamadaPronta: {
         ferramenta: "ler_inteiro_teor",
-        argumentos: { caminho: "<caminho do PDF que você baixou>", id: "tjba:901" },
+        argumentos: { caminho: "<caminho do PDF que você baixou>", id: "stm:901" },
       },
     });
     if (!r.baixado) {
       expect(r.explicacao).toContain(
-        "Para ler pelo Garimpo, preencha o caminho do PDF em chamadaPronta e use ler_inteiro_teor com o id tjba:901.",
+        "Para ler pelo Garimpo, preencha o caminho do PDF em chamadaPronta e use ler_inteiro_teor com o id stm:901.",
       );
     }
     expect(chamadas).toHaveLength(0);
   });
 
   it("aviso de identidade: o PDF trazido pode ser de outro acórdão, com o número a conferir, e a origem segue declarada, não conferida", async () => {
-    const memoria = await guardado("tjba", "902", "https://exemplo.tjba.jus.br/acordao/902");
-    const r = await obterInteiroTeor({ id: "tjba:902", pasta }, () => clienteFalso([]).cliente, memoria);
+    const memoria = await guardado("stm", "902", "https://exemplo.stm.jus.br/acordao/902");
+    const r = await obterInteiroTeor({ id: "stm:902", pasta }, () => clienteFalso([]).cliente, memoria);
     expect(r.baixado).toBe(false);
     if (r.baixado) return;
     // Redação decidida no rito D12 (revisao-b2.2.md, item 2), literal.
@@ -62,7 +62,7 @@ describe("ponte do só link: chamada pronta pelo id", () => {
   });
 
   it("sem link na busca (só link e tribunal que baixa): a mesma chamada pronta, sem mandar abrir link nenhum", async () => {
-    for (const [tribunal, id] of [["tjba", "903"], ["tjmg", "904"]]) {
+    for (const [tribunal, id] of [["stm", "903"], ["tjmg", "904"]]) {
       const memoria = await guardado(tribunal, id, null);
       const { cliente, chamadas } = clienteFalso([]);
       const r = await obterInteiroTeor({ id: `${tribunal}:${id}`, pasta }, () => cliente, memoria);
@@ -85,14 +85,14 @@ describe("ponte do só link: chamada pronta pelo id", () => {
 
   it("pedido por tribunal + link, sem id: a chamada pronta leva o tribunal e o texto ensina a informar o id ou o número", async () => {
     const r = await obterInteiroTeor(
-      { tribunal: "tjba", link: "https://exemplo.tjba.jus.br/acordao/906", pasta },
+      { tribunal: "stm", link: "https://exemplo.stm.jus.br/acordao/906", pasta },
       () => clienteFalso([]).cliente,
     );
     expect(r.baixado).toBe(false);
     if (r.baixado) return;
     expect(r.chamadaPronta).toEqual({
       ferramenta: "ler_inteiro_teor",
-      argumentos: { caminho: "<caminho do PDF que você baixou>", tribunal: "tjba" },
+      argumentos: { caminho: "<caminho do PDF que você baixou>", tribunal: "stm" },
     });
     expect(r.explicacao).toMatch(/com o id que veio na busca, ou tribunal \+ número/);
     expect(r.explicacao).toMatch(/pode ser de outro acórdão/);
