@@ -1404,3 +1404,26 @@ describe("busca ampla: decisões em série (mesma ementa)", () => {
     expect(r.acordaos[1].mesmaEmenta?.ids).toEqual(["stj:s1"]);
   });
 });
+
+describe("busca ampla com ementa limpa (TJBA): aderência, trecho e filtro local não veem o voto", () => {
+  // Fixture saneada: estrutura vista na base em 2026-10-29; nomes e números fictícios.
+  const decisaoInteira =
+    "EMENTA: PODER JUDICIÁRIO TRIBUNAL DE JUSTIÇA DO ESTADO DA BAHIA PROCESSO Nº 0000001-11.2024.8.05.0001 " +
+    "RECORRENTE: EMPRESA EXEMPLO RECORRIDO: PESSOA FICTÍCIA E M E N T A RECURSO INOMINADO. CONSUMIDOR. DANO MORAL " +
+    "FICTÍCIO. RECURSO PROVIDO. RELATÓRIO Relato de exemplo. VOTO Aqui se fala de multa cominatória, só no voto.";
+
+  it("o filtro local por termo que só está no voto tira o acórdão; o trecho sai da ementa", async () => {
+    const site = () => siteFalso(() => respostaJson({ results: [bruto("ba-1", 0.5, decisaoInteira)] }));
+
+    const semFiltro = await buscaAmpla(site().cliente, { formulacoes: ["dano moral"], tribunais: ["tjba"] });
+    expect(semFiltro.acordaos).toHaveLength(1);
+    expect(semFiltro.acordaos[0].trecho).not.toMatch(/PESSOA FICTÍCIA|multa cominatória/);
+
+    const comFiltro = await buscaAmpla(site().cliente, {
+      formulacoes: ["dano moral"],
+      tribunais: ["tjba"],
+      deveConter: [["multa cominatória"]],
+    });
+    expect(comFiltro.acordaos).toHaveLength(0);
+  });
+});

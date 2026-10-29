@@ -9,6 +9,7 @@ import { type Enquadramento927, enquadrarAcordao, enquadrarQualificado, type Par
 import { reforcoDaTabela, type TabelaDePrecedentes } from "./tabelaDePrecedentes.js";
 import { reforcoDoStf, type TabelaDoStf } from "./tabelaDoStf.js";
 import { juntarEquivalentes } from "./equivalencia.js";
+import { limparEmenta } from "./ementaLimpa.js";
 import { nomesDoFiltro, ressalvaSePoucos } from "./grafia.js";
 import { FalhaNaMemoriaError, fotografiaDaBusca, type Memoria } from "./memoria.js";
 import { buscaDecisoesNoFalcao, buscaNoFalcao, clienteDoFalcao, lerBuscaGuardadaNoFalcao, type OrdenacaoNoFalcao } from "./falcao.js";
@@ -51,10 +52,18 @@ export interface Acordao {
   /** Página oficial de consulta do processo/acórdão (link_consulta, url_acordao ou, no TJPA, link_processo), quando há. */
   linkConsulta?: string;
   /**
-   * Só quando a ementa parece ter vindo cortada do site (heurística), ou, no Falcão, quando não veio ("sem ementa no
-   * Falcão") ou diverge do possuiEmenta: o aviso. O texto da ementa nunca é mexido.
+   * Só quando a ementa parece ter vindo cortada do site (heurística), quando o campo da base trazia mais que a ementa e
+   * vai só o trecho dela (ementaLimpa.ts), ou, no Falcão, quando não veio ("sem ementa no Falcão") ou diverge do
+   * possuiEmenta: o aviso. O texto da ementa nunca é reescrito: é sempre um trecho contínuo do campo do site.
    */
   avisoDeEmenta?: string;
+  /**
+   * A ementa não se separou com segurança do resto do campo da base: `ementa` é só o começo e pode ter texto do
+   * relatório ou do voto. A conferência de citação nunca diz «na ementa» por esse texto.
+   */
+  ementaIncerta?: true;
+  /** Posto na junção quando as cópias juntadas trazem datas de julgamento diferentes (equivalencia.ts). */
+  avisoDeData?: string;
   /** Só no Falcão: o rótulo da fonte (repositório oficial da Justiça do Trabalho). */
   fonte?: string;
   /** Só no Falcão: por que não há texto integral (ex.: o "texto integral" veio igual à ementa); só a ementa vale. */
@@ -599,6 +608,10 @@ function paraAcordao(tribunal: string, x: Bruto, paradigmas: readonly ParadigmaD
     texto(x.link_pdf);
   const consultaDaBase = texto(x.link_consulta) ?? texto(x.url_acordao) ?? texto(x.link_processo);
   const foraDaWeb = [linkDaBase, consultaDaBase].find((l) => l !== undefined && !ehEnderecoDoTribunal(l));
+  const limpa = limparEmenta(tribunal, texto(x.texto_ementa) ?? "");
+  // Só o começo já vem com aviso próprio; a heurística de ementa cortada olharia o corte do Garimpo, não o do site.
+  const incompleta = !limpa.separacaoIncerta && ementaAparentementeIncompleta(limpa.ementa);
+  const avisosDeEmenta = [limpa.aviso, incompleta ? AVISO_EMENTA_INCOMPLETA : undefined].filter(Boolean);
   const acordao = limpar({
     id: `${tribunal}:${x.id}`,
     tribunal,
@@ -610,8 +623,9 @@ function paraAcordao(tribunal: string, x: Bruto, paradigmas: readonly ParadigmaD
     orgao: texto(x.orgao_julgador),
     dataJulgamento: data(x.data_julgamento),
     dataPublicacao: data(x.data_publicacao_extraida),
-    ementa: texto(x.texto_ementa) ?? "",
-    avisoDeEmenta: ementaAparentementeIncompleta(texto(x.texto_ementa) ?? "") ? AVISO_EMENTA_INCOMPLETA : undefined,
+    ementa: limpa.ementa,
+    avisoDeEmenta: avisosDeEmenta.length ? avisosDeEmenta.join(" ") : undefined,
+    ementaIncerta: limpa.separacaoIncerta,
     link: doTribunal(linkDaBase),
     linkConsulta: doTribunal(consultaDaBase),
     avisoDeLink: foraDaWeb && avisoDeLinkForaDaWeb(foraDaWeb),
