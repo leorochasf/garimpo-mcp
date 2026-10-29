@@ -98,7 +98,9 @@ function documentoNoTribunal(r: Registro): string | undefined {
 }
 
 const HOST_TJBA = "jurisprudenciaws.tjba.jus.br";
-const CAMINHO_DO_DOCUMENTO_TJBA = /^\/inteiroTeor\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+// O caminho é o exato da prova; só os dígitos hexadecimais do uuid podem vir em maiúsculas.
+const CAMINHO_DO_DOCUMENTO_TJBA =
+  /^\/inteiroTeor\/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$/;
 
 function documentoDoTjba(link: string | undefined): string | undefined {
   if (!link) return undefined;

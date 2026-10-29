@@ -290,6 +290,8 @@ describe("equivalência no TJBA: o mesmo documento do portal no link é o mesmo 
     { caso: "sem https", link: `http://jurisprudenciaws.tjba.jus.br/inteiroTeor/${UUID}` },
     { caso: "outro host", link: `https://exemplo.test/inteiroTeor/${UUID}` },
     { caso: "outro caminho", link: `https://jurisprudenciaws.tjba.jus.br/inteiroTeor/${UUID}/anexo` },
+    { caso: "o caminho com outra caixa", link: `https://jurisprudenciaws.tjba.jus.br/INTEIROTEOR/${UUID}` },
+    { caso: "o caminho todo em minúsculas", link: `https://jurisprudenciaws.tjba.jus.br/inteiroteor/${UUID}` },
   ])("não junta pelo link quando é $caso", ({ link }) => {
     const { acordaos } = juntarEquivalentes([ocorrencia(copia("907"), [0]), ocorrencia(daOutraData("908", { link }), [0])]);
     expect(acordaos).toHaveLength(2);
