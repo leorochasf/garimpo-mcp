@@ -24,6 +24,8 @@ export interface Registro {
   link?: string;
   /** Página oficial de consulta, quando não há PDF. */
   linkConsulta?: string;
+  /** Posto pela junção quando as cópias juntadas trazem datas de julgamento diferentes; nunca vem do site. */
+  avisoDeData?: string;
 }
 
 /** Um registro como foi achado na busca: por quais formulações e em que melhor posição. */
@@ -117,12 +119,22 @@ function juntar<R extends Registro>(copias: Ocorrencia<R>[]): AcordaoJuntado<R> 
   const escolhida = copias.reduce(maisCompleta);
   const formulacoes = new Set<number>();
   for (const o of copias) for (const f of o.formulacoes) formulacoes.add(f);
+  // Junção pelo documento no link: as cópias podem ter datas diferentes, e a escolha não prova qual é a do julgamento.
+  const datas = [...new Set(copias.flatMap((o) => (o.registro.dataJulgamento ? [o.registro.dataJulgamento] : [])))].sort();
   return {
-    registro: escolhida.registro,
+    registro: datas.length > 1 ? { ...escolhida.registro, avisoDeData: avisoDeDatas(datas) } : escolhida.registro,
     ids: copias.map((o) => o.registro.id),
     formulacoes,
     melhorPosicao: Math.min(...copias.map((o) => o.melhorPosicao)),
   };
+}
+
+function avisoDeDatas(datas: string[]): string {
+  const lista = `${datas.slice(0, -1).join(", ")} e ${datas[datas.length - 1]}`;
+  return (
+    `As cópias deste acórdão na base do JurisprudênciaIA trazem datas de julgamento diferentes (${lista}); ` +
+    "a data mostrada é a de uma das cópias e não foi conferida no tribunal."
+  );
 }
 
 /** Critérios de completude, em ordem de importância; o empate final vai para a melhor posição. */

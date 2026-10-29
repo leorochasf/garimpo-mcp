@@ -184,6 +184,17 @@ describe("equivalência no TJPR (ADR-0030): o mesmo documento do portal no link 
     expect(porId.get("tjpr:702")).toBe(acordaos[0]);
   });
 
+  it("cópias do mesmo documento com datas de julgamento diferentes: o registro devolvido avisa", () => {
+    const { acordaos } = juntarEquivalentes([
+      ocorrencia(comOrgao("709"), [0]),
+      ocorrencia(doOutroLote("710", { dataJulgamento: "2024-03-07" }), [0]),
+    ]);
+
+    expect(acordaos).toHaveLength(1);
+    expect(acordaos[0].registro.dataJulgamento).toBe("2024-03-05");
+    expect(acordaos[0].registro.avisoDeData).toContain("(2024-03-05 e 2024-03-07)");
+  });
+
   it("documentos diferentes no link continuam acórdãos distintos, mesmo com a mesma ementa", () => {
     const outro = doOutroLote("704", { link: "https://portal.tjpr.jus.br/jurisprudencia/j/4100000000000009/Acórdão" });
     const { acordaos } = juntarEquivalentes([ocorrencia(comOrgao("703"), [0]), ocorrencia(outro, [0])]);
@@ -273,6 +284,26 @@ describe("equivalência no TJBA: o mesmo documento do portal no link é o mesmo 
     expect(acordaos[0].melhorPosicao).toBe(1);
     expect([...acordaos[0].formulacoes].sort()).toEqual([0, 1]);
     expect(porId.get("tjba:901")).toBe(acordaos[0]);
+  });
+
+  it("datas de julgamento diferentes nas cópias juntadas: o registro devolvido avisa, com as duas datas em ordem", () => {
+    const { acordaos } = juntarEquivalentes([ocorrencia(copia("911"), [0], 0), ocorrencia(daOutraData("912"), [0], 1)]);
+
+    expect(acordaos[0].registro.avisoDeData).toBe(
+      "As cópias deste acórdão na base do JurisprudênciaIA trazem datas de julgamento diferentes (2024-03-15 e " +
+        "2024-03-20); a data mostrada é a de uma das cópias e não foi conferida no tribunal.",
+    );
+    // A data e o resto do registro continuam os da cópia escolhida; a cópia de entrada não é mexida.
+    expect(acordaos[0].registro).toEqual({ ...copia("911"), avisoDeData: acordaos[0].registro.avisoDeData });
+    expect(copia("911").avisoDeData).toBeUndefined();
+  });
+
+  it("cópias juntadas com a mesma data: sem aviso, e o registro é o próprio escolhido", () => {
+    const fica = copia("913");
+    const { acordaos } = juntarEquivalentes([ocorrencia(fica, [0], 0), ocorrencia(copia("914"), [0], 1)]);
+
+    expect(acordaos[0].registro).toBe(fica);
+    expect(acordaos[0].registro.avisoDeData).toBeUndefined();
   });
 
   it("o documento vale também na página de consulta e sem diferença de maiúsculas", () => {
