@@ -21,6 +21,8 @@ export const LIMITE_MAXIMO_TJDFT = 20;
  * pesquisa oficial colidiriam na memória.
  */
 const PREFIXO_DO_ID = "of";
+/** A base das decisões monocráticas, que vem misturada sem o filtro (gravação A de 2026-10-29). */
+const BASE_DAS_DECISOES = "decisoes";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Os acórdãos da página, o total que o tribunal informou e quantos registros não eram acórdãos (decisões monocráticas). */
@@ -53,10 +55,14 @@ export function lerResultadosDoTjdft(dado: unknown): BuscaOficialDoTjdft {
   const acordaos: Acordao[] = [];
   let foraDosAcordaos = 0;
   for (const r of resposta.registros as Record<string, unknown>[]) {
-    if (r?.base !== "acordaos") {
+    // Só a base conhecida das decisões monocráticas sai e é contada; registro sem base reconhecida é formato
+    // inesperado, para que uma mudança na fonte não vire página vazia sem erro.
+    if (typeof r !== "object" || r === null || Array.isArray(r)) return formatoInesperado();
+    if (r.base === BASE_DAS_DECISOES) {
       foraDosAcordaos++;
       continue;
     }
+    if (r.base !== "acordaos") return formatoInesperado();
     const identificador = String(r.identificador ?? "");
     const ementa = texto(r.ementa);
     if (!/^\d+$/.test(identificador) || typeof r.uuid !== "string" || !UUID.test(r.uuid) || !ementa) return formatoInesperado();

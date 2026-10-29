@@ -66,6 +66,12 @@ describe("leitor da pesquisa oficial do TJDFT", () => {
     ["acórdão sem uuid válido", { hits: { value: 1 }, registros: [{ ...BUSCA().registros[2], uuid: "sem-uuid" }] }],
     ["acórdão com identificador que não é número", { hits: { value: 1 }, registros: [{ ...BUSCA().registros[2], identificador: "abc" }] }],
     ["acórdão sem ementa", { hits: { value: 1 }, registros: [{ ...BUSCA().registros[2], ementa: undefined }] }],
+    // B12-R01: só a decisão conhecida («decisoes») é descartada e contada; o resto não pode virar página vazia.
+    ["registro nulo", { hits: { value: 1 }, registros: [null] }],
+    ["registro vazio, sem base", { hits: { value: 1 }, registros: [{}] }],
+    ["registro que não é objeto", { hits: { value: 1 }, registros: ["acordaos"] }],
+    ["base desconhecida", { hits: { value: 1 }, registros: [{ ...BUSCA().registros[2], base: "sumulas" }] }],
+    ["acórdãos sem o campo base", { hits: { value: 4 }, registros: BUSCA().registros.map(({ base, ...r }: Record<string, unknown>) => r) }],
   ])("formato inesperado (%s) é erro, nunca lista vazia", (_, dado) => {
     expect(() => lerResultadosDoTjdft(dado)).toThrow(FormatoInesperadoError);
   });
