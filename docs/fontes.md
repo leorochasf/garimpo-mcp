@@ -303,6 +303,36 @@ técnica do TJSP (`baixarEsaj`), com o host do tribunal. Só PDF reconhecido vir
   PDF dos demais; o limite de ritmo do portal (um projeto de terceiros cita 403 depois de ~50 downloads seguidos; o
   Garimpo fica muito abaixo); os termos de uso.
 
+## eSAJ do TJCE (PDF do acórdão)
+
+Usado por `obter_inteiro_teor` no TJCE (ticket b22-06): o **PDF oficial** do acórdão pelo `getArquivo.do` do eSAJ do
+tribunal, mesmo desenho do TJSP/TJMS, mas num GET direto (sem a volta pela verificação de login). Só PDF reconhecido vira
+inteiro teor, com recibo (ADR-0005). Fatos lidos em 2026-10-29 (matriz ao vivo dos TJs, local).
+
+- **robots.txt (2026-10-29):** `esaj.tjce.jus.br/robots.txt` devolve HTTP 404 (página de erro do servidor): nenhuma regra
+  publicada. Lido em chamada separada, antes de abrir o link.
+- **Termos de uso (lidos pelo Rede em 2026-10-29, ~15:40):** a «Política de Privacidade para Navegação no Portal do TJCE»
+  (`https://www.tjce.jus.br/lgpd/politica-de-navegacao-no-portal-do-tjce/`, sem data de vigência; rodapé «versão 1.198.0»)
+  **não traz cláusula sobre robôs, crawlers, scraping ou coleta automatizada**; a única menção a «automatizado» é o
+  tratamento automatizado do próprio tribunal (consulta unificada de processos e certidões). A página da pesquisa
+  eSAJ (`esaj.tjce.jus.br/cjsg/consultaCompleta.do`) não traz aviso, termo ou condição de uso. Termos de aplicativos do
+  tribunal (TJCE Mobile, SIMTJ Mobile), a Portaria 153/2026 (robôs **internos** do tribunal) e a Resolução do Órgão
+  Especial 40/2022 apareceram na busca e não foram lidos por inteiro; nenhum veda robô de terceiros no portal.
+  **Limite do método:** páginas lidas por ferramenta que resume (não o HTML bruto linha a linha); «não encontrado» não
+  prova inexistência de outro texto. Sem vedação encontrada ≠ autorização.
+- **Prova (2026-10-29):** 1 GET do link `esaj.tjce.jus.br/cjsg/getArquivo.do?cdAcordao=<n>&cdForo=0`: HTTP 200
+  `application/pdf;charset=UTF-8`, `Content-Disposition: inline`, 716 192 bytes, PDF de 5 páginas, sem login, captcha ou
+  bloqueio; cookie de sessão do portal enviado na resposta. O mesmo desenho do endereço em TJAL, TJAM e TJAC pede captcha:
+  é configuração do eSAJ de cada tribunal, não do software; vale só para o TJCE.
+- **Freios:** serviço `tjce` no disjuntor (regra 3 do `CLAUDE.md`); 403, captcha ou desafio = recusa final, sem recomeço. A frase «digite o código da figura» (a do eSAJ de TJAL, TJAM e TJAC), mesmo sem título, vale como página de desafio no TJCE.
+- **Guarda do número do processo:** o PDF só é guardado se o cabeçalho «Processo: <CNJ>» da primeira página (antes de EMENTA, ACÓRDÃO, RELATÓRIO ou VOTO) for o número
+  do processo do registro da busca (não vale qualquer ocorrência: o PDF de 19 páginas observado cita outros 6 CNJs no
+  corpo); sem isso, ou sem número no registro, nada é guardado e a resposta diz «não verificado».
+- **Conferência do Rede (2026-10-29):** 2 acórdãos (PDFs de 5 e 19 páginas, HTTP 200 `application/pdf`, sem captcha nem
+  login); o cabeçalho «Processo:» da 1ª página é o número do registro da busca; têm EMENTA, ACÓRDÃO, RELATÓRIO e VOTO.
+- **Não verificado:** que o PDF é sempre o acórdão assinado inteiro (visto em 2); o limite
+  de ritmo do eSAJ do TJCE; redirecionamentos.
+
 ## Busca oficial do e-Proc do TRF4 (ementa e texto do portal do tribunal)
 
 Usada por `busca_direta` com `tribunal: "trf4"` e por `obter_inteiro_teor` (D-07 / G-31, [ADR-0024](adr/0024-trf4-busca-oficial-do-eproc-e-texto-do-portal.md)).

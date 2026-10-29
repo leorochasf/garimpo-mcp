@@ -14,6 +14,7 @@ import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
 import { type Acordao, avisoDeLinkForaDaWeb, ehEnderecoDoTribunal, SITE } from "./busca.js";
 import { Cliente, decodificarDoHost, ehDocumentoTjto, HOST_TJTO, type OpcoesCliente, RecusaError, VERSAO } from "./cliente.js";
+import { processoDoCabecalhoDoTjce } from "./cabecalhoTjce.js";
 import { RedeParadaError } from "./coordenacao.js";
 import {
   avisoJaNaPasta,
@@ -263,6 +264,10 @@ export async function obterInteiroTeor(
   }
   const info = infoTribunal(tribunal);
   if (!info) throw new Error("Informe o id do acórdão (como veio na busca) ou o tribunal e o link.");
+  // TJCE sem número de processo no registro: recusa antes de qualquer chamada, inclusive à rota de link do site.
+  if (tribunal === "tjce" && info.inteiroTeor === "baixa" && !acordao?.numeroCnj) {
+    return recusaSemNumeroDoTjce(link, pedido.id, acordao);
+  }
   // Sem link utilizável (nem no pedido, nem na busca): o link pedido à rota de link do site, quando ela tem.
   if (!linkDoPedido) acordao = await comLinkDaRota(acordao, guardado?.obtidoEm, site, memoria);
   const linkDaRota = link || acordao?.linkConsulta ? undefined : acordao?.linkDaRota;
@@ -303,7 +308,22 @@ export async function obterInteiroTeor(
 
   const cliente = clienteDe(tribunal);
   let baixado: Baixado;
-  if (tribunal === "tjmg") baixado = await baixarDireto(cliente, linkPdf, "www5.tjmg.jus.br", "TJMG");
+  if (tribunal === "tjce") {
+    const endereco = enderecoDoPdfDoTjce(linkPdf);
+    const numeroDoRegistro = acordao?.numeroCnj;
+    if (!numeroDoRegistro) return recusaSemNumeroDoTjce(linkPdf, id, acordao);
+    baixado = await baixarDireto(cliente, endereco, HOST_TJCE, "TJCE");
+    if (!(await cabecalhoDoTjceConfere(baixado.pdf, numeroDoRegistro))) {
+      return {
+        baixado: false,
+        link: linkPdf,
+        explicacao:
+          `O PDF do TJCE não traz, no cabeçalho «Processo:» do início, o número do processo da busca (${numeroDoRegistro}); ` +
+          `texto não verificado e nada foi salvo. ${ponte(id, acordao)}`,
+        ...pronta,
+      };
+    }
+  } else if (tribunal === "tjmg") baixado = await baixarDireto(cliente, linkPdf, "www5.tjmg.jus.br", "TJMG");
   else if (tribunal === "tjrr") baixado = await baixarDireto(cliente, enderecoDoPdfDoTjrr(linkPdf), HOST_TJRR, "TJRR");
   else if (tribunal === "tse") baixado = await baixarDireto(cliente, linkPdf, "sjur-servicos.tse.jus.br", "TSE");
   else if (tribunal === "tjsp" || tribunal === "tjms") {
@@ -752,6 +772,42 @@ async function baixarDireto(cliente: Cliente, link: string, host: string, sigla:
       throw new Error(`O ${sigla} redirecionou sem destino ou vezes demais (${url.href}); nada foi salvo.`);
     }
     url = oficial(new URL(destino, url).href, `O ${sigla} redirecionou`);
+  }
+}
+
+const HOST_TJCE = "esaj.tjce.jus.br";
+
+/** TJCE (b22-06): só https no eSAJ do tribunal, `/cjsg/getArquivo.do` com `cdAcordao` numérico; fora disso, erro sem chamada. */
+function enderecoDoPdfDoTjce(link: string): string {
+  const url = new URL(link);
+  if (
+    url.protocol !== "https:" ||
+    url.host !== HOST_TJCE ||
+    url.pathname !== "/cjsg/getArquivo.do" ||
+    !/^\d+$/.test(url.searchParams.get("cdAcordao") ?? "")
+  ) {
+    throw new Error(`Link do TJCE fora do formato esperado (só https em ${HOST_TJCE}/cjsg/getArquivo.do?cdAcordao=<n>): ${link}`);
+  }
+  return url.href;
+}
+
+function recusaSemNumeroDoTjce(link: string | undefined, id: string | undefined, acordao: Acordao | undefined): ResultadoInteiroTeor {
+  return {
+    baixado: false,
+    ...(link && { link }),
+    explicacao:
+      "O registro da busca não trouxe o número do processo, e o Garimpo só guarda o PDF do TJCE depois de conferir " +
+      `o cabeçalho «Processo:» dele com esse número; nada foi baixado nem salvo. ${ponte(id, acordao)}`,
+    ...chamadaPronta(id, "tjce"),
+  };
+}
+
+/** O PDF do TJCE é o do processo da busca: o cabeçalho «Processo:» da 1ª página tem o número do registro. */
+async function cabecalhoDoTjceConfere(pdf: Uint8Array, numero: string): Promise<boolean> {
+  try {
+    return (await processoDoCabecalhoDoTjce(pdf)) === numero.replace(/\D/g, "");
+  } catch {
+    return false;
   }
 }
 

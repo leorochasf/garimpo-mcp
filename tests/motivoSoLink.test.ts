@@ -37,7 +37,7 @@ describe("motivo do só link com prova própria (datado, sem prometer download f
   }
 
   it("tribunais sem prova própria seguem com o texto antigo \"ainda não testou\"", () => {
-    for (const sigla of ["stm", "tjba", "tjce", "tjes", "tjma"]) {
+    for (const sigla of ["stm", "tjba", "tjes", "tjma"]) {
       expect(motivo(sigla), sigla).toBe(NAO_TESTADO);
     }
   });
