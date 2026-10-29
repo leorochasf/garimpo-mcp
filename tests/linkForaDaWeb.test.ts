@@ -204,3 +204,24 @@ describe("só endereço web vira link: memória de antes da regra", () => {
     expect(JSON.stringify(r)).not.toMatch(/gs:\/\//);
   });
 });
+
+// Ticket 17: a busca ampla repassa o mesmo aviso da busca direta, sem o endereço descartado.
+describe("busca ampla: o acórdão com link descartado traz o avisoDeLink", () => {
+  it("TJES (data:) e TJPB (gs:) saem com o aviso aprovado, sem o endereço, e ainda com faltam: link", async () => {
+    const gs = "gs://pdfs-jurisprudencias/tjpb/2026/03/00000011120258150001_20260304_1.pdf";
+    const { cliente } = siteFalso([registro(1, dataComAcordao(1)), registro(2, gs)]);
+    const texto = await chamar(await conectar(cliente), "busca_ampla", {
+      formulacoes: ["dano moral"],
+      tribunais: ["tjes", "tjpb"],
+    });
+    expect(texto).not.toMatch(/data:text|base64|gs:\/\//);
+    const itens = JSON.parse(texto).acordaos as { id: string; avisoDeLink?: string; faltam?: string[] }[];
+    expect(itens.map((a) => a.id).sort()).toEqual(["tjes:901", "tjes:902", "tjpb:901", "tjpb:902"]);
+    const aviso = (tipo: string) =>
+      `O JurisprudênciaIA mandou, no lugar do link, um endereço que não é página do tribunal (endereço do tipo ${tipo}); o Garimpo não o mostra.`;
+    for (const item of itens) {
+      expect(item.avisoDeLink, item.id).toBe(aviso(item.id.endsWith("901") ? "data:" : "gs:"));
+      expect(item.faltam, item.id).toContain("link");
+    }
+  });
+});
