@@ -1,14 +1,18 @@
+import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  caminhoFisico,
   criarGravador,
+  foraDoRepositorioNoDisco,
   gravacaoForaDoLugar,
   gravacaoForaDoLugarNoDisco,
   rodadaCompleta,
   saidaInvalida,
   type Registro,
+  worktreesDoRepositorio,
 } from "../scripts/seguroDaRodada.js";
 
 const URL_OK = "https://www.jurisprudenciaia.com.br/api/tribunais/stj/search";
@@ -90,6 +94,47 @@ describe("gravacaoForaDoLugarNoDisco (R02: atalho de pasta não engana a trava)"
   it("pasta externa comum, existente ou não, passa", () => {
     expect(gravacaoForaDoLugarNoDisco(join(base, "fora"), join(base, "projeto"))).toBeUndefined();
     expect(gravacaoForaDoLugarNoDisco(join(base, "fora", "nova", "1.2"), join(base, "projeto"))).toBeUndefined();
+  });
+});
+
+describe("B02-R03: foraDoRepositorioNoDisco (nenhuma worktree do repositório, nem a principal)", () => {
+  let base: string;
+  const git = (cwd: string, ...args: string[]) => execFileSync("git", ["-c", "user.name=teste", "-c", "user.email=teste@exemplo.invalid", ...args], { cwd, stdio: "pipe" });
+  beforeEach(() => {
+    base = mkdtempSync(join(tmpdir(), "garimpo-worktrees-"));
+    mkdirSync(join(base, "principal"));
+    git(join(base, "principal"), "init", "-q");
+    git(join(base, "principal"), "commit", "-q", "--allow-empty", "-m", "vazio");
+    git(join(base, "principal"), "worktree", "add", "-q", "-b", "qualidade", join(base, "a"));
+    git(join(base, "principal"), "worktree", "add", "-q", "--detach", join(base, "b"));
+    git(join(base, "principal"), "worktree", "add", "-q", "-b", "outra", join(base, "c"));
+    mkdirSync(join(base, "fora"));
+  });
+  afterEach(() => rmSync(base, { recursive: true, force: true }));
+
+  it("o script na worktree A lista todas: a principal, A, B (o braço) e C", () => {
+    const lista = worktreesDoRepositorio(join(base, "a")).map((w) => caminhoFisico(w).toLowerCase());
+    expect(lista.sort()).toEqual(["principal", "a", "b", "c"].map((p) => caminhoFisico(join(base, p)).toLowerCase()).sort());
+  });
+
+  it("executor na A, braço na B: destino na principal ou na C é recusado, mesmo pasta nova; pasta externa passa", () => {
+    const a = join(base, "a");
+    expect(gravacaoForaDoLugarNoDisco(join(base, "principal", "provas-cruas-b02"), a)).toBeUndefined(); // a trava antiga não via
+    expect(foraDoRepositorioNoDisco(join(base, "principal", "provas-cruas-b02"), a)).toMatch(/worktree/);
+    expect(foraDoRepositorioNoDisco(join(base, "c", "chave.txt"), a)).toMatch(/worktree/);
+    expect(foraDoRepositorioNoDisco(join(base, "b", "rodada"), a)).toMatch(/worktree/);
+    expect(foraDoRepositorioNoDisco(join(base, "a", "x"), a)).toMatch(/projeto/);
+    expect(foraDoRepositorioNoDisco(join(base, "fora", "rodada"), a)).toBeUndefined();
+  });
+
+  it("atalho de fora para dentro de outra worktree também é recusado", () => {
+    symlinkSync(join(base, "c"), join(base, "fora", "atalho"), "junction");
+    expect(foraDoRepositorioNoDisco(join(base, "fora", "atalho", "rodada"), join(base, "a"))).toMatch(/worktree/);
+  });
+
+  it("sem repositório git, recusa (não dá para saber onde estão as worktrees)", () => {
+    mkdirSync(join(base, "fora", "projeto-sem-git"));
+    expect(foraDoRepositorioNoDisco(join(base, "fora", "rodada"), join(base, "fora", "projeto-sem-git"))).toMatch(/git/);
   });
 });
 

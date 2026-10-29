@@ -14,8 +14,8 @@
  * uma pasta temporária.
  *
  * Trava (as do banco de provas, seguroDaRodada.ts): a gravação crua (respostas, números, relatores, ementas) só vai para
- * pasta fora do projeto, fora do braço e fora de nuvem, também seguindo atalhos; pasta com plano.json ou gravacao/
- * recusa. Antes da 1ª chamada: os hashes da base da amostra conferem e nenhum serviço está pausado. Só saem a busca do
+ * pasta fora do projeto, de toda worktree do repositório (a principal e a do braço inclusive) e de nuvem, também seguindo
+ * atalhos; pasta com plano.json ou gravacao/ recusa. Antes da 1ª chamada: os hashes da base da amostra conferem e nenhum serviço está pausado. Só saem a busca do
  * site e a do Falcão, até o teto (tetoDaRodada); recusa (403/429/503, pausa, rede parada) para a rodada no fim do pedido,
  * e o que tiver fica gravado.
  *
@@ -34,7 +34,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { gravadasDoEnsaio } from "./ensaioDaLinhaDeBase.js";
 import { type AmostraE5, type Pedido, pedidosE1, pedidosE5, tetoDaRodada } from "./linhaDeBase.js";
-import { criarGravador, gravacaoForaDoLugarNoDisco, saidaInvalida } from "./seguroDaRodada.js";
+import { criarGravador, foraDoRepositorioNoDisco, gravacaoForaDoLugarNoDisco, saidaInvalida } from "./seguroDaRodada.js";
 import { criarFetchFalso } from "./velocidadeFetchFalso.mjs";
 
 const ESPACO_ENTRE_PEDIDOS_MS = 5_000;
@@ -66,7 +66,7 @@ if (!existsSync(join(braco, "dist", "servidor.js"))) parar(`o braço não está 
 const saida = resolve(pasta ?? ".");
 const recusaDaSaida =
   saidaInvalida(pasta) ??
-  gravacaoForaDoLugarNoDisco(saida, raizDoProjeto) ??
+  foraDoRepositorioNoDisco(saida, raizDoProjeto) ??
   gravacaoForaDoLugarNoDisco(saida, braco) ??
   (existsSync(join(saida, "plano.json")) || existsSync(join(saida, "gravacao"))
     ? "a pasta já tem plano.json ou gravacao/ (rodada feita ou interrompida): a rodada é feita uma vez só; use outra pasta só se o piloto mandar."
