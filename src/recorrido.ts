@@ -94,7 +94,11 @@ export function avisoDeRecorridoAusenteAmplo(mostrados: readonly Acordao[], acha
   const tribunais = new Set(lista.map((a) => a.tribunal));
   const varios = tribunais.size > 1;
   const rotulo = (a: Acordao) => (varios ? `${a.numeroCnj} (${a.tribunal.toUpperCase()})` : a.numeroCnj!);
-  const duvidosos = lista.filter((a) => a.avisoDeClasse);
+  // A lista guarda um recurso por processo; o sinal de classe duvidosa vem de qualquer recurso mostrado do mesmo
+  // processo, para a R1 não depender de qual deles o site mandou primeiro (B19-R01).
+  const processo = (a: Acordao) => `${a.tribunal}:${digitos(a.numeroCnj!)}`;
+  const comDuvida = new Set(mostrados.filter((a) => a.avisoDeClasse && a.numeroCnj && ehRecursoContraAcordao(a)).map(processo));
+  const duvidosos = lista.filter((a) => comDuvida.has(processo(a)));
   return (
     `Recurso contra acórdão sem o recorrido nesta busca (embargos de declaração e similares): ` +
     `${numeros(lista, TETO_DE_NUMEROS_AMPLA, rotulo)}. O recorrido pode não estar na base do JurisprudênciaIA: ` +

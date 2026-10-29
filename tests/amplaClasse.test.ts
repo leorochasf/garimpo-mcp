@@ -120,6 +120,27 @@ describe("busca ampla: o aviso de recurso sem recorrido leva a ressalva R1", () 
     expect(mostrados).toMatch(/^(\d{7}-\d{2}\.\d{4}\.8\.06\.0001, ){2}\d{7}-\d{2}\.\d{4}\.8\.06\.0001 e mais 2$/);
   });
 
+  // Revisão do 19 (B19-R01): dois registros do mesmo processo, um coerente e um de classe duvidosa; a R1 não pode
+  // depender de qual dos dois o site manda primeiro.
+  it.each([
+    ["coerente primeiro", false],
+    ["duvidoso primeiro", true],
+  ])("B19-R01: mesmo processo com um registro coerente e um duvidoso (%s): a R1 vem com o número", async (_, duvidosoPrimeiro) => {
+    const cnj = "0000007-11.2025.8.06.0001";
+    const coerente = {
+      ...tjce(cnj, 1),
+      texto_ementa:
+        "EMENTA: AGRAVO INTERNO EM RECURSO ESPECIAL. DIREITO CIVIL. DANO MORAL. DECISÃO DE ADMISSIBILIDADE MANTIDA. " +
+        "AGRAVO INTERNO CONHECIDO E DESPROVIDO.",
+    };
+    const duvidoso = tjce(cnj, 2);
+    const { r } = await buscaAmpla(site({ tjce: duvidosoPrimeiro ? [duvidoso, coerente] : [coerente, duvidoso] }), { tribunais: ["tjce"] });
+    expect(new Map(r.acordaos.map((a) => [a.id, a.avisoDeClasse !== undefined]))).toEqual(
+      new Map([["tjce:1", false], ["tjce:2", true]]),
+    );
+    expect(doRecorrido(r)).toMatch(new RegExp(`${r1(cnj).replace(/[.()]/g, "\\$&")}$`));
+  });
+
   it("agravo interno de verdade (a ementa diz agravo interno): o aviso amplo sem a R1", async () => {
     const verdadeiro = {
       ...tjce(),
