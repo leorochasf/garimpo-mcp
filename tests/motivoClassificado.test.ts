@@ -12,15 +12,23 @@ import { clienteFalso } from "./apoio.js";
  */
 const FOTOGRAFIA_B01: Record<string, [string, string | undefined]> = {
   stj: ["vedação escrita", "2026-10-13"],
-  tjrj: ["vedação escrita", "2026-10-14"],
-  tjse: ["vedação escrita", "2026-10-14"],
+  tjrj: ["vedação escrita", "2026-10-29"],
+  tjse: ["vedação escrita", "2026-10-29"],
+  tjpb: ["vedação escrita", "2026-10-29"],
+  tjpe: ["vedação escrita", "2026-10-29"],
+  tjrs: ["vedação escrita", "2026-10-29"],
+  tjro: ["desafio técnico", "2026-10-29"],
+  tjal: ["desafio técnico", "2026-10-29"],
+  tjam: ["desafio técnico", "2026-10-29"],
+  tjac: ["desafio técnico", "2026-10-29"],
+  tjap: ["desafio técnico", "2026-10-29"],
   stf: ["desafio técnico", "2026-10-14"],
-  tjsc: ["desafio técnico", "2026-10-14"],
+  tjsc: ["desafio técnico", "2026-10-29"],
   tjpa: ["rota quebrada", "2026-10-14"],
   tst: ["não testado", "2026-10-09"],
   tjrn: ["não testado", "2026-10-09"],
   ...Object.fromEntries(
-    ["stm", "tjac", "tjal", "tjam", "tjap", "tjba", "tjce", "tjes", "tjma", "tjmt", "tjpb", "tjpe", "tjro", "tjrs"].map(
+    ["stm", "tjba", "tjce", "tjes", "tjma", "tjmt"].map(
       (s): [string, [string, undefined]] => [s, ["não testado", undefined]],
     ),
   ),
@@ -50,9 +58,10 @@ describe("motivo do só link classificado e datado (fotografia B0.1)", () => {
 
   it("a página garimpo://tribunais diz a classe e a data, ou que não há prova própria", () => {
     const pagina = paginaDeTribunais();
-    expect(pagina).toMatch(/\| TJRJ \|.*só link \(vedação escrita; registro de 2026-10-14, sem nova conferência\): .*termo de uso/);
+    expect(pagina).toMatch(/\| TJRJ \|.*só link \(vedação escrita; registro de 2026-10-29, sem nova conferência\): .*termo de uso/);
     expect(pagina).toMatch(/\| TJPA \|.*só link \(rota quebrada; registro de 2026-10-14, sem nova conferência\)/);
-    expect(pagina).toMatch(/\| TJAP \|.*só link \(não testado; sem prova própria\)/);
+    expect(pagina).toMatch(/\| TJAP \|.*só link \(desafio técnico; registro de 2026-10-29, sem nova conferência\)/);
+    expect(pagina).toMatch(/\| TJBA \|.*só link \(não testado; sem prova própria\)/);
   });
 
   it("a resposta do obter_inteiro_teor no só link traz a classe e a data, sem chamada", async () => {
@@ -60,8 +69,10 @@ describe("motivo do só link classificado e datado (fotografia B0.1)", () => {
     const stj = await obterInteiroTeor({ tribunal: "stj", link: "https://exemplo.test/stj/1", pasta: SEM_PASTA }, () => cliente);
     expect(stj).toMatchObject({ baixado: false, classeDoMotivo: "vedação escrita", dataDaProva: "2026-10-13" });
     const tjap = await obterInteiroTeor({ tribunal: "tjap", link: "https://exemplo.test/tjap/1", pasta: SEM_PASTA }, () => cliente);
-    expect(tjap).toMatchObject({ baixado: false, classeDoMotivo: "não testado" });
-    expect(tjap).not.toHaveProperty("dataDaProva");
+    expect(tjap).toMatchObject({ baixado: false, classeDoMotivo: "desafio técnico", dataDaProva: "2026-10-29" });
+    const tjba = await obterInteiroTeor({ tribunal: "tjba", link: "https://exemplo.test/tjba/1", pasta: SEM_PASTA }, () => cliente);
+    expect(tjba).toMatchObject({ baixado: false, classeDoMotivo: "não testado" });
+    expect(tjba).not.toHaveProperty("dataDaProva");
     expect(chamadas).toHaveLength(0);
   });
 });

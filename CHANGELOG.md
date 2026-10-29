@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2 (em preparação)
+
+- `listar_tribunais` e `obter_inteiro_teor`: o motivo do «só link» de TJPB, TJPE, TJRS, TJSE, TJRJ, TJSC, TJRO, TJAL, TJAM,
+  TJAC e TJAP passa a dizer a barreira observada e a data (29/10/2026), no lugar do «ainda não testou» ou da data de
+  14/10. TJRN segue inconclusivo e TJPA como estava.
+
 ## 1.1.2 (2026-10-29)
 
 - TJPR: o `obter_inteiro_teor` passa a trazer o texto do acórdão da página pública dele no portal de jurisprudência do

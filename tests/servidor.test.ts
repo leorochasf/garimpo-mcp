@@ -1258,9 +1258,9 @@ describe("textos honestos por tribunal: o observado, com data, ou \"ainda não t
 
   it("STM e TJs fora da prova dizem \"ainda não testou\", sem afirmar login nem JavaScript", async () => {
     const m = await motivos();
-    for (const sigla of ["stm", "tjac", "tjba", "tjrs", "tjpe"]) expect(m.get(sigla), sigla).toBe(NAO_TESTADO);
+    for (const sigla of ["stm", "tjba", "tjce"]) expect(m.get(sigla), sigla).toBe(NAO_TESTADO);
     for (const [sigla, motivo] of m) {
-      if (sigla === "stf" || sigla === "tjgo") continue; // barreiras registradas antes do B11, com evidência
+      if (["stf", "tjgo", "tjpb", "tjro", "tjal", "tjam", "tjac"].includes(sigla)) continue; // barreiras registradas com evidência
       expect(motivo, sigla).not.toMatch(/login|JavaScript|captcha/i);
     }
   });

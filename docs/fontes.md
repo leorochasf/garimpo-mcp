@@ -437,13 +437,23 @@ A busca segue no JurisprudênciaIA. Leituras de 2026-10-22:
 ## Motivo do «só link» com prova própria (I-23 / G-24, DQ-24b)
 
 O texto de `motivoLink` (src/tribunais.ts) só diz o motivo real onde o Garimpo tem prova própria, com a data; os demais
-seguem «ainda não testou». Provas registradas em 14/10/2026 (STJ em 13/10/2026, seção D-18 acima):
+seguem «ainda não testou». Provas registradas em 14/10/2026 (STJ em 13/10/2026, seção D-18 acima), as de TJ reconferidas em 29/10/2026 abaixo:
 
-- **TJRJ:** termo de uso do portal veda robôs e coleta automática sem permissão expressa por escrito.
-- **TJSE:** `robots.txt` com `Disallow: /` e só `/portal` liberado.
 - **TJPA:** a rota de documento devolveu só a casca do aplicativo, sem o acórdão.
-- **TJSC:** a leitura do `robots.txt` do eproc devolveu página de bloqueio (F5).
 - **STF:** `redir.stf.jus.br` respondeu 202 de WAF à leitura do `robots.txt`.
+
+Provas de 29/10/2026 (matriz ao vivo dos TJs, local; leitura, sem contorno, de uma amostra por tribunal):
+
+- **TJRJ:** termo de uso do portal veda robôs e coleta automática sem permissão expressa por escrito (reconferido).
+- **TJSE:** `robots.txt` com `Disallow: /` e só `/portal` liberado (reconferido).
+- **TJPE:** `robots.txt` de `www.tjpe.jus.br` com `User-agent: *` e `Disallow: /`.
+- **TJRS:** `robots.txt` de `www.tjrs.jus.br` com `Disallow: /busca`; o endereço de dados da busca (`/buscas/jurisprudencia/`) começa por `/busca`.
+- **TJSC:** a leitura do `robots.txt` de `eproc1g.tjsc.jus.br` devolveu página de bloqueio.
+- **TJRO:** o endereço do acórdão em `juris.tjro.jus.br` devolveu HTTP 200 com script de verificação anti-robô, sem o acórdão.
+- **TJAL, TJAM, TJAC:** o endereço do acórdão no eSAJ pede o código da figura (captcha) antes do texto.
+- **TJAP:** o `robots.txt` de `tucujuris.tjap.jus.br` devolveu HTTP 403 com o desafio do Cloudflare.
+- **TJPB:** os dois portais oficiais de jurisprudência estão barrados: `robots.txt` de `juris.tjpb.jus.br` com `Disallow: /` e `pje-jurisprudencia.tjpb.jus.br` com o desafio do Cloudflare (HTTP 403).
+- **TJRN:** segue inconclusivo (busca do site com HTTP 504 em 09/10 e 14/10; nova tentativa de 29/10 também 504 no JurisprudênciaIA).
 
 TRF6 não consta da tabela de tribunais do Garimpo; não foi tratado. O TRF2 entrou pelo e-Proc (ADR-0028).
 
