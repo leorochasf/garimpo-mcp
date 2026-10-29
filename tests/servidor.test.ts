@@ -2224,6 +2224,7 @@ describe("página de tribunais (recurso garimpo://tribunais)", () => {
         texto: "texto integral do repositório oficial (sem PDF)",
         portal: "texto do portal do tribunal",
         link: "só link",
+        base: "texto da base do JurisprudênciaIA, não oficial",
       };
       expect(linhas[i]).toContain(esperado[t.inteiroTeor as keyof typeof esperado]);
       expect(linhas[i]).toContain(`| ${t.tetoResultados} |`);

@@ -4,12 +4,16 @@
  * docs/fonte-falcao.md (Falcão, os 24 TRTs).
  */
 
+import { ROTULO_TEXTO_DA_BASE } from "./textoDaBase.js";
+
 /**
  * "baixa" = o Garimpo baixa o PDF oficial; "link" = devolve link + explicação; "texto" = texto integral na busca;
  * "portal" = o obter_inteiro_teor traz o texto do portal do tribunal para a memória (ADR-0021): HTML convertido, o
- * registro da API no TJDFT e, no TJGO, também o PDF embutido no arquivo assinado.
+ * registro da API no TJDFT e, no TJGO, também o PDF embutido no arquivo assinado; "base" = sem caminho oficial: o
+ * obter_inteiro_teor traz o texto que a base do JurisprudênciaIA embute no registro (TJES e TJMA), com o rótulo de cópia
+ * de terceiro, não oficial.
  */
-export type InteiroTeorModo = "baixa" | "link" | "texto" | "portal";
+export type InteiroTeorModo = "baixa" | "link" | "texto" | "portal" | "base";
 
 /** De onde vem a busca do tribunal. */
 export type Fonte = "JurisprudênciaIA" | "Falcão (CSJT)" | "e-Proc do TRF2" | "e-Proc do TRF4" | "e-Proc da TNU";
@@ -20,6 +24,8 @@ export const QUALIFICADOS_TRT =
 export const INTEIRO_TEOR_TRT = "texto integral do repositório oficial (sem PDF)";
 /** O que a tabela diz dos tribunais de texto do portal (ADR-0021). */
 export const INTEIRO_TEOR_PORTAL = "texto do portal do tribunal, trazido pelo obter_inteiro_teor (sem PDF)";
+/** O que a tabela diz dos tribunais de texto da base (TJES e TJMA): o rótulo aprovado no glossário, e o que ele quer dizer. */
+export const INTEIRO_TEOR_BASE = `${ROTULO_TEXTO_DA_BASE}, trazido pelo obter_inteiro_teor (sem PDF, sem recibo de origem)`;
 
 /** Rótulo de cada acórdão de TRT (ADR-0018). */
 export const ROTULO_FALCAO =
@@ -318,9 +324,9 @@ export const TRIBUNAIS: InfoTribunal[] = [
   { ...tj("tjba", "TJ da Bahia") },
   { ...tj("tjce", "TJ do Ceará"), inteiroTeor: "baixa", ...SEM_MOTIVO },
   { ...tj("tjdft", "TJ do Distrito Federal e Territórios"), inteiroTeor: "portal", ...SEM_MOTIVO },
-  { ...tj("tjes", "TJ do Espírito Santo") },
+  { ...tj("tjes", "TJ do Espírito Santo"), inteiroTeor: "base", ...SEM_MOTIVO },
   { ...tj("tjgo", "TJ de Goiás"), inteiroTeor: "portal", ...SEM_MOTIVO },
-  { ...tj("tjma", "TJ do Maranhão") },
+  { ...tj("tjma", "TJ do Maranhão"), inteiroTeor: "base", ...SEM_MOTIVO },
   { ...tj("tjmg", "TJ de Minas Gerais"), inteiroTeor: "baixa", ...SEM_MOTIVO },
   { ...tj("tjms", "TJ de Mato Grosso do Sul"), inteiroTeor: "baixa", ...SEM_MOTIVO },
   { ...tj("tjmt", "TJ de Mato Grosso"), motivoLink: EXPLICA_TJMT, classeDoMotivo: "desafio técnico", dataDaProva: "2026-10-29" },
@@ -416,7 +422,9 @@ export function paginaDeTribunais(): string {
           ? INTEIRO_TEOR_TRT
           : t.inteiroTeor === "portal"
             ? INTEIRO_TEOR_PORTAL
-            : `só link (${t.classeDoMotivo}; ${t.dataDaProva ? `registro de ${t.dataDaProva}, sem nova conferência` : "sem prova própria"}): ${t.motivoLink}`;
+            : t.inteiroTeor === "base"
+              ? INTEIRO_TEOR_BASE
+              : `só link (${t.classeDoMotivo}; ${t.dataDaProva ? `registro de ${t.dataDaProva}, sem nova conferência` : "sem prova própria"}): ${t.motivoLink}`;
     return `| ${t.sigla.toUpperCase()} | ${t.nome} | ${t.fonte} | ${qualificados} | ${t.tetoResultados} | ${inteiroTeor} |`;
   });
   return [

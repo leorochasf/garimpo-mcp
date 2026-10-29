@@ -11,9 +11,11 @@ import { reforcoDoStf, type TabelaDoStf } from "./tabelaDoStf.js";
 import { juntarEquivalentes } from "./equivalencia.js";
 import { limparEmenta } from "./ementaLimpa.js";
 import { nomesDoFiltro, ressalvaSePoucos } from "./grafia.js";
-import { FalhaNaMemoriaError, fotografiaDaBusca, type Memoria } from "./memoria.js";
+import { FalhaNaMemoriaError, fotografiaDaBusca, type Memoria, type TextoIntegral } from "./memoria.js";
 import { buscaDecisoesNoFalcao, buscaNoFalcao, clienteDoFalcao, lerBuscaGuardadaNoFalcao, type OrdenacaoNoFalcao } from "./falcao.js";
 import { avisoDeRecorridoAusente } from "./recorrido.js";
+import { portalComIntegra } from "./paginaComIntegra.js";
+import { textoDaBase } from "./textoDaBase.js";
 import { buscaNaTnu, clienteDaTnu, lerBuscaGuardadaNaTnu } from "./tnu.js";
 import { buscaNoTrf2, clienteDoTrf2, lerBuscaGuardadaNoTrf2 } from "./trf2.js";
 import { buscaNoTrf4, clienteDoTrf4, lerBuscaGuardadaNoTrf4 } from "./trf4.js";
@@ -355,7 +357,16 @@ export async function buscaDiretaSemMarca(
     resultado.acordaos.map((registro, posicao) => ({ registro, formulacoes: new Set<number>(), melhorPosicao: posicao })),
   );
   acordaos.sort((a, b) => a.melhorPosicao - b.melhorPosicao);
-  if (guardarAcordaos) memoria?.lembrar(acordaos);
+  if (guardarAcordaos) {
+    memoria?.lembrar(acordaos);
+    // Texto da base (ADR do b22-07): fica no id do acórdão que a busca mostra, venha de qual cópia vier.
+    const doTexto = new Map(resultado.textosDaBase.map((t) => [t.id, t]));
+    const textos = acordaos.flatMap(({ ids, registro }) => {
+      const t = ids.map((i) => doTexto.get(i)).find(Boolean);
+      return t ? [{ ...t, id: registro.id }] : [];
+    });
+    if (textos.length) memoria?.lembrarTextos(textos);
+  }
   resultado.acordaos = acordaos.map((a) => a.registro);
   if (tribunal === "stf") {
     resultado.avisos.push(
@@ -506,7 +517,7 @@ export function normalizar(
   json: unknown,
   tabela?: TabelaDePrecedentes,
   tabelaStf?: TabelaDoStf,
-): ResultadoBusca & { tesesDoSite: (string | null)[] } {
+): ResultadoBusca & { tesesDoSite: (string | null)[]; textosDaBase: TextoIntegral[] } {
   if (!json || typeof json !== "object") {
     throw new FormatoInesperadoError("O JurisprudênciaIA devolveu uma resposta vazia ou em formato inesperado.");
   }
@@ -537,6 +548,24 @@ export function normalizar(
     brutos.push({ ...porId.get(id), ...x });
   }
 
+  // O link_pdf cru que é data:text/html vira texto da base; o paraAcordao continua descartando o data:.
+  const textosDaBase: TextoIntegral[] = [];
+  // Só onde não há caminho oficial (modo "base", sem portal registrado): nos demais, o oficial prevalece e o texto da
+  // base nem é guardado (guardado, ele seria servido no lugar do texto do portal).
+  const semCaminhoOficial = infoTribunal(tribunal)?.inteiroTeor === "base" && !portalComIntegra(tribunal);
+  for (const x of semCaminhoOficial ? brutos : []) {
+    const bruto = texto(x.link_pdf);
+    if (!bruto) continue;
+    const t = textoDaBase(bruto);
+    if (t.ok) {
+      textosDaBase.push({
+        id: `${tribunal}:${x.id}`,
+        texto: t.texto,
+        indicioDeCorte: t.indicioDeCorte,
+        ...(t.conteudoOculto && { conteudoOculto: true }),
+      });
+    }
+  }
   const qualificados: Qualificado[] = [];
   const tesesDoSite: (string | null)[] = [];
   for (const [lista, tipo] of Object.entries(LISTAS_QUALIFICADOS)) {
@@ -563,6 +592,7 @@ export function normalizar(
     acordaos: brutos.map((x) => paraAcordao(tribunal, x, paradigmas)),
     qualificados,
     tesesDoSite,
+    textosDaBase,
     ressalvaQualificados: RESSALVA_DIRETA,
     avisos,
   };
