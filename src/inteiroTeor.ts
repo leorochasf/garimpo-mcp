@@ -23,6 +23,7 @@ import {
   LIMITE_BYTES_PDF,
   NAO_INFORMADO,
   ORIGEM_DOWNLOAD,
+  textoDoPdfEmMemoria,
 } from "./leitura.js";
 import { htmlComConteudoOculto, htmlComIndicioDeCorte, htmlParaTexto } from "./html.js";
 import type { Memoria, TextoIntegral } from "./memoria.js";
@@ -303,7 +304,31 @@ export async function obterInteiroTeor(
 
   const cliente = clienteDe(tribunal);
   let baixado: Baixado;
-  if (tribunal === "tjmg") baixado = await baixarDireto(cliente, linkPdf, "www5.tjmg.jus.br", "TJMG");
+  if (tribunal === "tjce") {
+    const endereco = enderecoDoPdfDoTjce(linkPdf);
+    const numeroDoRegistro = acordao?.numeroCnj;
+    if (!numeroDoRegistro) {
+      return {
+        baixado: false,
+        link: linkPdf,
+        explicacao:
+          "O registro da busca não trouxe o número do processo, e o Garimpo só guarda o PDF do TJCE depois de conferir " +
+          `o cabeçalho «Processo:» dele com esse número; nada foi baixado nem salvo. ${ponte(id, acordao)}`,
+        ...pronta,
+      };
+    }
+    baixado = await baixarDireto(cliente, endereco, HOST_TJCE, "TJCE");
+    if (!(await cabecalhoDoTjceConfere(baixado.pdf, numeroDoRegistro))) {
+      return {
+        baixado: false,
+        link: linkPdf,
+        explicacao:
+          `O PDF do TJCE não traz, no cabeçalho «Processo:» do início, o número do processo da busca (${numeroDoRegistro}); ` +
+          `texto não verificado e nada foi salvo. ${ponte(id, acordao)}`,
+        ...pronta,
+      };
+    }
+  } else if (tribunal === "tjmg") baixado = await baixarDireto(cliente, linkPdf, "www5.tjmg.jus.br", "TJMG");
   else if (tribunal === "tjrr") baixado = await baixarDireto(cliente, enderecoDoPdfDoTjrr(linkPdf), HOST_TJRR, "TJRR");
   else if (tribunal === "tse") baixado = await baixarDireto(cliente, linkPdf, "sjur-servicos.tse.jus.br", "TSE");
   else if (tribunal === "tjsp" || tribunal === "tjms") {
@@ -752,6 +777,37 @@ async function baixarDireto(cliente: Cliente, link: string, host: string, sigla:
       throw new Error(`O ${sigla} redirecionou sem destino ou vezes demais (${url.href}); nada foi salvo.`);
     }
     url = oficial(new URL(destino, url).href, `O ${sigla} redirecionou`);
+  }
+}
+
+const HOST_TJCE = "esaj.tjce.jus.br";
+
+/** TJCE (b22-06): só https no eSAJ do tribunal, `/cjsg/getArquivo.do` com `cdAcordao` numérico; fora disso, erro sem chamada. */
+function enderecoDoPdfDoTjce(link: string): string {
+  const url = new URL(link);
+  if (
+    url.protocol !== "https:" ||
+    url.host !== HOST_TJCE ||
+    url.pathname !== "/cjsg/getArquivo.do" ||
+    !/^\d+$/.test(url.searchParams.get("cdAcordao") ?? "")
+  ) {
+    throw new Error(`Link do TJCE fora do formato esperado (só https em ${HOST_TJCE}/cjsg/getArquivo.do?cdAcordao=<n>): ${link}`);
+  }
+  return url.href;
+}
+
+/**
+ * O PDF do TJCE é o do processo da busca: o cabeçalho «Processo: <CNJ>» do início do texto tem o mesmo número do
+ * registro. Não vale qualquer ocorrência do número no texto: o acórdão cita CNJs de precedentes no corpo. PDF sem texto
+ * ou que o extrator não leia = não confere.
+ */
+async function cabecalhoDoTjceConfere(pdf: Uint8Array, numero: string): Promise<boolean> {
+  try {
+    const { texto } = await textoDoPdfEmMemoria(pdf, "PDF do TJCE");
+    const cabecalho = /Processo:\s*(\d{7}-?\d{2}\.?\d{4}\.?\d\.?\d{2}\.?\d{4})/.exec(texto.slice(0, 2000))?.[1];
+    return !!cabecalho && cabecalho.replace(/\D/g, "") === numero.replace(/\D/g, "");
+  } catch {
+    return false;
   }
 }
 

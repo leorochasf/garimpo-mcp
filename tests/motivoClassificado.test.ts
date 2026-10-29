@@ -20,7 +20,7 @@ const FOTOGRAFIA_B01: Record<string, [string, string | undefined]> = {
   tst: ["não testado", "2026-10-09"],
   tjrn: ["não testado", "2026-10-09"],
   ...Object.fromEntries(
-    ["stm", "tjac", "tjal", "tjam", "tjap", "tjba", "tjce", "tjes", "tjma", "tjmt", "tjpb", "tjpe", "tjro", "tjrs"].map(
+    ["stm", "tjac", "tjal", "tjam", "tjap", "tjba", "tjes", "tjma", "tjmt", "tjpb", "tjpe", "tjro", "tjrs"].map(
       (s): [string, [string, undefined]] => [s, ["não testado", undefined]],
     ),
   ),
