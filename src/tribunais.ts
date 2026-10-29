@@ -110,8 +110,14 @@ function explicaCaptchaEsaj(tj: string, host: string): string {
 }
 
 const EXPLICA_TJPA =
-  "Em 14/10/2026, o endereço de documento do portal de jurisprudência do TJPA devolveu só a casca do aplicativo, sem " +
-  "o acórdão. O Garimpo não obtém o texto automaticamente; abra o link no navegador.";
+  "Em 29/10/2026, o endereço do documento no portal de jurisprudência do TJPA (jurisprudencia.tjpa.jus.br) abriu só a " +
+  "tela de pesquisa, sem o acórdão, e a pesquisa do portal não isola um acórdão pelo número do processo. O Garimpo " +
+  "não obtém o texto automaticamente; abra o link no navegador.";
+
+const EXPLICA_TJMT =
+  "Em 29/10/2026, o serviço da pesquisa de jurisprudência do TJMT (hellsgate.tjmt.jus.br) respondeu HTTP 401 pedindo " +
+  "chave de API; a chave que a página do portal usa não é credencial do Garimpo. O Garimpo não obtém o texto " +
+  "automaticamente; abra o link no navegador.";
 
 const EXPLICA_TJSC =
   "Em 29/10/2026, ao ler o robots.txt do portal eproc do TJSC (eproc1g.tjsc.jus.br), o Garimpo recebeu uma página " +
@@ -317,8 +323,8 @@ export const TRIBUNAIS: InfoTribunal[] = [
   { ...tj("tjma", "TJ do Maranhão") },
   { ...tj("tjmg", "TJ de Minas Gerais"), inteiroTeor: "baixa", ...SEM_MOTIVO },
   { ...tj("tjms", "TJ de Mato Grosso do Sul"), inteiroTeor: "baixa", ...SEM_MOTIVO },
-  { ...tj("tjmt", "TJ de Mato Grosso") },
-  { ...tj("tjpa", "TJ do Pará"), motivoLink: EXPLICA_TJPA, classeDoMotivo: "rota quebrada", dataDaProva: "2026-10-14" },
+  { ...tj("tjmt", "TJ de Mato Grosso"), motivoLink: EXPLICA_TJMT, classeDoMotivo: "desafio técnico", dataDaProva: "2026-10-29" },
+  { ...tj("tjpa", "TJ do Pará"), motivoLink: EXPLICA_TJPA, classeDoMotivo: "rota quebrada", dataDaProva: "2026-10-29" },
   { ...tj("tjpb", "TJ da Paraíba"), motivoLink: EXPLICA_TJPB, classeDoMotivo: "vedação escrita", dataDaProva: "2026-10-29" },
   { ...tj("tjpe", "TJ de Pernambuco"), motivoLink: EXPLICA_TJPE, classeDoMotivo: "vedação escrita", dataDaProva: "2026-10-29" },
   { ...tj("tjpi", "TJ do Piauí"), inteiroTeor: "portal", ...SEM_MOTIVO },

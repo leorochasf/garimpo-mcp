@@ -439,7 +439,6 @@ A busca segue no JurisprudênciaIA. Leituras de 2026-10-22:
 O texto de `motivoLink` (src/tribunais.ts) só diz o motivo real onde o Garimpo tem prova própria, com a data; os demais
 seguem «ainda não testou». Provas registradas em 14/10/2026 (STJ em 13/10/2026, seção D-18 acima), as de TJ reconferidas em 29/10/2026 abaixo:
 
-- **TJPA:** a rota de documento devolveu só a casca do aplicativo, sem o acórdão.
 - **STF:** `redir.stf.jus.br` respondeu 202 de WAF à leitura do `robots.txt`.
 
 Provas de 29/10/2026 (matriz ao vivo dos TJs, local; leitura, sem contorno, de uma amostra por tribunal):
@@ -453,6 +452,8 @@ Provas de 29/10/2026 (matriz ao vivo dos TJs, local; leitura, sem contorno, de u
 - **TJAL, TJAM, TJAC:** o endereço do acórdão no eSAJ pede o código da figura (captcha) antes do texto.
 - **TJAP:** o `robots.txt` de `tucujuris.tjap.jus.br` devolveu HTTP 403 com o desafio do Cloudflare.
 - **TJPB:** os dois portais oficiais de jurisprudência estão barrados: `robots.txt` de `juris.tjpb.jus.br` com `Disallow: /` e `pje-jurisprudencia.tjpb.jus.br` com o desafio do Cloudflare (HTTP 403).
+- **TJPA:** o endereço do documento abriu só a tela de pesquisa, sem o acórdão, e a pesquisa do portal não isola um acórdão pelo número do processo (antes, em 14/10: só a casca do aplicativo).
+- **TJMT:** o serviço da pesquisa (`hellsgate.tjmt.jus.br`) respondeu HTTP 401 pedindo chave de API.
 - **TJRN:** segue inconclusivo (busca do site com HTTP 504 em 09/10 e 14/10; nova tentativa de 29/10 também 504 no JurisprudênciaIA).
 
 TRF6 não consta da tabela de tribunais do Garimpo; não foi tratado. O TRF2 entrou pelo e-Proc (ADR-0028).

@@ -14,7 +14,8 @@ describe("motivo do só link com prova própria (datado, sem prometer download f
     ["tjpe", [/robots\.txt do TJPE \(www\.tjpe\.jus\.br\)/, /Disallow: \//, /29\/10\/2026/]],
     ["tjpb", [/juris\.tjpb\.jus\.br/, /Disallow: \//, /pje-jurisprudencia\.tjpb\.jus\.br/, /Cloudflare/, /29\/10\/2026/]],
     ["tjrs", [/robots\.txt do TJRS \(www\.tjrs\.jus\.br\)/, /Disallow: \/busca/, /\/buscas\/jurisprudencia\//, /29\/10\/2026/]],
-    ["tjpa", [/casca do aplicativo/i, /sem o acórdão/i, /14\/10\/2026/]],
+    ["tjpa", [/jurisprudencia\.tjpa\.jus\.br/, /tela de pesquisa/i, /sem o acórdão/i, /número do processo/i, /29\/10\/2026/]],
+    ["tjmt", [/hellsgate\.tjmt\.jus\.br/, /HTTP 401/, /chave de API/, /29\/10\/2026/]],
     ["tjsc", [/eproc1g\.tjsc\.jus\.br/, /bloqueio/i, /não autorizado/i, /29\/10\/2026/]],
     ["tjro", [/juris\.tjro\.jus\.br/, /HTTP 200/, /verificação anti-robô/i, /29\/10\/2026/]],
     ["tjal", [/www2\.tjal\.jus\.br/, /código da figura/i, /captcha/i, /29\/10\/2026/]],
@@ -36,13 +37,13 @@ describe("motivo do só link com prova própria (datado, sem prometer download f
   }
 
   it("tribunais sem prova própria seguem com o texto antigo \"ainda não testou\"", () => {
-    for (const sigla of ["stm", "tjba", "tjce", "tjes", "tjma", "tjmt"]) {
+    for (const sigla of ["stm", "tjba", "tjce", "tjes", "tjma"]) {
       expect(motivo(sigla), sigla).toBe(NAO_TESTADO);
     }
   });
 
   it("os TJs com barreira provada em 29/10 não ficam com a data antiga nem com a explicação genérica", () => {
-    for (const sigla of ["tjpb", "tjpe", "tjse", "tjrj", "tjsc", "tjro", "tjal", "tjam", "tjac", "tjap", "tjrs"]) {
+    for (const sigla of ["tjpa", "tjmt", "tjpb", "tjpe", "tjse", "tjrj", "tjsc", "tjro", "tjal", "tjam", "tjac", "tjap", "tjrs"]) {
       const info = infoTribunal(sigla);
       expect(info?.dataDaProva, sigla).toBe("2026-10-29");
       expect(info?.motivoLink, sigla).not.toMatch(/14\/10\/2026|2026-10-14|ainda não testou/);

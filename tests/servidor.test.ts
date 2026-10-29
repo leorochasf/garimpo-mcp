@@ -1260,7 +1260,7 @@ describe("textos honestos por tribunal: o observado, com data, ou \"ainda não t
     const m = await motivos();
     for (const sigla of ["stm", "tjba", "tjce"]) expect(m.get(sigla), sigla).toBe(NAO_TESTADO);
     for (const [sigla, motivo] of m) {
-      if (["stf", "tjgo", "tjpb", "tjro", "tjal", "tjam", "tjac"].includes(sigla)) continue; // barreiras registradas com evidência
+      if (["stf", "tjgo", "tjmt", "tjpa", "tjpb", "tjro", "tjal", "tjam", "tjac"].includes(sigla)) continue; // barreiras registradas com evidência
       expect(motivo, sigla).not.toMatch(/login|JavaScript|captcha/i);
     }
   });

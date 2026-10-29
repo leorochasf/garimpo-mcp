@@ -24,11 +24,12 @@ const FOTOGRAFIA_B01: Record<string, [string, string | undefined]> = {
   tjap: ["desafio técnico", "2026-10-29"],
   stf: ["desafio técnico", "2026-10-14"],
   tjsc: ["desafio técnico", "2026-10-29"],
-  tjpa: ["rota quebrada", "2026-10-14"],
+  tjpa: ["rota quebrada", "2026-10-29"],
+  tjmt: ["desafio técnico", "2026-10-29"],
   tst: ["não testado", "2026-10-09"],
   tjrn: ["não testado", "2026-10-09"],
   ...Object.fromEntries(
-    ["stm", "tjba", "tjce", "tjes", "tjma", "tjmt"].map(
+    ["stm", "tjba", "tjce", "tjes", "tjma"].map(
       (s): [string, [string, undefined]] => [s, ["não testado", undefined]],
     ),
   ),
@@ -59,7 +60,7 @@ describe("motivo do só link classificado e datado (fotografia B0.1)", () => {
   it("a página garimpo://tribunais diz a classe e a data, ou que não há prova própria", () => {
     const pagina = paginaDeTribunais();
     expect(pagina).toMatch(/\| TJRJ \|.*só link \(vedação escrita; registro de 2026-10-29, sem nova conferência\): .*termo de uso/);
-    expect(pagina).toMatch(/\| TJPA \|.*só link \(rota quebrada; registro de 2026-10-14, sem nova conferência\)/);
+    expect(pagina).toMatch(/\| TJPA \|.*só link \(rota quebrada; registro de 2026-10-29, sem nova conferência\)/);
     expect(pagina).toMatch(/\| TJAP \|.*só link \(desafio técnico; registro de 2026-10-29, sem nova conferência\)/);
     expect(pagina).toMatch(/\| TJBA \|.*só link \(não testado; sem prova própria\)/);
   });
