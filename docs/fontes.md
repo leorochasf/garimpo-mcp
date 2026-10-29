@@ -367,7 +367,7 @@ inteiro teor, com recibo (ADR-0005). Fatos lidos em 2026-10-29 (matriz ao vivo d
   da busca; **nenhum host novo e nenhuma chamada nova**, então não há termo de uso nem `robots.txt` novo a ler (ADR-0017).
 - **Como o Garimpo usa:** converte pela regra fixa (`html.ts`), guarda na memória (24 h) pelo id e serve pelo
   `obter_inteiro_teor`, `ler_inteiro_teor` e `conferir_citacao`, sempre com o rótulo «texto da base do JurisprudênciaIA,
-  não oficial». O `data:` cru nunca vai à resposta. Decisão e limites: ADR-0034 (provisória).
+  não oficial». O `data:` cru nunca vai à resposta. Decisão e limites: ADR-0035 (provisória).
 - **Fixtures** (`tests/fixtures/texto-da-base-tjes.html`, `texto-da-base-tjma.html`): estrutura real, com todo o texto
   trocado por texto fictício (dígitos viram 9, imagens apontam para `exemplo.test`). As gravações brutas ficam fora do
   repositório. No TJMA o corpo real traz partes e advogados com OAB: nada disso entra no repositório.
