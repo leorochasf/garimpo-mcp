@@ -1,7 +1,7 @@
 /**
  * Equivalência de registros: reconhece quando dois registros da base do site são o mesmo acórdão
  * (mesmo tribunal + mesma data de julgamento + mesma ementa, sem números de processo que se contradigam)
- * e os junta num acórdão só. No TJPR, o mesmo documento do portal no link também basta (ADR-0030).
+ * e os junta num acórdão só. No TJPR (ADR-0030) e no TJBA, o mesmo documento do portal no link também basta.
  */
 
 import { documentoDoTjpr } from "./tribunais.js";
@@ -52,13 +52,10 @@ export function juntarEquivalentes<R extends Registro>(ocorrencias: Ocorrencia<R
   const grupos = new Map<string, Ocorrencia<R>[]>();
   ocorrencias.forEach((o, i) => {
     const ementa = ementaNormalizada(o.registro.ementa);
-    // TJPR (ADR-0030): a base do site tem o mesmo acórdão em dois lotes, com rodapés de ementa diferentes; o número do
-    // documento no link do portal é o mesmo nas duas cópias.
-    const documento =
-      o.registro.tribunal === "tjpr" ? documentoDoTjpr(o.registro.link ?? o.registro.linkConsulta) : undefined;
+    const documento = documentoNoTribunal(o.registro);
     // Sem data ou sem ementa não há como afirmar que é o mesmo acórdão: o registro fica sozinho.
     const chave = documento
-      ? `tjpr|documento:${documento}`
+      ? `${o.registro.tribunal}|documento:${documento}`
       : o.registro.dataJulgamento && ementa
         ? `${o.registro.tribunal}|${o.registro.dataJulgamento}|${ementa}`
         : `sozinho:${i}`;
@@ -86,6 +83,32 @@ export function juntarEquivalentes<R extends Registro>(ocorrencias: Ocorrencia<R
   const porId = new Map<string, AcordaoJuntado<R>>();
   for (const a of acordaos) for (const id of a.ids) porId.set(id, a);
   return { acordaos, porId };
+}
+
+/**
+ * O documento do portal no link, nos tribunais em que a base do site traz o mesmo acórdão em cópias de texto ou data
+ * diferentes: o documento é o mesmo nas cópias.
+ */
+function documentoNoTribunal(r: Registro): string | undefined {
+  // TJPR (ADR-0030): dois lotes, com rodapés de ementa diferentes.
+  if (r.tribunal === "tjpr") return documentoDoTjpr(r.link ?? r.linkConsulta);
+  // TJBA: duas cópias com datas diferentes, e a data muda também no rodapé da ementa.
+  if (r.tribunal === "tjba") return documentoDoTjba(r.link) ?? documentoDoTjba(r.linkConsulta);
+  return undefined;
+}
+
+const HOST_TJBA = "jurisprudenciaws.tjba.jus.br";
+const CAMINHO_DO_DOCUMENTO_TJBA = /^\/inteiroTeor\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+
+function documentoDoTjba(link: string | undefined): string | undefined {
+  if (!link) return undefined;
+  try {
+    const url = new URL(link);
+    if (url.protocol !== "https:" || url.host !== HOST_TJBA) return undefined;
+    return CAMINHO_DO_DOCUMENTO_TJBA.exec(url.pathname)?.[1].toLowerCase();
+  } catch {
+    return undefined;
+  }
 }
 
 function juntar<R extends Registro>(copias: Ocorrencia<R>[]): AcordaoJuntado<R> {
