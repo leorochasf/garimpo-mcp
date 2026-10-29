@@ -2,6 +2,10 @@
 
 ## 1.2 (não publicada)
 
+Nesta versão não foi feita a rodada de qualidade do banco de provas (o agente pesquisando ao vivo as teses do banco,
+com júri). Cada mudança passou por testes sem rede e por revisão independente e, quando usa a rede, por uma prova
+ao vivo curta.
+
 - Novo prompt `distinguir_precedente`: monta a ficha do acórdão e uma matriz fato a fato em quatro estados (presente,
   diferente, não informado, não localizado), cada um com o trecho lido como prova; «diferente» só com fato contrário. A
   ferramenta não decide se o precedente se aplica, e os fatos do caso não vão às buscas. O `pesquisar_tese` ganha um
@@ -30,7 +34,7 @@
 - Redação: as instruções e as descrições das ferramentas passam a dizer que o Garimpo pesquisa decisões judiciais
   públicas, com freios em toda chamada. No `consultar_precedente` do STJ, «restrição de acesso» dá lugar à causa real:
   o robots.txt do portal veda o acesso automatizado, e o Garimpo respeita. O README ganha a base legal (CF, art. 93,
-  IX, conferido em 23/10/2026; Lei 9.610/98, art. 8º, IV). Nenhum comportamento muda.
+  IX, e Lei 9.610/98, art. 8º, IV, com o texto reconferido em 29/10/2026). Nenhum comportamento muda.
 - Só endereço do tribunal vira link: quando o JurisprudênciaIA manda, no lugar do link do acórdão, algo que não abre
   como página (no TJES e no TJMA, o HTML do acórdão embutido num endereço `data:`; no TJPB, um endereço `gs://` de
   armazenamento em nuvem), o Garimpo não o mostra mais e diz por quê no novo campo `avisoDeLink`. A busca de 3
@@ -61,6 +65,9 @@
   como trecho do texto do site, sem reescrever, e avisa em avisoDeEmenta. Sem separação segura, vai só o começo, com
   aviso, e a conferência de citação na ementa diz «não verificável». A ementa repetida fica uma vez só em qualquer
   tribunal.
+- TJBA, Câmara Cível: no modelo em que o cabeçalho do processo termina em «ACORDÃO» e a ementa vem sem um segundo
+  «Ementa:», a busca também mostra só a ementa: saem o cabeçalho com nomes das partes, o fecho do acórdão («Vistos,
+  relatados…») e o rodapé, com aviso em avisoDeEmenta. Antes, esse modelo passava inteiro, sem aviso.
 - TJBA: o `obter_inteiro_teor` passa a trazer o texto do acórdão da página pública dele no portal de jurisprudência do
   tribunal, que é o próprio documento da decisão (ementa, relatório e voto), como «texto do portal do tribunal» (HTML,
   sem PDF e sem recibo); dá para ler por partes e conferir citações pelo id. Só guarda o documento cujo cabeçalho traz

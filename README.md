@@ -71,8 +71,8 @@ tribunal e se o precedente ainda vale. O Garimpo cuida dessa parte.
 <summary>Os 27 TJs</summary>
 
 TJAC, TJAL, TJAM, TJAP, TJBA, TJCE, TJDFT, TJES, TJGO, TJMA, TJMG, TJMS, TJMT, TJPA, TJPB, TJPE, TJPI, TJPR, TJRJ,
-TJRN, TJRO, TJRR, TJRS, TJSC, TJSE, TJSP, TJTO. Em alguns (TJRN, TJRJ, TJSE, TJPA, TJSC) o download automático foi
-testado e não está disponível; o Garimpo explica o motivo e leva ao link. TJRJ, TJSE, TJPA e TJSC trazem também a data da conferência (STJ e STF também:
+TJRN, TJRO, TJRR, TJRS, TJSC, TJSE, TJSP, TJTO. Nos 14 que ficam só com o link, o download automático foi
+testado e não está disponível; o Garimpo explica o motivo e leva ao link. Em 13 deles a resposta traz também a barreira observada e a data da conferência (29/10/2026); no TJRN a prova foi inconclusiva (STJ e STF também têm motivo datado:
 ver [Limites conhecidos](#limites-conhecidos)). No TJTO, o portal entrega o acórdão em
 HTML: o `obter_inteiro_teor` o traz como texto, que se lê e confere pelo id (`ler_inteiro_teor`, `conferir_citacao`).
 No TJGO, o texto vem da consulta pública do processo no Projudi, só do julgamento exato que a busca achou (veja
@@ -438,7 +438,7 @@ Os termos de uso do site preveem limites por IP e bloqueio em caso de uso abusiv
 
 O Garimpo consulta decisões de julgamentos públicos (CF, art. 93, IX) e textos de decisões judiciais, que não são
 objeto de proteção como direitos autorais (Lei 9.610/98, art. 8º, IV); só consulta fontes abertas ao público e
-respeita os limites de cada uma. Textos literais, conferidos em 23/10/2026:
+respeita os limites de cada uma. Textos literais, conferidos em 23/10/2026 e reconferidos em 29/10/2026 no planalto.gov.br:
 
 - CF, art. 93, IX (normas.leg.br; redação da EC 45/2004): "todos os julgamentos dos órgãos do Poder Judiciário serão
   públicos, e fundamentadas todas as decisões, sob pena de nulidade, podendo a lei limitar a presença, em determinados
@@ -731,11 +731,12 @@ civil do Estado por omissão."*
 - **Fora do Garimpo por ora:** TRF6 (o termo de uso veda robôs sem autorização expressa), TRF3 e TRF5 (não
   achamos rota pública de jurisprudência), TRF1 (a base antiga do CJF derrubou a conexão; a TNU entrou pelo e-Proc dela) e o Banco Nacional de
   Precedentes do CNJ (a API é só para tribunais credenciados; a consulta pública é só no navegador).
-- **Só link, com o motivo na resposta:** STJ e TJSE (o `robots.txt` veda o acesso automatizado), TJRJ (o termo de uso veda robôs
-  e coleta automática), TJSC e STF (o portal respondeu com página de bloqueio ou proteção anti-robô), TJPA (o
-  endereço levou só à casca do aplicativo, sem o acórdão). Nesses casos, a resposta traz a data da conferência; o Garimpo não
-  troca de identidade nem contorna. No TST, a resposta informa que a prova foi inconclusiva e que o link veio
-  encurtado, fora do portal do tribunal.
+- **Só link, com o motivo na resposta:** STJ, TJSE, TJPE, TJPB e TJRS (o `robots.txt` veda o acesso automatizado
+  ao portal ou à busca), TJRJ (o termo de uso veda robôs e coleta automática), STF, TJSC, TJRO e TJAP (o portal respondeu
+  com página de bloqueio ou proteção anti-robô), TJAC, TJAL e TJAM (o eSAJ pede o código da figura, um captcha), TJMT
+  (o serviço da pesquisa pede chave de API) e TJPA (o endereço levou só à tela de pesquisa, sem o acórdão). Nesses
+  casos, a resposta traz a data da conferência; o Garimpo não troca de identidade nem contorna. No TST e no TJRN, a
+  resposta informa que a prova foi inconclusiva (no TST, o link veio encurtado, fora do portal do tribunal).
 - **Avisos de "quem disse"** (órgão do fecho x órgão do registro) estão construídos e **desligados**: faltam a validação
   cega por dois juristas e o segundo avaliador.
 - **Índice de dispositivo legal pelos Espelhos de Acórdãos do STJ** (artigo → acórdãos): não é entregue nesta versão.
