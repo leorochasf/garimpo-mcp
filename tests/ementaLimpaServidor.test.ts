@@ -103,6 +103,36 @@ describe("conferência «na ementa» com a ementa limpa (TJBA)", () => {
     expect(ementa.veredito).toBe("encontrado literalmente");
   });
 
+  // B05-R01 e B05-R02, nas duas portas: busca nova e memória de antes da regra.
+  const REPETIDA = `${TJBA} ${TJBA}`;
+  const TITULOS = `EMENTA: DIREITO CIVIL. ${DA_EMENTA} RELATÓRIO: Relato fictício. VOTO: ${DO_VOTO}`;
+
+  it.each([
+    { caso: "busca nova", antiga: false },
+    { caso: "memória antiga", antiga: true },
+  ])("decisão inteira repetida 2 vezes ($caso): o voto não sai como encontrado na ementa", async ({ antiga }) => {
+    const mcp = await conectar(site(REPETIDA), antiga ? await memoriaAntiga(REPETIDA) : undefined);
+    if (!antiga) await chamar(mcp, "busca_direta", { tribunal: "tjba", texto: "exemplo" });
+
+    const [voto, ementa] = await naEmenta(mcp, DO_VOTO, DA_EMENTA);
+
+    expect(voto.veredito).toBe("não encontrado");
+    expect(ementa.veredito).toBe("encontrado literalmente");
+  });
+
+  it.each([
+    { caso: "busca nova", antiga: false },
+    { caso: "memória antiga", antiga: true },
+  ])("títulos «RELATÓRIO:» e «VOTO:» ($caso): não verificável com o motivo", async ({ antiga }) => {
+    const mcp = await conectar(site(TITULOS), antiga ? await memoriaAntiga(TITULOS) : undefined);
+    if (!antiga) await chamar(mcp, "busca_direta", { tribunal: "tjba", texto: "exemplo" });
+
+    const [voto] = await naEmenta(mcp, DO_VOTO);
+
+    expect(voto.veredito).toBe("não verificável");
+    expect(JSON.stringify(voto)).toContain(INCERTA);
+  });
+
   it("memória de antes da regra sem separação segura: não verificável", async () => {
     const mcp = await conectar(site(SEM_FIM), await memoriaAntiga(SEM_FIM));
 

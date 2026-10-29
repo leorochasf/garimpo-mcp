@@ -23,32 +23,60 @@ const COM_CABECALHO = new Set(["tjba", "tjpe", "tjmt", "tjpb"]);
 const MARCADOR_DA_EMENTA = /\bEMENTA\b|\bEmenta\s*:|E M E N T A/g;
 /** Cabeçalho mais longo que isso não é cabeçalho: o marcador achado deve estar no meio do texto. */
 const LIMITE_DO_CABECALHO = 1_500;
+/**
+ * Prova de cabeçalho antes do marcador: o rótulo de uma parte com dois-pontos («APELANTE:», «Recorrente(s):»,
+ * «APELADO(A):», «Apelante :»). Sem ele, um «EMENTA» no meio é texto da própria ementa.
+ */
+const ROTULO_DE_PARTE =
+  /\b(?:apelante|apelad[oa]|recorrente|recorrid[oa]|agravante|agravad[oa]|embargante|embargad[oa]|impetrante|impetrad[oa]|requerente|requerid[oa])(?:\s*\([^)]{1,3}\))?\s*:/i;
 /** TJBA: o que vem depois da ementa, na Turma Recursal («RELATÓRIO») e na Câmara («ACÓRDÃO Vistos…»). */
 const FIM_DA_EMENTA_TJBA = /\sRELATÓRIO\s|\sACÓRDÃO\s+Vistos\b/;
-/** TJBA: sinais de decisão inteira no campo, quando o marcador da ementa não aparece. */
-const SINAL_DE_DECISAO_TJBA = /\bRELATÓRIO\s|\bVOTO\s|\bACÓRDÃO\s+Vistos\b|\bACORDAM\b/;
+/**
+ * Títulos de relatório e voto (e o fecho do acórdão): em maiúsculas, seguidos de pontuação ou do começo de uma frase
+ * («RELATÓRIO Trata-se», «VOTO:», «RELATORIO -»); em qualquer caixa, só com dois-pontos («Voto:»). «VOTO VENCIDO» e
+ * «RELATÓRIO DE IMPACTO» são palavras da ementa, não títulos.
+ */
+const TITULO_DE_DECISAO =
+  /\b(?:RELAT[ÓO]RIO|VOTO)(?:\s*[:.–—-]|\s+[A-ZÀ-Ý][a-zà-ÿ])|\bACORDAM\b|\bACÓRDÃO\s+Vistos\b/;
+const TITULO_COM_DOIS_PONTOS = /\b(?:relat[óo]rio|voto)\s*:/i;
 /** O começo mostrado quando a ementa não se separa com segurança. */
 const TAMANHO_DO_COMECO = 600;
 
+/**
+ * As regras se compõem: a repetição escolhe uma cópia, e a separação do tribunal continua sobre ela. O que fica é
+ * sempre um trecho contínuo do campo, e os avisos se somam.
+ */
 export function limparEmenta(tribunal: string, campo: string): EmentaLimpa {
   const repetida = semRepeticao(campo);
-  if (repetida) return { ementa: repetida.ementa, aviso: avisoDeRepeticao(repetida.vezes) };
-  if (!COM_CABECALHO.has(tribunal)) return { ementa: campo };
+  const texto = repetida?.ementa ?? campo;
+  const separada = COM_CABECALHO.has(tribunal) ? separar(tribunal, texto.trim()) : undefined;
+  if (!repetida && !separada) return { ementa: campo };
+  const avisos = [repetida && avisoDeRepeticao(repetida.vezes), separada?.aviso].filter(Boolean);
+  return {
+    ementa: separada?.ementa ?? texto,
+    aviso: avisos.join(" "),
+    ...(separada?.separacaoIncerta && { separacaoIncerta: true as const }),
+  };
+}
 
-  const texto = campo.trim();
+/**
+ * Cabeçalho (TJPE, TJMT, TJPB) e decisão inteira (TJBA). Sobrou título de relatório ou voto no que seria a ementa:
+ * a separação não é segura e vai só o começo. Nada a separar: undefined.
+ */
+function separar(tribunal: string, texto: string): EmentaLimpa | undefined {
   const inicio = inicioDaEmentaDepoisDoCabecalho(texto);
-  if (tribunal !== "tjba") {
-    return inicio === undefined ? { ementa: campo } : { ementa: texto.slice(inicio), aviso: AVISO_DE_CABECALHO };
-  }
+  if (inicio === undefined) return temTituloDeDecisao(texto) ? soOComeco(texto) : undefined;
+  const depois = texto.slice(inicio);
+  // TJBA: o campo traz a decisão inteira (cabeçalho, ementa, relatório, voto); a ementa vai até o relatório.
+  const fim = tribunal === "tjba" ? FIM_DA_EMENTA_TJBA.exec(depois) : undefined;
+  if (tribunal === "tjba" && !fim) return soOComeco(depois);
+  const ementa = fim ? depois.slice(0, fim.index).trimEnd() : depois;
+  if (temTituloDeDecisao(ementa)) return soOComeco(ementa);
+  return { ementa, aviso: tribunal === "tjba" ? AVISO_DE_DECISAO_INTEIRA : AVISO_DE_CABECALHO };
+}
 
-  // TJBA: o campo traz a decisão inteira (cabeçalho, ementa, relatório, voto); fica só a ementa.
-  if (inicio !== undefined) {
-    const depois = texto.slice(inicio);
-    const fim = FIM_DA_EMENTA_TJBA.exec(depois);
-    if (fim) return { ementa: depois.slice(0, fim.index).trimEnd(), aviso: AVISO_DE_DECISAO_INTEIRA };
-    return soOComeco(depois);
-  }
-  return SINAL_DE_DECISAO_TJBA.test(texto) ? soOComeco(texto) : { ementa: campo };
+function temTituloDeDecisao(texto: string): boolean {
+  return TITULO_DE_DECISAO.test(texto) || TITULO_COM_DOIS_PONTOS.test(texto);
 }
 
 /**
@@ -71,11 +99,14 @@ function semRepeticao(campo: string): { ementa: string; vezes: number } | undefi
   return undefined;
 }
 
-/** O primeiro marcador de ementa depois do começo do texto (o do começo, se houver, é o do cabeçalho). */
+/**
+ * O primeiro marcador de ementa depois do começo do texto (o do começo, se houver, é o do cabeçalho) com o rótulo de
+ * uma parte antes dele, dentro do limite do cabeçalho.
+ */
 function inicioDaEmentaDepoisDoCabecalho(texto: string): number | undefined {
   for (const m of texto.matchAll(MARCADOR_DA_EMENTA)) {
-    if (m.index === 0) continue;
-    return m.index <= LIMITE_DO_CABECALHO ? m.index : undefined;
+    if (m.index > LIMITE_DO_CABECALHO) return undefined;
+    if (m.index > 0 && ROTULO_DE_PARTE.test(texto.slice(0, m.index))) return m.index;
   }
   return undefined;
 }

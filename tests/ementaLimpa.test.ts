@@ -161,4 +161,76 @@ describe("ementa limpa: decisão inteira no campo (TJBA)", () => {
     const campo = "RECURSO INOMINADO. CONSUMIDOR. EXEMPLO FICTÍCIO. RECURSO CONHECIDO E PROVIDO.";
     expect(limparEmenta("tjba", campo)).toEqual({ ementa: campo });
   });
+
+  // B05-R01: as regras se compõem; a repetição escolhe a cópia, e a separação do tribunal continua sobre ela.
+  it("decisão inteira repetida 2 vezes: fica uma vez e só a ementa, com os dois avisos", () => {
+    const campo = `${TURMA} ${TURMA}`;
+
+    const limpa = limparEmenta("tjba", campo);
+
+    expect(limpa.ementa.startsWith("E M E N T A RECURSO INOMINADO.")).toBe(true);
+    expect(limpa.ementa.endsWith("RECURSO CONHECIDO E PROVIDO.")).toBe(true);
+    expect(limpa.ementa).not.toContain("Trecho só do voto");
+    expect(campo).toContain(limpa.ementa);
+    expect(limpa.aviso).toContain("2 vezes");
+    expect(limpa.aviso).toContain("decisão inteira");
+    expect(limpa.separacaoIncerta).toBeUndefined();
+  });
+
+  it("decisão inteira repetida sem o fim reconhecível: incerta", () => {
+    const semFim = TURMA.replace("RELATÓRIO", "Relato").replace("VOTO", "Voto");
+    const limpa = limparEmenta("tjba", `${semFim} ${semFim}`);
+    expect(limpa.separacaoIncerta).toBe(true);
+    expect(limpa.aviso).toContain("2 vezes");
+  });
+
+  // B05-R02: títulos de relatório e voto com pontuação ou outra caixa não deixam o voto passar por ementa.
+  it.each([
+    "EMENTA: DIREITO CIVIL. EXEMPLO FICTÍCIO. RELATÓRIO: Relato fictício. VOTO: Trecho só do voto.",
+    "EMENTA: DIREITO CIVIL. EXEMPLO FICTÍCIO. Relatório: Relato fictício. Voto: Trecho só do voto.",
+    "EMENTA: DIREITO CIVIL. EXEMPLO FICTÍCIO. RELATORIO - Relato fictício. VOTO - Trecho só do voto.",
+    "EMENTA: DIREITO CIVIL. EXEMPLO FICTÍCIO. relatório: Relato fictício. voto: Trecho só do voto.",
+  ])("títulos com pontuação ou outra caixa (%s): incerta, nunca o campo inteiro como ementa segura", (campo) => {
+    const limpa = limparEmenta("tjba", campo);
+    expect(limpa.separacaoIncerta).toBe(true);
+    expect(limpa.aviso).toContain("começo");
+  });
+
+  it("depois do corte, a ementa que ainda traz título de voto é incerta", () => {
+    const campo = TURMA.replace("SENTENÇA REFORMADA.", "SENTENÇA REFORMADA. VOTO: Trecho só do voto.");
+    expect(limparEmenta("tjba", campo).separacaoIncerta).toBe(true);
+  });
+
+  it("a limpeza é idempotente na ementa já limpa (a conferência a reaplica na memória)", () => {
+    for (const campo of [TURMA, CAMARA, `${TURMA} ${TURMA}`]) {
+      const limpa = limparEmenta("tjba", campo);
+      expect(limparEmenta("tjba", limpa.ementa)).toEqual({ ementa: limpa.ementa });
+    }
+  });
+
+  it("palavras de voto e relatório que fazem parte da ementa não a tornam incerta", () => {
+    const campo =
+      "EMENTA: DIREITO AMBIENTAL. RELATÓRIO DE IMPACTO AMBIENTAL. JULGAMENTO POR MAIORIA. VOTO VENCIDO. RECURSO " +
+      "PROVIDO, nos termos do voto do relator e do relatório da sentença.";
+    expect(limparEmenta("tjba", campo)).toEqual({ ementa: campo });
+  });
+});
+
+describe("ementa limpa: só há cabeçalho a tirar se o prefixo tem partes (B05-R03)", () => {
+  it.each(["tjba", "tjpe", "tjmt", "tjpb"])(
+    "%s: ementa normal que menciona «EMENTA» ou «Ementa:» no texto fica intacta",
+    (tribunal) => {
+      const campo =
+        "Ementa: DIREITO CIVIL. REFERÊNCIA À EMENTA DO JULGADO ANTERIOR. Ementa: transcrita no voto de origem. " +
+        "RECURSO DESPROVIDO.";
+      expect(limparEmenta(tribunal, campo)).toEqual({ ementa: campo });
+    },
+  );
+
+  it.each([
+    { tribunal: "tjba", campo: "EMENTA: DIREITO CIVIL. RECURSO DESPROVIDO. EMENTA REVISADA PELO RELATOR." },
+    { tribunal: "tjmt", campo: "RECURSO INOMINADO. CONSUMIDOR. EMENTA DO JULGADO DE ORIGEM MANTIDA. RECURSO DESPROVIDO." },
+  ])("$tribunal: «EMENTA» no meio sem partes antes não é fim de cabeçalho", ({ tribunal, campo }) => {
+    expect(limparEmenta(tribunal, campo)).toEqual({ ementa: campo });
+  });
 });
