@@ -24,6 +24,7 @@ import {
   LIMITE_BYTES_PDF,
   NAO_INFORMADO,
   ORIGEM_DOWNLOAD,
+  textoEhDaBase,
 } from "./leitura.js";
 import { htmlComConteudoOculto, htmlComIndicioDeCorte, htmlParaTexto } from "./html.js";
 import type { Memoria, TextoIntegral } from "./memoria.js";
@@ -35,6 +36,7 @@ import { textoDoTjpr } from "./tjpr.js";
 import { textoDaTnu } from "./tnu.js";
 import { textoDoTrf2 } from "./trf2.js";
 import { textoDoTrf4 } from "./trf4.js";
+import { ROTULO_TEXTO_DA_BASE } from "./textoDaBase.js";
 import { type ClasseDoMotivo, ehDoFalcao, infoTribunal } from "./tribunais.js";
 
 export interface PedidoInteiroTeor {
@@ -114,6 +116,10 @@ function chamadaPronta(id: string | undefined, tribunal: string): { chamadaPront
   const alvo = id ? { id } : tribunal ? { tribunal } : {};
   return { chamadaPronta: { ferramenta: "ler_inteiro_teor", argumentos: { caminho: CAMINHO_A_PREENCHER, ...alvo } } };
 }
+
+/** Como ler o texto guardado e conferir citações, com o mesmo id. */
+const leiaOTexto = (id: string) =>
+  `Leia com o ler_inteiro_teor com o id ${id} (fica na memória do Garimpo por 24 h) e confira citações com o conferir_citacao pelo mesmo id.`;
 
 /** O número do acórdão como a busca o trouxe (o CNJ, se houver); sem número, nada. */
 function numeroDoAcordao(acordao: Acordao | undefined): string | undefined {
@@ -268,6 +274,21 @@ export async function obterInteiroTeor(
   if (tribunal === "tjce" && info.inteiroTeor === "baixa" && !acordao?.numeroCnj) {
     return recusaSemNumeroDoTjce(link, pedido.id, acordao);
   }
+  // Sem caminho oficial (TJES, TJMA): o texto que a busca guardou da base do JurisprudênciaIA, sem nenhuma chamada. O
+  // portal registrado, quando houver, prevalece e segue abaixo.
+  if (info.inteiroTeor === "base" && !portalComIntegra(tribunal) && acordao && memoria) {
+    const daBase = await memoria.obterTexto(acordao.id);
+    if (daBase?.texto && !daBase.motivoSemTexto) {
+      return {
+        baixado: false,
+        ...(link || acordao.linkConsulta ? { link: link ?? acordao.linkConsulta } : {}),
+        explicacao:
+          `O Garimpo tem o ${ROTULO_TEXTO_DA_BASE}: o JurisprudênciaIA guarda este acórdão em HTML, e o Garimpo o converteu ` +
+          "em texto e o guardou na memória. Não é o PDF do tribunal, não tem recibo de origem e não foi conferido com o " +
+          `tribunal. ${leiaOTexto(acordao.id)}`,
+      };
+    }
+  }
   // Sem link utilizável (nem no pedido, nem na busca): o link pedido à rota de link do site, quando ela tem.
   if (!linkDoPedido) acordao = await comLinkDaRota(acordao, guardado?.obtidoEm, site, memoria);
   const linkDaRota = link || acordao?.linkConsulta ? undefined : acordao?.linkDaRota;
@@ -277,10 +298,14 @@ export async function obterInteiroTeor(
 
   if (portalComIntegra(tribunal) || info.inteiroTeor === "portal") return textoDoPortal(info.nome, acordao, link ?? (tribunal === "tjpi" ? acordao?.linkConsulta : undefined) ?? linkDaRota, clienteDe(tribunal), memoria, pronta, naoTrouxeLink);
 
-  if (info.inteiroTeor === "link") {
+  if (info.inteiroTeor === "link" || info.inteiroTeor === "base") {
     // Sem link do PDF (comum no STF), o link oficial de consulta serve para o usuário abrir no navegador.
     const linkOficial = link ?? acordao?.linkConsulta ?? linkDaRota;
-    const motivo = info.motivoLink ?? "";
+    const motivo =
+      info.motivoLink ??
+      (info.inteiroTeor === "base"
+        ? `O registro deste acórdão na base do JurisprudênciaIA não trouxe o texto embutido, e o Garimpo não tem caminho oficial para baixar o inteiro teor do ${info.sigla.toUpperCase()}; ${linkOficial ? "abra o link no navegador" : "procure o acórdão no portal do tribunal"}.`
+        : "");
     const classificado = { classeDoMotivo: info.classeDoMotivo, ...(info.dataDaProva && { dataDaProva: info.dataDaProva }) };
     if (!linkOficial) {
       // Sem link, o "abra o link no navegador" do texto de tribunal não testado não tem o que abrir.
@@ -400,6 +425,8 @@ async function textoDoPortal(
     `Leia com o ler_inteiro_teor com o id ${acordao.id} (fica na memória do Garimpo por 24 h) e confira citações ` +
     "com o conferir_citacao pelo mesmo id.";
   let textoGuardado: TextoIntegral | undefined = await memoria.obterTexto(acordao.id);
+  // Texto da base nunca satisfaz o cache do texto do portal: sem passar pelas guardas do portal, não é texto dele.
+  if (textoEhDaBase(textoGuardado, acordao.id)) textoGuardado = undefined;
   // Tribunal registrado no molde «página com íntegra»: as guardas e o motivo vêm de lá; os antigos seguem abaixo.
   const portal = portalComIntegra(acordao.tribunal);
   if (!textoGuardado && portal) {
@@ -413,7 +440,7 @@ async function textoDoPortal(
           "verificado, nada foi guardado. Abra o link no navegador para conferir o documento.",
       };
     }
-    textoGuardado = { id: acordao.id, ...daPagina };
+    textoGuardado = { id: acordao.id, origem: "portal", ...daPagina };
     memoria.lembrarTextos([textoGuardado]);
   }
   if (!textoGuardado) {
@@ -467,7 +494,7 @@ async function textoDoPortal(
             "conferir o documento.",
       };
     }
-    textoGuardado = { id: acordao.id, ...trazido };
+    textoGuardado = { id: acordao.id, origem: "portal", ...trazido };
     memoria.lembrarTextos([textoGuardado]);
   }
   if (textoGuardado.motivoSemTexto || !textoGuardado.texto) {

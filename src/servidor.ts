@@ -30,6 +30,7 @@ import {
 import {
   AVISO_DE_CORTE,
   contarPaginas,
+  ehTextoDaBase,
   ehTextoDoPortal,
   type InteiroTeorParaConferir,
   LIMITE_CARACTERES_PARTE,
@@ -37,6 +38,8 @@ import {
   lerParaConferir,
   lerTextoIntegral,
   naturezaDoTexto,
+  avisoDeCorteDoTexto,
+  textoEhDaBase,
   avisoSemTextoIntegral,
   textoForaDaMemoria,
 } from "./leitura.js";
@@ -59,6 +62,7 @@ import {
   ehDoTnu,
   ehDoTrf2,
   ehDoTrf4,
+  INTEIRO_TEOR_BASE,
   INTEIRO_TEOR_PORTAL,
   INTEIRO_TEOR_TRT,
   paginaDeTribunais,
@@ -718,13 +722,14 @@ export function criarServidor(
         "fora da pasta de destino. " +
         "Acórdão que veio da busca sem link nenhum: pede o link oficial, uma vez, à rota de link do JurisprudênciaIA " +
         "(exceto TST) e diz que ele veio de lá; sem link também ali, diz como achar o acórdão pelo número CNJ. " +
-        "Baixa do TJMG, TJMS, TJRR, TJSP e TSE. STJ: não baixa (o robots.txt de processo.stj.jus.br veda o acesso automatizado); devolve o link para conferência manual, e o PDF baixado antes com recibo, ou trazido pelo usuário, é lido normalmente. TRT (Falcão): não há PDF a baixar; explica e aponta o ler_inteiro_teor pelo " +
-        "id. TJBA, TJGO, TJPI, TJPR, TJTO, TRF2, TRF4 e TNU: o portal entrega o acórdão em HTML; o Garimpo o traz como texto do portal do tribunal (sem PDF " +
+        "Baixa do TJCE, TJMG, TJMS, TJRR, TJSP e TSE. STJ: não baixa (o robots.txt de processo.stj.jus.br veda o acesso automatizado); devolve o link para conferência manual, e o PDF baixado antes com recibo, ou trazido pelo usuário, é lido normalmente. TRT (Falcão): não há PDF a baixar; explica e aponta o ler_inteiro_teor pelo " +
+        "id. TJBA, TJDFT, TJGO, TJPI, TJPR, TJTO, TRF2, TRF4 e TNU: o portal entrega o acórdão em HTML; o Garimpo o traz como texto do portal do tribunal (sem PDF " +
         "nem recibo) para a memória e aponta o ler_inteiro_teor e o conferir_citacao pelo id. No TJGO, só o julgamento " +
         "exato que a busca achou (mesma data e hora, conferido pela ementa); sem casamento seguro, devolve o link do " +
         "processo e o motivo. Para STF e demais devolve o link e explica como obter no navegador " +
         "(o Garimpo não contorna captcha nem proteção anti-robô) e como ler o PDF baixado: passar o caminho do " +
-        "arquivo ao ler_inteiro_teor. Informe o id que veio na busca ou tribunal + link.",
+        "arquivo ao ler_inteiro_teor. Informe o id que veio na busca ou tribunal + link. " +
+        "TJES e TJMA: sem caminho oficial, o texto da base do JurisprudênciaIA, não oficial (HTML do registro convertido em texto, sem PDF nem recibo), guardado pela busca; leia pelo id.",
       // Só grava arquivo novo, nunca sobrescreve: sem a marca, o MCP presume "destrutiva".
       annotations: { destructiveHint: false },
       inputSchema: {
@@ -770,7 +775,8 @@ export function criarServidor(
         "tamanho (não são páginas de PDF), com cabeçalho de fonte, julgado em e juntado em; o texto fica na memória " +
         "por 24 h desde a busca, e texto com indício de corte vem marcado como incompleto. Tribunais com texto do " +
         "portal do tribunal (TJBA, TJDFT, TJGO, TJPI, TJPR, TJTO, TRF2, TRF4 e TNU), só com o id, depois do " +
-        "obter_inteiro_teor: o texto do portal, do mesmo jeito.",
+        "obter_inteiro_teor: o texto do portal, do mesmo jeito. " +
+        "TJES e TJMA, só com o id: o texto da base do JurisprudênciaIA, não oficial.",
       annotations: { readOnlyHint: true, openWorldHint: false },
       inputSchema: {
         caminho: z
@@ -797,7 +803,7 @@ export function criarServidor(
       try {
         conferirTribunais(vinculo.tribunal);
         if (caminho === undefined) {
-          if (vinculo.id && (ehDoFalcao(vinculo.id.split(":")[0]) || ehTextoDoPortal(vinculo.id))) {
+          if (vinculo.id && (ehDoFalcao(vinculo.id.split(":")[0]) || ehTextoDoPortal(vinculo.id) || ehTextoDaBase(vinculo.id))) {
             return json(await lerTextoIntegral(vinculo.id, parte, memoria));
           }
           throw new Error(
@@ -842,7 +848,8 @@ export function criarServidor(
         "identificada\". Passagem entre aspas, ou no PDF logo depois de \"in verbis\", \"confira-se\" e semelhantes, " +
         "ganha o aviso de que pode ser de outro autor; no relatório ou num voto vencido, aviso forte. O Garimpo nunca " +
         "diz de quem é a passagem. Achar o texto não autentica a fonte, e o id junto do caminho de um PDF trazido é só " +
-        "vínculo declarado. Só lê: não chama a rede e não grava.",
+        "vínculo declarado. Só lê: não chama a rede e não grava. " +
+        "TJES e TJMA, com o id: confere também no texto da base do JurisprudênciaIA, não oficial.",
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
       inputSchema: {
         // Item malformado é conferido dentro da ferramenta: vira resultado próprio, com frase que ensina a corrigir,
@@ -903,7 +910,7 @@ export function criarServidor(
         if (id !== undefined) {
           const a = (await memoria.obter(id))?.acordao;
           const doFalcao = ehDoFalcao(id.split(":")[0]);
-          const doPortal = ehTextoDoPortal(id);
+          const doPortal = ehTextoDoPortal(id) || ehTextoDaBase(id);
           // A memória de antes da ementa limpa (até 24 h) guarda o campo inteiro: a limpeza vale também para ela.
           const limpa = a && !doFalcao ? limparEmenta(a.tribunal, a.ementa) : undefined;
           const ementa = limpa?.ementa ?? a?.ementa ?? "";
@@ -920,6 +927,8 @@ export function criarServidor(
           if (doFalcao || doPortal) {
             const t = await memoria.obterTexto(id);
             const semTexto = t?.motivoSemTexto;
+            // A origem efetiva é a do texto guardado, não a configuração atual do tribunal.
+            const daBase = t ? textoEhDaBase(t, id) : ehTextoDaBase(id);
             const noTexto = semTexto
               ? naoVerificavel(`${avisoSemTextoIntegral(semTexto)} Não há acórdão para conferir além da ementa.`)
               : t
@@ -927,12 +936,12 @@ export function criarServidor(
                 : naoVerificavel(textoForaDaMemoria(id));
             const corte =
               t?.indicioDeCorte && noTexto.veredito !== "não verificável"
-                ? { aviso: `${AVISO_DE_CORTE} Uma citação "não encontrada" pode estar no trecho que faltou.` }
+                ? { aviso: `${daBase ? avisoDeCorteDoTexto("base") : AVISO_DE_CORTE} Uma citação "não encontrada" pode estar no trecho que faltou.` }
                 : {};
             const avisos = [(corte as { aviso?: string }).aviso, t?.conteudoOculto ? AVISO_CONTEUDO_OCULTO : undefined].filter(Boolean);
             fontes.push({
               fonte: "texto integral", id,
-              origem: naturezaDoTexto(Boolean(semTexto), doPortal, id),
+              origem: naturezaDoTexto(Boolean(semTexto), doPortal, id, daBase),
               ...noTexto,
               ...(avisos.length > 0 && { aviso: avisos.join(" ") }),
             });
@@ -1157,6 +1166,7 @@ export function criarServidor(
           ...(t.motivoLink ? { motivo: t.motivoLink } : {}),
           ...(t.inteiroTeor === "texto" ? { motivo: INTEIRO_TEOR_TRT } : {}),
           ...(t.inteiroTeor === "portal" ? { motivo: INTEIRO_TEOR_PORTAL } : {}),
+          ...(t.inteiroTeor === "base" ? { motivo: INTEIRO_TEOR_BASE } : {}),
         })),
       ),
   );

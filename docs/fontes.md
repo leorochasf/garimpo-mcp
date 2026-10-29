@@ -360,6 +360,20 @@ inteiro teor, com recibo (ADR-0005). Fatos lidos em 2026-10-29 (matriz ao vivo d
 - **Não verificado:** que o PDF é sempre o acórdão assinado inteiro (visto em 2); o limite
   de ritmo do eSAJ do TJCE; redirecionamentos.
 
+## Texto da base do JurisprudênciaIA (TJES e TJMA)
+
+- **O que é:** no TJES e no TJMA, o registro da busca do JurisprudênciaIA traz o acórdão em HTML, embutido no campo do
+  link como `data:text/html;base64,…`. Gravação do Rede em 2026-10-29 (tamanhos de 15 a 294 KB). Fonte: a própria resposta
+  da busca; **nenhum host novo e nenhuma chamada nova**, então não há termo de uso nem `robots.txt` novo a ler (ADR-0017).
+- **Como o Garimpo usa:** converte pela regra fixa (`html.ts`), guarda na memória (24 h) pelo id e serve pelo
+  `obter_inteiro_teor`, `ler_inteiro_teor` e `conferir_citacao`, sempre com o rótulo «texto da base do JurisprudênciaIA,
+  não oficial». O `data:` cru nunca vai à resposta. Decisão e limites: ADR-0035 (provisória).
+- **Fixtures** (`tests/fixtures/texto-da-base-tjes.html`, `texto-da-base-tjma.html`): estrutura real, com todo o texto
+  trocado por texto fictício (dígitos viram 9, imagens apontam para `exemplo.test`). As gravações brutas ficam fora do
+  repositório. No TJMA o corpo real traz partes e advogados com OAB: nada disso entra no repositório.
+- **Não verificado:** que o HTML seja sempre o acórdão inteiro; que o campo `data:` venha em todos os registros; que o
+  texto confira com o do tribunal.
+
 ## Busca oficial do e-Proc do TRF4 (ementa e texto do portal do tribunal)
 
 Usada por `busca_direta` com `tribunal: "trf4"` e por `obter_inteiro_teor` (D-07 / G-31, [ADR-0024](adr/0024-trf4-busca-oficial-do-eproc-e-texto-do-portal.md)).

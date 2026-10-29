@@ -29,7 +29,7 @@ const FOTOGRAFIA_B01: Record<string, [string, string | undefined]> = {
   tst: ["não testado", "2026-10-09"],
   tjrn: ["não testado", "2026-10-09"],
   ...Object.fromEntries(
-    ["stm", "tjes", "tjma"].map(
+    ["stm"].map(
       (s): [string, [string, undefined]] => [s, ["não testado", undefined]],
     ),
   ),
@@ -39,7 +39,7 @@ const FOTOGRAFIA_B01: Record<string, [string, string | undefined]> = {
 const SEM_PASTA = join(tmpdir(), "garimpo-b22-pasta-que-nao-existe");
 
 describe("motivo do só link classificado e datado (fotografia B0.1)", () => {
-  it("os 20 tribunais só link, e só eles, têm a classe e a data da fotografia", () => {
+  it("os tribunais só link, e só eles, têm a classe e a data da fotografia", () => {
     const soLink = TRIBUNAIS.filter((t) => t.inteiroTeor === "link").map((t) => t.sigla);
     expect(soLink.sort()).toEqual(Object.keys(FOTOGRAFIA_B01).sort());
     for (const t of TRIBUNAIS) {
