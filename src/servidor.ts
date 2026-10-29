@@ -574,7 +574,8 @@ export function criarServidor(
         "posição na busca de origem. Cada tribunal pedido com acórdão aderente tem vagas garantidas. Aderência mede " +
         "proximidade de texto, não relevância jurídica. Saída compacta: número, tribunal, data, órgão, trecho da " +
         "ementa onde a tese aparece e link (avisoDeLink quando o site mandou, no lugar do link, um endereço que não é " +
-        "página do tribunal); e, em lista separada, os precedentes qualificados (temas, súmulas) que " +
+        "página do tribunal; avisoDeClasse quando os próprios dados põem em dúvida a classe que o site informa, como " +
+        "na busca_direta); e, em lista separada, os precedentes qualificados (temas, súmulas) que " +
         "o site devolveu. O campo cabecalhoDeCobertura traz, por tribunal, buscas feitas, vazias, com erro e não " +
         "feitas, acórdãos achados e mostrados; as formulações que não trouxeram nada; e se a lista foi cortada pelo " +
         "máximo. Busca vazia não é busca com erro: tribunal em que nenhuma busca deu resposta aparece \"com erro\" " +
