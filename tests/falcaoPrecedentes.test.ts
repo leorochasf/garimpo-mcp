@@ -179,7 +179,7 @@ describe("a coleção precedentes gasta o teto diário do Falcão (I-05)", () =>
   beforeEach(async () => {
     pasta = await mkdtemp(join(tmpdir(), "garimpo-falcao-precedentes-"));
   });
-  afterEach(() => rm(pasta, { recursive: true, force: true }));
+  afterEach(() => rm(pasta, { recursive: true, force: true, maxRetries: 10 }));
 
   function clienteComTeto(chamadas: number, pedidos: string[]) {
     // Relógio próprio que a espera avança: o 1 s entre chamadas ao Falcão não vira espera real nem laço.

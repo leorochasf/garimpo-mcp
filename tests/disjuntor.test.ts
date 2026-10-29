@@ -16,7 +16,7 @@ let pasta: string;
 beforeEach(async () => {
   pasta = await mkdtemp(join(tmpdir(), "garimpo-disjuntor-"));
 });
-afterEach(() => rm(pasta, { recursive: true, force: true }));
+afterEach(() => rm(pasta, { recursive: true, force: true, maxRetries: 10 }));
 
 const tique = (ms = 5) => new Promise((r) => setTimeout(r, ms));
 const MIN = 60_000;
