@@ -193,6 +193,49 @@ describe("ementa limpa: decisão inteira no campo (TJBA)", () => {
     if (!/APELANTE/.test(campo)) expect(limpa).toEqual({ ementa: campo });
   });
 
+  // B20-R01: um «APELANTE:» solto no corpo não faz do «ACÓRDÃO» interno um fim de cabeçalho.
+  it.each([
+    "EMENTA: DIREITO PROCESSUAL. ALEGAÇÃO DO APELANTE: AUSÊNCIA DE FUNDAMENTAÇÃO. ACÓRDÃO RECORRIDO MANTIDO. RECURSO DESPROVIDO.",
+    "EMENTA: DIREITO CIVIL. APELANTE: EXEMPLO. APELADO: OUTRO. ACÓRDÃO RECORRIDO MANTIDO. RECURSO DESPROVIDO.",
+    "EMENTA: PODER JUDICIÁRIO. ALEGAÇÃO DO APELANTE: EXEMPLO. ACÓRDÃO RECORRIDO MANTIDO. RECURSO DESPROVIDO.",
+  ])("«ACÓRDÃO» interno sem a ficha do cabeçalho antes (%s): o campo fica como veio", (campo) => {
+    expect(limparEmenta("tjba", campo)).toEqual({ ementa: campo });
+  });
+
+  // B20-R02: «Vistos, relatados» dentro da ementa não é o fecho.
+  const INTERNA = "A FÓRMULA Vistos, relatados e discutidos NÃO SUPRE A FUNDAMENTAÇÃO.";
+  it("Câmara sem 2º «Ementa:», com a expressão dentro da ementa e o fecho de verdade depois: a ementa vai até o fecho", () => {
+    const campo = CAMARA_2.replace("RECURSO CONHECIDO E PROVIDO. I.", `${INTERNA} RECURSO CONHECIDO E PROVIDO. I.`);
+
+    const limpa = limparEmenta("tjba", campo);
+
+    const ementa = EMENTA_CAMARA_2.replace("RECURSO CONHECIDO E PROVIDO. I.", `${INTERNA} RECURSO CONHECIDO E PROVIDO. I.`);
+    expect(limpa).toEqual({ ementa, aviso: FECHO });
+  });
+
+  it.each([
+    ["sem rodapé «( Classe:»", (c: string) => c.slice(0, c.indexOf(" ( Classe:"))],
+    ["sem «Acordam»", (c: string) => c.replace("Acordam os Desembargadores", "Os Desembargadores")],
+  ])("Câmara sem 2º «Ementa:», com a expressão dentro da ementa e fecho não confirmado (%s): começo + C1", (_caso, tirar) => {
+    const campo = tirar(CAMARA_2.replace("RECURSO CONHECIDO E PROVIDO. I.", `${INTERNA} RECURSO CONHECIDO E PROVIDO. I.`));
+
+    const limpa = limparEmenta("tjba", campo);
+
+    expect(limpa.separacaoIncerta).toBe(true);
+    expect(limpa.ementa.startsWith("DIREITO CIVIL E PROCESSUAL CIVIL.")).toBe(true);
+    expect(limpa.ementa).toContain("NÃO SUPRE");
+  });
+
+  it("modelos antigos com a expressão dentro da ementa: o fim antigo vale, como antes", () => {
+    const turma = TURMA.replace("MERO ABORRECIMENTO.", `MERO ABORRECIMENTO. ${INTERNA}`);
+    const camara = CAMARA.replace("EXEMPLO FICTÍCIO. RECURSO", `EXEMPLO FICTÍCIO. ${INTERNA} RECURSO`);
+
+    expect(limparEmenta("tjba", turma).ementa.endsWith("RECURSO CONHECIDO E PROVIDO.")).toBe(true);
+    expect(limparEmenta("tjba", turma).ementa).toContain("NÃO SUPRE");
+    expect(limparEmenta("tjba", camara).ementa.endsWith("Jurisprudência relevante citada: STJ, Súmula nº 000.")).toBe(true);
+    expect(limparEmenta("tjba", camara).separacaoIncerta).toBeUndefined();
+  });
+
   it("sem o fim da ementa reconhecível: vai só o começo, a partir da ementa, com aviso e separação incerta", () => {
     const semFim = TURMA.replace("RELATÓRIO", "Relato").replace("VOTO", "Voto");
 
