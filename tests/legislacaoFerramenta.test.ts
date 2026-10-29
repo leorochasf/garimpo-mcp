@@ -4,6 +4,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { describe, expect, it } from "vitest";
 import { Cliente } from "../src/cliente.js";
+import { diplomasSuportados } from "../src/legislacao.js";
 import { criarServidor } from "../src/servidor.js";
 import { clienteFalso, fixture, respostaJson } from "./apoio.js";
 
@@ -44,6 +45,19 @@ describe("texto_de_lei no servidor MCP", () => {
     expect(d).toMatch(/CPC/);
     expect(d).toMatch(/não verificado/);
     expect(d).toMatch(/não liga artigo a precedente/i);
+  });
+
+  it("o campo diploma lista as mesmas siglas da descrição, e a descrição diz como a compilação difere", async () => {
+    const mcp = await conectar(clienteFalso([]).cliente);
+    const { tools } = await mcp.listTools();
+    const tl = tools.find((t) => t.name === "texto_de_lei")!;
+    const diploma = (tl.inputSchema.properties as Record<string, { description?: string }>).diploma.description;
+
+    expect(diploma).toBe(`Sigla do diploma (${diplomasSuportados()})`);
+    expect(diploma).toMatch(/CDC/);
+    expect(tl.description).toMatch(/"Current"/);
+    expect(tl.description).toMatch(/arquivoDaFonte/);
+    expect(tl.description).toMatch(/duas no CP, no CPP, na CLT e no CDC/);
   });
 
   it("devolve o texto literal do dispositivo com a data de obtenção e o aviso fixo", async () => {

@@ -1271,15 +1271,19 @@ export function criarServidor(
         `(hoje: ${diplomasSuportados()}; outra sigla é recusada com a lista) e o dispositivo por escrito (ex.: "art. 85", ` +
         "\"art. 85, § 2º, inciso I\", \"art. 9º, parágrafo único\", \"art. 699-A\"). Dispositivo sem texto na fonte " +
         "volta como \"não verificado\"; dois dispositivos com a mesma identificação, como \"identificação necessária\" " +
-        "(o Garimpo não escolhe). As redações vêm todas (versoesNaFonte), mesmo quando há só uma, da mais antiga para " +
-        "a mais recente, com as marcas que a fonte põe (tipo da versão, lei alteradora, nota, período, força marcada); " +
-        "o Garimpo não conclui qual redação vale, não reconstitui alteração e não afirma vigência: confira na página " +
-        "oficial antes de citar. Uso conforme a licença CC BY 4.0 que a fonte declara (citar a fonte). A norma inteira " +
-        "pesa mais de 4 MB: cada consulta é uma chamada, 1 s entre chamadas; a repetida volta da memória do Garimpo " +
-        "(24 h), com a data da obtenção original.",
+        "(o Garimpo não escolhe). No CPC, no CC e na CF, as redações vêm todas (versoesNaFonte), mesmo quando há só " +
+        "uma, da mais antiga para a mais recente, com as marcas que a fonte põe (tipo da versão, lei alteradora, nota, " +
+        "período, força marcada). No CP, no CPP, na CLT e no CDC, a fonte não traz a árvore de dispositivos: o texto " +
+        "vem do arquivo da compilação que ela marca como \"Current\" (uma só versão, sem as redações anteriores), " +
+        "indicado em arquivoDaFonte com a versão e o valor legal como a fonte os marca; faixa de artigos (\"Arts. 498 " +
+        "a 502.\") vem com o parágrafo literal e a observação de que a fonte junta os artigos. Em nenhum caso o Garimpo " +
+        "conclui qual redação vale, reconstitui alteração ou afirma vigência: confira na página oficial antes de citar. " +
+        "Uso conforme a licença CC BY 4.0 que a fonte declara (citar a fonte). A norma inteira pesa mais de 4 MB: cada " +
+        "consulta é uma chamada (duas no CP, no CPP, na CLT e no CDC: a norma e o arquivo da compilação), 1 s entre " +
+        "chamadas; a repetida volta da memória do Garimpo (24 h), com a data da obtenção original.",
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
       inputSchema: {
-        diploma: z.string().describe("Sigla do diploma (CPC, CC ou CF)"),
+        diploma: z.string().describe(`Sigla do diploma (${diplomasSuportados()})`),
         dispositivo: z.string().describe('O dispositivo, por escrito (ex.: "art. 85, § 2º, inciso I")'),
       },
     },
@@ -1379,8 +1383,11 @@ export function criarServidor(
         "da sessão, colegiado, relator, tipo, situação, sumário (o resumo do TCU: sumário, não ementa), trechos e link " +
         "oficial para conferência. Mais recentes primeiro. Acórdão de relação traz só o texto do acórdão (sem sumário, " +
         "relatório nem voto). INVALIDADO e sigilosos não entram (a resposta diz quantos). Toda resposta traz a data da " +
-        "base de cada ano (atualização no TCU e data do download), quantos anos foram percorridos e o tempo gasto (cada " +
-        "ano leva cerca de 10 a 20 s), a atribuição à fonte, o aviso de que o texto oficial cita nomes de pessoas e os " +
+        "base de cada ano (atualização no TCU e data do download), quantos anos foram percorridos e o tempo gasto e, em " +
+        "indiceLocal, os anos pesquisados pelo índice local (criado ao baixar; a pesquisa não lê o arquivo inteiro) e " +
+        "os que leram o arquivo inteiro, com o motivo (cada um leva cerca de 10 a 20 s; para criar o índice, use " +
+        "baixar_anos_tcu com renovar: true e confirmar: true), a atribuição à fonte, o aviso de que o texto oficial " +
+        "cita nomes de pessoas e os " +
         "anos pedidos que não estão baixados. Relatório, voto ou sumário que o TCU classificou como sigilosos aparecem em " +
         "partesSigilosas (o acórdão continua listado). Interessados e advogados do arquivo nunca são lidos nem mostrados. Para o texto, use ler_acordao_tcu.",
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
