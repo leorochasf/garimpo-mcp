@@ -17,7 +17,7 @@ function tjto(id: number, classe: string | null, cnj: string | null, extra: Reco
     numero_processo_cnj: cnj,
     orgao_julgador: "GAB. DO RELATOR 1",
     data_julgamento: "2023-12-11T00:00:00.000Z",
-    link_pdf: `https://exemplo.test/tjto/${id}`,
+    link_pdf: `https://exemplo.jus.br/tjto/${id}`,
     ...extra,
   };
 }
@@ -158,7 +158,7 @@ describe("aviso de acórdão recorrido ausente: busca ampla", () => {
 
   it("50 embargos mostrados, sem recorrido, e 10 qualificados: aviso uma vez, 3 números e \"e mais 47\", < 25 mil", async () => {
     const link = (i: number) =>
-      `https://jurisprudencia.tribunal-exemplo.invalid/consulta/inteiro-teor/documento?id=${String(i).padStart(10, "0")}`;
+      `https://jurisprudencia.tribunal-exemplo.jus.br/consulta/inteiro-teor/documento?id=${String(i).padStart(10, "0")}`;
     const cliente = siteAmplo((tribunal, texto) => ({
       results: Array.from({ length: 100 }, (_, i) => {
         // Número distinto por tribunal, formulação e posição: nenhum recorrido em lugar nenhum.

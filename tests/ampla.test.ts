@@ -53,7 +53,7 @@ const FORMULACOES_REALISTAS = ["dano moral coletivo", "dano moral difuso", "dano
  * com sigla, órgão por extenso, link de ~95 caracteres, ementa longa; qualificados com tese longa, paradigma e link longo.
  */
 function siteRealista(dataDo = (_i: number) => "2024-01-02T00:00:00.000Z") {
-  const link = (i: number) => `https://jurisprudencia.tribunal-exemplo.invalid/consulta/inteiro-teor/documento?id=${String(i).padStart(10, "0")}`;
+  const link = (i: number) => `https://jurisprudencia.tribunal-exemplo.jus.br/consulta/inteiro-teor/documento?id=${String(i).padStart(10, "0")}`;
   const realista = (texto: string, i: number) => ({
     id: `${texto}${String(i).padStart(9, "0")}`,
     texto_ementa:

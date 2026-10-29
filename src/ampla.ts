@@ -65,6 +65,8 @@ export interface ItemAmplo {
   formulacoes: number;
   /** Só quando o site não mandou órgão, data ou link do acórdão: quais faltam. */
   faltam?: CampoAusente[];
+  /** Só quando o site mandou, no lugar do link, um endereço que não é página do tribunal: o aviso da busca direta. */
+  avisoDeLink?: string;
   /** Só quando a busca inclui TRT: a fonte do acórdão ("Falcão (CSJT)" ou "JurisprudênciaIA"); o rótulo vem em fontes. */
   fonte?: string;
   /** Só no primeiro de uma série: os demais com a mesma ementa inteira, todos acessíveis pelo id. */
@@ -576,6 +578,7 @@ export async function buscaAmpla(
       link: a.link ?? a.linkConsulta,
       formulacoes,
       ...(faltam.length && { faltam }),
+      ...(a.avisoDeLink && { avisoDeLink: a.avisoDeLink }),
       ...(comTrt && { fonte: infoTribunal(a.tribunal)?.fonte }),
     };
     if (!ementa.trim() && ehDoFalcao(a.tribunal)) item.trecho = "sem ementa no Falcão";

@@ -42,7 +42,7 @@ const registro = (id: string, data: string | null, orgao: string | null) => ({
   numero_processo: `1.000.${id.padStart(3, "0")}/SP`,
   orgao_julgador: orgao,
   data_julgamento: data,
-  link_pdf: `https://exemplo.test/${id}`,
+  link_pdf: `https://exemplo.jus.br/${id}`,
 });
 
 describe("panorama_da_amostra", () => {

@@ -204,3 +204,53 @@ describe("só endereço web vira link: memória de antes da regra", () => {
     expect(JSON.stringify(r)).not.toMatch(/gs:\/\//);
   });
 });
+
+// Ticket 17: a busca ampla repassa o mesmo aviso da busca direta, sem o endereço descartado.
+describe("busca ampla: o acórdão com link descartado traz o avisoDeLink", () => {
+  it("TJES (data:) e TJPB (gs:) saem com o aviso aprovado, sem o endereço, e ainda com faltam: link", async () => {
+    const gs = "gs://pdfs-jurisprudencias/tjpb/2026/03/00000011120258150001_20260304_1.pdf";
+    const { cliente } = siteFalso([registro(1, dataComAcordao(1)), registro(2, gs)]);
+    const texto = await chamar(await conectar(cliente), "busca_ampla", {
+      formulacoes: ["dano moral"],
+      tribunais: ["tjes", "tjpb"],
+    });
+    expect(texto).not.toMatch(/data:text|base64|gs:\/\//);
+    const itens = JSON.parse(texto).acordaos as { id: string; avisoDeLink?: string; faltam?: string[] }[];
+    expect(itens.map((a) => a.id).sort()).toEqual(["tjes:901", "tjes:902", "tjpb:901", "tjpb:902"]);
+    const aviso = (tipo: string) =>
+      `O JurisprudênciaIA mandou, no lugar do link, um endereço que não é página do tribunal (endereço do tipo ${tipo}); o Garimpo não o mostra.`;
+    for (const item of itens) {
+      expect(item.avisoDeLink, item.id).toBe(aviso(item.id.endsWith("901") ? "data:" : "gs:"));
+      expect(item.faltam, item.id).toContain("link");
+    }
+  });
+});
+
+// Pergunta do coordenador no 17: o teto de 25 mil caracteres da busca ampla conta o avisoDeLink? (O corte mede a
+// resposta final inteira, src/ampla.ts ajustarAoTeto.) TJES real: todos os links são data:, todos os itens com aviso.
+describe("busca ampla com TODOS os itens com aviso de link: o teto vale e o corte é dito", () => {
+  it("100 acórdãos do TJES, todos com data: e ementa longa: resposta ≤ 25 mil, todos os mostrados com o aviso, corte declarado", async () => {
+    const ementaLonga = (n: number) =>
+      `EMENTA FICTÍCIA ${n}. APELAÇÃO CÍVEL. DANO MORAL. ` + "Texto fictício de ementa de tamanho realista para o teste do teto. ".repeat(40);
+    const registros = Array.from({ length: 100 }, (_, i) => ({
+      ...registro(1, dataComAcordao(i)),
+      id: 1000 + i,
+      texto_ementa: ementaLonga(i),
+      numero_processo: `${String(1000 + i).padStart(7, "0")}-11.2025.8.08.0001`,
+      numero_processo_cnj: `${String(1000 + i).padStart(7, "0")}-11.2025.8.08.0001`,
+    }));
+    const { cliente } = siteFalso(registros);
+    const texto = await chamar(await conectar(cliente), "busca_ampla", {
+      formulacoes: ["dano moral"],
+      tribunais: ["tjes"],
+      maximo: 200,
+    });
+    expect(texto.length).toBeLessThanOrEqual(25_000);
+    expect(texto).not.toMatch(/data:text|base64/);
+    const r = JSON.parse(texto) as { acordaos: { avisoDeLink?: string }[]; cabecalhoDeCobertura: { listaCortada?: string } };
+    expect(r.acordaos.length).toBeGreaterThan(0);
+    expect(r.acordaos.length).toBeLessThan(100);
+    for (const item of r.acordaos) expect(item.avisoDeLink).toMatch(/\(endereço do tipo data:\); o Garimpo não o mostra\.$/);
+    expect(r.cabecalhoDeCobertura.listaCortada).toMatch(new RegExp(`^mostrando ${r.acordaos.length} de 100; resposta limitada a cerca de 25 mil caracteres`));
+  });
+});
