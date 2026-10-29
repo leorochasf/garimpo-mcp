@@ -21,6 +21,11 @@ const COM_CABECALHO = new Set(["tjba", "tjpe", "tjmt", "tjpb"]);
 
 /** Onde a ementa começa: «EMENTA», «Ementa:» (ou «Ementa :») e, no TJBA, «E M E N T A». */
 const MARCADOR_DA_EMENTA = /\bEMENTA\b|\bEmenta\s*:|E M E N T A/g;
+/**
+ * TJBA, Câmara Cível: o cabeçalho acaba em «ACORDÃO» (ou «ACÓRDÃO»), e a ementa começa logo depois da palavra, com ou
+ * sem «Ementa:». «ACÓRDÃO Vistos…» é o fecho, não o fim do cabeçalho.
+ */
+const MARCADOR_DA_EMENTA_TJBA = new RegExp(`${MARCADOR_DA_EMENTA.source}|\\bAC[OÓ]RD[AÃ]O\\s+(?!Vistos\\b)`, "g");
 /** Cabeçalho mais longo que isso não é cabeçalho: o marcador achado deve estar no meio do texto. */
 const LIMITE_DO_CABECALHO = 1_500;
 /**
@@ -29,8 +34,11 @@ const LIMITE_DO_CABECALHO = 1_500;
  */
 const ROTULO_DE_PARTE =
   /\b(?:apelante|apelad[oa]|recorrente|recorrid[oa]|agravante|agravad[oa]|embargante|embargad[oa]|impetrante|impetrad[oa]|requerente|requerid[oa])(?:\s*\([^)]{1,3}\))?\s*:/i;
-/** TJBA: o que vem depois da ementa, na Turma Recursal («RELATÓRIO») e na Câmara («ACÓRDÃO Vistos…»). */
-const FIM_DA_EMENTA_TJBA = /\sRELATÓRIO\s|\sACÓRDÃO\s+Vistos\b/;
+/**
+ * TJBA: o que vem depois da ementa, na Turma Recursal («RELATÓRIO») e na Câmara, o fecho do acórdão («ACÓRDÃO
+ * Vistos…» ou «Vistos, relatados…»).
+ */
+const FIM_DA_EMENTA_TJBA = /\sRELATÓRIO\s|\sACÓRDÃO\s+Vistos\b|\sVistos,?\s+relatados\b/;
 /**
  * Títulos de relatório e voto (e o fecho do acórdão): em maiúsculas, seguidos de pontuação ou do começo de uma frase
  * («RELATÓRIO Trata-se», «VOTO:», «RELATORIO -»); em qualquer caixa, só com dois-pontos («Voto:»). «VOTO VENCIDO» e
@@ -64,15 +72,17 @@ export function limparEmenta(tribunal: string, campo: string): EmentaLimpa {
  * a separação não é segura e vai só o começo. Nada a separar: undefined.
  */
 function separar(tribunal: string, texto: string): EmentaLimpa | undefined {
-  const inicio = inicioDaEmentaDepoisDoCabecalho(texto);
+  const marcador = tribunal === "tjba" ? MARCADOR_DA_EMENTA_TJBA : MARCADOR_DA_EMENTA;
+  const inicio = inicioDaEmentaDepoisDoCabecalho(texto, marcador);
   if (inicio === undefined) return temTituloDeDecisao(texto) ? soOComeco(texto) : undefined;
   const depois = texto.slice(inicio);
-  // TJBA: o campo traz a decisão inteira (cabeçalho, ementa, relatório, voto); a ementa vai até o relatório.
+  // TJBA: o campo traz a decisão inteira; a ementa vai até o relatório (Turma Recursal) ou o fecho (Câmara).
   const fim = tribunal === "tjba" ? FIM_DA_EMENTA_TJBA.exec(depois) : undefined;
   if (tribunal === "tjba" && !fim) return soOComeco(depois);
   const ementa = fim ? depois.slice(0, fim.index).trimEnd() : depois;
   if (temTituloDeDecisao(ementa)) return soOComeco(ementa);
-  return { ementa, aviso: tribunal === "tjba" ? AVISO_DE_DECISAO_INTEIRA : AVISO_DE_CABECALHO };
+  if (!fim) return { ementa, aviso: AVISO_DE_CABECALHO };
+  return { ementa, aviso: fim[0].includes("RELATÓRIO") ? AVISO_DE_DECISAO_INTEIRA : AVISO_DE_CABECALHO_E_FECHO };
 }
 
 function temTituloDeDecisao(texto: string): boolean {
@@ -103,10 +113,13 @@ function semRepeticao(campo: string): { ementa: string; vezes: number } | undefi
  * O primeiro marcador de ementa depois do começo do texto (o do começo, se houver, é o do cabeçalho) com o rótulo de
  * uma parte antes dele, dentro do limite do cabeçalho.
  */
-function inicioDaEmentaDepoisDoCabecalho(texto: string): number | undefined {
-  for (const m of texto.matchAll(MARCADOR_DA_EMENTA)) {
+function inicioDaEmentaDepoisDoCabecalho(texto: string, marcador: RegExp): number | undefined {
+  for (const m of texto.matchAll(marcador)) {
     if (m.index > LIMITE_DO_CABECALHO) return undefined;
-    if (m.index > 0 && ROTULO_DE_PARTE.test(texto.slice(0, m.index))) return m.index;
+    if (m.index > 0 && ROTULO_DE_PARTE.test(texto.slice(0, m.index))) {
+      // «ACORDÃO» fecha o cabeçalho e não é da ementa: ela começa depois da palavra.
+      return /^AC[OÓ]RD[AÃ]O/.test(m[0]) ? m.index + m[0].length : m.index;
+    }
   }
   return undefined;
 }
@@ -131,6 +144,10 @@ const AVISO_DE_CABECALHO =
 const AVISO_DE_DECISAO_INTEIRA =
   "O campo de ementa do JurisprudênciaIA traz a decisão inteira (cabeçalho do processo com nomes das partes, ementa, " +
   "relatório e voto); o Garimpo mostra só a ementa, com o texto como veio. Relatório e voto ficam no inteiro teor.";
+
+const AVISO_DE_CABECALHO_E_FECHO =
+  "O campo de ementa do JurisprudênciaIA traz, além da ementa, o cabeçalho do processo e o fecho do acórdão, com " +
+  "nomes das partes; o Garimpo mostra só a ementa, com o texto como veio. O resto fica no inteiro teor.";
 
 const AVISO_DE_COMECO =
   "O campo de ementa do JurisprudênciaIA traz mais que a ementa, e o Garimpo não conseguiu separá-la com segurança: vai " +
