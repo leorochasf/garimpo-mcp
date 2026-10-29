@@ -135,6 +135,130 @@ describe("ementa limpa: decisão inteira no campo (TJBA)", () => {
     expect(limpa.ementa).not.toContain("ACORDAM");
   });
 
+  // Ticket 20: o modelo da Câmara sem 2º «Ementa:»; o cabeçalho acaba em «ACORDÃO» e a ementa vai até o fecho.
+  // Estrutura do tjba:460750 (cru da API, 2026-10-29); nomes, números e textos fictícios.
+  const FECHO =
+    "O campo de ementa do JurisprudênciaIA traz, além da ementa, o cabeçalho do processo e o fecho do acórdão, com " +
+    "nomes das partes; o Garimpo mostra só a ementa, com o texto como veio. O resto fica no inteiro teor.";
+  const EMENTA_CAMARA_2 =
+    "DIREITO CIVIL E PROCESSUAL CIVIL. APELAÇÃO CÍVEL. EXEMPLO FICTÍCIO. DANO MORAL. RECURSO CONHECIDO E PROVIDO. I. " +
+    "CASO EM EXAME Apelação Cível interposta pela EMPRESA EXEMPLO em face da sentença de exemplo. IV. DISPOSITIVO E " +
+    "TESE Recurso conhecido e provido. Jurisprudência relevante citada: STJ - AgInt no AREsp: 0000000 SP, Relator.: " +
+    "Ministro FICTÍCIO, Data de Julgamento: 03/06/2024, T4 - QUARTA TURMA, Data de Publicação: DJe 07/06/2024";
+  const CAMARA_2 =
+    "EMENTA: PODER JUDICIÁRIO TRIBUNAL DE JUSTIÇA DO ESTADO DA BAHIA Quinta Câmara Cível Processo: APELAÇÃO CÍVEL n. " +
+    "0000002-22.2018.8.05.0001 Órgão Julgador: Quinta Câmara Cível APELANTE: EMPRESA EXEMPLO LTDA Advogado(s): " +
+    "ADVOGADO FICTÍCIO, OUTRA FICTÍCIA APELADO: PESSOA FICTÍCIA e outros Advogado(s):TERCEIRO FICTÍCIO ACORDÃO " +
+    `${EMENTA_CAMARA_2} Vistos, relatados e discutidos estes autos de Apelação Cível nº 0000002-22.2018.8.05.0001, ` +
+    "oriundos da Comarca de Exemplo, em que figuram como Apelante a EMPRESA EXEMPLO LTDA e como Apelados PESSOA " +
+    "FICTÍCIA e OUTRA PESSOA FICTÍCIA. Acordam os Desembargadores integrantes da Quinta Câmara Cível, à unanimidade, " +
+    "em DAR PROVIMENTO AO RECURSO, nos termos do voto condutor. Des. FULANO EXEMPLO Presidente / Relator 03 ( Classe: " +
+    "Apelação,Número do Processo: 0000002-22.2018.8.05.0001,Relator(a): FULANO EXEMPLO,Publicado em: 15/10/2025 )";
+
+  it("Câmara Cível sem 2º «Ementa:»: fica a ementa, do fim do cabeçalho («ACORDÃO») até o fecho, com o aviso do fecho", () => {
+    const limpa = limparEmenta("tjba", CAMARA_2);
+
+    expect(limpa).toEqual({ ementa: EMENTA_CAMARA_2, aviso: FECHO });
+    expect(limpa.ementa).not.toContain("PESSOA FICTÍCIA");
+    expect(limpa.ementa).not.toContain("Classe:");
+  });
+
+  it("Câmara Cível com «ACORDÃO Ementa:» (tjba:645551): a mesma ementa de antes, byte a byte, com o aviso do fecho", () => {
+    const antes = CAMARA.slice(CAMARA.indexOf("Ementa: DIREITO CIVIL."), CAMARA.indexOf(" ACÓRDÃO Vistos"));
+
+    expect(limparEmenta("tjba", CAMARA)).toEqual({ ementa: antes, aviso: FECHO });
+  });
+
+  it("Turma Recursal (corte pelo RELATÓRIO): segue com o aviso da decisão inteira", () => {
+    expect(limparEmenta("tjba", TURMA).aviso).toContain("relatório e voto");
+  });
+
+  it("Câmara Cível sem 2º «Ementa:» e sem o fecho reconhecível: só o começo, a partir da ementa, com C1", () => {
+    const semFecho = CAMARA_2.replace("Vistos, relatados", "Examinados");
+
+    const limpa = limparEmenta("tjba", semFecho);
+
+    expect(limpa.separacaoIncerta).toBe(true);
+    expect(limpa.ementa.startsWith("DIREITO CIVIL E PROCESSUAL CIVIL.")).toBe(true);
+    expect(limpa.ementa).not.toContain("APELANTE");
+    expect(semFecho).toContain(limpa.ementa);
+  });
+
+  it.each([
+    ["sem rótulo de parte antes", "DIREITO CIVIL. ACÓRDÃO RECORRIDO MANTIDO. EXEMPLO FICTÍCIO. RECURSO DESPROVIDO."],
+    ["só «ACÓRDÃO Vistos»", "EMENTA: DIREITO CIVIL. EXEMPLO. APELANTE: NOME ACÓRDÃO Vistos e relatados. Exemplo."],
+  ])("«ACÓRDÃO» que não fecha cabeçalho (%s): não vira começo da ementa", (_caso, campo) => {
+    const limpa = limparEmenta("tjba", campo);
+    expect(limpa.ementa.startsWith("Vistos")).toBe(false);
+    if (!/APELANTE/.test(campo)) expect(limpa).toEqual({ ementa: campo });
+  });
+
+  // B20-R01: um «APELANTE:» solto no corpo não faz do «ACÓRDÃO» interno um fim de cabeçalho.
+  it.each([
+    "EMENTA: DIREITO PROCESSUAL. ALEGAÇÃO DO APELANTE: AUSÊNCIA DE FUNDAMENTAÇÃO. ACÓRDÃO RECORRIDO MANTIDO. RECURSO DESPROVIDO.",
+    "EMENTA: DIREITO CIVIL. APELANTE: EXEMPLO. APELADO: OUTRO. ACÓRDÃO RECORRIDO MANTIDO. RECURSO DESPROVIDO.",
+    "EMENTA: PODER JUDICIÁRIO. ALEGAÇÃO DO APELANTE: EXEMPLO. ACÓRDÃO RECORRIDO MANTIDO. RECURSO DESPROVIDO.",
+  ])("«ACÓRDÃO» interno sem a ficha do cabeçalho antes (%s): o campo fica como veio", (campo) => {
+    expect(limparEmenta("tjba", campo)).toEqual({ ementa: campo });
+  });
+
+  // B20-R02: «Vistos, relatados» dentro da ementa não é o fecho.
+  const INTERNA = "A FÓRMULA Vistos, relatados e discutidos NÃO SUPRE A FUNDAMENTAÇÃO.";
+  it("Câmara sem 2º «Ementa:», com a expressão dentro da ementa e o fecho de verdade depois: a ementa vai até o fecho", () => {
+    const campo = CAMARA_2.replace("RECURSO CONHECIDO E PROVIDO. I.", `${INTERNA} RECURSO CONHECIDO E PROVIDO. I.`);
+
+    const limpa = limparEmenta("tjba", campo);
+
+    const ementa = EMENTA_CAMARA_2.replace("RECURSO CONHECIDO E PROVIDO. I.", `${INTERNA} RECURSO CONHECIDO E PROVIDO. I.`);
+    expect(limpa).toEqual({ ementa, aviso: FECHO });
+  });
+
+  it.each([
+    ["sem rodapé «( Classe:»", (c: string) => c.slice(0, c.indexOf(" ( Classe:"))],
+    ["sem «Acordam»", (c: string) => c.replace("Acordam os Desembargadores", "Os Desembargadores")],
+  ])("Câmara sem 2º «Ementa:», com a expressão dentro da ementa e fecho não confirmado (%s): começo + C1", (_caso, tirar) => {
+    const campo = tirar(CAMARA_2.replace("RECURSO CONHECIDO E PROVIDO. I.", `${INTERNA} RECURSO CONHECIDO E PROVIDO. I.`));
+
+    const limpa = limparEmenta("tjba", campo);
+
+    expect(limpa.separacaoIncerta).toBe(true);
+    expect(limpa.ementa.startsWith("DIREITO CIVIL E PROCESSUAL CIVIL.")).toBe(true);
+    expect(limpa.ementa).toContain("NÃO SUPRE");
+  });
+
+  // B20-R02, rodada 2: a única ocorrência é a interna; o fecho verdadeiro não usa a expressão.
+  it.each([
+    [
+      "cenário do parecer",
+      "EMENTA: PODER JUDICIÁRIO Processo: EXEMPLO APELANTE: PESSOA FICTÍCIA APELADO: OUTRA PESSOA ACORDÃO DIREITO " +
+        "PROCESSUAL. A FÓRMULA Vistos, relatados e discutidos NÃO SUPRE A FUNDAMENTAÇÃO. RECURSO PROVIDO. Examinados " +
+        "estes autos. Acordam os julgadores. ( Classe: Apelação )",
+    ],
+    [
+      "contraprova: o «Vistos» do fecho real trocado",
+      CAMARA_2.replace("RECURSO CONHECIDO E PROVIDO. I.", `${INTERNA} RECURSO CONHECIDO E PROVIDO. I.`).replace(
+        "Vistos, relatados e discutidos estes autos",
+        "Examinados estes autos",
+      ),
+    ],
+  ])("expressão interna sem fecho verdadeiro com ela (%s): começo + C1, com a fundamentação", (_caso, campo) => {
+    const limpa = limparEmenta("tjba", campo);
+
+    expect(limpa.separacaoIncerta).toBe(true);
+    expect(limpa.ementa.startsWith("DIREITO")).toBe(true);
+    expect(limpa.ementa).toContain("NÃO SUPRE");
+  });
+
+  it("modelos antigos com a expressão dentro da ementa: o fim antigo vale, como antes", () => {
+    const turma = TURMA.replace("MERO ABORRECIMENTO.", `MERO ABORRECIMENTO. ${INTERNA}`);
+    const camara = CAMARA.replace("EXEMPLO FICTÍCIO. RECURSO", `EXEMPLO FICTÍCIO. ${INTERNA} RECURSO`);
+
+    expect(limparEmenta("tjba", turma).ementa.endsWith("RECURSO CONHECIDO E PROVIDO.")).toBe(true);
+    expect(limparEmenta("tjba", turma).ementa).toContain("NÃO SUPRE");
+    expect(limparEmenta("tjba", camara).ementa.endsWith("Jurisprudência relevante citada: STJ, Súmula nº 000.")).toBe(true);
+    expect(limparEmenta("tjba", camara).separacaoIncerta).toBeUndefined();
+  });
+
   it("sem o fim da ementa reconhecível: vai só o começo, a partir da ementa, com aviso e separação incerta", () => {
     const semFim = TURMA.replace("RELATÓRIO", "Relato").replace("VOTO", "Voto");
 
@@ -202,7 +326,7 @@ describe("ementa limpa: decisão inteira no campo (TJBA)", () => {
   });
 
   it("a limpeza é idempotente na ementa já limpa (a conferência a reaplica na memória)", () => {
-    for (const campo of [TURMA, CAMARA, `${TURMA} ${TURMA}`]) {
+    for (const campo of [TURMA, CAMARA, CAMARA_2, `${TURMA} ${TURMA}`]) {
       const limpa = limparEmenta("tjba", campo);
       expect(limparEmenta("tjba", limpa.ementa)).toEqual({ ementa: limpa.ementa });
     }
