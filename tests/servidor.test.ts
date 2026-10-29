@@ -120,7 +120,7 @@ describe("servidor MCP", () => {
       numero_processo: "1.000.001/SP",
       orgao_julgador: "Turma Exemplo",
       data_julgamento: "2024-01-02T00:00:00.000Z",
-      link_pdf: "https://exemplo.test/aviso1",
+      link_pdf: "https://exemplo.jus.br/aviso1",
     };
 
     async function chamar(mcp: Client, name: string, args: Record<string, unknown>) {
@@ -508,7 +508,7 @@ describe("erro nunca vira lista vazia (busca ampla)", () => {
     texto_ementa: `EMENTA FICTÍCIA ${id}. Responsabilidade civil.`,
     numero_processo: `${id}/UF`,
     data_julgamento: "2024-01-02T00:00:00.000Z",
-    link_pdf: `https://exemplo.test/${id}`,
+    link_pdf: `https://exemplo.jus.br/${id}`,
   });
   // Resposta que o Garimpo não sabe ler: busca com erro que não é recusa.
   const formatoDesconhecido = () => respostaJson({ mensagem: "formato que o Garimpo não conhece" });
@@ -677,7 +677,7 @@ describe("erros que ensinam e listas como texto", () => {
         buscas.push(`${tribunal}: ${JSON.parse(String(init.body)).query}`);
         const id = `a${n++}`;
         return respostaJson({
-          results: [{ id, texto_ementa: `EMENTA FICTÍCIA ${id}.`, numero_processo: `${id}/UF`, link_pdf: `https://exemplo.test/${id}` }],
+          results: [{ id, texto_ementa: `EMENTA FICTÍCIA ${id}.`, numero_processo: `${id}/UF`, link_pdf: `https://exemplo.jus.br/${id}` }],
         });
       }) as typeof fetch,
     });
@@ -1119,7 +1119,7 @@ describe("inteiro teor trazido pelo usuário (pela porta)", () => {
   });
 
   describe("vínculo declarado", () => {
-    const LINK = "https://exemplo.test/tjsp/acordao/701";
+    const LINK = "https://exemplo.jus.br/tjsp/acordao/701";
     const acordao = {
       id: "701",
       texto_ementa: "EMENTA FICTÍCIA.",
@@ -1577,8 +1577,8 @@ describe("conferir citação na ementa (pela porta)", () => {
         chamadas++;
         return respostaJson({
           results: [
-            { id: "conf1", texto_ementa: EMENTA, numero_processo: "1.000.009/SP", link_pdf: "https://exemplo.test/conf1" },
-            { id: "conf2", texto_ementa: "", numero_processo: "1.000.010/SP", link_pdf: "https://exemplo.test/conf2" },
+            { id: "conf1", texto_ementa: EMENTA, numero_processo: "1.000.009/SP", link_pdf: "https://exemplo.jus.br/conf1" },
+            { id: "conf2", texto_ementa: "", numero_processo: "1.000.010/SP", link_pdf: "https://exemplo.jus.br/conf2" },
           ],
         });
       }) as typeof fetch,
@@ -2117,7 +2117,7 @@ describe("filtros locais da busca ampla (pela porta)", () => {
       id,
       texto_ementa: ementa,
       numero_processo: `${id}/UF`,
-      link_pdf: `https://exemplo.test/${id}`,
+      link_pdf: `https://exemplo.jus.br/${id}`,
     });
     const site = new Cliente({
       nome: "O site",
@@ -3091,7 +3091,7 @@ describe("servidor MCP: decisões em série na busca ampla", () => {
     orgao_julgador: "Turma Exemplo",
     relator: "Fulano de Tal",
     data_julgamento: "2024-01-02T00:00:00.000Z",
-    link_pdf: `https://exemplo.test/${id}`,
+    link_pdf: `https://exemplo.jus.br/${id}`,
   }));
   const ampla = async (extra: Record<string, unknown>) => {
     const mcp = await conectar(siteFalso(serie));
