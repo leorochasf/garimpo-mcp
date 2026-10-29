@@ -1401,7 +1401,9 @@ export function criarServidor(
         "oficial para conferência. Mais recentes primeiro. Acórdão de relação traz só o texto do acórdão (sem sumário, " +
         "relatório nem voto). INVALIDADO e sigilosos não entram (a resposta diz quantos). Toda resposta traz a data da " +
         "base de cada ano (atualização no TCU e data do download), quantos anos foram percorridos e o tempo gasto e, em " +
-        "indiceLocal, os anos pesquisados pelo índice local (criado ao baixar; a pesquisa não lê o arquivo inteiro) e " +
+        "indiceLocal, os anos pesquisados pelo índice local (criado ao baixar; com ele a pesquisa não percorre todos os " +
+        "registros, mas a primeira pesquisa depois que o Garimpo abre, ou depois que o arquivo muda, confere o arquivo " +
+        "inteiro) e " +
         "os que leram o arquivo inteiro, com o motivo (cada um leva cerca de 10 a 20 s; para criar o índice, use " +
         "baixar_anos_tcu com renovar: true e confirmar: true), a atribuição à fonte, o aviso de que o texto oficial " +
         "cita nomes de pessoas e os " +
