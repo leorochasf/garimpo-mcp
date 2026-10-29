@@ -184,11 +184,14 @@ export const NATUREZA_DO_TEXTO_DO_PORTAL_TJPR =
   "texto do portal do tribunal (TJPR), convertido de HTML pelo Garimpo: não é PDF, não tem recibo de origem e, como " +
   "avisa o tribunal, é transcrição do acórdão com as imagens suprimidas";
 
-/** O texto do TJGO, trazido pela consulta pública do processo no Projudi (ADR-0029): a fonte e o que ele é. */
+/**
+ * O texto do TJGO, trazido pela consulta pública do processo no Projudi (ADR-0029): a fonte e o que ele é. O documento
+ * pode vir em HTML ou com PDF embutido no arquivo assinado, e a memória não guarda qual dos dois: a natureza cobre ambos.
+ */
 export const ROTULO_PORTAL_TJGO = "consulta pública de processo do Projudi do TJGO (projudi.tjgo.jus.br)";
 export const NATUREZA_DO_TEXTO_DO_PORTAL_TJGO =
-  "texto do portal do tribunal (TJGO), convertido de HTML pelo Garimpo: não é PDF, não tem recibo de origem e a " +
-  "assinatura do documento não é verificada pelo Garimpo";
+  "texto do portal do tribunal (TJGO), convertido pelo Garimpo do HTML ou do PDF embutido no arquivo assinado (.p7s): " +
+  "sem recibo de origem, e o Garimpo não verifica a assinatura";
 
 /** O texto da TNU, trazido pelo e-Proc do CJF (ADR-0027): a fonte e o que ele é. */
 export const ROTULO_PORTAL_TNU = "e-Proc da TNU — módulo de jurisprudência da Turma Nacional de Uniformização (eproctnu-jur.cjf.jus.br)";
@@ -204,7 +207,7 @@ export function ehTextoDoPortal(id: string): boolean {
 /** O que o registro é quando o Falcão não deu texto integral de verdade (só a ementa repetida): nada de "repositório oficial". */
 export const NATUREZA_SEM_TEXTO_INTEGRAL = "sem texto integral: o Falcão não mandou o acórdão, só a ementa";
 
-/** O que o texto guardado na memória é: sem texto integral, texto do portal do tribunal (TJTO) ou texto do Falcão. */
+/** O que o texto guardado na memória é: sem texto integral, texto do portal do tribunal (um dos 7) ou texto do Falcão. */
 export function naturezaDoTexto(semTexto: boolean, doPortal: boolean, id = ""): string {
   if (semTexto && doPortal && id.startsWith("tjdft:")) return "sem texto integral: texto do TJDFT não verificado";
   if (semTexto && doPortal && id.startsWith("trf2:")) return "sem texto integral: texto do TRF2 não verificado";

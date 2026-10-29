@@ -6,7 +6,8 @@
 
 /**
  * "baixa" = o Garimpo baixa o PDF oficial; "link" = devolve link + explicação; "texto" = texto integral na busca;
- * "portal" = o obter_inteiro_teor traz o texto do portal do tribunal (HTML convertido) para a memória (ADR-0021).
+ * "portal" = o obter_inteiro_teor traz o texto do portal do tribunal para a memória (ADR-0021): HTML convertido, o
+ * registro da API no TJDFT e, no TJGO, também o PDF embutido no arquivo assinado.
  */
 export type InteiroTeorModo = "baixa" | "link" | "texto" | "portal";
 
@@ -17,7 +18,7 @@ export type Fonte = "JurisprudênciaIA" | "Falcão (CSJT)" | "e-Proc do TRF2" | 
 export const QUALIFICADOS_TRT =
   "coleção precedentes do Falcão, só na busca_direta com precedentes:true (até 10 itens; cobertura por TRT não verificada)";
 export const INTEIRO_TEOR_TRT = "texto integral do repositório oficial (sem PDF)";
-/** O que a tabela diz do TJTO (ADR-0021). */
+/** O que a tabela diz dos tribunais de texto do portal (ADR-0021). */
 export const INTEIRO_TEOR_PORTAL = "texto do portal do tribunal, trazido pelo obter_inteiro_teor (sem PDF)";
 
 /** Rótulo de cada acórdão de TRT (ADR-0018). */
@@ -33,6 +34,12 @@ export const ROTULO_TRF4 = "e-Proc do TRF4 — módulo de jurisprudência do tri
 /** Rótulo de cada acórdão da TNU (ADR-0027). */
 export const ROTULO_TNU =
   "e-Proc da TNU — módulo de jurisprudência da Turma Nacional de Uniformização (eproctnu-jur.cjf.jus.br)";
+
+/**
+ * Por que o tribunal é só link: vedação escrita (robots.txt ou termo de uso), desafio técnico (proteção anti-robô na
+ * prova), rota quebrada (o endereço não entregou o acórdão) ou não testado (sem prova da rota de inteiro teor).
+ */
+export type ClasseDoMotivo = "vedação escrita" | "desafio técnico" | "rota quebrada" | "não testado";
 
 export interface InfoTribunal {
   /** Sigla usada na rota da busca direta (minúscula). */
@@ -50,6 +57,10 @@ export interface InfoTribunal {
   inteiroTeor: InteiroTeorModo;
   /** Explicação curta de por que não baixa sozinho (quando inteiroTeor = "link"); o caminho, com ou sem link, vem à parte. */
   motivoLink?: string;
+  /** Classe do motivo do só link (fotografia B0.1 de 2026-10-23, feita sem rede). */
+  classeDoMotivo?: ClasseDoMotivo;
+  /** Data (AAAA-MM-DD) da prova registrada que sustenta o motivo; sem prova própria, ausente. Não é data de reconferência. */
+  dataDaProva?: string;
   /** Campos extras que o site envia no corpo da busca para este tribunal. */
   extrasBusca?: Record<string, unknown>;
 }
@@ -188,8 +199,12 @@ function tj(sigla: string, nome: string): InfoTribunal {
     tetoResultados: 100,
     inteiroTeor: "link",
     motivoLink: EXPLICA_GENERICO,
+    classeDoMotivo: "não testado",
   };
 }
+
+/** Tribunal da tabela base de TJ que tem inteiro teor (baixa ou portal): sem motivo de só link. */
+const SEM_MOTIVO = { motivoLink: undefined, classeDoMotivo: undefined };
 
 export const TRIBUNAIS: InfoTribunal[] = [
   {
@@ -200,6 +215,8 @@ export const TRIBUNAIS: InfoTribunal[] = [
     tetoResultados: 7,
     inteiroTeor: "link",
     motivoLink: EXPLICA_STF,
+    classeDoMotivo: "desafio técnico",
+    dataDaProva: "2026-10-14",
     extrasBusca: {
       include_rg: true,
       rg_only: false,
@@ -218,6 +235,8 @@ export const TRIBUNAIS: InfoTribunal[] = [
     tetoResultados: 100,
     inteiroTeor: "link",
     motivoLink: EXPLICA_STJ,
+    classeDoMotivo: "vedação escrita",
+    dataDaProva: "2026-10-13",
     extrasBusca: {
       sumulas_limit: 5,
       repetitivos_limit: 5,
@@ -234,6 +253,8 @@ export const TRIBUNAIS: InfoTribunal[] = [
     tetoResultados: 100,
     inteiroTeor: "link",
     motivoLink: EXPLICA_TST,
+    classeDoMotivo: "não testado",
+    dataDaProva: "2026-10-09",
     extrasBusca: {
       include_sumulas: true,
       sumulas_limit: 5,
@@ -259,27 +280,27 @@ export const TRIBUNAIS: InfoTribunal[] = [
   { ...tj("tjap", "TJ do Amapá") },
   { ...tj("tjba", "TJ da Bahia") },
   { ...tj("tjce", "TJ do Ceará") },
-  { ...tj("tjdft", "TJ do Distrito Federal e Territórios"), inteiroTeor: "portal", motivoLink: undefined },
+  { ...tj("tjdft", "TJ do Distrito Federal e Territórios"), inteiroTeor: "portal", ...SEM_MOTIVO },
   { ...tj("tjes", "TJ do Espírito Santo") },
-  { ...tj("tjgo", "TJ de Goiás"), inteiroTeor: "portal", motivoLink: undefined },
+  { ...tj("tjgo", "TJ de Goiás"), inteiroTeor: "portal", ...SEM_MOTIVO },
   { ...tj("tjma", "TJ do Maranhão") },
-  { ...tj("tjmg", "TJ de Minas Gerais"), inteiroTeor: "baixa", motivoLink: undefined },
-  { ...tj("tjms", "TJ de Mato Grosso do Sul"), inteiroTeor: "baixa", motivoLink: undefined },
+  { ...tj("tjmg", "TJ de Minas Gerais"), inteiroTeor: "baixa", ...SEM_MOTIVO },
+  { ...tj("tjms", "TJ de Mato Grosso do Sul"), inteiroTeor: "baixa", ...SEM_MOTIVO },
   { ...tj("tjmt", "TJ de Mato Grosso") },
-  { ...tj("tjpa", "TJ do Pará"), motivoLink: EXPLICA_TJPA },
+  { ...tj("tjpa", "TJ do Pará"), motivoLink: EXPLICA_TJPA, classeDoMotivo: "rota quebrada", dataDaProva: "2026-10-14" },
   { ...tj("tjpb", "TJ da Paraíba") },
   { ...tj("tjpe", "TJ de Pernambuco") },
-  { ...tj("tjpi", "TJ do Piauí"), inteiroTeor: "portal", motivoLink: undefined },
-  { ...tj("tjpr", "TJ do Paraná"), inteiroTeor: "portal", motivoLink: undefined },
-  { ...tj("tjrj", "TJ do Rio de Janeiro"), motivoLink: EXPLICA_TJRJ },
-  { ...tj("tjrn", "TJ do Rio Grande do Norte"), motivoLink: EXPLICA_TJRN },
+  { ...tj("tjpi", "TJ do Piauí"), inteiroTeor: "portal", ...SEM_MOTIVO },
+  { ...tj("tjpr", "TJ do Paraná"), inteiroTeor: "portal", ...SEM_MOTIVO },
+  { ...tj("tjrj", "TJ do Rio de Janeiro"), motivoLink: EXPLICA_TJRJ, classeDoMotivo: "vedação escrita", dataDaProva: "2026-10-14" },
+  { ...tj("tjrn", "TJ do Rio Grande do Norte"), motivoLink: EXPLICA_TJRN, classeDoMotivo: "não testado", dataDaProva: "2026-10-09" },
   { ...tj("tjro", "TJ de Rondônia") },
-  { ...tj("tjrr", "TJ de Roraima"), inteiroTeor: "baixa", motivoLink: undefined },
+  { ...tj("tjrr", "TJ de Roraima"), inteiroTeor: "baixa", ...SEM_MOTIVO },
   { ...tj("tjrs", "TJ do Rio Grande do Sul") },
-  { ...tj("tjsc", "TJ de Santa Catarina"), motivoLink: EXPLICA_TJSC },
-  { ...tj("tjse", "TJ de Sergipe"), motivoLink: EXPLICA_TJSE },
-  { ...tj("tjsp", "TJ de São Paulo"), inteiroTeor: "baixa", motivoLink: undefined },
-  { ...tj("tjto", "TJ do Tocantins"), inteiroTeor: "portal", motivoLink: undefined },
+  { ...tj("tjsc", "TJ de Santa Catarina"), motivoLink: EXPLICA_TJSC, classeDoMotivo: "desafio técnico", dataDaProva: "2026-10-14" },
+  { ...tj("tjse", "TJ de Sergipe"), motivoLink: EXPLICA_TJSE, classeDoMotivo: "vedação escrita", dataDaProva: "2026-10-14" },
+  { ...tj("tjsp", "TJ de São Paulo"), inteiroTeor: "baixa", ...SEM_MOTIVO },
+  { ...tj("tjto", "TJ do Tocantins"), inteiroTeor: "portal", ...SEM_MOTIVO },
   {
     sigla: "trf2",
     nome: "Tribunal Regional Federal da 2ª Região",
@@ -358,7 +379,7 @@ export function paginaDeTribunais(): string {
           ? INTEIRO_TEOR_TRT
           : t.inteiroTeor === "portal"
             ? INTEIRO_TEOR_PORTAL
-            : `só link: ${t.motivoLink}`;
+            : `só link (${t.classeDoMotivo}; ${t.dataDaProva ? `registro de ${t.dataDaProva}, sem nova conferência` : "sem prova própria"}): ${t.motivoLink}`;
     return `| ${t.sigla.toUpperCase()} | ${t.nome} | ${t.fonte} | ${qualificados} | ${t.tetoResultados} | ${inteiroTeor} |`;
   });
   return [
