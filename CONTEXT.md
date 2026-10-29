@@ -26,7 +26,17 @@ _Decidido pelo dono em 2026-10-09._
 **Fonte principal**:
 O JurisprudênciaIA, para os tribunais que ele cobre. As outras fontes entram onde ele não chega; não o substituem nesses tribunais.
 _Evitar_: fonte padrão, fonte oficial (o JurisprudênciaIA não é oficial)
-_Decidido pelo dono em 2026-10-09._
+_Decidido pelo dono em 2026-10-09. Em 2026-10-29 o dono decidiu que, num tribunal estadual cuja pesquisa oficial seja pública, sem barreira e medida como melhor que a base, a pesquisa oficial substitui o JurisprudênciaIA nesse tribunal; cada caso é uma ADR._
+
+**Situação do tribunal**:
+O estado de um tribunal no Garimpo quanto às ferramentas: **completo**, quando todas funcionam, inclusive obter, ler e conferir o inteiro teor (inteiro teor oficial, texto do portal do tribunal ou texto da base); ou **só link**, quando o inteiro teor fica no link, com motivo provado e datado. Nunca «não testado».
+_Evitar_: cobertura (é outra coisa), suporte, tribunal integrado
+_Decidido pelo dono em 2026-10-29._
+
+**Janela de cobertura**:
+O período em que uma amostra datada achou acórdãos de um tribunal na base de uma fonte (ex.: de 2020 a mar/2026). É amostra, não inventário: diz onde a busca vazia pode ser falta na base, não ausência de jurisprudência.
+_Evitar_: cobertura (sozinho), período da base, acervo
+_Decidido pelo dono em 2026-10-29._
 
 **Acórdão recorrido**:
 O acórdão impugnado por um recurso contra acórdão (por exemplo, embargos de declaração ou agravo interno). Pode existir no tribunal e não estar na base do JurisprudênciaIA.
@@ -125,6 +135,11 @@ _Decidido pelo GPT Sol (gpt-6.1-sol, medium), delegado do dono, em 2026-10-09 �
 A extensão do termo acima ao texto do acórdão que o **portal do próprio tribunal** entrega em HTML, não em PDF (hoje o TJTO, pelo `obter_inteiro_teor`; ADR-0021), convertido para texto pelo Garimpo pela mesma regra fixa. Como o do Falcão: não tem página do PDF, recibo de origem nem origem conferida; fica na memória por 24 h, é lido em partes e pode ser usado na conferência de citação pelo id, sempre com o rótulo do portal.
 _Evitar_: inteiro teor oficial (é o PDF), íntegra, PDF
 _Aceito pelo dono em 2026-10-10 (DQ-06: estender o termo existente, uma decisão só para todos os portais)._
+
+**Texto da base**:
+O texto do acórdão que o próprio registro do JurisprudênciaIA traz embutido (hoje no TJES e no TJMA, no lugar do link), convertido para texto pelo Garimpo por regra fixa. É cópia de terceiro, não oficial: sempre rotulado «texto da base do JurisprudênciaIA, não oficial»; é lido em partes e pode ser usado na conferência de citação. Caminho oficial do mesmo acórdão, quando existe, prevalece.
+_Evitar_: inteiro teor oficial, texto do portal do tribunal, íntegra
+_Decidido pelo dono em 2026-10-29._
 
 **HTTP comum**:
 O jeito de baixar o PDF do portal usado no B11: pedidos simples, com cookies que o próprio portal entrega na mesma sessão e leitura dos links escritos no HTML, só em https nos endereços oficiais, sem executar JavaScript, login nem captcha. É um recorte técnico, não uma proibição: outras fontes podem se apresentar como navegador quando a fonte exige (ex.: o Falcão), sempre dentro dos freios.
