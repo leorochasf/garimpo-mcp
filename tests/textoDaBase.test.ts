@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { ROTULO_TEXTO_DA_BASE, TETO_BYTES_TEXTO_DA_BASE, textoDaBase } from "../src/textoDaBase.js";
 
@@ -92,5 +93,47 @@ describe("textoDaBase — recusa o que não é data:text/html em base64, com o m
     const html = `<p>${"texto fictício de acórdão. ".repeat(10_000)}</p>`; // ~270 KB
     const r = textoDaBase(comoDataUri(html));
     expect(r.ok).toBe(true);
+  });
+});
+
+/**
+ * Estrutura REAL do HTML do TJES e do TJMA (gravado em 2026-10-29), com todo o texto trocado por texto fictício: ficam as
+ * etiquetas, os estilos, as entidades e os títulos de seção; saem nomes, números e palavras do acórdão.
+ */
+describe("textoDaBase — HTML real saneado do TJES e do TJMA", () => {
+  const dataUri = (arquivo: string) =>
+    comoDataUri(readFileSync(new URL(`./fixtures/${arquivo}`, import.meta.url), "utf8"));
+
+  it("TJES: fragmento que começa em <table>, sem <html>; entidades viram letra e os títulos de seção ficam", () => {
+    const r = textoDaBase(dataUri("texto-da-base-tjes.html"));
+    if (!r.ok) throw new Error("esperava texto");
+    expect(r.texto).toMatch(/EMENTA/);
+    expect(r.texto).toMatch(/I\. CASO EM EXAME/);
+    expect(r.texto).toMatch(/ACÓRDÃO/);
+    expect(r.texto).toMatch(/VOTO/);
+    expect(r.texto).not.toMatch(/<|&[a-z]+;|suptec|exemplo\.test/);
+    expect(r.indicioDeCorte).toBe(false);
+    expect(r.texto.length).toBeGreaterThan(5_000);
+  });
+
+  it("TJMA: documento completo, corpo em <div> com <br>; os títulos de seção ficam e a página não vira uma linha só", () => {
+    const r = textoDaBase(dataUri("texto-da-base-tjma.html"));
+    if (!r.ok) throw new Error("esperava texto");
+    expect(r.texto).toMatch(/^Inteiro Teor/);
+    expect(r.texto).toMatch(/EMENTA/);
+    expect(r.texto).toMatch(/RELATÓRIO/);
+    expect(r.texto).toMatch(/VOTO/);
+    expect(r.texto).not.toMatch(/<|DOCTYPE/);
+    expect(r.texto.split(String.fromCharCode(10)).length).toBeGreaterThan(20);
+    expect(r.indicioDeCorte).toBe(false);
+  });
+
+  it("as fixtures não trazem rede nem número de processo real: só 9 nos dígitos e o domínio de exemplo", () => {
+    for (const arquivo of ["texto-da-base-tjes.html", "texto-da-base-tjma.html"]) {
+      const html = readFileSync(new URL(`./fixtures/${arquivo}`, import.meta.url), "utf8");
+      const texto = html.replace(/<[^>]*>/g, "");
+      for (const [digitos] of texto.matchAll(/\d{4,}/g)) expect(digitos, arquivo).toMatch(/^9+$/);
+      for (const [endereco] of html.matchAll(/https?:\/\/[^"\s]+/g)) expect(endereco, arquivo).toMatch(/^https:\/\/exemplo\.test\//);
+    }
   });
 });
