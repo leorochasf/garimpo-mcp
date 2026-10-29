@@ -317,10 +317,12 @@ inteiro teor, com recibo (ADR-0005). Fatos lidos em 2026-10-29 (matriz ao vivo d
   bloqueio; cookie de sessão do portal enviado na resposta. O mesmo desenho do endereço em TJAL, TJAM e TJAC pede captcha:
   é configuração do eSAJ de cada tribunal, não do software; vale só para o TJCE.
 - **Freios:** serviço `tjce` no disjuntor (regra 3 do `CLAUDE.md`); 403, captcha ou desafio = recusa final, sem recomeço.
-- **Guarda do número do processo:** o PDF só é guardado se o número CNJ do processo do registro da busca aparecer no texto
-  dele; sem isso, nada é guardado e a resposta diz «não verificado» (a base do site e o portal já trocaram documento em
-  outros tribunais, ADR-0030).
-- **Não verificado:** que o PDF é o acórdão assinado inteiro (a conferência do conteúdo é a do Rede, 2 acórdãos); o limite
+- **Guarda do número do processo:** o PDF só é guardado se o cabeçalho «Processo: <CNJ>» do início do texto for o número
+  do processo do registro da busca (não vale qualquer ocorrência: o PDF de 19 páginas observado cita outros 6 CNJs no
+  corpo); sem isso, ou sem número no registro, nada é guardado e a resposta diz «não verificado».
+- **Conferência do Rede (2026-10-29):** 2 acórdãos (PDFs de 5 e 19 páginas, HTTP 200 `application/pdf`, sem captcha nem
+  login); o cabeçalho «Processo:» da 1ª página é o número do registro da busca; têm EMENTA, ACÓRDÃO, RELATÓRIO e VOTO.
+- **Não verificado:** que o PDF é sempre o acórdão assinado inteiro (visto em 2); o limite
   de ritmo do eSAJ do TJCE; redirecionamentos; os termos de uso.
 
 ## Busca oficial do e-Proc do TRF4 (ementa e texto do portal do tribunal)
