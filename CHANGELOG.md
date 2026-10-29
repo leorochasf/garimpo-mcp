@@ -10,9 +10,14 @@
   link endereço `https` em domínio `.jus.br` (ADR-0031).
 - TJBA: cópias do mesmo acórdão na base do JurisprudênciaIA (mesmo link do portal, datas diferentes) viram um
   resultado só, pelo documento do portal no link; números de processo que se contradigam continuam separados.
+  Quando as cópias trazem datas de julgamento diferentes, o resultado avisa, no novo campo `avisoDeData`, as datas
+  encontradas e que a data mostrada não foi conferida no tribunal (vale também para as cópias do TJPR).
 - `listar_tribunais` e `obter_inteiro_teor`: o motivo do «só link» de TJPB, TJPE, TJRS, TJSE, TJRJ, TJSC, TJRO, TJAL,
   TJAM, TJAC, TJAP, TJMT e TJPA passa a dizer a barreira observada e a data (29/10/2026), no lugar do «ainda não
   testou» ou da data de 14/10. TJRN segue inconclusivo.
+- Windows com antivírus lento: o Garimpo podia parar de usar a rede com um falso «não tem permissão» sobre o estado
+  compartilhado de proteção, quando o antivírus segurava o arquivo por mais de 2 s. Agora espera até ~10 s antes de
+  tratar como permissão negada de verdade. Com a permissão negada de fato, o aviso chega em até ~10 s.
 
 ## 1.1.2 (2026-10-29)
 
