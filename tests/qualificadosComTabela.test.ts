@@ -175,7 +175,7 @@ describe("listas de qualificados com a tabela de precedentes", () => {
   });
 
   it("busca ampla com campos de tamanho realista e 10 temas casados na tabela empacotada: < 25 mil caracteres", async () => {
-    const link = (i: number) => `https://jurisprudencia.tribunal-exemplo.invalid/consulta/inteiro-teor/documento?id=${String(i).padStart(10, "0")}`;
+    const link = (i: number) => `https://jurisprudencia.tribunal-exemplo.jus.br/consulta/inteiro-teor/documento?id=${String(i).padStart(10, "0")}`;
     const acordao = (tribunal: string, i: number) => ({
       id: `${tribunal}a${String(i).padStart(9, "0")}`,
       texto_ementa:
