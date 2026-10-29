@@ -67,6 +67,12 @@
   um só número de processo, o da busca. A página não informa segredo de justiça; o Garimpo segue mesmo assim, por decisão do dono,
   conferindo o processo (ADR-0034). O `robots.txt` do portal não existe (404); as políticas de privacidade do tribunal, lidas em
   29/10/2026, não falam de robôs, e o termo próprio da plataforma de jurisprudência não foi verificado; não há autorização do TJBA.
+- TJES e TJMA: o `obter_inteiro_teor`, o `ler_inteiro_teor` e o `conferir_citacao` passam a usar o texto que a base do
+  JurisprudênciaIA embute no registro (HTML convertido em texto), sempre rotulado «texto da base do JurisprudênciaIA, não
+  oficial»: não é o PDF do tribunal, não tem recibo de origem e não foi conferido com o tribunal. Onde há caminho oficial
+  (PDF ou portal), ele prevalece. O valor `data:` cru nunca aparece nas respostas. No TJMA, o que o registro não traz
+  (classe, órgão, relator, número do processo) não é inventado: fica em branco, e a leitura do inteiro teor diz «número não
+  informado».
 - Windows com antivírus lento: o Garimpo podia parar de usar a rede com um falso «não tem permissão» sobre o estado
   compartilhado de proteção, quando o antivírus segurava o arquivo por mais de 2 s. Agora espera até ~10 s antes de
   tratar como permissão negada de verdade. Com a permissão negada de fato, o aviso chega em até ~10 s.

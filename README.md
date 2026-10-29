@@ -62,7 +62,8 @@ tribunal e se o precedente ainda vale. O Garimpo cuida dessa parte.
 | | STM | ✅ | não | 🔗 só link |
 | **Justiça Estadual** | TJCE, TJMG, TJMS, TJRR, TJSP | ✅ | não | 📄 PDF baixado, com recibo |
 | | TJBA, TJDFT, TJGO, TJPI, TJPR, TJTO | ✅ | não | 📝 texto do portal do tribunal, trazido pelo `obter_inteiro_teor` (sem PDF, sem recibo) |
-| | os outros 16 TJs | ✅ | não | 🔗 só link |
+| | TJES, TJMA | ✅ | não | 📝 texto da base do JurisprudênciaIA, não oficial (sem PDF, sem recibo de origem) |
+| | os outros 14 TJs | ✅ | não | 🔗 só link |
 | **Justiça Federal** | TRF2, TRF4 e TNU, pela busca oficial do e-Proc de cada um | ✅ (10 resultados por busca) | não | 📝 texto do portal do tribunal, trazido pelo `obter_inteiro_teor` (HTML, sem PDF, sem recibo; o Garimpo não confere a assinatura eletrônica) |
 | **Justiça do Trabalho** | TRT1 a TRT24, pelo Falcão (CSJT) | ✅ | sob pedido (`precedentes: true` na `busca_direta`) | 📝 texto integral do repositório oficial (sem PDF, sem recibo) |
 
@@ -717,7 +718,7 @@ civil do Estado por omissão."*
   e 200 do texto de cada precedente qualificado; a ementa inteira sai por `obter_ementa`. A lista de
   precedentes qualificados só traz o que o site devolve: há teses com tema conhecido em que ela vem vazia.
 - **Inteiro teor:** STF (proteção anti-robô) e os demais tribunais (exceto TJCE, TJMG, TJMS, TJRR, TJSP,
-  TSE e, como texto do portal, TRF2, TRF4, TNU, TJBA, TJDFT, TJGO, TJPI, TJPR e TJTO) não são baixados automaticamente: o Garimpo devolve o link e explica como obter no navegador. No STJ, o `robots.txt` de `processo.stj.jus.br` veda o acesso automatizado ao host inteiro (D-18); PDFs do STJ já baixados com recibo continuam relidos da pasta. Baixado o PDF, passe o caminho do
+  TSE, como texto do portal, TRF2, TRF4, TNU, TJBA, TJDFT, TJGO, TJPI, TJPR e TJTO e, como texto da base do JurisprudênciaIA, não oficial, TJES e TJMA) não são baixados automaticamente: o Garimpo devolve o link e explica como obter no navegador. No STJ, o `robots.txt` de `processo.stj.jus.br` veda o acesso automatizado ao host inteiro (D-18); PDFs do STJ já baixados com recibo continuam relidos da pasta. Baixado o PDF, passe o caminho do
   arquivo ao `ler_inteiro_teor` para ler o texto (origem declarada, não conferida).
 - **TSE:** downloads seguidos esperam 10 s entre si, contados da última saída de qualquer janela do Garimpo (o
   portal recusa chamadas em sequência).
