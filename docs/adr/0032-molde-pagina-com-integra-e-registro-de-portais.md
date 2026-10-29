@@ -40,3 +40,22 @@ Ligar um tribunal novo exigia ramos em quatro arquivos, e o rótulo da leitura c
   o texto vazio com o motivo fica guardado. Diferença aceita: o molde não guarda nada que uma guarda barrou.
 - **Não verificado:** se cada portal novo troca o documento como o do TJPR; o charset de cada um (o molde usa o do
   cabeçalho, depois o `<meta>`, depois o padrão do host).
+
+## Emenda (ticket 16, 2026-10-29): a região do cabeçalho é declarada, a regra é do molde
+
+O mesmo defeito apareceu três vezes no mesmo dia (molde, TJCE e TJBA): um número de processo citado no corpo do
+acórdão tomado como a identidade do documento. Cada tribunal escrevia a sua leitura do número sobre o documento
+inteiro.
+
+- A declaração do tribunal deixa de ter uma função livre para o processo e passa a declarar a **região do cabeçalho**
+  (`src/cabecalho.ts`):
+  - os títulos de seção que a encerram;
+  - o teto de caracteres;
+  - a expressão do número com o rótulo, com o número no grupo 1;
+  - opcionalmente, até onde o rótulo pode começar.
+- O registro recusa a declaração sem região, ou com região malformada.
+- A regra fica numa peça só, a mesma para a página com íntegra e para o cabeçalho do PDF do TJCE:
+  - a identidade se lê só na região;
+  - contam só números CNJ completos;
+  - sem número ou com dois diferentes, «a página não mostra o número do processo», e nada é guardado.
+- TJBA e TJCE migrados sem mudar o que o usuário vê. TJPI, TJPR, TJTO, TJDFT e TJGO continuam fora do molde.
