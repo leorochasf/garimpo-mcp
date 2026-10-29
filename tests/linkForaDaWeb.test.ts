@@ -3,7 +3,9 @@ import { join } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { describe, expect, it } from "vitest";
+import type { Acordao } from "../src/busca.js";
 import { Cliente } from "../src/cliente.js";
+import { Memoria } from "../src/memoria.js";
 import { criarServidor } from "../src/servidor.js";
 import { respostaJson } from "./apoio.js";
 
@@ -31,27 +33,57 @@ function registro(n: number, link: string) {
   };
 }
 
-/** Site falso: responde a toda busca com estes registros no formato do site; anota cada endereço pedido. */
-function siteFalso(registros: unknown[]) {
+/**
+ * Site falso: responde a toda busca com estes registros no formato do site; a rota de link, com `linkDaRota`, se
+ * houver. Anota cada endereço pedido.
+ */
+function siteFalso(registros: unknown[], linkDaRota?: string) {
   const pedidos: string[] = [];
   const cliente = new Cliente({
     nome: "O site",
     esperar: async () => {},
     fetch: (async (url: string) => {
       pedidos.push(String(url));
+      if (String(url).includes("/api/jurisprudencia-link")) return respostaJson(linkDaRota ? { link: linkDaRota } : {});
       return respostaJson({ results: registros });
     }) as typeof fetch,
   });
   return { cliente, pedidos };
 }
 
-async function conectar(site: Cliente) {
+const rota = (pedidos: string[]) => pedidos.filter((p) => p.includes("/api/jurisprudencia-link"));
+
+async function conectar(site: Cliente, dados?: string) {
   const [ladoCliente, ladoServidor] = InMemoryTransport.createLinkedPair();
-  const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "janela-"));
+  dados ??= await mkdtemp(join(process.env.GARIMPO_DADOS!, "janela-"));
   await criarServidor(site, { dados }).connect(ladoServidor);
   const mcp = new Client({ name: "teste", version: "0" });
   await mcp.connect(ladoCliente);
   return mcp;
+}
+
+/**
+ * Memória gravada antes desta regra: um acórdão com o valor cru no link ou no link de consulta, gravado por outra janela
+ * na pasta de dados (como fazia a versão anterior). Espera o disco antes de devolver a pasta.
+ */
+async function memoriaAntiga(sobre: Partial<Acordao>): Promise<string> {
+  const dados = await mkdtemp(join(process.env.GARIMPO_DADOS!, "janela-antiga-"));
+  const acordao = {
+    id: "tjpb:1",
+    tribunal: "tjpb",
+    numero: "0000001-11.2025.8.15.0001",
+    numeroCnj: "0000001-11.2025.8.15.0001",
+    semNumero: false,
+    ementa: "EMENTA FICTÍCIA. APELAÇÃO CÍVEL.",
+    ...sobre,
+  } as Acordao;
+  new Memoria({ dados }).lembrar([{ ids: [acordao.id], registro: acordao }]);
+  const prazo = Date.now() + 10_000;
+  while (!(await new Memoria({ dados }).obter(acordao.id))) {
+    if (Date.now() > prazo) throw new Error("a gravação da memória não terminou no prazo");
+    await new Promise((r) => setTimeout(r, 20));
+  }
+  return dados;
 }
 
 async function chamar(mcp: Client, name: string, args: Record<string, unknown>) {
@@ -133,5 +165,42 @@ describe("só endereço web do tribunal vira link", () => {
     expect(busca.acordaos[0].avisoDeLink).toBeUndefined();
     const r = JSON.parse(await chamar(mcp, "obter_inteiro_teor", { id: busca.acordaos[0].id }));
     expect(r.link).toBe(link);
+  });
+});
+
+// Revisão do 01 (B01-R01, B01-R02): a memória gravada antes da regra também não pode vazar o valor cru nem travar a rota.
+describe("só endereço web vira link: memória de antes da regra", () => {
+  const OFICIAL = "https://www.tjpb.jus.br/documento/1";
+
+  it("B01-R01: linkConsulta data: na memória antiga não sai como link; vai o aviso e o caminho sem link", async () => {
+    const dados = await memoriaAntiga({ linkConsulta: "data:text/html;base64,VEVTVEU=" });
+    const { cliente, pedidos } = siteFalso([]);
+    const r = JSON.parse(await chamar(await conectar(cliente, dados), "obter_inteiro_teor", { id: "tjpb:1" }));
+    expect(JSON.stringify(r)).not.toMatch(/data:text|base64/);
+    expect(r.link).toBeUndefined();
+    expect(r.explicacao).toMatch(/não é página do tribunal \(endereço do tipo data:\)/);
+    expect(r.explicacao).not.toMatch(/abr[ae] o link no navegador/i);
+    expect(rota(pedidos)).toHaveLength(1);
+  });
+
+  it("B01-R02: link gs:// na memória antiga não trava a rota de link; o link oficial dela sai", async () => {
+    const dados = await memoriaAntiga({ link: "gs://balde/documento.pdf" });
+    const { cliente, pedidos } = siteFalso([], OFICIAL);
+    const r = JSON.parse(await chamar(await conectar(cliente, dados), "obter_inteiro_teor", { id: "tjpb:1" }));
+    expect(rota(pedidos)).toHaveLength(1);
+    expect(r.link).toBe(OFICIAL);
+    expect(r.explicacao).toMatch(/Link pedido à rota de link do JurisprudênciaIA/);
+    expect(JSON.stringify(r)).not.toMatch(/gs:\/\//);
+  });
+
+  it("B01-R02: pedido com link gs:// e id guardado sem link também segue para a rota de link", async () => {
+    const dados = await memoriaAntiga({});
+    const { cliente, pedidos } = siteFalso([], OFICIAL);
+    const r = JSON.parse(
+      await chamar(await conectar(cliente, dados), "obter_inteiro_teor", { id: "tjpb:1", link: "gs://balde/documento.pdf" }),
+    );
+    expect(rota(pedidos)).toHaveLength(1);
+    expect(r.link).toBe(OFICIAL);
+    expect(JSON.stringify(r)).not.toMatch(/gs:\/\//);
   });
 });

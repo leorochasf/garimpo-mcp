@@ -34,6 +34,7 @@ motivo. Nada passa a ser baixado.
   rótulo próprio.
 - Link `http://` em `.jus.br` vindo da base também deixa de sair na busca (vira aviso «endereço do tipo http:»).
   **Não verificado** quantos tribunais a base manda assim; nenhum foi visto na matriz nem em `docs/api-jurisprudenciaia.md`.
-- Busca guardada na memória antes desta versão continua com o valor antigo até vencer (24 h); o `obter_inteiro_teor`
-  já a trata pela regra do link web.
+- Busca guardada na memória antes desta versão continua com o valor antigo até vencer (24 h). O `obter_inteiro_teor`
+  limpa o acórdão dessa memória ao lê-lo (link e link de consulta, com o aviso), e a rota de link do site vale para ele
+  como para quem nunca teve link; o mesmo quando o pedido traz, junto com o id, um link que não é endereço web.
 - Links de precedentes qualificados (`Qualificado.link`) ficam fora desta regra: nenhum caso visto.
