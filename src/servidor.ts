@@ -728,7 +728,7 @@ export function criarServidor(
         "Acórdão que veio da busca sem link nenhum: pede o link oficial, uma vez, à rota de link do JurisprudênciaIA " +
         "(exceto TST) e diz que ele veio de lá; sem link também ali, diz como achar o acórdão pelo número CNJ. " +
         "Baixa do TJCE, TJMG, TJMS, TJRR, TJSP e TSE. STJ: não baixa (o robots.txt de processo.stj.jus.br veda o acesso automatizado); devolve o link para conferência manual, e o PDF baixado antes com recibo, ou trazido pelo usuário, é lido normalmente. TRT (Falcão): não há PDF a baixar; explica e aponta o ler_inteiro_teor pelo " +
-        "id. TJBA, TJDFT, TJGO, TJPI, TJPR, TJTO, TRF2, TRF4 e TNU: o portal entrega o acórdão em HTML; o Garimpo o traz como texto do portal do tribunal (sem PDF " +
+        "id. TJBA, TJDFT, TJGO, TJPI, TJPR, TJTO, TRF2, TRF4 e TNU: o portal entrega o acórdão em HTML (no TJGO, às vezes como PDF embutido no envelope .p7s); o Garimpo o traz como texto do portal do tribunal (sem PDF baixado " +
         "nem recibo) para a memória e aponta o ler_inteiro_teor e o conferir_citacao pelo id. No TJGO, só o julgamento " +
         "exato que a busca achou (mesma data e hora, conferido pela ementa); sem casamento seguro, devolve o link do " +
         "processo e o motivo. Para STF e demais devolve o link e explica como obter no navegador " +
@@ -1206,7 +1206,9 @@ export function criarServidor(
         "registro bate em tudo o que foi informado), \"dados em conflito\" (cada divergência vem com o que foi informado " +
         "e o que está no registro) e \"não verificado\" (a busca não trouxe o número: isso NÃO quer dizer que o " +
         "acórdão não existe). Dado informado que o registro não traz vem em naoConferidos. Número com mais de um " +
-        "acórdão (recurso e embargos) lista os outros. Compara só com a base do JurisprudênciaIA; confira o acórdão " +
+        "acórdão (recurso e embargos) lista os outros. Compara só com o registro da fonte que a busca do Garimpo usa " +
+        "para aquele tribunal (a base do JurisprudênciaIA; no TRF2, no TRF4 e na TNU, a busca oficial do e-Proc); " +
+        "confira o acórdão " +
         "no portal do tribunal antes de citar. Não vale para TRT. Busca com erro é erro, nunca \"não verificado\".",
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
       inputSchema: {
@@ -1264,7 +1266,7 @@ export function criarServidor(
     {
       title: "Panorama da amostra",
       description:
-        "Conta, por tribunal, por ano de julgamento e por órgão julgador, os acórdãos que uma busca já trouxe (informe " +
+        "Conta, por tribunal, por ano de julgamento, por órgão julgador e por relator, os acórdãos que uma busca já trouxe (informe " +
         "os ids, de 1 a 200, como vieram na busca_direta ou na busca_ampla; o acórdão tem de estar na memória do " +
         "Garimpo, que guarda por 24 h). Não chama o site. É contagem da amostra da busca, não estatística do tribunal: " +
         "o aviso vem em toda resposta. Sem data, vai em \"sem data\"; sem órgão, em \"sem órgão informado\"; por " +
