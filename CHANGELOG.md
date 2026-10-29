@@ -37,6 +37,11 @@
   acórdãos do TJES deixa de passar de 400 mil caracteres. No `obter_inteiro_teor`, esse acórdão segue o caminho de
   quem não tem link (rota de link do site, depois o número no portal do tribunal), com o mesmo aviso. Só passa como
   link endereço `https` em domínio `.jus.br` (ADR-0031).
+- Peça comum para os portais de tribunal que publicam a íntegra do acórdão numa página aberta: cada tribunal só
+  declara onde estão o processo, o segredo de justiça e a íntegra, e as conferências valem para todos — mesmo processo
+  da busca, número do processo dentro da íntegra, segredo de justiça, documento trocado e recusa quando a busca não
+  traz o número CNJ. Quando uma conferência barra, nada é guardado e a resposta diz o motivo. Nenhum tribunal novo
+  ainda (ADR-0032).
 - TJBA: cópias do mesmo acórdão na base do JurisprudênciaIA (mesmo link do portal, datas diferentes) viram um
   resultado só, pelo documento do portal no link; números de processo que se contradigam continuam separados.
   Quando as cópias trazem datas de julgamento diferentes, o resultado avisa, no novo campo `avisoDeData`, as datas
