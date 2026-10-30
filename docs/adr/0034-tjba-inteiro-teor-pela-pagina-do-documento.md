@@ -2,7 +2,7 @@
 
 _Proposto pelo Claude em 2026-10-29 (ticket 04 da frente dos tribunais estaduais), a partir da matriz ao vivo dos TJs e
 das gravações do cartão Rede do mesmo dia. Primeiro tribunal real no molde do ADR-0032. Caso avaliado pelo critério do
-caminho legítimo sem proteção a vencer (ADR-0029, ADR-0030). Proposto como 0033; renumerado para 0034 na junção, porque o 0033 ficou com o TJCE._
+caminho legítimo sem proteção a vencer (ADR-0029, ADR-0030). Proposto como 0033; renumerado para 0034 na junção, porque o 0033 ficou com o TJCE. Aprovado pelo dono em 2026-10-30._
 
 O TJBA tinha busca pelo JurisprudênciaIA e inteiro teor «só link» («ainda não testou»). O link que vem da busca
 (`https://jurisprudenciaws.tjba.jus.br/inteiroTeor/<uuid>`) abre, sem login nem verificação anti-robô, uma página HTML

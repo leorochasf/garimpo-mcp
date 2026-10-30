@@ -2,7 +2,7 @@
 
 _Proposto pelo Claude em 2026-10-29 (ticket 03 da frente dos tribunais estaduais), a partir do desenho aprovado pelo
 dono no mesmo dia (`docs/design/2026-10-29-tjs-estaduais.md`, peça 2) e das decisões do coordenador sobre as guardas
-(Q2: número do processo dentro da íntegra ligado por padrão; Q3: sem número CNJ na busca, recusa)._
+(Q2: número do processo dentro da íntegra ligado por padrão; Q3: sem número CNJ na busca, recusa). Aprovado pelo dono em 2026-10-30._
 
 Até a 1.1.2, cada tribunal com «texto do portal do tribunal» ganhou um módulo próprio (`tjpi.ts`, `tjpr.ts`…) com as
 mesmas peças repetidas e guardas diferentes: o TJPI não lia segredo de justiça, o TJTO não conferia o processo da busca,

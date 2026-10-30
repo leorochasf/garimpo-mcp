@@ -1,6 +1,6 @@
 # TJCE: inteiro teor pelo PDF oficial do eSAJ
 
-_Proposto pelo Claude em 2026-10-29, a partir da leitura do mesmo dia (matriz ao vivo dos TJs) e do desenho dos 27 tribunais estaduais. O número desta ADR é provisório: o Integrador confere a sequência ao juntar._
+_Proposto pelo Claude em 2026-10-29, a partir da leitura do mesmo dia (matriz ao vivo dos TJs) e do desenho dos 27 tribunais estaduais. Aprovado pelo dono em 2026-10-30._
 
 O TJCE tinha busca pelo JurisprudênciaIA e inteiro teor «só link», com a explicação genérica «ainda não testou». A leitura
 de 2026-10-29 mostrou que o link que vem da busca (`esaj.tjce.jus.br/cjsg/getArquivo.do?cdAcordao=<n>&cdForo=0`) entrega o

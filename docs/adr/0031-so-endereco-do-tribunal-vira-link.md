@@ -2,7 +2,7 @@
 
 _Proposto pelo Claude em 2026-10-29 (ticket 01 da frente dos tribunais estaduais), a partir do desenho aprovado pelo
 dono no mesmo dia (`docs/design/2026-10-29-tjs-estaduais.md`, peça 1). Frase ao usuário aprovada pelo coordenador
-(regra D12)._
+(regra D12). Aprovado pelo dono em 2026-10-30._
 
 A matriz ao vivo dos TJs (fora do repositório) mostrou que o JurisprudênciaIA às vezes manda, no campo do link, algo
 que não abre como página: no TJES e no TJMA, um `data:text/html;base64,…` de 15 a 294 KB com o HTML do acórdão; no

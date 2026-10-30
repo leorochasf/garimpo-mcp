@@ -1,6 +1,6 @@
 # TJES e TJMA: o texto da base do JurisprudênciaIA
 
-_Número provisório: o Integrador confere a sequência ao juntar. Decisão do dono em 2026-10-29._
+_Decisão do dono em 2026-10-29. Aprovado pelo dono em 2026-10-30._
 
 O TJES e o TJMA não têm caminho oficial para o inteiro teor que o Garimpo possa usar (nenhum PDF por GET, nenhum portal
 registrado no molde da ADR-0032). Mas, nos dois, o registro que o JurisprudênciaIA devolve na busca traz o acórdão em
