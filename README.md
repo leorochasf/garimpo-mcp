@@ -71,8 +71,9 @@ tribunal e se o precedente ainda vale. O Garimpo cuida dessa parte.
 <summary>Os 27 TJs</summary>
 
 TJAC, TJAL, TJAM, TJAP, TJBA, TJCE, TJDFT, TJES, TJGO, TJMA, TJMG, TJMS, TJMT, TJPA, TJPB, TJPE, TJPI, TJPR, TJRJ,
-TJRN, TJRO, TJRR, TJRS, TJSC, TJSE, TJSP, TJTO. Nos 14 que ficam só com o link, o download automático foi
-testado e não está disponível; o Garimpo explica o motivo e leva ao link. Em 13 deles a resposta traz também a barreira observada e a data da conferência (29/10/2026); no TJRN a prova foi inconclusiva (STJ e STF também têm motivo datado:
+TJRN, TJRO, TJRR, TJRS, TJSC, TJSE, TJSP, TJTO. Nos 14 que ficam só com o link, o Garimpo explica o
+motivo e leva ao link. Em 13 deles a resposta traz a barreira observada e a data da conferência (29/10/2026); no TJRN a
+busca do site não respondeu e a rota de íntegra ficou sem teste, por isso a prova é inconclusiva (STJ e STF também têm motivo datado:
 ver [Limites conhecidos](#limites-conhecidos)). No TJTO, o portal entrega o acórdão em
 HTML: o `obter_inteiro_teor` o traz como texto, que se lê e confere pelo id (`ler_inteiro_teor`, `conferir_citacao`).
 No TJGO, o texto vem da consulta pública do processo no Projudi, só do julgamento exato que a busca achou (veja
