@@ -8,6 +8,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { Cliente, PausaPreventivaError, RecusaError, VERSAO } from "./cliente.js";
 import { buscaDireta, conferirDadosDoAcordao, ementaAparentementeIncompleta } from "./busca.js";
+import { limparEmenta } from "./ementaLimpa.js";
 import { buscaAmpla, expandirAgrupadorTrt, type ResultadoAmplo } from "./ampla.js";
 import {
   type CoordenacaoEmArquivo,
@@ -29,6 +30,7 @@ import {
 import {
   AVISO_DE_CORTE,
   contarPaginas,
+  ehTextoDaBase,
   ehTextoDoPortal,
   type InteiroTeorParaConferir,
   LIMITE_CARACTERES_PARTE,
@@ -36,18 +38,20 @@ import {
   lerParaConferir,
   lerTextoIntegral,
   naturezaDoTexto,
+  avisoDeCorteDoTexto,
+  textoEhDaBase,
   avisoSemTextoIntegral,
   textoForaDaMemoria,
 } from "./leitura.js";
 import { Memoria, obtidoDoSite } from "./memoria.js";
-import { AVISO_DE_AMOSTRA, panorama } from "./panorama.js";
+import { respostaDoPanorama } from "./panorama.js";
 import { ChaveDoDataJud, clienteDoDataJud, TERMO_DE_USO_DATAJUD } from "./datajud.js";
 import { clienteDoDjen, FonteDjen } from "./djen.js";
 import { julgamentosDoProcesso } from "./julgamentos.js";
 import { avisoRecorridoDoAcordao } from "./recorrido.js";
 import { clienteDaLegislacao, diplomasSuportados, textoDeLei } from "./legislacao.js";
 import { CHAMADO_LIGADO, comLinhaDeChamado, ERRO_DE_ORIGEM } from "./chamado.js";
-import { INSTRUCTIONS, roteiroDePesquisa } from "./roteiro.js";
+import { INSTRUCTIONS, roteiroDeDistincao, roteiroDePesquisa } from "./roteiro.js";
 import { clienteDoFalcao } from "./falcao.js";
 import { AVISO_DE_VELOCIDADE, avisoDeBaixaTcu, baixarAnoTcu, clienteDoTcu, listarAnosDoTcu } from "./tcuBaixar.js";
 import { anosBaixadosTcu, lerAcordaoTcu, lerReciboTcu, pastaDoTcu, pesquisarTcu } from "./tcuLocal.js";
@@ -58,6 +62,7 @@ import {
   ehDoTnu,
   ehDoTrf2,
   ehDoTrf4,
+  INTEIRO_TEOR_BASE,
   INTEIRO_TEOR_PORTAL,
   INTEIRO_TEOR_TRT,
   paginaDeTribunais,
@@ -230,6 +235,11 @@ const AVISO_NATUREZA_JURIDICA =
 const AVISO_CITACAO_NA_EMENTA_CORTADA =
   "A ementa parece ter vindo incompleta do JurisprudênciaIA (termina no meio da frase): a citação pode estar no " +
   "trecho que faltou. Confira no inteiro teor.";
+
+/** Ementa que não se separou com segurança do resto do campo da base (ementaLimpa.ts): nunca «encontrado na ementa». */
+const AVISO_CITACAO_NA_EMENTA_INCERTA =
+  "A ementa deste acórdão não pôde ser separada com segurança do resto do campo da base do JurisprudênciaIA (o " +
+  "texto pode ter parte do relatório ou do voto): o Garimpo não diz se a citação está na ementa. Confira no inteiro teor.";
 
 /** Aviso de natureza jurídica das respostas que vêm da tabela de precedentes (fotografia, não consulta ao vivo). */
 const AVISO_DA_TABELA =
@@ -491,9 +501,16 @@ export function criarServidor(
     {
       title: "Busca direta",
       description:
-        "Pesquisa jurisprudência num tribunal pela busca direta do JurisprudênciaIA (sem o chat de IA do site). " +
-        "Devolve acórdãos com a ementa como veio do site (avisoDeEmenta quando ela parece cortada pelo próprio site), " +
-        "número, órgão, data e link oficial, e, em lista separada, os " +
+        "Pesquisa jurisprudência (decisões judiciais publicadas) num tribunal pela busca direta do JurisprudênciaIA " +
+        "(sem o chat de IA do site). " +
+        "Devolve acórdãos com a ementa do site, só ela: quando o campo da base traz também o cabeçalho com nomes das " +
+        "partes, a decisão inteira ou a ementa repetida, vai só o trecho da ementa, sem reescrever, e avisoDeEmenta diz " +
+        "isso (avisoDeEmenta também quando ela parece cortada pelo próprio site; avisoDeData quando cópias juntadas do " +
+        "mesmo acórdão trazem datas de julgamento diferentes), " +
+        "a classe como o site informa (avisoDeClasse quando os próprios dados a põem em dúvida: nome de órgão no lugar " +
+        "da classe, ou a ementa nomeia outra classe; a classe não é trocada, e o enquadramento927 leva a ressalva), " +
+        "número, órgão, data e link oficial (avisoDeLink quando o site mandou, no lugar do link, um endereço que não é " +
+        "página do tribunal), e, em lista separada, os " +
         "precedentes qualificados (temas, súmulas). O site costuma devolver poucos acórdãos do STF por busca (de 2 a 7 na medição de out/2026). " +
         "O campo cabecalhoDeCobertura diz se veio o número pedido (pode haver mais) ou menos (a base não tem mais " +
         "para o texto; no STF, que devolve poucos por busca, pode haver mais). " +
@@ -556,7 +573,9 @@ export function criarServidor(
         "palavras de alguma formulação estão na ementa), depois por quantas formulações acharam cada acórdão e pela " +
         "posição na busca de origem. Cada tribunal pedido com acórdão aderente tem vagas garantidas. Aderência mede " +
         "proximidade de texto, não relevância jurídica. Saída compacta: número, tribunal, data, órgão, trecho da " +
-        "ementa onde a tese aparece e link; e, em lista separada, os precedentes qualificados (temas, súmulas) que " +
+        "ementa onde a tese aparece e link (avisoDeLink quando o site mandou, no lugar do link, um endereço que não é " +
+        "página do tribunal; avisoDeClasse quando os próprios dados põem em dúvida a classe que o site informa, como " +
+        "na busca_direta); e, em lista separada, os precedentes qualificados (temas, súmulas) que " +
         "o site devolveu. O campo cabecalhoDeCobertura traz, por tribunal, buscas feitas, vazias, com erro e não " +
         "feitas, acórdãos achados e mostrados; as formulações que não trouxeram nada; e se a lista foi cortada pelo " +
         "máximo. Busca vazia não é busca com erro: tribunal em que nenhuma busca deu resposta aparece \"com erro\" " +
@@ -648,14 +667,20 @@ export function criarServidor(
     {
       title: "Obter ementa",
       description:
-        "Devolve a ementa como veio do site (avisoDeEmenta quando ela parece cortada pelo próprio site) e os dados de " +
+        "Devolve a ementa do site, só ela: quando o campo da base traz também o cabeçalho com nomes das partes, a " +
+        "decisão inteira ou a ementa repetida, vai só o trecho da ementa, sem reescrever, e avisoDeEmenta diz isso " +
+        "(avisoDeEmenta também quando ela parece cortada pelo próprio site; avisoDeData quando cópias juntadas do mesmo " +
+        "acórdão trazem datas de julgamento diferentes) e os dados de " +
         "um acórdão já devolvido por busca_direta ou busca_ampla, pelo id " +
-        "(ex.: \"stj:12345\"), com o mesmo enquadramento927 da busca e a data e hora em que foi obtido do site " +
+        "(ex.: \"stj:12345\"), com o mesmo enquadramento927 e o mesmo avisoDeLink da busca e a data e hora em que foi obtido do site " +
         "(obtidoDoSite). A memória do Garimpo guarda os acórdãos por 24 h desde a busca, para todas as janelas " +
         "(com GARIMPO_SEM_MEMORIA=1, só na janela que fez a busca, enquanto ela estiver aberta). " +
         "Não faz nova busca no site: fora da memória, refaça a busca que o trouxe. " +
         "Acórdão de embargos de declaração, agravo interno e similares, com número CNJ, traz avisoRecorrido: o " +
-        "acórdão recorrido não vem nesta resposta e pode não estar na base.",
+        "acórdão recorrido não vem nesta resposta e pode não estar na base. " +
+        "avisoDeClasse, como na busca: a classe que o site informa é posta em dúvida pelos próprios dados (nome de " +
+        "órgão no lugar da classe, ou a ementa nomeia outra classe); vem como veio, e o que depende dela " +
+        "(enquadramento927, avisoRecorrido) leva a ressalva.",
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
       inputSchema: { id: z.string().describe("Id do acórdão, como veio na busca (tribunal:id)") },
     },
@@ -689,7 +714,8 @@ export function criarServidor(
     {
       title: "Obter inteiro teor oficial",
       description:
-        "Baixa o PDF oficial do acórdão do portal do próprio tribunal e devolve o caminho do arquivo salvo, o " +
+        "Baixa o PDF oficial do acórdão (decisão pública que o próprio tribunal publica no seu portal), para leitura " +
+        "local, e devolve o caminho do arquivo salvo, o " +
         "sha256 e o caminho do recibo de origem gravado ao lado (link oficial, data e hora, sha256; declaração do " +
         "Garimpo, não certidão). Nunca sobrescreve nem deixa arquivo pela metade; recusa PDF acima de 50 MB. " +
         "Já devolve a 1ª parte do texto, com o mesmo cabeçalho do ler_inteiro_teor e a chamada pronta para a parte " +
@@ -702,13 +728,14 @@ export function criarServidor(
         "fora da pasta de destino. " +
         "Acórdão que veio da busca sem link nenhum: pede o link oficial, uma vez, à rota de link do JurisprudênciaIA " +
         "(exceto TST) e diz que ele veio de lá; sem link também ali, diz como achar o acórdão pelo número CNJ. " +
-        "Baixa do TJMG, TJMS, TJRR, TJSP e TSE. STJ: não baixa (o robots.txt de processo.stj.jus.br veda o acesso automatizado); devolve o link para conferência manual, e o PDF baixado antes com recibo, ou trazido pelo usuário, é lido normalmente. TRT (Falcão): não há PDF a baixar; explica e aponta o ler_inteiro_teor pelo " +
-        "id. TJGO, TJPI, TJPR, TJTO, TRF2, TRF4 e TNU: o portal entrega o acórdão em HTML; o Garimpo o traz como texto do portal do tribunal (sem PDF " +
+        "Baixa do TJCE, TJMG, TJMS, TJRR, TJSP e TSE. STJ: não baixa (o robots.txt de processo.stj.jus.br veda o acesso automatizado); devolve o link para conferência manual, e o PDF baixado antes com recibo, ou trazido pelo usuário, é lido normalmente. TRT (Falcão): não há PDF a baixar; explica e aponta o ler_inteiro_teor pelo " +
+        "id. TJBA, TJDFT, TJGO, TJPI, TJPR, TJTO, TRF2, TRF4 e TNU: o portal entrega o acórdão em HTML (no TJGO, às vezes como PDF embutido no envelope .p7s); o Garimpo o traz como texto do portal do tribunal (sem PDF baixado " +
         "nem recibo) para a memória e aponta o ler_inteiro_teor e o conferir_citacao pelo id. No TJGO, só o julgamento " +
         "exato que a busca achou (mesma data e hora, conferido pela ementa); sem casamento seguro, devolve o link do " +
         "processo e o motivo. Para STF e demais devolve o link e explica como obter no navegador " +
         "(o Garimpo não contorna captcha nem proteção anti-robô) e como ler o PDF baixado: passar o caminho do " +
-        "arquivo ao ler_inteiro_teor. Informe o id que veio na busca ou tribunal + link.",
+        "arquivo ao ler_inteiro_teor. Informe o id que veio na busca ou tribunal + link. " +
+        "TJES e TJMA: sem caminho oficial, o texto da base do JurisprudênciaIA, não oficial (HTML do registro convertido em texto, sem PDF nem recibo), guardado pela busca; leia pelo id.",
       // Só grava arquivo novo, nunca sobrescreve: sem a marca, o MCP presume "destrutiva".
       annotations: { destructiveHint: false },
       inputSchema: {
@@ -752,8 +779,10 @@ export function criarServidor(
         "chamada para a parte seguinte. TRT (Falcão): informe só o id que veio na busca, sem caminho: devolve o " +
         "texto integral do repositório oficial, convertido de HTML (não é PDF, sem recibo de origem), em partes por " +
         "tamanho (não são páginas de PDF), com cabeçalho de fonte, julgado em e juntado em; o texto fica na memória " +
-        "por 24 h desde a busca, e texto com indício de corte vem marcado como incompleto. TJTO, só com o id, depois " +
-        "do obter_inteiro_teor: o texto do portal do tribunal, do mesmo jeito.",
+        "por 24 h desde a busca, e texto com indício de corte vem marcado como incompleto. Tribunais com texto do " +
+        "portal do tribunal (TJBA, TJDFT, TJGO, TJPI, TJPR, TJTO, TRF2, TRF4 e TNU), só com o id, depois do " +
+        "obter_inteiro_teor: o texto do portal, do mesmo jeito. " +
+        "TJES e TJMA, só com o id: o texto da base do JurisprudênciaIA, não oficial.",
       annotations: { readOnlyHint: true, openWorldHint: false },
       inputSchema: {
         caminho: z
@@ -768,7 +797,10 @@ export function criarServidor(
         id: z
           .string()
           .optional()
-          .describe("TRT ou TJTO: id do acórdão (lê o texto da memória). PDF trazido, opcional: id do acórdão que ele seria"),
+          .describe(
+            "TRT ou tribunal com texto do portal: id do acórdão (lê o texto da memória). PDF trazido, opcional: id do " +
+              "acórdão que ele seria",
+          ),
         tribunal: tribunal.optional().describe("Opcional, PDF trazido: tribunal do acórdão que ele seria"),
         numero: z.string().optional().describe("Opcional, PDF trazido: número do processo do acórdão que ele seria"),
       },
@@ -777,12 +809,13 @@ export function criarServidor(
       try {
         conferirTribunais(vinculo.tribunal);
         if (caminho === undefined) {
-          if (vinculo.id && (ehDoFalcao(vinculo.id.split(":")[0]) || ehTextoDoPortal(vinculo.id))) {
+          if (vinculo.id && (ehDoFalcao(vinculo.id.split(":")[0]) || ehTextoDoPortal(vinculo.id) || ehTextoDaBase(vinculo.id))) {
             return json(await lerTextoIntegral(vinculo.id, parte, memoria));
           }
           throw new Error(
             "Informe o caminho do PDF (o campo arquivo do obter_inteiro_teor ou o de um PDF que você baixou). Sem " +
-              "caminho, só o id de um acórdão de TRT (Falcão) ou do TJTO (depois do obter_inteiro_teor), cujo texto " +
+              "caminho, só o id de um acórdão de TRT (Falcão) ou de tribunal com texto do portal (depois do " +
+              "obter_inteiro_teor), cujo texto " +
               "fica na memória do Garimpo.",
           );
         }
@@ -821,7 +854,8 @@ export function criarServidor(
         "identificada\". Passagem entre aspas, ou no PDF logo depois de \"in verbis\", \"confira-se\" e semelhantes, " +
         "ganha o aviso de que pode ser de outro autor; no relatório ou num voto vencido, aviso forte. O Garimpo nunca " +
         "diz de quem é a passagem. Achar o texto não autentica a fonte, e o id junto do caminho de um PDF trazido é só " +
-        "vínculo declarado. Só lê: não chama a rede e não grava.",
+        "vínculo declarado. Só lê: não chama a rede e não grava. " +
+        "TJES e TJMA, com o id: confere também no texto da base do JurisprudênciaIA, não oficial.",
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
       inputSchema: {
         // Item malformado é conferido dentro da ferramenta: vira resultado próprio, com frase que ensina a corrigir,
@@ -882,18 +916,25 @@ export function criarServidor(
         if (id !== undefined) {
           const a = (await memoria.obter(id))?.acordao;
           const doFalcao = ehDoFalcao(id.split(":")[0]);
-          const doPortal = ehTextoDoPortal(id);
-          const conferida = a
-            ? conferirNaEmenta(a.ementa, lida, doFalcao ? "Sem ementa no Falcão: não há ementa para conferir." : undefined)
-            : naoVerificavel(`O acórdão ${id} não está na memória do Garimpo. Refaça a busca que o trouxe e confira de novo.`);
+          const doPortal = ehTextoDoPortal(id) || ehTextoDaBase(id);
+          // A memória de antes da ementa limpa (até 24 h) guarda o campo inteiro: a limpeza vale também para ela.
+          const limpa = a && !doFalcao ? limparEmenta(a.tribunal, a.ementa) : undefined;
+          const ementa = limpa?.ementa ?? a?.ementa ?? "";
+          const conferida = !a
+            ? naoVerificavel(`O acórdão ${id} não está na memória do Garimpo. Refaça a busca que o trouxe e confira de novo.`)
+            : a.ementaIncerta || limpa?.separacaoIncerta
+              ? naoVerificavel(AVISO_CITACAO_NA_EMENTA_INCERTA)
+              : conferirNaEmenta(ementa, lida, doFalcao ? "Sem ementa no Falcão: não há ementa para conferir." : undefined);
           const cortada =
-            a && !doFalcao && conferida.veredito === "não encontrado" && ementaAparentementeIncompleta(a.ementa)
+            a && !doFalcao && conferida.veredito === "não encontrado" && ementaAparentementeIncompleta(ementa)
               ? { aviso: AVISO_CITACAO_NA_EMENTA_CORTADA }
               : {};
           fontes.push({ fonte: "ementa", id, ...conferida, ...cortada });
           if (doFalcao || doPortal) {
             const t = await memoria.obterTexto(id);
             const semTexto = t?.motivoSemTexto;
+            // A origem efetiva é a do texto guardado, não a configuração atual do tribunal.
+            const daBase = t ? textoEhDaBase(t, id) : ehTextoDaBase(id);
             const noTexto = semTexto
               ? naoVerificavel(`${avisoSemTextoIntegral(semTexto)} Não há acórdão para conferir além da ementa.`)
               : t
@@ -901,12 +942,12 @@ export function criarServidor(
                 : naoVerificavel(textoForaDaMemoria(id));
             const corte =
               t?.indicioDeCorte && noTexto.veredito !== "não verificável"
-                ? { aviso: `${AVISO_DE_CORTE} Uma citação "não encontrada" pode estar no trecho que faltou.` }
+                ? { aviso: `${daBase ? avisoDeCorteDoTexto("base") : AVISO_DE_CORTE} Uma citação "não encontrada" pode estar no trecho que faltou.` }
                 : {};
             const avisos = [(corte as { aviso?: string }).aviso, t?.conteudoOculto ? AVISO_CONTEUDO_OCULTO : undefined].filter(Boolean);
             fontes.push({
               fonte: "texto integral", id,
-              origem: naturezaDoTexto(Boolean(semTexto), doPortal, id),
+              origem: naturezaDoTexto(Boolean(semTexto), doPortal, id, daBase),
               ...noTexto,
               ...(avisos.length > 0 && { aviso: avisos.join(" ") }),
             });
@@ -967,7 +1008,8 @@ export function criarServidor(
         "Consulta um precedente pelo número. STJ: tema repetitivo ou IAC, direto na tabela de precedentes que vai no " +
         "Garimpo (fotografia datada do Portal de Dados Abertos do STJ), sem consultar o portal do STJ: o robots.txt de " +
         "processo.stj.jus.br veda o acesso automatizado ao host, e o Garimpo respeita. A resposta diz \"tabela de " +
-        "<data>; consulta automática ao portal não realizada por restrição de acesso\", traz a situação na fonte (literal, " +
+        "<data>; consulta automática ao portal não realizada: o robots.txt do portal veda o acesso automatizado, e o " +
+        "Garimpo respeita\", traz a situação na fonte (literal, " +
         "situação processual, nunca vigência), a tese firmada ou \"sem tese firmada na tabela\", a questão submetida (a " +
         "pergunta, não a tese), órgão julgador, processo paradigma, a atribuição e, com mais de 90 dias, o aviso de idade; " +
         "número ausente volta como \"não consta na tabela de <data>\", nunca como inexistente. Para a situação do dia, " +
@@ -1034,12 +1076,13 @@ export function criarServidor(
         if (!tabela) {
           throw new Error(
             "A tabela de precedentes do STJ não foi carregada neste servidor, e a consulta automática ao portal do STJ " +
-              "não é feita por restrição de acesso: o precedente não pôde ser verificado.",
+              "não é feita: o robots.txt do portal veda o acesso automatizado, e o Garimpo respeita. O precedente não pôde " +
+              "ser verificado.",
           );
         }
         const resposta = consultarPrecedente(tabela, doTipo, numero, (agora ?? Date.now)());
         return json({
-          origem: `tabela de ${resposta.tabela.dataDaColeta}; consulta automática ao portal não realizada por restrição de acesso`,
+          origem: `tabela de ${resposta.tabela.dataDaColeta}; consulta automática ao portal não realizada: o robots.txt do portal veda o acesso automatizado, e o Garimpo respeita`,
           ...resposta,
           avisoNaturezaJuridica: AVISO_DA_TABELA,
         });
@@ -1067,7 +1110,8 @@ export function criarServidor(
         "tribunal (o movimento de tipo não verificado, ou a diferença de embargos). Nunca afirma que um acórdão falta. " +
         "Cada fonte vem com o seu estado (ok, vazia, erro, recusa, pausa, não consultada); \"o DataJud não devolveu este " +
         "processo\" não prova que ele não exista. " +
-        "Com incluir_djen (padrão), também as comunicações do processo no DJEN (uma página, até 100): data de " +
+        "Com incluir_djen (padrão), também as comunicações do processo no DJEN (Diário de Justiça Eletrônico " +
+        "Nacional, a publicação oficial das comunicações processuais) (uma página, até 100): data de " +
         "disponibilização, tipo de comunicação e de documento, órgão, classe e link; nunca o texto bruto nem nome detectável de parte ou " +
         "advogado; em comunicação de acórdão, um trecho saneado da ementa só se o tipo e o texto confirmarem os dois que é " +
         "o próprio ato (rotulado como trecho do DJEN, melhor esforço), senão \"não verificado\"; são comunicações do " +
@@ -1128,6 +1172,7 @@ export function criarServidor(
           ...(t.motivoLink ? { motivo: t.motivoLink } : {}),
           ...(t.inteiroTeor === "texto" ? { motivo: INTEIRO_TEOR_TRT } : {}),
           ...(t.inteiroTeor === "portal" ? { motivo: INTEIRO_TEOR_PORTAL } : {}),
+          ...(t.inteiroTeor === "base" ? { motivo: INTEIRO_TEOR_BASE } : {}),
         })),
       ),
   );
@@ -1137,12 +1182,14 @@ export function criarServidor(
     {
       title: "Diagnóstico dos freios (por que parou?)",
       description:
-        "Explica por que uma fonte parou de responder, sem chamar fonte nenhuma: só lê o estado de proteção guardado " +
+        "Explica por que o Garimpo deixou de chamar uma fonte (pausa depois de recusa, pedido de espera da própria " +
+        "fonte ou pausa preventiva do Garimpo), sem chamar fonte nenhuma: só lê o estado de proteção guardado " +
         "neste computador. Fonte por fonte: se está pausada e até quando, se é pausa preventiva (com o restante que a " +
         "fonte informou), as recusas e retomadas das últimas 24 h (sem termo de busca nem número de processo) e se há " +
         "indício de recusa sistemática (esperar não resolve) ou se parece rajada (a pausa costuma passar). Avisa também " +
         "quando a rede está parada e quando esta janela não conseguiu gravar uma recusa. Use quando uma chamada falhar " +
-        "por recusa ou pausa, antes de decidir se tenta de novo.",
+        "por recusa ou pausa, para dizer ao usuário o motivo e até quando; antes da hora indicada a chamada nem sai, e " +
+        "com indício de recusa sistemática não insista.",
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
       inputSchema: {},
     },
@@ -1160,7 +1207,9 @@ export function criarServidor(
         "registro bate em tudo o que foi informado), \"dados em conflito\" (cada divergência vem com o que foi informado " +
         "e o que está no registro) e \"não verificado\" (a busca não trouxe o número: isso NÃO quer dizer que o " +
         "acórdão não existe). Dado informado que o registro não traz vem em naoConferidos. Número com mais de um " +
-        "acórdão (recurso e embargos) lista os outros. Compara só com a base do JurisprudênciaIA; confira o acórdão " +
+        "acórdão (recurso e embargos) lista os outros. Compara só com o registro da fonte que a busca do Garimpo usa " +
+        "para aquele tribunal (a base do JurisprudênciaIA; no TRF2, no TRF4 e na TNU, a busca oficial do e-Proc); " +
+        "confira o acórdão " +
         "no portal do tribunal antes de citar. Não vale para TRT. Busca com erro é erro, nunca \"não verificado\".",
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
       inputSchema: {
@@ -1218,7 +1267,7 @@ export function criarServidor(
     {
       title: "Panorama da amostra",
       description:
-        "Conta, por tribunal, por ano de julgamento e por órgão julgador, os acórdãos que uma busca já trouxe (informe " +
+        "Conta, por tribunal, por ano de julgamento, por órgão julgador e por relator, os acórdãos que uma busca já trouxe (informe " +
         "os ids, de 1 a 200, como vieram na busca_direta ou na busca_ampla; o acórdão tem de estar na memória do " +
         "Garimpo, que guarda por 24 h). Não chama o site. É contagem da amostra da busca, não estatística do tribunal: " +
         "o aviso vem em toda resposta. Sem data, vai em \"sem data\"; sem órgão, em \"sem órgão informado\"; por " +
@@ -1236,17 +1285,14 @@ export function criarServidor(
         }
         const unicos = [...new Set(ids)];
         const guardados = await Promise.all(unicos.map(async (id) => ({ id, guardado: await memoria.obter(id) })));
-        const foraDaMemoria = guardados.filter((g) => !g.guardado).map((g) => g.id);
-        return comAvisoNaturezaJuridica(
-          {
-            ...panorama(guardados.flatMap((g) => (g.guardado ? [g.guardado.acordao] : []))),
-            foraDaMemoria,
-            avisoDeAmostra: AVISO_DE_AMOSTRA,
-            ...(foraDaMemoria.length && {
-              aviso: "Os ids em foraDaMemoria não entraram na conta: refaça a busca que os trouxe e peça o panorama de novo.",
-            }),
-          },
-          [...new Set(guardados.flatMap((g) => (g.guardado ? [g.guardado.acordao.tribunal] : [])))],
+        const ausentes = guardados.flatMap((g, i) => (g.guardado ? [] : [{ id: g.id, posicao: i + 1 }]));
+        const tribunais = [...new Set(guardados.flatMap((g) => (g.guardado ? [g.guardado.acordao.tribunal] : [])))];
+        return json(
+          respostaDoPanorama(
+            guardados.flatMap((g) => (g.guardado ? [g.guardado.acordao] : [])),
+            ausentes,
+            avisoDasFontes(tribunais),
+          ),
         );
       } catch (e) {
         return erro(e);
@@ -1266,15 +1312,19 @@ export function criarServidor(
         `(hoje: ${diplomasSuportados()}; outra sigla é recusada com a lista) e o dispositivo por escrito (ex.: "art. 85", ` +
         "\"art. 85, § 2º, inciso I\", \"art. 9º, parágrafo único\", \"art. 699-A\"). Dispositivo sem texto na fonte " +
         "volta como \"não verificado\"; dois dispositivos com a mesma identificação, como \"identificação necessária\" " +
-        "(o Garimpo não escolhe). As redações vêm todas (versoesNaFonte), mesmo quando há só uma, da mais antiga para " +
-        "a mais recente, com as marcas que a fonte põe (tipo da versão, lei alteradora, nota, período, força marcada); " +
-        "o Garimpo não conclui qual redação vale, não reconstitui alteração e não afirma vigência: confira na página " +
-        "oficial antes de citar. Uso conforme a licença CC BY 4.0 que a fonte declara (citar a fonte). A norma inteira " +
-        "pesa mais de 4 MB: cada consulta é uma chamada, 1 s entre chamadas; a repetida volta da memória do Garimpo " +
-        "(24 h), com a data da obtenção original.",
+        "(o Garimpo não escolhe). No CPC, no CC e na CF, as redações vêm todas (versoesNaFonte), mesmo quando há só " +
+        "uma, da mais antiga para a mais recente, com as marcas que a fonte põe (tipo da versão, lei alteradora, nota, " +
+        "período, força marcada). No CP, no CPP, na CLT e no CDC, a fonte não traz a árvore de dispositivos: o texto " +
+        "vem do arquivo da compilação que ela marca como \"Current\" (uma só versão, sem as redações anteriores), " +
+        "indicado em arquivoDaFonte com a versão e o valor legal como a fonte os marca; faixa de artigos (\"Arts. 498 " +
+        "a 502.\") vem com o parágrafo literal e a observação de que a fonte junta os artigos. Em nenhum caso o Garimpo " +
+        "conclui qual redação vale, reconstitui alteração ou afirma vigência: confira na página oficial antes de citar. " +
+        "Uso conforme a licença CC BY 4.0 que a fonte declara (citar a fonte). A norma inteira pesa mais de 4 MB: cada " +
+        "consulta é uma chamada (duas no CP, no CPP, na CLT e no CDC: a norma e o arquivo da compilação), 1 s entre " +
+        "chamadas; a repetida volta da memória do Garimpo (24 h), com a data da obtenção original.",
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: true },
       inputSchema: {
-        diploma: z.string().describe("Sigla do diploma (CPC, CC ou CF)"),
+        diploma: z.string().describe(`Sigla do diploma (${diplomasSuportados()})`),
         dispositivo: z.string().describe('O dispositivo, por escrito (ex.: "art. 85, § 2º, inciso I")'),
       },
     },
@@ -1374,8 +1424,13 @@ export function criarServidor(
         "da sessão, colegiado, relator, tipo, situação, sumário (o resumo do TCU: sumário, não ementa), trechos e link " +
         "oficial para conferência. Mais recentes primeiro. Acórdão de relação traz só o texto do acórdão (sem sumário, " +
         "relatório nem voto). INVALIDADO e sigilosos não entram (a resposta diz quantos). Toda resposta traz a data da " +
-        "base de cada ano (atualização no TCU e data do download), quantos anos foram percorridos e o tempo gasto (cada " +
-        "ano leva cerca de 10 a 20 s), a atribuição à fonte, o aviso de que o texto oficial cita nomes de pessoas e os " +
+        "base de cada ano (atualização no TCU e data do download), quantos anos foram percorridos e o tempo gasto e, em " +
+        "indiceLocal, os anos pesquisados pelo índice local (criado ao baixar; com ele a pesquisa não percorre todos os " +
+        "registros, mas a primeira pesquisa depois que o Garimpo abre, ou depois que o arquivo muda, confere o arquivo " +
+        "inteiro) e " +
+        "os que leram o arquivo inteiro, com o motivo (cada um leva cerca de 10 a 20 s; para criar o índice, use " +
+        "baixar_anos_tcu com renovar: true e confirmar: true), a atribuição à fonte, o aviso de que o texto oficial " +
+        "cita nomes de pessoas e os " +
         "anos pedidos que não estão baixados. Relatório, voto ou sumário que o TCU classificou como sigilosos aparecem em " +
         "partesSigilosas (o acórdão continua listado). Interessados e advogados do arquivo nunca são lidos nem mostrados. Para o texto, use ler_acordao_tcu.",
       annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
@@ -1457,6 +1512,31 @@ export function criarServidor(
     },
     ({ tese, tribunais }) => ({
       messages: [{ role: "user", content: { type: "text", text: roteiroDePesquisa(tese, tribunais) } }],
+    }),
+  );
+
+  servidor.registerPrompt(
+    "distinguir_precedente",
+    {
+      title: "Distinguir precedente",
+      description:
+        "Roteiro de distinção: compara um acórdão com os fatos do caso, fato a fato, com a ficha do acórdão e uma " +
+        "matriz em quatro estados, cada um com o trecho lido. Não afirma jurisprudência nem decide se o caso é diferente.",
+      argsSchema: {
+        precedente: z
+          .string()
+          .describe(
+            "O acórdão a comparar: o id que veio na busca (ex.: stj:12345), o tribunal e o número do processo, ou o " +
+              "caminho do PDF que você baixou",
+          ),
+        fatos: z
+          .string()
+          .optional()
+          .describe("Os fatos do caso, em palavras suas, um por linha (opcional; sem eles, o roteiro manda pedir)"),
+      },
+    },
+    ({ precedente, fatos }) => ({
+      messages: [{ role: "user", content: { type: "text", text: roteiroDeDistincao(precedente, fatos) } }],
     }),
   );
 

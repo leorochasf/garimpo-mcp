@@ -277,6 +277,33 @@ Usado por `obter_inteiro_teor` no TJPR ([ADR-0030](adr/0030-tjpr-inteiro-teor-pe
 - **Não verificado:** limite de ritmo do portal; estabilidade da rota; decisões monocráticas; acórdãos cujas imagens ou
   tabelas importem para o sentido.
 
+## Portal de jurisprudência do TJBA (o documento da decisão em HTML)
+
+Usado por `obter_inteiro_teor` no TJBA ([ADR-0034](adr/0034-tjba-inteiro-teor-pela-pagina-do-documento.md)), pelo molde
+«página com íntegra» ([ADR-0032](adr/0032-molde-pagina-com-integra-e-registro-de-portais.md)).
+
+- **Host:** `jurisprudenciaws.tjba.jus.br` (serviço `tjba` dos freios), só `https`, caminho exato `/inteiroTeor/<uuid>`
+  (o link que vem da busca).
+- **Regras lidas em 2026-10-29:** `robots.txt` do host responde 404 (erro em JSON): nenhuma regra publicada. Termos do
+  tribunal (leitura do cartão Rede, ~15:40): «Política de Privacidade» (`https://www.tjba.jus.br/portal/politica-de-privacidade/`,
+  sem data de vigência) e «Política de Privacidade e Cookies»
+  (`https://www.tjba.jus.br/portal/politica-de-privacidade-e-cookies/`, «Última atualização: 27 de julho de 2026»):
+  nenhuma cláusula sobre robôs ou coleta automatizada. Termo próprio da plataforma `jurisprudencia.tjba.jus.br`: **não
+  verificado** (aplicativo, não lido). Limite do método: páginas achadas por busca na web restrita ao domínio e lidas
+  por resumo, não pelo HTML bruto; sem vedação encontrada não equivale a autorização.
+- **O que o Garimpo lê:** um GET na página do link (UA honesto, redirecionamento não seguido). A página é o próprio
+  documento da decisão (cabeçalho do tribunal, processo, partes, ementa, acórdão, relatório e voto); o Garimpo guarda o
+  texto inteiro dela se trouxer o cabeçalho «Tribunal de Justiça do Estado da Bahia», o número do processo do cabeçalho
+  for o número CNJ da busca e o texto tiver pelo menos 200 caracteres. As imagens embutidas (`data:`) não viram texto.
+  A página não tem campo de segredo de justiça: exceção justificada na declaração do tribunal (ADR-0034). Rótulo «texto
+  do portal do tribunal (TJBA)», sem PDF nem recibo.
+- **Freios:** pelo cliente único; 429/503 = espera e uma nova tentativa; recusa de novo abre o disjuntor do serviço `tjba`.
+- **Prova (2026-10-29, cartão Rede, UA «Mozilla/5.0»):** 2 páginas, uma de Turma Recursal (17 KB, ~3,9 mil caracteres) e
+  uma de Câmara Cível (132 KB com 4 imagens embutidas, ~14,8 mil caracteres), 200 `text/html` sem charset, sem login nem
+  captcha. Com o UA do Garimpo: não verificado até a prova ao vivo curta.
+- **Não verificado:** se o portal publica acórdão em segredo de justiça; termo próprio da plataforma de jurisprudência;
+  limite de ritmo do host.
+
 ## eSAJ do TJMS (PDF do acórdão)
 
 Usado por `obter_inteiro_teor` no TJMS (I-14 / G-21): o **PDF oficial** do acórdão pelo `getArquivo.do` do eSAJ, a mesma
@@ -302,6 +329,50 @@ técnica do TJSP (`baixarEsaj`), com o host do tribunal. Só PDF reconhecido vir
 - **Não verificado:** que o TJMS aceita o endereço sem sessão em qualquer acórdão (visto em 1); o frescor e o formato do
   PDF dos demais; o limite de ritmo do portal (um projeto de terceiros cita 403 depois de ~50 downloads seguidos; o
   Garimpo fica muito abaixo); os termos de uso.
+
+## eSAJ do TJCE (PDF do acórdão)
+
+Usado por `obter_inteiro_teor` no TJCE (ticket b22-06): o **PDF oficial** do acórdão pelo `getArquivo.do` do eSAJ do
+tribunal, mesmo desenho do TJSP/TJMS, mas num GET direto (sem a volta pela verificação de login). Só PDF reconhecido vira
+inteiro teor, com recibo (ADR-0005). Fatos lidos em 2026-10-29 (matriz ao vivo dos TJs, local).
+
+- **robots.txt (2026-10-29):** `esaj.tjce.jus.br/robots.txt` devolve HTTP 404 (página de erro do servidor): nenhuma regra
+  publicada. Lido em chamada separada, antes de abrir o link.
+- **Termos de uso (lidos pelo Rede em 2026-10-29, ~15:40):** a «Política de Privacidade para Navegação no Portal do TJCE»
+  (`https://www.tjce.jus.br/lgpd/politica-de-navegacao-no-portal-do-tjce/`, sem data de vigência; rodapé «versão 1.198.0»)
+  **não traz cláusula sobre robôs, crawlers, scraping ou coleta automatizada**; a única menção a «automatizado» é o
+  tratamento automatizado do próprio tribunal (consulta unificada de processos e certidões). A página da pesquisa
+  eSAJ (`esaj.tjce.jus.br/cjsg/consultaCompleta.do`) não traz aviso, termo ou condição de uso. Termos de aplicativos do
+  tribunal (TJCE Mobile, SIMTJ Mobile), a Portaria 153/2026 (robôs **internos** do tribunal) e a Resolução do Órgão
+  Especial 40/2022 apareceram na busca e não foram lidos por inteiro; nenhum veda robô de terceiros no portal.
+  **Limite do método:** páginas lidas por ferramenta que resume (não o HTML bruto linha a linha); «não encontrado» não
+  prova inexistência de outro texto. Sem vedação encontrada ≠ autorização.
+- **Prova (2026-10-29):** 1 GET do link `esaj.tjce.jus.br/cjsg/getArquivo.do?cdAcordao=<n>&cdForo=0`: HTTP 200
+  `application/pdf;charset=UTF-8`, `Content-Disposition: inline`, 716 192 bytes, PDF de 5 páginas, sem login, captcha ou
+  bloqueio; cookie de sessão do portal enviado na resposta. O mesmo desenho do endereço em TJAL, TJAM e TJAC pede captcha:
+  é configuração do eSAJ de cada tribunal, não do software; vale só para o TJCE.
+- **Freios:** serviço `tjce` no disjuntor (regra 3 do `CLAUDE.md`); 403, captcha ou desafio = recusa final, sem recomeço. A frase «digite o código da figura» (a do eSAJ de TJAL, TJAM e TJAC), mesmo sem título, vale como página de desafio no TJCE.
+- **Guarda do número do processo:** o PDF só é guardado se o cabeçalho «Processo: <CNJ>» da primeira página (antes de EMENTA, ACÓRDÃO, RELATÓRIO ou VOTO) for o número
+  do processo do registro da busca (não vale qualquer ocorrência: o PDF de 19 páginas observado cita outros 6 CNJs no
+  corpo); sem isso, ou sem número no registro, nada é guardado e a resposta diz «não verificado».
+- **Conferência do Rede (2026-10-29):** 2 acórdãos (PDFs de 5 e 19 páginas, HTTP 200 `application/pdf`, sem captcha nem
+  login); o cabeçalho «Processo:» da 1ª página é o número do registro da busca; têm EMENTA, ACÓRDÃO, RELATÓRIO e VOTO.
+- **Não verificado:** que o PDF é sempre o acórdão assinado inteiro (visto em 2); o limite
+  de ritmo do eSAJ do TJCE; redirecionamentos.
+
+## Texto da base do JurisprudênciaIA (TJES e TJMA)
+
+- **O que é:** no TJES e no TJMA, o registro da busca do JurisprudênciaIA traz o acórdão em HTML, embutido no campo do
+  link como `data:text/html;base64,…`. Gravação do Rede em 2026-10-29 (tamanhos de 15 a 294 KB). Fonte: a própria resposta
+  da busca; **nenhum host novo e nenhuma chamada nova**, então não há termo de uso nem `robots.txt` novo a ler (ADR-0017).
+- **Como o Garimpo usa:** converte pela regra fixa (`html.ts`), guarda na memória (24 h) pelo id e serve pelo
+  `obter_inteiro_teor`, `ler_inteiro_teor` e `conferir_citacao`, sempre com o rótulo «texto da base do JurisprudênciaIA,
+  não oficial». O `data:` cru nunca vai à resposta. Decisão e limites: ADR-0035 (provisória).
+- **Fixtures** (`tests/fixtures/texto-da-base-tjes.html`, `texto-da-base-tjma.html`): estrutura real, com todo o texto
+  trocado por texto fictício (dígitos viram 9, imagens apontam para `exemplo.test`). As gravações brutas ficam fora do
+  repositório. No TJMA o corpo real traz partes e advogados com OAB: nada disso entra no repositório.
+- **Não verificado:** que o HTML seja sempre o acórdão inteiro; que o campo `data:` venha em todos os registros; que o
+  texto confira com o do tribunal.
 
 ## Busca oficial do e-Proc do TRF4 (ementa e texto do portal do tribunal)
 
@@ -437,13 +508,24 @@ A busca segue no JurisprudênciaIA. Leituras de 2026-10-22:
 ## Motivo do «só link» com prova própria (I-23 / G-24, DQ-24b)
 
 O texto de `motivoLink` (src/tribunais.ts) só diz o motivo real onde o Garimpo tem prova própria, com a data; os demais
-seguem «ainda não testou». Provas registradas em 14/10/2026 (STJ em 13/10/2026, seção D-18 acima):
+seguem «ainda não testou». Provas registradas em 14/10/2026 (STJ em 13/10/2026, seção D-18 acima), as de TJ reconferidas em 29/10/2026 abaixo:
 
-- **TJRJ:** termo de uso do portal veda robôs e coleta automática sem permissão expressa por escrito.
-- **TJSE:** `robots.txt` com `Disallow: /` e só `/portal` liberado.
-- **TJPA:** a rota de documento devolveu só a casca do aplicativo, sem o acórdão.
-- **TJSC:** a leitura do `robots.txt` do eproc devolveu página de bloqueio (F5).
 - **STF:** `redir.stf.jus.br` respondeu 202 de WAF à leitura do `robots.txt`.
+
+Provas de 29/10/2026 (matriz ao vivo dos TJs, local; leitura, sem contorno, de uma amostra por tribunal):
+
+- **TJRJ:** termo de uso do portal veda robôs e coleta automática sem permissão expressa por escrito (reconferido).
+- **TJSE:** `robots.txt` com `Disallow: /` e só `/portal` liberado (reconferido).
+- **TJPE:** `robots.txt` de `www.tjpe.jus.br` com `User-agent: *` e `Disallow: /`.
+- **TJRS:** `robots.txt` de `www.tjrs.jus.br` com `Disallow: /busca`; o endereço de dados da busca (`/buscas/jurisprudencia/`) começa por `/busca`.
+- **TJSC:** a leitura do `robots.txt` de `eproc1g.tjsc.jus.br` devolveu página de bloqueio.
+- **TJRO:** o endereço do acórdão em `juris.tjro.jus.br` devolveu HTTP 200 com script de verificação anti-robô, sem o acórdão.
+- **TJAL, TJAM, TJAC:** o endereço do acórdão no eSAJ pede o código da figura (captcha) antes do texto.
+- **TJAP:** o `robots.txt` de `tucujuris.tjap.jus.br` devolveu HTTP 403 com o desafio do Cloudflare.
+- **TJPB:** os dois portais oficiais de jurisprudência estão barrados: `robots.txt` de `juris.tjpb.jus.br` com `Disallow: /` e `pje-jurisprudencia.tjpb.jus.br` com o desafio do Cloudflare (HTTP 403).
+- **TJPA:** o endereço do documento abriu só a tela de pesquisa, sem o acórdão, e a pesquisa do portal não isola um acórdão pelo número do processo (antes, em 14/10: só a casca do aplicativo).
+- **TJMT:** o serviço da pesquisa (`hellsgate.tjmt.jus.br`) respondeu HTTP 401 pedindo chave de API.
+- **TJRN:** segue inconclusivo (busca do site com HTTP 504 em 09/10 e 14/10; nova tentativa de 29/10 também 504 no JurisprudênciaIA).
 
 TRF6 não consta da tabela de tribunais do Garimpo; não foi tratado. O TRF2 entrou pelo e-Proc (ADR-0028).
 
@@ -540,5 +622,75 @@ Usada por `texto_de_lei`: o texto literal de um dispositivo de lei, sem afirmar 
   metadados (sem `hasPart` nem texto) — **não provado, fora da lista**; com o teto de 3 chamadas não houve nova
   tentativa. Alguns textos trazem marcação da fonte embutida (ex.: `<span ... xlink:href=...>Constituição</span>` em CF
   art. 5º, I), repassada como veio.
-- **Não verificado:** CDC e demais diplomas (cada um pede uma prova ao vivo curta e uma linha na tabela); atualidade da
-  compilação (a fonte informa `dateModified`; CPC 2025-03-13, CC 2024-06-28, CF 2026-05-05).
+- **Ampliação do B1.4 (2026-10-23): CP, CPP, CLT e CDC, lidos da compilação "Current".** A resposta da norma desses
+  quatro vem sem `hasPart` (sem a árvore de dispositivos), mas traz em `encoding` os arquivos de texto da norma, cada um
+  com a versão que a fonte marca.
+  - **Prova de levantamento (2026-10-23, 11:55:54–11:56:37 UTC),** cliente único com os freios, UA honesto, uma chamada
+    por vez: 8 chamadas, todas 200, sem 429/503 e sem redirecionamento.
+
+    | Diploma | URN | JSON `maior-detalhe` | HTML "Current" (`/api/public/binario/<uuid>/texto`) |
+    |---|---|---|---|
+    | CP | `urn:lex:br:federal:decreto.lei:1940-12-07;2848` | 4.087 B | `412689ff-f565-494a-9adb-8301e314f40d`, 836.969 B |
+    | CPP | `urn:lex:br:federal:decreto.lei:1941-10-03;3689` | 5.887 B | `f673d457-87d9-45cb-b467-a3d59aaaad4e`, 1.690.323 B |
+    | CLT | `urn:lex:br:federal:decreto.lei:1943-05-01;5452` | 12.865 B | `5e35b26e-26a7-44d7-8a95-b8f0852cabe1`, 1.600.591 B |
+    | CDC | `urn:lex:br:federal:lei:1990-09-11;8078` | 8.090 B | `1cc33b77-e5a0-4723-b7fa-ec501fd65c46`, 181.767 B |
+
+  - **Rota:** a mesma resposta da norma (`.../normas?urn=<URN>&&tipo_documento=maior-detalhe`) e, nela, o item de
+    `encoding` com `version: "Current"` (`additionalType: "CompilacaoMonoVigenteNaCD"`, `encodingFormat` text/html,
+    `contentUrl` absoluto `https://normas.leg.br/api/binario/<uuid>/texto`). O arquivo é baixado pela forma pública do
+    mesmo endereço, `https://normas.leg.br/api/public/binario/<uuid>/texto` (200 `text/html`, sem charset no cabeçalho;
+    o `<meta>` declara UTF-8); a forma sem `public` não foi testada. São **2 chamadas por consulta**, 1 s entre elas.
+    O Garimpo só segue com **uma** versão "Current", em HTML, com `contentUrl` https no `normas.leg.br` e caminho
+    `/api/binario/<uuid>/texto`; não segue redirecionamento, decodifica pelo charset declarado e exige a identidade da
+    URN e a URL da norma antes de baixar o arquivo. Outra coisa é formato inesperado, nunca texto.
+  - **Marca de valor legal:** todas as versões listadas em `encoding` trazem `legislationLegalValue:
+    "UnofficialLegalValue"`; só o `isBasedOn` da publicação original (o DOU) diz `OfficialLegalValue`. A resposta repete a
+    marca **literal** (`arquivoDaFonte.valorLegalMarcadoPelaFonte`), com a URL do arquivo, `versaoNaFonte: "Current"` e o
+    `tipoNaFonte`. A URL oficial é a **da norma** (`https://normas.leg.br/?urn=<URN>`), não a do dispositivo, e não há
+    `versoesNaFonte`: a compilação traz só o texto compilado, com as notas de alteração dentro dele ("(Inciso acrescido
+    pela Lei nº ...)"), repassadas como vieram.
+  - **Leitura do HTML (regra fixa, sem IA):** o arquivo é gerado pelo Aspose.Words; cada `<p>`, `<h1>`–`<h6>` ou célula é
+    um parágrafo, e o `<br>` fica dentro dele como quebra de linha. O texto vai do parágrafo exato de início, único no
+    arquivo (o título da norma; na CLT, "CONSOLIDAÇÃO DAS LEIS DO TRABALHO"), ao fecho ("Rio de Janeiro|Brasília,
+    <data>; ...º da Independência ..."); o que vem depois (as assinaturas) fica de fora, e sem início ou sem fecho é
+    formato inesperado. Rótulos: "Art.", "Arts. X a Y." (faixa), "§", "Parágrafo único.", inciso romano com travessão e
+    alínea "a)", inclusive alínea direto no caput ou no § (CLT). Cabeçalho estrutural (PARTE, LIVRO, TÍTULO, CAPÍTULO,
+    Seção ou Subseção com o número) encerra o artigo. **Título solto** (a rubrica, o nome jurídico): linha sem rótulo,
+    com maiúscula no começo, sem pontuação no fim e até 200 caracteres (sem os parênteses do fim), seguida de rótulo, de
+    cabeçalho, do fecho ou de outro título solto; ela e a nota só entre parênteses logo depois ficam fora do texto.
+    "Pena -" é do caput ou do § (não do inciso) e, depois dos incisos, vem numa parte própria, na ordem da fonte.
+    Parágrafo que abre aspas no começo e não fecha é texto de outra norma até as aspas fecharem (artigo novo ou cabeçalho
+    também fecham). Rótulo com número ilegível separa os dispositivos, mas o pedido pelo número fica "não verificado".
+    Duas ocorrências da mesma identificação: "identificação necessária", com o rótulo e o primeiro parágrafo de cada.
+  - **Armadilhas da fonte (todas com teste sobre recorte saneado):** a CLT começa pelo decreto-lei, com arts. 1º e 2º
+    próprios, e por isso só é aceita pela sigla e pelo nome; faixas "Arts. 22 a 24. (Revogados ...)" (11 na CLT, 4 no
+    CPP); sufixo duplo no CP ("Art. 359-M-A."); erros de digitação da fonte ("Art. l97." no CP, "§ lº" no art. 682 da
+    CLT); hífen invisível (U+00AD) antes de "I - na admissão;" (CLT, art. 168); tabela no art. 580 da CLT, com `<br>`
+    dentro das células; texto de outra lei entre aspas no CDC (arts. 110 a 117, aspas abertas do § 4º ao § 6º no
+    art. 113); rubricas em `<h1>`–`<h6>`; linhas sem rótulo que **são** texto (juramento do art. 472 e quesito do
+    art. 483 do CPP, as 24 regiões do art. 674 e o parágrafo partido do art. 791-A da CLT, "(VETADO ...)" solto no CP).
+    O `<head>` traz nome de pessoa (autor do documento) e o fim do arquivo, as assinaturas: nenhum dos dois vai para
+    fixture nem para a resposta.
+  - **Prova offline nos textos inteiros** (os mesmos arquivos, com o código do B1.4 e sem rede): todo rótulo de artigo
+    legível foi achado pelo número (CP 433; CPP 832, mais as 4 faixas; CLT 933, mais as 11 faixas; CDC 131), sem
+    identificação repetida; ilegível, só o "Art. l97." do CP. Ficaram fora do texto 399 parágrafos no CP, todos rubricas
+    ou a nota delas, e 1 no CPP ("Juiz das Garantias (Denominação acrescida ...)"); ficaram dentro, sem rótulo e fora as
+    penas, exatamente as linhas das armadilhas acima (CP 3, CPP 4, CLT 47, CDC 10). Leitura local de uma consulta fria:
+    7 ms (CDC) a 38 ms (CLT), mediana de 7 rodadas; o tempo real é o das 2 chamadas.
+  - **Teste ao vivo final (`GARIMPO_VIVO=1`, 2026-10-23, 13:11:53–13:12:43 UTC):** 9 chamadas (1 do CPC e 2 de cada
+    diploma novo, cada arquivo baixado uma vez para as várias consultas), todas aceitas; os 5 testes passaram. Os uuids
+    dessa rodada não foram registrados.
+  - **Freios e guarda:** os mesmos da rota da norma (serviço `normas.leg.br`, 1 s entre chamadas, 2 vagas somadas, 429/503
+    pela regra geral); a consulta repetida volta da memória (24 h), só o dispositivo reduzido, com a data da obtenção
+    original. Datas da fonte: os quatro vêm sem `dateModified`; `sdDatePublished` CP 2026-10-02, CPP 2026-08-18, CLT
+    2026-04-16, CDC 2026-10-09.
+  - **Referência de técnica (regra 1):** o repositório `github.com/ctresb/leis` (scripts em Python; o LICENSE traz o texto
+    da MIT, que vale "ao código em scripts/", e uma nota de que os textos das normas são atos oficiais; o GitHub o
+    classifica como "Other") foi lido como referência de técnica no parecer do plano 1.2, em 2026-10-23: o caminho
+    `encoding` → `contentUrl` → `/api/public/binario/`. Nada foi copiado: o código do Garimpo é escrito do zero, e a rota
+    foi conferida de forma independente nas provas acima.
+- **Não verificado:** os demais diplomas (cada um pede uma prova ao vivo curta e uma linha na tabela); atualidade da
+  compilação (a fonte informa `dateModified` na rota da norma: CPC 2025-03-13, CC 2024-06-28, CF 2026-05-05; ausente
+  nos quatro da compilação); se o texto compilado confere com a publicação oficial, que a fonte não afirma
+  (`UnofficialLegalValue`); a pena depois de inciso que seja só daquele inciso (no CP, só no art. "l97", ilegível), que
+  o Garimpo põe no caput ou no §.

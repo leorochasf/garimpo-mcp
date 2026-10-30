@@ -40,7 +40,7 @@ beforeEach(async () => {
   contagem.atrasoMs = 0;
   pasta = await mkdtemp(join(tmpdir(), "garimpo-disco-"));
 });
-afterEach(() => rm(pasta, { recursive: true, force: true }));
+afterEach(() => rm(pasta, { recursive: true, force: true, maxRetries: 10 }));
 
 /** Aguarda o fim real da liberação iniciada em segundo plano pelo cliente. */
 class CoordenacaoMedida extends CoordenacaoEmArquivo {

@@ -1,0 +1,200 @@
+{
+ "legislationPassedBy": {
+  "@type": "GovernmentOrganization",
+  "@id": "https://www.planalto.gov.br/"
+ },
+ "keywords": "CODIGO DE PROCESSO PENAL",
+ "@type": "Legislation",
+ "sdPublisher": {
+  "@type": "GovernmentOrganization",
+  "@id": "https://www.congressonacional.leg.br/"
+ },
+ "legislationJurisdiction": {
+  "@type": "AdministrativeArea",
+  "name": "Governo Federal do Brasil (União)",
+  "@id": "https://www.wikidata.org/wiki/Q5440531"
+ },
+ "legislationDate": "1941-10-03",
+ "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1941-10-03;3689",
+ "headline": "Decreto-Lei nº 3.689, de 03 de outubro de 1941",
+ "legislationIdentifier": "urn:lex:br:federal:decreto.lei:1941-10-03;3689",
+ "inLanguage": "pt",
+ "alternateName": [
+  "DEL-3689-1941-10-03",
+  "Código de Processo Penal (1941) (CPP)"
+ ],
+ "abstract": "Código de Processo Penal.",
+ "sdDatePublished": "2026-08-18",
+ "sdLicense": "https://creativecommons.org/licenses/by/4.0/",
+ "spatialCoverage": {
+  "address": {
+   "addressCountry": "BR",
+   "@type": "PostalAddress"
+  },
+  "@type": "Country",
+  "name": "Brasil",
+  "@id": "https://servicodados.ibge.gov.br/api/v1/localidades/paises/76",
+  "url": "https://pt.wikipedia.org/wiki/Brasil"
+ },
+ "encoding": [
+  {
+   "@type": "LegislationObject",
+   "inLanguage": "pt",
+   "version": "Original",
+   "encodesCreativeWork": {
+    "@type": "Legislation",
+    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1941-10-03;3689@1941-10-03~texto;pt"
+   },
+   "datePublished": "1941-10-13",
+   "license": "https://creativecommons.org/licenses/by/4.0/",
+   "contentUrl": "https://normas.leg.br/api/binario/5a0e53ab-7fd8-4805-9f4c-7dee77bfefe7/texto",
+   "additionalType": "PublicacaoOriginal",
+   "isBasedOn": {
+    "contentUrl": null,
+    "@type": "LegislationObject",
+    "name": "Publicação Original [Decreto-Lei nº 3.689 de 03/10/1941]  [Diário Oficial da União  de 13/10/1941] (p. 19699, col. 2)",
+    "legislationLegalVersion": "OfficialLegalValue",
+    "isPartOf": {
+     "@type": "PublicationVolume",
+     "name": "Diário Oficial da União - Edição de 1941-10-13"
+    },
+    "version": "Original"
+   },
+   "name": "Publicação Original [Decreto-Lei nº 3.689 de 03/10/1941]  [Diário Oficial da União  de 13/10/1941] (p. 19699, col. 2)",
+   "publisher": {
+    "@type": "GovernmentOrganization",
+    "@id": "https://www.congressonacional.leg.br/"
+   },
+   "legislationLegalValue": "UnofficialLegalValue",
+   "encodingFormat": "http://www.iana.org/assignments/media-types/text/html",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1941-10-03;3689@1941-10-03~texto;pt$text-html"
+  },
+  {
+   "license": "https://creativecommons.org/licenses/by/4.0/",
+   "contentUrl": "https://normas.leg.br/api/binario/f673d457-87d9-45cb-b467-a3d59aaaad4e/texto",
+   "additionalType": "CompilacaoMonoVigenteNaCD",
+   "@type": "LegislationObject",
+   "name": "Compilação Monovigente na CD [Decreto-Lei nº 3.689 de 03/10/1941] ",
+   "inLanguage": "pt",
+   "publisher": {
+    "@type": "GovernmentOrganization",
+    "@id": "https://www.congressonacional.leg.br/"
+   },
+   "legislationLegalValue": "UnofficialLegalValue",
+   "encodingFormat": "http://www.iana.org/assignments/media-types/text/html",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1941-10-03;3689@versao.atualizada~texto;pt$text-html",
+   "version": "Current",
+   "encodesCreativeWork": {
+    "@type": "Legislation",
+    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1941-10-03;3689@versao.atualizada~texto;pt"
+   }
+  }
+ ],
+ "@context": {
+  "@vocab": "http://schema.org/",
+  "lexsdo-br": "https://normas.leg.br/sdo/"
+ },
+ "datePublished": "1941-10-13",
+ "license": "https://creativecommons.org/licenses/by/4.0/",
+ "mentions": [
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1941-12-11;3931"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1941-12-30;3992"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1951-12-26;1521"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:1955-10-05;38016"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1956-08-31;2860"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1957-11-14;3313"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1958-12-21;3502"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1960-12-14;3836"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1961-11-24;3988"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1963-04-27;4215"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1965-04-02;4611"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1965-08-23;4760"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1965-12-03;4878"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1966-09-29;5126"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1967-04-06;5256"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1967-11-06;5350"
+  },
+  {
+   "@type": "Legislation",
+   "name": "Ato Institucional nº 5 de 13/12/1968"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1970-09-09;5606"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:1970-12-04;67704"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:2013-08-02;12850"
+  }
+ ],
+ "name": "Decreto-Lei nº 3.689 de 03/10/1941",
+ "publisher": {
+  "@type": "GovernmentOrganization",
+  "@id": "https://www.in.gov.br/"
+ },
+ "legislationType": {
+  "@type": "CategoryCode",
+  "@id": "https://normas.leg.br/tipo-de-norma/?urn=urn:lex:br:federal:tipo.norma:decreto.lei"
+ },
+ "@reverse": {
+  "legislationApplies": {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:2011-11-24;7627"
+  }
+ },
+ "sameAs": [
+  "http://www.lexml.gov.br/urn/urn:lex:br:federal:decreto.lei:1941-10-03;3689",
+  "http://legis.senado.leg.br/legislacao/DetalhaSigen.action?id=528776"
+ ]
+}

@@ -14,7 +14,9 @@ beforeAll(() => {
 // Os testes que gravam centenas de acórdãos no disco ou rodam o disjuntor entre janelas levam de 2 a 6 s com a máquina
 // carregada: o prazo padrão de 5 s derrubava um deles ao acaso.
 // Os testes de freio com dezenas de chamadas têm prazo próprio para o trabalho de disco sob carga.
-vi.setConfig({ testTimeout: 20_000 });
+// Os da busca ampla com campos de tamanho realista gravam mais de mil acórdãos: 5 a 9 s com a máquina livre, e mais de
+// 20 s quando o antivírus examina cada arquivo novo com o disco disputado (medido em 2026-10-29).
+vi.setConfig({ testTimeout: 60_000 });
 // Cada teste começa com o estado de proteção zerado: o disjuntor aberto por uma recusa num teste não vale no
 // seguinte.
 afterEach(() => rmSync(join(pasta, "protecao", "estado.json"), { force: true }));

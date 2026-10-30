@@ -77,10 +77,10 @@ describe("texto_de_lei — Constituição Federal", () => {
 });
 
 describe("texto_de_lei — diplomas não provados", () => {
-  it("CDC continua fora: erro que ensina, com a lista de CPC, CC e CF, e nenhuma chamada", async () => {
+  it("diploma fora da lista (ex.: ECA): erro que ensina, com a lista que começa por CPC, CC e CF, e nenhuma chamada", async () => {
     const { cliente, chamadas } = clienteFalso([]);
-    await expect(textoDeLei({ diploma: "CDC", dispositivo: "art. 14" }, { cliente })).rejects.toThrow(
-      /não reconheceu o diploma "CDC".*CPC, CC, CF/,
+    await expect(textoDeLei({ diploma: "ECA", dispositivo: "art. 14" }, { cliente })).rejects.toThrow(
+      /não reconheceu o diploma "ECA".*CPC, CC, CF/,
     );
     expect(chamadas).toHaveLength(0);
   });

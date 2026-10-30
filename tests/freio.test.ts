@@ -15,13 +15,14 @@ let pasta: string;
 beforeEach(async () => {
   pasta = await mkdtemp(join(tmpdir(), "garimpo-freio-"));
 });
-afterEach(() => rm(pasta, { recursive: true, force: true }));
+afterEach(() => rm(pasta, { recursive: true, force: true, maxRetries: 10 }));
 
 const FALCAO = "https://jurisprudencia.jt.jus.br/jurisprudencia-nacional-backend/api/no-auth/pesquisa";
 const MIN = 60_000;
 // Dezenas de chamadas com coordenação real gravam estado, travas e vagas. O relógio falso elimina a pausa do
-// serviço, mas não esse trabalho de disco: sob carga, estes testes podem passar do prazo geral de 20 s.
-const PRAZO_MUITAS_CHAMADAS_MS = 60_000;
+// serviço, mas não esse trabalho de disco: sob carga, estes testes podem passar do prazo geral de 60 s (as 50
+// chamadas do teto diário levaram 36 s com o disco disputado e passaram de 60 s com o antivírus sobrecarregado).
+const PRAZO_MUITAS_CHAMADAS_MS = 120_000;
 /** 09/10/2026, 14:00, hora local: a pausa preventiva de 15 min termina às 14:15. */
 const INICIO = new Date(2026, 9, 9, 14, 0, 0).getTime();
 const tique = (ms = 2) => new Promise((r) => setTimeout(r, ms));

@@ -69,17 +69,24 @@ function numeros(lista: readonly Acordao[], teto: number, rotulo: (a: Acordao) =
 export function avisoDeRecorridoAusente(acordaos: readonly Acordao[]): string | undefined {
   const lista = ausentes(acordaos, acordaos);
   if (!lista.length) return undefined;
+  // A classe desmentida pelo próprio acórdão (avisoDeClasse): o aviso continua, com a ressalva (ticket 18).
+  const duvidosos = lista.filter((a) => a.avisoDeClasse);
   return (
     "Recurso contra outro acórdão sem o acórdão recorrido nesta busca (embargos de declaração, agravo interno e " +
     `similares), processo(s): ${numeros(lista, TETO_DE_NUMEROS, (a) => a.numeroCnj!)}. O acórdão recorrido pode não ` +
     "estar na base do JurisprudênciaIA (às vezes está e só não veio nesta busca): veja os julgamentos registrados " +
-    `do processo com julgamentos_do_processo, pelo número, e confira no portal do ${lista[0].tribunal.toUpperCase()}.`
+    `do processo com julgamentos_do_processo, pelo número, e confira no portal do ${lista[0].tribunal.toUpperCase()}.` +
+    (duvidosos.length
+      ? ` A classe de ${numeros(duvidosos, TETO_DE_NUMEROS, (a) => a.numeroCnj!)} é posta em dúvida pelo próprio ` +
+        "acórdão (avisoDeClasse): pode não ser recurso contra outro acórdão."
+      : "")
   );
 }
 
 /**
  * O aviso da busca ampla, uma vez, curto: só os mostrados entram, mas o recorrido achado e cortado da lista (ou
- * filtrado) não está ausente. Com vários tribunais, cada número vai com a sigla.
+ * filtrado) não está ausente. Com vários tribunais, cada número vai com a sigla. A classe desmentida pelo próprio
+ * acórdão (avisoDeClasse) leva a ressalva R1, como na busca direta (ticket 19).
  */
 export function avisoDeRecorridoAusenteAmplo(mostrados: readonly Acordao[], achados: readonly Acordao[]): string | undefined {
   const lista = ausentes(mostrados, achados);
@@ -87,10 +94,19 @@ export function avisoDeRecorridoAusenteAmplo(mostrados: readonly Acordao[], acha
   const tribunais = new Set(lista.map((a) => a.tribunal));
   const varios = tribunais.size > 1;
   const rotulo = (a: Acordao) => (varios ? `${a.numeroCnj} (${a.tribunal.toUpperCase()})` : a.numeroCnj!);
+  // A lista guarda um recurso por processo; o sinal de classe duvidosa vem de qualquer recurso mostrado do mesmo
+  // processo, para a R1 não depender de qual deles o site mandou primeiro (B19-R01).
+  const processo = (a: Acordao) => `${a.tribunal}:${digitos(a.numeroCnj!)}`;
+  const comDuvida = new Set(mostrados.filter((a) => a.avisoDeClasse && a.numeroCnj && ehRecursoContraAcordao(a)).map(processo));
+  const duvidosos = lista.filter((a) => comDuvida.has(processo(a)));
   return (
     `Recurso contra acórdão sem o recorrido nesta busca (embargos de declaração e similares): ` +
     `${numeros(lista, TETO_DE_NUMEROS_AMPLA, rotulo)}. O recorrido pode não estar na base do JurisprudênciaIA: ` +
-    "veja os julgamentos com julgamentos_do_processo."
+    "veja os julgamentos com julgamentos_do_processo." +
+    (duvidosos.length
+      ? ` A classe de ${numeros(duvidosos, TETO_DE_NUMEROS_AMPLA, rotulo)} é posta em dúvida pelo próprio acórdão ` +
+        "(avisoDeClasse): pode não ser recurso contra outro acórdão."
+      : "")
   );
 }
 
@@ -101,6 +117,10 @@ export function avisoRecorridoDoAcordao(a: Acordao): string | undefined {
     `Este acórdão julga recurso contra outro acórdão do processo ${a.numeroCnj}. O acórdão recorrido não vem nesta ` +
     "resposta; se a busca que trouxe este também não o trouxe, ele pode não estar na base do JurisprudênciaIA: veja " +
     `os julgamentos registrados com julgamentos_do_processo, pelo número ${a.numeroCnj}, e confira no portal do ` +
-    `${a.tribunal.toUpperCase()}.`
+    `${a.tribunal.toUpperCase()}.` +
+    (a.avisoDeClasse
+      ? " A classe deste acórdão é posta em dúvida pelo próprio acórdão (avisoDeClasse): pode não ser recurso contra " +
+        "outro acórdão."
+      : "")
   );
 }

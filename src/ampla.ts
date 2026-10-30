@@ -24,7 +24,7 @@ import { avisoDeLinkDoTjgo, ehDoFalcao, infoTribunal, ROTULO_FALCAO, TRTS } from
 import { juntarEquivalentes, type Ocorrencia } from "./equivalencia.js";
 import { agruparEmSerie, CRITERIO_DA_SERIE } from "./emSerie.js";
 import { filtroLocal, type FiltrosLocais } from "./filtroLocal.js";
-import { diaEHora, FalhaNaMemoriaError, type Memoria } from "./memoria.js";
+import { diaEHora, FalhaNaMemoriaError, type Memoria, type TextoIntegral } from "./memoria.js";
 import { ordenarPorAderencia, ordenarPorData, trecho } from "./pontuacao.js";
 import { avisoDeRecorridoAusenteAmplo } from "./recorrido.js";
 import type { TabelaDePrecedentes } from "./tabelaDePrecedentes.js";
@@ -65,6 +65,10 @@ export interface ItemAmplo {
   formulacoes: number;
   /** Só quando o site não mandou órgão, data ou link do acórdão: quais faltam. */
   faltam?: CampoAusente[];
+  /** Só quando o site mandou, no lugar do link, um endereço que não é página do tribunal: o aviso da busca direta. */
+  avisoDeLink?: string;
+  /** Só quando os próprios dados põem em dúvida a classe que o site informa: o aviso da busca direta (ticket 18). */
+  avisoDeClasse?: string;
   /** Só quando a busca inclui TRT: a fonte do acórdão ("Falcão (CSJT)" ou "JurisprudênciaIA"); o rótulo vem em fontes. */
   fonte?: string;
   /** Só no primeiro de uma série: os demais com a mesma ementa inteira, todos acessíveis pelo id. */
@@ -293,6 +297,8 @@ export async function buscaAmpla(
   const porFormulacao = p.formulacoes.map(() => ({ respostas: 0, acordaos: 0 }));
   // Acórdãos que vieram de busca feita no site agora: só eles vão para a memória com a data de hoje.
   const doSiteAgora = new Set<string>();
+  // Textos da base embutidos nos registros do site (TJES, TJMA): guardados depois da junção, pelo id mostrado.
+  const textosDaBase = new Map<string, TextoIntegral>();
   // Para a ressalva da grafia: registros recebidos somando as buscas (antes de juntar equivalentes) e se alguma veio
   // cheia (tantos quanto o limite efetivo dela): lista cheia é explicada pelo limite, não pelo filtro.
   let recebidos = 0;
@@ -374,6 +380,7 @@ export async function buscaAmpla(
         t.resposta = await buscaDiretaSemMarca(cliente, parametros(t), memoria, {
           renovar: true,
           guardarAcordaos: false,
+          coletorDeTextosDaBase: textosDaBase,
           tabela,
           tabelaStf,
           falcao,
@@ -456,6 +463,11 @@ export async function buscaAmpla(
       .map((j) => ({ registro: j.registro, ids: j.ids.filter((id) => doSiteAgora.has(id)) }))
       .filter((j) => j.ids.length),
   );
+  const textosParaGuardar = juncao.acordaos.flatMap((j) => {
+    const t = j.ids.map((id) => textosDaBase.get(id)).find(Boolean);
+    return t ? [{ ...t, id: j.registro.id }] : [];
+  });
+  if (textosParaGuardar.length) memoria?.lembrarTextos(textosParaGuardar);
   // A nota de relevância do site fica de fora de propósito: só os primeiros de cada busca são reranqueados
   // (rerank_score), os demais vêm com score de outra escala, e notas de buscas diferentes não se comparam.
   // A melhor posição na busca de origem já põe os reranqueados na frente.
@@ -576,6 +588,8 @@ export async function buscaAmpla(
       link: a.link ?? a.linkConsulta,
       formulacoes,
       ...(faltam.length && { faltam }),
+      ...(a.avisoDeLink && { avisoDeLink: a.avisoDeLink }),
+      ...(a.avisoDeClasse && { avisoDeClasse: a.avisoDeClasse }),
       ...(comTrt && { fonte: infoTribunal(a.tribunal)?.fonte }),
     };
     if (!ementa.trim() && ehDoFalcao(a.tribunal)) item.trecho = "sem ementa no Falcão";

@@ -5,14 +5,24 @@
 
 import { createHash } from "node:crypto";
 import { Cliente, FormatoInesperadoError } from "./cliente.js";
-import { type Enquadramento927, enquadrarAcordao, enquadrarQualificado, type ParadigmaDoSite } from "./enquadramento.js";
+import {
+  avisoDeClasse,
+  duvidaDaClasse,
+  type Enquadramento927,
+  enquadrarAcordao,
+  enquadrarQualificado,
+  type ParadigmaDoSite,
+} from "./enquadramento.js";
 import { reforcoDaTabela, type TabelaDePrecedentes } from "./tabelaDePrecedentes.js";
 import { reforcoDoStf, type TabelaDoStf } from "./tabelaDoStf.js";
 import { juntarEquivalentes } from "./equivalencia.js";
+import { limparEmenta } from "./ementaLimpa.js";
 import { nomesDoFiltro, ressalvaSePoucos } from "./grafia.js";
-import { FalhaNaMemoriaError, fotografiaDaBusca, type Memoria } from "./memoria.js";
+import { FalhaNaMemoriaError, fotografiaDaBusca, type Memoria, type TextoIntegral } from "./memoria.js";
 import { buscaDecisoesNoFalcao, buscaNoFalcao, clienteDoFalcao, lerBuscaGuardadaNoFalcao, type OrdenacaoNoFalcao } from "./falcao.js";
 import { avisoDeRecorridoAusente } from "./recorrido.js";
+import { portalComIntegra } from "./paginaComIntegra.js";
+import { textoDaBase } from "./textoDaBase.js";
 import { buscaNaTnu, clienteDaTnu, lerBuscaGuardadaNaTnu } from "./tnu.js";
 import { buscaNoTrf2, clienteDoTrf2, lerBuscaGuardadaNoTrf2 } from "./trf2.js";
 import { buscaNoTrf4, clienteDoTrf4, lerBuscaGuardadaNoTrf4 } from "./trf4.js";
@@ -38,7 +48,10 @@ export interface Acordao {
   /** O site não trouxe número de processo: o `numero` é só o id do site. */
   semNumero: boolean;
   numeroCnj?: string;
+  /** A classe como o site informa, nunca trocada; o avisoDeClasse diz quando os próprios dados a põem em dúvida. */
   classe?: string;
+  /** Só quando o campo de classe traz nome de órgão ou a ementa nomeia outra classe (enquadramento.ts): o aviso. */
+  avisoDeClasse?: string;
   relator?: string;
   orgao?: string;
   dataJulgamento?: string;
@@ -51,16 +64,26 @@ export interface Acordao {
   /** Página oficial de consulta do processo/acórdão (link_consulta, url_acordao ou, no TJPA, link_processo), quando há. */
   linkConsulta?: string;
   /**
-   * Só quando a ementa parece ter vindo cortada do site (heurística), ou, no Falcão, quando não veio ("sem ementa no
-   * Falcão") ou diverge do possuiEmenta: o aviso. O texto da ementa nunca é mexido.
+   * Só quando a ementa parece ter vindo cortada do site (heurística), quando o campo da base trazia mais que a ementa e
+   * vai só o trecho dela (ementaLimpa.ts), ou, no Falcão, quando não veio ("sem ementa no Falcão") ou diverge do
+   * possuiEmenta: o aviso. O texto da ementa nunca é reescrito: é sempre um trecho contínuo do campo do site.
    */
   avisoDeEmenta?: string;
+  /**
+   * A ementa não se separou com segurança do resto do campo da base: `ementa` é só o começo e pode ter texto do
+   * relatório ou do voto. A conferência de citação nunca diz «na ementa» por esse texto.
+   */
+  ementaIncerta?: true;
+  /** Posto na junção quando as cópias juntadas trazem datas de julgamento diferentes (equivalencia.ts). */
+  avisoDeData?: string;
   /** Só no Falcão: o rótulo da fonte (repositório oficial da Justiça do Trabalho). */
   fonte?: string;
   /** Só no Falcão: por que não há texto integral (ex.: o "texto integral" veio igual à ementa); só a ementa vale. */
   motivoSemTextoIntegral?: string;
   /** Só no TJGO: o Id_Arquivo do link_pdf do site, que é o arquivo «Ementa» do julgamento no Projudi (ADR-0029). */
   idArquivoProjudi?: string;
+  /** Só quando o site mandou, no lugar do link, algo que não é endereço do tribunal (`data:`, `gs://`…): o aviso. */
+  avisoDeLink?: string;
   /** Link oficial que o Garimpo pediu à rota de link do site, porque a busca não trouxe nenhum (obter_inteiro_teor). */
   linkDaRota?: string;
   relevancia?: number;
@@ -206,6 +229,11 @@ export interface OpcoesBuscaDireta {
   tabelaStf?: TabelaDoStf;
   /** Cliente do Falcão, para os TRTs (padrão: um novo, com os mesmos freios compartilhados). */
   falcao?: Cliente;
+  /**
+   * Só com guardarAcordaos falso (busca ampla): recebe os textos da base do site (pelo id do registro do site), para quem
+   * guarda os acórdãos depois da junção guardar também os textos. Nunca vai à resposta.
+   */
+  coletorDeTextosDaBase?: Map<string, TextoIntegral>;
   /** Cliente do e-Proc (TRF2, TRF4 ou TNU; padrão: um novo da fonte do pedido, com os mesmos freios compartilhados). */
   eproc?: Cliente;
 }
@@ -292,7 +320,7 @@ export async function buscaDiretaSemMarca(
   cliente: Cliente,
   p: ParametrosBusca,
   memoria?: Memoria,
-  { renovar = false, guardarAcordaos = true, tabela, tabelaStf, falcao, eproc }: OpcoesBuscaDireta = {},
+  { renovar = false, guardarAcordaos = true, tabela, tabelaStf, falcao, eproc, coletorDeTextosDaBase }: OpcoesBuscaDireta = {},
 ): Promise<ResultadoBusca> {
   if (ehDoFalcao(p.tribunal)) {
     if (p.decisoes) return buscaDecisoesNoFalcao(falcao ?? clienteDoFalcao(), p);
@@ -344,7 +372,19 @@ export async function buscaDiretaSemMarca(
     resultado.acordaos.map((registro, posicao) => ({ registro, formulacoes: new Set<number>(), melhorPosicao: posicao })),
   );
   acordaos.sort((a, b) => a.melhorPosicao - b.melhorPosicao);
-  if (guardarAcordaos) memoria?.lembrar(acordaos);
+  // Texto da base (ADR do b22-07): fica no id do acórdão que a busca mostra, venha de qual cópia vier.
+  const doTexto = new Map(resultado.textosDaBase.map((t) => [t.id, t]));
+  const textos = acordaos.flatMap(({ ids, registro }) => {
+    const t = ids.map((i) => doTexto.get(i)).find(Boolean);
+    return t ? [{ ...t, id: registro.id }] : [];
+  });
+  if (guardarAcordaos) {
+    memoria?.lembrar(acordaos);
+    if (textos.length) memoria?.lembrarTextos(textos);
+  } else {
+    // Busca ampla: ela guarda depois de juntar as cópias de todas as buscas.
+    for (const t of textos) coletorDeTextosDaBase?.set(t.id, t);
+  }
   resultado.acordaos = acordaos.map((a) => a.registro);
   if (tribunal === "stf") {
     resultado.avisos.push(
@@ -495,7 +535,7 @@ export function normalizar(
   json: unknown,
   tabela?: TabelaDePrecedentes,
   tabelaStf?: TabelaDoStf,
-): ResultadoBusca & { tesesDoSite: (string | null)[] } {
+): ResultadoBusca & { tesesDoSite: (string | null)[]; textosDaBase: TextoIntegral[] } {
   if (!json || typeof json !== "object") {
     throw new FormatoInesperadoError("O JurisprudênciaIA devolveu uma resposta vazia ou em formato inesperado.");
   }
@@ -526,6 +566,25 @@ export function normalizar(
     brutos.push({ ...porId.get(id), ...x });
   }
 
+  // O link_pdf cru que é data:text/html vira texto da base; o paraAcordao continua descartando o data:.
+  const textosDaBase: TextoIntegral[] = [];
+  // Só onde não há caminho oficial (modo "base", sem portal registrado): nos demais, o oficial prevalece e o texto da
+  // base nem é guardado (guardado, ele seria servido no lugar do texto do portal).
+  const semCaminhoOficial = infoTribunal(tribunal)?.inteiroTeor === "base" && !portalComIntegra(tribunal);
+  for (const x of semCaminhoOficial ? brutos : []) {
+    const bruto = texto(x.link_pdf);
+    if (!bruto) continue;
+    const t = textoDaBase(bruto);
+    if (t.ok) {
+      textosDaBase.push({
+        id: `${tribunal}:${x.id}`,
+        texto: t.texto,
+        origem: "base",
+        indicioDeCorte: t.indicioDeCorte,
+        ...(t.conteudoOculto && { conteudoOculto: true }),
+      });
+    }
+  }
   const qualificados: Qualificado[] = [];
   const tesesDoSite: (string | null)[] = [];
   for (const [lista, tipo] of Object.entries(LISTAS_QUALIFICADOS)) {
@@ -552,15 +611,62 @@ export function normalizar(
     acordaos: brutos.map((x) => paraAcordao(tribunal, x, paradigmas)),
     qualificados,
     tesesDoSite,
+    textosDaBase,
     ressalvaQualificados: RESSALVA_DIRETA,
     avisos,
   };
+}
+
+/** Endereço https num domínio da Justiça (.jus.br): o único que o Garimpo apresenta como link do tribunal. */
+export function ehEnderecoDoTribunal(valor: string): boolean {
+  try {
+    const url = new URL(valor);
+    const host = url.hostname.toLowerCase();
+    return url.protocol === "https:" && (host === "jus.br" || host.endsWith(".jus.br"));
+  } catch {
+    return false;
+  }
+}
+
+/** O link da base só se for endereço do tribunal; `data:`, `gs://` e afins não abrem como página. */
+const doTribunal = (valor: string | undefined) => (valor && ehEnderecoDoTribunal(valor) ? valor : undefined);
+
+/**
+ * O aviso de um link que não sai: diz o tipo do endereço ou, em https, só o domínio. Nunca o endereço, que pode ter
+ * centenas de KB (`data:`) ou não abrir em lugar nenhum (`gs://`).
+ */
+export function avisoDeLinkForaDaWeb(valor: string): string {
+  let qual: string;
+  try {
+    const url = new URL(valor);
+    qual = url.protocol === "https:" ? `endereço em ${url.hostname}` : `endereço do tipo ${url.protocol}`;
+  } catch {
+    qual = "endereço ilegível";
+  }
+  return `O JurisprudênciaIA mandou, no lugar do link, um endereço que não é página do tribunal (${qual}); o Garimpo não o mostra.`;
 }
 
 function paraAcordao(tribunal: string, x: Bruto, paradigmas: readonly ParadigmaDoSite[]): Acordao {
   const sigla = texto(x.sigla_classe);
   const numeroDeVerdade = texto(x.numero_processo) ?? texto(x.numero_processo_cnj);
   const numero = numeroDeVerdade ?? String(x.id);
+  // No TJGO, o link_pdf do site não abre fora da sessão do portal; o processo abre pelo número CNJ.
+  const linkDaBase =
+    (tribunal === "tjgo" &&
+      (linkDoProcessoNoTjgo(texto(x.numero_processo_cnj)) ?? linkDoProcessoNoTjgo(texto(x.numero_processo)))) ||
+    texto(x.link_pdf);
+  const consultaDaBase = texto(x.link_consulta) ?? texto(x.url_acordao) ?? texto(x.link_processo);
+  const foraDaWeb = [linkDaBase, consultaDaBase].find((l) => l !== undefined && !ehEnderecoDoTribunal(l));
+  const limpa = limparEmenta(tribunal, texto(x.texto_ementa) ?? "");
+  // Só o começo já vem com aviso próprio; a heurística de ementa cortada olharia o corte do Garimpo, não o do site.
+  const incompleta = !limpa.separacaoIncerta && ementaAparentementeIncompleta(limpa.ementa);
+  const avisosDeEmenta = [limpa.aviso, incompleta ? AVISO_EMENTA_INCOMPLETA : undefined].filter(Boolean);
+  // Ementa sem separação segura (só o começo) não serve para dizer que a classe não aparece nela.
+  const duvida = duvidaDaClasse({
+    classe: texto(x.classe_processual),
+    ementa: limpa.separacaoIncerta ? undefined : limpa.ementa,
+    numeroCnj: texto(x.numero_processo_cnj),
+  });
   const acordao = limpar({
     id: `${tribunal}:${x.id}`,
     tribunal,
@@ -568,23 +674,22 @@ function paraAcordao(tribunal: string, x: Bruto, paradigmas: readonly ParadigmaD
     semNumero: !numeroDeVerdade,
     numeroCnj: texto(x.numero_processo_cnj),
     classe: texto(x.classe_processual),
+    avisoDeClasse: duvida && avisoDeClasse(duvida),
     relator: texto(x.relator),
     orgao: texto(x.orgao_julgador),
     dataJulgamento: data(x.data_julgamento),
     dataPublicacao: data(x.data_publicacao_extraida),
-    ementa: texto(x.texto_ementa) ?? "",
-    avisoDeEmenta: ementaAparentementeIncompleta(texto(x.texto_ementa) ?? "") ? AVISO_EMENTA_INCOMPLETA : undefined,
-    // No TJGO, o link_pdf do site não abre fora da sessão do portal; o processo abre pelo número CNJ.
-    link:
-      (tribunal === "tjgo" &&
-        (linkDoProcessoNoTjgo(texto(x.numero_processo_cnj)) ?? linkDoProcessoNoTjgo(texto(x.numero_processo)))) ||
-      texto(x.link_pdf),
-    linkConsulta: texto(x.link_consulta) ?? texto(x.url_acordao) ?? texto(x.link_processo),
+    ementa: limpa.ementa,
+    avisoDeEmenta: avisosDeEmenta.length ? avisosDeEmenta.join(" ") : undefined,
+    ementaIncerta: limpa.separacaoIncerta,
+    link: doTribunal(linkDaBase),
+    linkConsulta: doTribunal(consultaDaBase),
+    avisoDeLink: foraDaWeb && avisoDeLinkForaDaWeb(foraDaWeb),
     idArquivoProjudi: tribunal === "tjgo" ? /[?&]Id_Arquivo=(\d+)/.exec(texto(x.link_pdf) ?? "")?.[1] : undefined,
     relevancia: numeroOuNada(x.rerank_score) ?? numeroOuNada(x.score),
   });
   const enquadramento927 = enquadrarAcordao(
-    { ...acordao, siglaClasse: sigla, numeroTema: texto(x.numero_tema) },
+    { ...acordao, siglaClasse: sigla, numeroTema: texto(x.numero_tema), duvidaDaClasse: duvida },
     { paradigmas },
   );
   return { ...acordao, enquadramento927 };

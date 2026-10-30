@@ -89,7 +89,7 @@ describe("busca direta", () => {
         results: [
           // Cópia sem número de processo (o site põe só o id) e com "Ementa:" no começo.
           { id: "copia-a", texto_ementa: `Ementa: ${ementa}`, ...comum },
-          { id: "copia-b", texto_ementa: ementa, numero_processo: "0000009-99.2024.8.21.0001", link_pdf: "https://exemplo.test/b", ...comum },
+          { id: "copia-b", texto_ementa: ementa, numero_processo: "0000009-99.2024.8.21.0001", link_pdf: "https://exemplo.jus.br/b", ...comum },
           { id: "outro", texto_ementa: "OUTRA EMENTA FICTÍCIA.", numero_processo: "0000008-88.2024.8.21.0001", ...comum },
         ],
       }),
@@ -99,7 +99,7 @@ describe("busca direta", () => {
 
     expect(r.acordaos.map((a) => a.id)).toEqual(["tjrs:copia-b", "tjrs:outro"]);
     expect((await memoria.obter("tjrs:copia-a"))?.acordao.numero).toBe("0000009-99.2024.8.21.0001");
-    expect((await memoria.obter("tjrs:copia-a"))?.acordao.link).toBe("https://exemplo.test/b");
+    expect((await memoria.obter("tjrs:copia-a"))?.acordao.link).toBe("https://exemplo.jus.br/b");
   });
 
   it("formato inesperado vira erro claro, não lista vazia", () => {
@@ -239,7 +239,7 @@ describe("campos que o site não mandou (faltam)", () => {
     numero_processo: `${id}/UF`,
     orgao_julgador: "Turma Exemplo",
     data_julgamento: "2024-01-02T00:00:00.000Z",
-    link_pdf: `https://exemplo.test/${id}`,
+    link_pdf: `https://exemplo.jus.br/${id}`,
   });
   const buscar = async (results: object[], memoria?: Memoria) => {
     const { cliente } = clienteFalso([respostaJson({ results })]);
@@ -260,7 +260,7 @@ describe("campos que o site não mandou (faltam)", () => {
 
   it("sem data: faltam data; o link de consulta no lugar do PDF conta como link", async () => {
     const { data_julgamento: _d, link_pdf: _l, ...resto } = completo("x3");
-    const r = await buscar([{ ...resto, link_consulta: "https://exemplo.test/consulta/x3" }]);
+    const r = await buscar([{ ...resto, link_consulta: "https://exemplo.jus.br/consulta/x3" }]);
     expect(r.acordaos[0].faltam).toEqual(["data"]);
   });
 
@@ -278,5 +278,64 @@ describe("campos que o site não mandou (faltam)", () => {
     } finally {
       await rm(dados, { recursive: true, force: true, maxRetries: 10 });
     }
+  });
+});
+
+describe("ementa limpa na busca (TJBA, TJPE): a lista, a memória e os filtros recebem só a ementa", () => {
+  // Fixtures saneadas: estrutura vista na base em 2026-10-29; nomes e números fictícios.
+  const TJBA =
+    "EMENTA: Tribunal de Justiça do Estado da Bahia PODER JUDICIÁRIO SEGUNDA TURMA RECURSAL PROCESSO Nº " +
+    "0000001-11.2024.8.05.0001 RECORRENTE: EMPRESA EXEMPLO S A RECORRIDO: PESSOA FICTÍCIA RELATORA: JUÍZA FULANA " +
+    "EXEMPLO E M E N T A RECURSO INOMINADO. CONSUMIDOR. EXEMPLO FICTÍCIO. RECURSO CONHECIDO E PROVIDO. RELATÓRIO " +
+    "Trata-se de recurso de exemplo. VOTO Trecho só do voto, para a conferência. ( Classe: Recurso Inominado," +
+    "Número do Processo: 0000001-11.2024.8.05.0001,Relator(a): FULANA EXEMPLO,Publicado em: 27/01/2025 )";
+  const bruto = (id: string, texto_ementa: string) => ({
+    id,
+    texto_ementa,
+    numero_processo_cnj: "0000001-11.2024.8.05.0001",
+    data_julgamento: "2025-01-27T00:00:00.000Z",
+    orgao_julgador: "Turma Exemplo",
+  });
+
+  it("TJBA: a decisão inteira vira só a ementa, com o aviso; a memória guarda a ementa limpa", async () => {
+    const { cliente } = clienteFalso([respostaJson({ results: [bruto("1", TJBA)] })]);
+    const memoria = new Memoria();
+    const r = await buscaDireta(cliente, { tribunal: "tjba", texto: "exemplo" }, memoria);
+
+    const [a] = r.acordaos;
+    expect(a.ementa).toBe("E M E N T A RECURSO INOMINADO. CONSUMIDOR. EXEMPLO FICTÍCIO. RECURSO CONHECIDO E PROVIDO.");
+    expect(a.avisoDeEmenta).toMatch(/^O campo de ementa do JurisprudênciaIA traz a decisão inteira/);
+    expect(a.ementaIncerta).toBeUndefined();
+    expect((await memoria.obter("tjba:1"))?.acordao.ementa).toBe(a.ementa);
+  });
+
+  it("TJBA sem separação segura: só o começo, marcado como incerto, sem o aviso falso de ementa incompleta", () => {
+    const semFim = TJBA.replace("RELATÓRIO", "Relato").replace("VOTO", "Voto") + " Texto final".repeat(80);
+    const [a] = normalizar("tjba", { results: [bruto("2", semFim)] }).acordaos;
+
+    expect(a.ementaIncerta).toBe(true);
+    expect(a.ementa.startsWith("E M E N T A RECURSO INOMINADO.")).toBe(true);
+    expect(a.avisoDeEmenta).toMatch(/não conseguiu separá-la com segurança/);
+    expect(a.avisoDeEmenta).not.toMatch(/aparentemente incompleta/);
+  });
+
+  it("TJPE: sem o cabeçalho com nomes; ementa cortada no site leva os dois avisos", () => {
+    const campo =
+      "Ementa: Tribunal de Justiça de Pernambuco Poder Judiciário APELAÇÃO CÍVEL nº 0000001-11.2020.8.17.0001 " +
+      "APELANTE:EMPRESA EXEMPLO LTDA APELADO(A):PESSOA FICTÍCIA Ementa: DIREITO DO CONSUMIDOR. APELAÇÃO CÍVEL. " +
+      "EXEMPLO FICTÍCIO. I. CASO EM EXAME Apelação de exemplo que termina no meio da";
+    const [a] = normalizar("tjpe", { results: [bruto("3", campo)] }).acordaos;
+
+    expect(a.ementa.startsWith("Ementa: DIREITO DO CONSUMIDOR.")).toBe(true);
+    expect(a.ementa).not.toContain("PESSOA FICTÍCIA");
+    expect(a.avisoDeEmenta).toMatch(/cabeçalho do processo, com nomes das partes/);
+    expect(a.avisoDeEmenta).toMatch(/aparentemente incompleta/);
+  });
+
+  it("outro tribunal com o mesmo campo: a ementa vem idêntica à do site e sem aviso de limpeza", () => {
+    const [a] = normalizar("stj", { results: [bruto("4", TJBA)] }).acordaos;
+    expect(a.ementa).toBe(TJBA);
+    expect(a.avisoDeEmenta).toBeUndefined();
+    expect(a.ementaIncerta).toBeUndefined();
   });
 });

@@ -24,7 +24,7 @@ beforeEach(async () => {
   pasta = await mkdtemp(join(tmpdir(), "garimpo-coordenacao-"));
   protecao = join(pasta, "protecao");
 });
-afterEach(() => rm(pasta, { recursive: true, force: true }));
+afterEach(() => rm(pasta, { recursive: true, force: true, maxRetries: 10 }));
 
 const tique = (ms = 30) => new Promise((r) => setTimeout(r, ms));
 const vagasNaPasta = async () => (await readdir(protecao)).filter((n) => /^vaga-\d+\.json$/.test(n)).sort();

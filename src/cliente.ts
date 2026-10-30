@@ -54,7 +54,7 @@ import {
   temFreio,
 } from "./freio.js";
 
-export const VERSAO = "1.1.2";
+export const VERSAO = "1.2.0";
 export const USER_AGENT = `Garimpo/${VERSAO} (cliente MCP local e nao oficial de pesquisa de jurisprudencia)`;
 
 /** Host do Falcão (CSJT), a única fonte que recebe UA de navegador (ADR-0018). */
@@ -851,11 +851,13 @@ const LIMITE_PAGINA_PEQUENA = 64 * 1024;
  * O que cada serviço responde quando aceita (pelo nome no disjuntor). Fora daqui, o formato varia ou é HTML (inteiro
  * teor dos tribunais, portais de precedentes): a marca de bloqueio só vale no <title>. Cada fonte nova declara o seu.
  */
-const FORMATO_ESPERADO: Record<string, "json" | "html"> = {
+const FORMATO_ESPERADO: Record<string, "json" | "html" | "pdf"> = {
   jurisprudenciaia: "json",
   datajud: "json",
   djen: "json",
   jt: "json",
+  // eSAJ do TJCE: aceita com PDF; página de texto no lugar dele é envelope (captcha dos eSAJs de outros tribunais).
+  tjce: "pdf",
 };
 
 /** Hosts cujo conteúdo se reconhece no HTML: o que não é o conteúdo é envelope, procurado inteiro por desafio. */
@@ -871,6 +873,8 @@ const LIMITE_PAGINA_DO_HOST = 4 * 1024 * 1024;
 const MARCAS_DE_BLOQUEIO: [RegExp, "desafio" | "bloqueio"][] = [
   [/pagina bloqueada|acesso bloqueado/, "bloqueio"],
   [/verificacao de seguranca/, "desafio"],
+  // Instrução do captcha do eSAJ (TJAL, TJAM e TJAC em 29/10/2026), sem título; só vale onde a página nunca é conteúdo.
+  [/digite o codigo da figura/, "desafio"],
 ];
 
 /** Marcas fracas: "captcha" aparece até em script de reCAPTCHA de página normal, então só valem no <title>. */

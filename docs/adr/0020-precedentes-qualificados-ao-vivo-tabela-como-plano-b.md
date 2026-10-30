@@ -59,7 +59,9 @@ e nenhuma exceção: o host inteiro é vedado a programas, inclusive a página d
 - o `consultar_precedente` **não consulta mais o portal**: responde direto pela tabela empacotada (ADR-0015), sem
   tentar o portal antes e sem sondá-lo depois; a resposta diz "tabela de <data>; consulta automática ao portal não
   realizada por restrição de acesso", com a origem e o aviso de idade (mais de 90 dias). Nunca diz "o portal não
-  respondeu", pois ele não foi chamado. Número ausente: "não consta na tabela de <data>"; sem tabela carregada: erro
+  respondeu", pois ele não foi chamado (redação desde 2026-10-23: "consulta automática ao portal não realizada: o
+  robots.txt do portal veda o acesso automatizado, e o Garimpo respeita", que diz a causa em vez de "restrição de
+  acesso"). Número ausente: "não consta na tabela de <data>"; sem tabela carregada: erro
   ("não verificado"), nunca dado inventado;
 - o serviço `stj-precedentes` (que segue só classificado em `src/disjuntor.ts`, sem uso), o limite de 1 chamada por pergunta
   e a leitura da página do STJ deixam de existir;

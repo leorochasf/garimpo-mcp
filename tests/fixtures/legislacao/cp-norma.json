@@ -1,0 +1,128 @@
+{
+ "legislationPassedBy": {
+  "@type": "GovernmentOrganization",
+  "@id": "https://www.planalto.gov.br/"
+ },
+ "keywords": "CODIGO PENAL",
+ "@type": "Legislation",
+ "sdPublisher": {
+  "@type": "GovernmentOrganization",
+  "@id": "https://www.congressonacional.leg.br/"
+ },
+ "legislationJurisdiction": {
+  "@type": "AdministrativeArea",
+  "name": "Governo Federal do Brasil (União)",
+  "@id": "https://www.wikidata.org/wiki/Q5440531"
+ },
+ "legislationDate": "1940-12-07",
+ "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1940-12-07;2848",
+ "headline": "Decreto-Lei nº 2.848, de 07 de dezembro de 1940",
+ "legislationIdentifier": "urn:lex:br:federal:decreto.lei:1940-12-07;2848",
+ "inLanguage": "pt",
+ "alternateName": [
+  "DEL-2848-1940-12-07",
+  "Código Penal (1940) (CP)"
+ ],
+ "abstract": "Código Penal.",
+ "sdDatePublished": "2026-10-02",
+ "sdLicense": "https://creativecommons.org/licenses/by/4.0/",
+ "spatialCoverage": {
+  "address": {
+   "addressCountry": "BR",
+   "@type": "PostalAddress"
+  },
+  "@type": "Country",
+  "name": "Brasil",
+  "@id": "https://servicodados.ibge.gov.br/api/v1/localidades/paises/76",
+  "url": "https://pt.wikipedia.org/wiki/Brasil"
+ },
+ "encoding": [
+  {
+   "@type": "LegislationObject",
+   "inLanguage": "pt",
+   "version": "Original",
+   "encodesCreativeWork": {
+    "@type": "Legislation",
+    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1940-12-07;2848@1940-12-07~texto;pt"
+   },
+   "datePublished": "1940-12-31",
+   "license": "https://creativecommons.org/licenses/by/4.0/",
+   "contentUrl": "https://normas.leg.br/api/binario/1fe22fd6-ab76-4b2a-9d67-30e8c570d524/texto",
+   "additionalType": "PublicacaoOriginal",
+   "isBasedOn": {
+    "contentUrl": null,
+    "@type": "LegislationObject",
+    "name": "Publicação Original [Decreto-Lei nº 2.848 de 07/12/1940]  [Diário Oficial da União  de 31/12/1940] (p. 23911, col. 2)",
+    "legislationLegalVersion": "OfficialLegalValue",
+    "isPartOf": {
+     "@type": "PublicationVolume",
+     "name": "Diário Oficial da União - Edição de 1940-12-31"
+    },
+    "version": "Original"
+   },
+   "name": "Publicação Original [Decreto-Lei nº 2.848 de 07/12/1940]  [Diário Oficial da União  de 31/12/1940] (p. 23911, col. 2)",
+   "publisher": {
+    "@type": "GovernmentOrganization",
+    "@id": "https://www.congressonacional.leg.br/"
+   },
+   "legislationLegalValue": "UnofficialLegalValue",
+   "encodingFormat": "http://www.iana.org/assignments/media-types/text/html",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1940-12-07;2848@1940-12-07~texto;pt$text-html"
+  },
+  {
+   "license": "https://creativecommons.org/licenses/by/4.0/",
+   "contentUrl": "https://normas.leg.br/api/binario/412689ff-f565-494a-9adb-8301e314f40d/texto",
+   "additionalType": "CompilacaoMonoVigenteNaCD",
+   "@type": "LegislationObject",
+   "name": "Compilação Monovigente na CD [Decreto-Lei nº 2.848 de 07/12/1940] ",
+   "inLanguage": "pt",
+   "publisher": {
+    "@type": "GovernmentOrganization",
+    "@id": "https://www.congressonacional.leg.br/"
+   },
+   "legislationLegalValue": "UnofficialLegalValue",
+   "encodingFormat": "http://www.iana.org/assignments/media-types/text/html",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1940-12-07;2848@versao.atualizada~texto;pt$text-html",
+   "version": "Current",
+   "encodesCreativeWork": {
+    "@type": "Legislation",
+    "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto.lei:1940-12-07;2848@versao.atualizada~texto;pt"
+   }
+  }
+ ],
+ "@context": {
+  "@vocab": "http://schema.org/",
+  "lexsdo-br": "https://normas.leg.br/sdo/"
+ },
+ "datePublished": "1940-12-31",
+ "license": "https://creativecommons.org/licenses/by/4.0/",
+ "mentions": [
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1994-09-06;8930"
+  },
+  {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:decreto:2017-12-21;9246"
+  }
+ ],
+ "name": "Decreto-Lei nº 2.848 de 07/12/1940",
+ "publisher": {
+  "@type": "GovernmentOrganization",
+  "@id": "https://www.in.gov.br/"
+ },
+ "legislationType": {
+  "@type": "CategoryCode",
+  "@id": "https://normas.leg.br/tipo-de-norma/?urn=urn:lex:br:federal:tipo.norma:decreto.lei"
+ },
+ "@reverse": {
+  "legislationApplies": {
+   "@type": "Legislation",
+   "@id": "https://normas.leg.br/?urn=urn:lex:br:federal:lei:1956-10-01;2889"
+  }
+ },
+ "sameAs": [
+  "http://www.lexml.gov.br/urn/urn:lex:br:federal:decreto.lei:1940-12-07;2848",
+  "http://legis.senado.leg.br/legislacao/DetalhaSigen.action?id=527942"
+ ]
+}

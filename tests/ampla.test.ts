@@ -17,7 +17,7 @@ function bruto(id: string, rerank: number, ementa = `EMENTA FICTÍCIA ${id}.`) {
     numero_processo: `${id}/UF`,
     orgao_julgador: "Turma Exemplo",
     data_julgamento: "2024-01-02T00:00:00.000Z",
-    link_pdf: `https://exemplo.test/${id}`,
+    link_pdf: `https://exemplo.jus.br/${id}`,
     rerank_score: rerank,
   };
 }
@@ -53,7 +53,7 @@ const FORMULACOES_REALISTAS = ["dano moral coletivo", "dano moral difuso", "dano
  * com sigla, órgão por extenso, link de ~95 caracteres, ementa longa; qualificados com tese longa, paradigma e link longo.
  */
 function siteRealista(dataDo = (_i: number) => "2024-01-02T00:00:00.000Z") {
-  const link = (i: number) => `https://jurisprudencia.tribunal-exemplo.invalid/consulta/inteiro-teor/documento?id=${String(i).padStart(10, "0")}`;
+  const link = (i: number) => `https://jurisprudencia.tribunal-exemplo.jus.br/consulta/inteiro-teor/documento?id=${String(i).padStart(10, "0")}`;
   const realista = (texto: string, i: number) => ({
     id: `${texto}${String(i).padStart(9, "0")}`,
     texto_ementa:
@@ -1342,7 +1342,7 @@ describe("busca ampla: decisões em série (mesma ementa)", () => {
     const results = Array.from({ length: 100 }, (_, i) => serie(
       String(i + 1000),
       `2024-01-${String(28 - i % 28).padStart(2, "0")}T00:00:00.000Z`,
-      { link_pdf: `https://exemplo.test/${"caminho/".repeat(35)}${i}` },
+      { link_pdf: `https://exemplo.jus.br/${"caminho/".repeat(35)}${i}` },
     ));
     const { cliente } = site(results);
     const idsDe = (r: Awaited<ReturnType<typeof buscaAmpla>>) =>
@@ -1402,5 +1402,28 @@ describe("busca ampla: decisões em série (mesma ementa)", () => {
     const r = await buscaAmpla(cliente, { ...pedido, ordem: "data" });
     expect(r.acordaos.map((a) => a.id)).toEqual(["stj:antigo", "stj:s2"]);
     expect(r.acordaos[1].mesmaEmenta?.ids).toEqual(["stj:s1"]);
+  });
+});
+
+describe("busca ampla com ementa limpa (TJBA): aderência, trecho e filtro local não veem o voto", () => {
+  // Fixture saneada: estrutura vista na base em 2026-10-29; nomes e números fictícios.
+  const decisaoInteira =
+    "EMENTA: PODER JUDICIÁRIO TRIBUNAL DE JUSTIÇA DO ESTADO DA BAHIA PROCESSO Nº 0000001-11.2024.8.05.0001 " +
+    "RECORRENTE: EMPRESA EXEMPLO RECORRIDO: PESSOA FICTÍCIA E M E N T A RECURSO INOMINADO. CONSUMIDOR. DANO MORAL " +
+    "FICTÍCIO. RECURSO PROVIDO. RELATÓRIO Relato de exemplo. VOTO Aqui se fala de multa cominatória, só no voto.";
+
+  it("o filtro local por termo que só está no voto tira o acórdão; o trecho sai da ementa", async () => {
+    const site = () => siteFalso(() => respostaJson({ results: [bruto("ba-1", 0.5, decisaoInteira)] }));
+
+    const semFiltro = await buscaAmpla(site().cliente, { formulacoes: ["dano moral"], tribunais: ["tjba"] });
+    expect(semFiltro.acordaos).toHaveLength(1);
+    expect(semFiltro.acordaos[0].trecho).not.toMatch(/PESSOA FICTÍCIA|multa cominatória/);
+
+    const comFiltro = await buscaAmpla(site().cliente, {
+      formulacoes: ["dano moral"],
+      tribunais: ["tjba"],
+      deveConter: [["multa cominatória"]],
+    });
+    expect(comFiltro.acordaos).toHaveLength(0);
   });
 });

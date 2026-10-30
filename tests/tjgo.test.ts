@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { type Acordao, normalizar } from "../src/busca.js";
 import { USER_AGENT } from "../src/cliente.js";
 import { obterInteiroTeor } from "../src/inteiroTeor.js";
-import { lerTextoIntegral } from "../src/leitura.js";
+import { lerTextoIntegral, naturezaDoTexto } from "../src/leitura.js";
 import { Memoria } from "../src/memoria.js";
 import { comLinkDoProcessoNoTjgo, infoTribunal } from "../src/tribunais.js";
 import { clienteFalso } from "./apoio.js";
@@ -592,7 +592,7 @@ describe("TJGO — arquivos assinados (.p7s): o documento embutido, com as mesma
     const memoria = memoriaComAcordao(sobre);
     const { cliente, chamadas } = clienteFalso(respostas);
     const r = await obterInteiroTeor({ id: "tjgo:77" }, () => cliente, memoria);
-    return { r, chamadas, guardado: await memoria.obterTexto("tjgo:77"), explicacao: r.baixado ? "" : r.explicacao };
+    return { r, chamadas, memoria, guardado: await memoria.obterTexto("tjgo:77"), explicacao: r.baixado ? "" : r.explicacao };
   }
 
   it("o Projudi entrega o HTML de dentro do envelope (como ao vivo): lê a ementa e o relatório e voto, 4 chamadas", async () => {
@@ -628,6 +628,38 @@ describe("TJGO — arquivos assinados (.p7s): o documento embutido, com as mesma
     ]);
     expect(guardado?.texto).toMatch(/A C O R D A O/);
     expect(guardado?.texto).toMatch(/0000001-11\.2024\.8\.09\.0001/);
+  });
+
+  it("envelope com PDF embutido: a explicação não diz que o acórdão veio em HTML (D12 da B0.1)", async () => {
+    const { explicacao } = await tentar([
+      paginaDoProcesso([JULGAMENTO]),
+      listaDeArquivos([EMENTA_P7S, RELATORIO_P7S]),
+      envelope("tjgo-ementa.html.p7s"),
+      envelope("tjgo-relatorio-voto-pdf.p7s"),
+    ]);
+    expect(explicacao).not.toMatch(/entrega o acórdão em HTML, não em PDF/);
+    // Redação decidida no rito D12 (revisao-b2.2.md, item 5), literal.
+    const frase =
+      "O Garimpo guardou o texto do julgamento trazido do Projudi do TJ de Goiás. O documento pode vir em HTML ou " +
+      "dentro de um arquivo assinado (.p7s), inclusive como PDF embutido. É texto do portal do tribunal, sem recibo de " +
+      "origem; o Garimpo não verifica a assinatura. ";
+    expect(explicacao.startsWith(frase), explicacao).toBe(true);
+    expect(explicacao).toMatch(/ler_inteiro_teor com o id tjgo:77/);
+  });
+
+  it("envelope com PDF embutido: a leitura pelo id e a origem da conferência não dizem «convertido de HTML» (B22-R01)", async () => {
+    const { memoria } = await tentar([
+      paginaDoProcesso([JULGAMENTO]),
+      listaDeArquivos([EMENTA_P7S, RELATORIO_P7S]),
+      envelope("tjgo-ementa.html.p7s"),
+      envelope("tjgo-relatorio-voto-pdf.p7s"),
+    ]);
+    const { cabecalho } = await lerTextoIntegral("tjgo:77", 1, memoria);
+    expect(cabecalho.natureza).not.toMatch(/convertido de HTML|não é PDF/);
+    expect(cabecalho.natureza).toMatch(/PDF embutido/);
+    expect(cabecalho.natureza).toMatch(/sem recibo de origem/);
+    // A conferência (conferir_citacao, texto integral) usa esta mesma função para a origem.
+    expect(naturezaDoTexto(false, true, "tjgo:77")).toBe(cabecalho.natureza);
   });
 
   it("assinatura destacada (sem documento embutido): não baixa e diz o motivo", async () => {

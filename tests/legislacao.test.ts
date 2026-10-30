@@ -148,6 +148,12 @@ describe("texto_de_lei — texto literal do dispositivo", () => {
     expect(artigoA.partes[0].texto).toMatch(/^Nas ações de guarda, antes de iniciada a audiência de mediação e conciliação/);
   });
 
+  it("alínea direto no caput, que o CPC não tem no art. 85: não verificado", async () => {
+    const { r } = await consultar("CPC", "art. 85, alínea a");
+    expect(r.resultado).toBe("não verificado");
+    expect(r.dispositivo).toBe("art. 85, caput, alínea a");
+  });
+
   it("sem o dispositivo na fonte: não verificado, nunca texto de memória", async () => {
     const { r } = await consultar("CPC", "art. 7.000");
 
@@ -238,6 +244,13 @@ describe("texto_de_lei — diploma e dispositivo pedidos", () => {
     ["art. 12, inciso IV", "art12_cpt_inc4"],
     ["art. 12, caput, inciso IX", "art12_cpt_inc9"],
     ["art. 699-A", "art699-1"],
+    ["art. 359-M-A", "art359-13-1"],
+    ["art. 359-M", "art359-13"],
+    ["art. 85, alínea a", "art85_cpt_ali1"],
+    ["art. 482, a", "art482_cpt_ali1"],
+    ["art. 443, § 2º, alínea a", "art443_par2_ali1"],
+    ["art. 443, § 2º, a", "art443_par2_ali1"],
+    ["art. 9º, parágrafo único, alínea b", "art9_par1u_ali2"],
   ])("lê o dispositivo %j como %s", (texto, chave) => {
     expect(lerDispositivo(texto).chave).toBe(chave);
   });
@@ -248,7 +261,7 @@ describe("texto_de_lei — diploma e dispositivo pedidos", () => {
     "§ 2º",
     "o artigo do honorário",
     "arts. 85 e 86",
-    "art. 85, alínea a",
+    "art. 85, alínea a, alínea b",
     "art. 85, § 2º, § 3º",
     "art. 85, inciso I, inciso II",
     "art. 85, § 2º, inciso I, alínea a, item 1",

@@ -11,6 +11,8 @@ import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
 import type { Acordao } from "./busca.js";
 import { AVISO_CONTEUDO_OCULTO } from "./html.js";
 import type { Memoria } from "./memoria.js";
+import { naturezaDoPortal, portalComIntegra } from "./paginaComIntegra.js";
+import { ROTULO_TEXTO_DA_BASE } from "./textoDaBase.js";
 import { infoTribunal, ROTULO_FALCAO } from "./tribunais.js";
 
 /**
@@ -184,11 +186,14 @@ export const NATUREZA_DO_TEXTO_DO_PORTAL_TJPR =
   "texto do portal do tribunal (TJPR), convertido de HTML pelo Garimpo: não é PDF, não tem recibo de origem e, como " +
   "avisa o tribunal, é transcrição do acórdão com as imagens suprimidas";
 
-/** O texto do TJGO, trazido pela consulta pública do processo no Projudi (ADR-0029): a fonte e o que ele é. */
+/**
+ * O texto do TJGO, trazido pela consulta pública do processo no Projudi (ADR-0029): a fonte e o que ele é. O documento
+ * pode vir em HTML ou com PDF embutido no arquivo assinado, e a memória não guarda qual dos dois: a natureza cobre ambos.
+ */
 export const ROTULO_PORTAL_TJGO = "consulta pública de processo do Projudi do TJGO (projudi.tjgo.jus.br)";
 export const NATUREZA_DO_TEXTO_DO_PORTAL_TJGO =
-  "texto do portal do tribunal (TJGO), convertido de HTML pelo Garimpo: não é PDF, não tem recibo de origem e a " +
-  "assinatura do documento não é verificada pelo Garimpo";
+  "texto do portal do tribunal (TJGO), convertido pelo Garimpo do HTML ou do PDF embutido no arquivo assinado (.p7s): " +
+  "sem recibo de origem, e o Garimpo não verifica a assinatura";
 
 /** O texto da TNU, trazido pelo e-Proc do CJF (ADR-0027): a fonte e o que ele é. */
 export const ROTULO_PORTAL_TNU = "e-Proc da TNU — módulo de jurisprudência da Turma Nacional de Uniformização (eproctnu-jur.cjf.jus.br)";
@@ -198,14 +203,50 @@ export const NATUREZA_DO_TEXTO_DO_PORTAL_TNU =
 
 /** O tribunal do id entrega o texto do portal do tribunal (TJTO, TJDFT, TJGO, TJPI, TJPR, TRF2, TRF4, TNU), não o do Falcão. */
 export function ehTextoDoPortal(id: string): boolean {
-  return infoTribunal(id.split(":")[0])?.inteiroTeor === "portal";
+  const sigla = id.split(":")[0];
+  return Boolean(portalComIntegra(sigla)) || infoTribunal(sigla)?.inteiroTeor === "portal";
+}
+
+/** O texto da base do JurisprudênciaIA (TJES e TJMA): o rótulo é a fonte, e a natureza diz o que ele é e o que não é. */
+export const NATUREZA_DO_TEXTO_DA_BASE =
+  `${ROTULO_TEXTO_DA_BASE}: o texto que a base do JurisprudênciaIA guarda do acórdão, convertido de HTML pelo Garimpo; ` +
+  "não é PDF, não tem recibo de origem e não foi conferido com o tribunal";
+
+/** O tribunal do id só tem o texto da base (sem caminho oficial: nem PDF nem portal registrado). */
+export function ehTextoDaBase(id: string): boolean {
+  const sigla = id.split(":")[0];
+  return infoTribunal(sigla)?.inteiroTeor === "base" && !portalComIntegra(sigla);
+}
+
+/**
+ * O texto guardado é o da base? Vale a origem gravada com ele. Entrada sem origem (gravada antes do campo) de TJES ou TJMA,
+ * os únicos que tiveram texto da base, é tratada como da base: nunca vale como texto de portal. Em outro tribunal, a
+ * entrada sem origem segue como sempre (texto de portal ou do Falcão).
+ */
+export function textoEhDaBase(texto: { origem?: "base" | "portal" } | undefined, id: string): boolean {
+  if (!texto) return false;
+  if (texto.origem) return texto.origem === "base";
+  return ["tjes", "tjma"].includes(id.split(":")[0]);
+}
+
+/** O aviso de corte do texto, com a fonte certa (o HTML da base não é do Falcão nem do portal). */
+export function avisoDeCorteDoTexto(origem: "base" | "portal" | "falcao"): string {
+  return origem === "base"
+    ? AVISO_DE_CORTE.replace("o HTML do Falcão", "o HTML da base")
+    : origem === "portal"
+      ? AVISO_DE_CORTE.replace("do Falcão", "do portal")
+      : AVISO_DE_CORTE;
 }
 
 /** O que o registro é quando o Falcão não deu texto integral de verdade (só a ementa repetida): nada de "repositório oficial". */
 export const NATUREZA_SEM_TEXTO_INTEGRAL = "sem texto integral: o Falcão não mandou o acórdão, só a ementa";
 
-/** O que o texto guardado na memória é: sem texto integral, texto do portal do tribunal (TJTO) ou texto do Falcão. */
-export function naturezaDoTexto(semTexto: boolean, doPortal: boolean, id = ""): string {
+/** O que o texto guardado na memória é: sem texto integral, texto do portal do tribunal (um dos 7) ou texto do Falcão. */
+export function naturezaDoTexto(semTexto: boolean, doPortal: boolean, id = "", daBase = id !== "" && ehTextoDaBase(id)): string {
+  if (daBase) return semTexto ? "sem texto integral: texto da base do JurisprudênciaIA não verificado" : NATUREZA_DO_TEXTO_DA_BASE;
+  // Tribunal registrado no molde: a natureza vem do registro, nunca da de outro tribunal.
+  const portal = doPortal ? portalComIntegra(id.split(":")[0]) : undefined;
+  if (portal) return semTexto ? `sem texto integral: texto do ${portal.sigla.toUpperCase()} não verificado` : naturezaDoPortal(portal);
   if (semTexto && doPortal && id.startsWith("tjdft:")) return "sem texto integral: texto do TJDFT não verificado";
   if (semTexto && doPortal && id.startsWith("trf2:")) return "sem texto integral: texto do TRF2 não verificado";
   if (semTexto && doPortal && id.startsWith("trf4:")) return "sem texto integral: texto do TRF4 não verificado";
@@ -233,6 +274,12 @@ export const AVISO_DE_CORTE =
 
 /** O erro que ensina quando o texto integral já saiu da memória: não há como pedir ao Falcão um acórdão pelo id. */
 export function textoForaDaMemoria(id: string): string {
+  if (ehTextoDaBase(id)) {
+    return (
+      `O acórdão ${id} não está na memória do Garimpo com o texto da base do JurisprudênciaIA, não oficial; a memória ` +
+      "guarda esse texto por 24 h desde a busca. Refaça a busca que o trouxe (uma busca nova pode não trazer o mesmo acórdão)."
+    );
+  }
   if (ehTextoDoPortal(id)) {
     return (
       `O texto do acórdão ${id} não está na memória do Garimpo, que o guarda por 24 h: chame o obter_inteiro_teor ` +
@@ -270,8 +317,10 @@ export async function lerTextoIntegral(id: string, parte = 1, memoria?: Memoria)
   if (!guardado) throw new Error(textoForaDaMemoria(id));
   const a = (await memoria?.obter(id))?.acordao;
   const doPortal = ehTextoDoPortal(id);
+  // A origem efetiva é a do texto guardado: texto da base nunca vira texto de portal, mesmo se o tribunal ganhou portal.
+  const daBase = textoEhDaBase(guardado, id);
   const semTexto =
-    guardado.motivoSemTexto ?? (guardado.texto ? undefined : `o texto integral veio vazio do ${doPortal ? "portal" : "Falcão"}`);
+    guardado.motivoSemTexto ?? (guardado.texto ? undefined : `o texto integral veio vazio ${daBase ? "da base" : doPortal ? "do portal" : "do Falcão"}`);
   const base = (partes: string, proxima?: number): ParteDoTextoIntegral => ({
     cabecalho: {
       tribunal: (a?.tribunal ?? id.split(":")[0]).toUpperCase(),
@@ -279,10 +328,12 @@ export async function lerTextoIntegral(id: string, parte = 1, memoria?: Memoria)
       julgadoEm: a?.dataJulgamento ?? NAO_INFORMADO,
       juntadoEm: a?.dataJuntada ?? NAO_INFORMADO,
       id,
-      fonte: doPortal
-        ? (id.startsWith("tjdft:") ? ROTULO_PORTAL_TJDFT : id.startsWith("trf2:") ? ROTULO_PORTAL_TRF2 : id.startsWith("trf4:") ? ROTULO_PORTAL_TRF4 : id.startsWith("tnu:") ? ROTULO_PORTAL_TNU : id.startsWith("tjgo:") ? ROTULO_PORTAL_TJGO : id.startsWith("tjpi:") ? ROTULO_PORTAL_TJPI : id.startsWith("tjpr:") ? ROTULO_PORTAL_TJPR : ROTULO_PORTAL_TJTO)
+      fonte: daBase
+        ? ROTULO_TEXTO_DA_BASE
+        : doPortal
+        ? (portalComIntegra(id.split(":")[0])?.rotulo ?? (id.startsWith("tjdft:") ? ROTULO_PORTAL_TJDFT : id.startsWith("trf2:") ? ROTULO_PORTAL_TRF2 : id.startsWith("trf4:") ? ROTULO_PORTAL_TRF4 : id.startsWith("tnu:") ? ROTULO_PORTAL_TNU : id.startsWith("tjgo:") ? ROTULO_PORTAL_TJGO : id.startsWith("tjpi:") ? ROTULO_PORTAL_TJPI : id.startsWith("tjpr:") ? ROTULO_PORTAL_TJPR : ROTULO_PORTAL_TJTO))
         : ROTULO_FALCAO,
-      natureza: naturezaDoTexto(Boolean(semTexto), doPortal, id),
+      natureza: naturezaDoTexto(Boolean(semTexto), doPortal, id, daBase),
       partes,
       ...(semTexto
         ? { completo: `não: ${semTexto}` }
@@ -293,7 +344,7 @@ export async function lerTextoIntegral(id: string, parte = 1, memoria?: Memoria)
     avisos: semTexto
       ? [avisoSemTextoIntegral(semTexto)]
       : [
-          ...(guardado.indicioDeCorte ? [doPortal ? AVISO_DE_CORTE.replace("do Falcão", "do portal") : AVISO_DE_CORTE] : []),
+          ...(guardado.indicioDeCorte ? [avisoDeCorteDoTexto(daBase ? "base" : doPortal ? "portal" : "falcao")] : []),
           ...(guardado.conteudoOculto ? [AVISO_CONTEUDO_OCULTO] : []),
         ],
     texto: "",

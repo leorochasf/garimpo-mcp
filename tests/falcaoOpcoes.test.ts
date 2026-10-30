@@ -144,7 +144,7 @@ describe("a consulta com as opções gasta o teto diário do Falcão (I-05)", ()
   beforeEach(async () => {
     pasta = await mkdtemp(join(tmpdir(), "garimpo-falcao-opcoes-"));
   });
-  afterEach(() => rm(pasta, { recursive: true, force: true }));
+  afterEach(() => rm(pasta, { recursive: true, force: true, maxRetries: 10 }));
 
   it("com teto de 1 chamada por dia, a 2ª consulta pausa sem sair da máquina", async () => {
     const agora = Date.parse("2026-10-13T14:00:00-03:00");
