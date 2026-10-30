@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.1 (2026-10-30)
+
+- TCU: erro ao ler o índice local de um ano (no Linux, por exemplo, uma pasta no lugar do arquivo do índice) não
+  derruba mais `pesquisar_acordaos_tcu` nem `baixar_anos_tcu` com `renovar`: o índice é recusado com o motivo e a
+  pesquisa lê o arquivo inteiro do ano.
+
 ## 1.2.0 (2026-10-30)
 
 Nesta versão não foi feita a rodada de qualidade do banco de provas (o agente pesquisando ao vivo as teses do banco,
