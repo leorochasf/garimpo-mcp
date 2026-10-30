@@ -6,6 +6,12 @@ Nesta versão não foi feita a rodada de qualidade do banco de provas (o agente 
 com júri). Cada mudança passou por testes sem rede e por revisão independente e, quando usa a rede, por uma prova
 ao vivo curta.
 
+Velocidade, medida contra a 1.1.2 sem rede (30/10/2026, duas rodadas): igual em tudo, menos um caso. Logo depois de o
+Garimpo abrir, a busca ampla que volta às fontes (memória vazia ou ilegível) ficou cerca de 20 milésimos de segundo mais
+lenta, perto de 10 %. Metade disso vem do dado de teste, cujo link inválido a 1.2 passou a esconder com aviso; a outra
+metade, cerca de 8 ms, é o trabalho novo em cada acórdão (filtro de links, ementa limpa, aviso de classe). Com a rede
+real, em que a busca leva segundos, a diferença deve ficar abaixo de 1 %: estimativa, não medida.
+
 - Novo prompt `distinguir_precedente`: monta a ficha do acórdão e uma matriz fato a fato em quatro estados (presente,
   diferente, não informado, não localizado), cada um com o trecho lido como prova; «diferente» só com fato contrário. A
   ferramenta não decide se o precedente se aplica, e os fatos do caso não vão às buscas. O `pesquisar_tese` ganha um
