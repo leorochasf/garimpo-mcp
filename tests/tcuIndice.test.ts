@@ -213,12 +213,14 @@ describe("índice local do TCU: índice velho, ausente ou estragado nunca muda a
   it("arquivo tocado sem mudar o conteúdo (data regravada): o índice continua valendo, conferido pelo sha256", async () => {
     const dados = await pasta();
     const csv = caminhoDoAnoTcu(dados, 2025);
-    const { mtime } = await stat(csv);
+    // Segundo redondo: volta exata pelo utimes em qualquer sistema. A data lida do stat não volta no Linux: o utimes
+    // grava em microssegundos e pode cair 1 µs abaixo, e regravar essa data já a muda de novo.
+    const data = new Date("2026-10-01T12:00:00Z");
     await writeFile(csv, await readFile(csv));
-    await utimes(csv, mtime, mtime);
-    const ms = (await stat(csv)).mtimeMs;
+    await utimes(csv, data, data);
     await criarIndiceTcu(dados, 2025); // índice com a data nova
-    await utimes(csv, new Date(ms), new Date(ms));
+    await utimes(csv, data, data);
+    expect((await stat(csv)).mtimeMs).toBe(data.getTime());
     expect((await pesquisarTcu(dados, consulta)).indiceLocal).toEqual({ comIndice: [2025], semIndice: [] });
   });
 
