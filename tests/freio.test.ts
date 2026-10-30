@@ -52,15 +52,29 @@ function falcao() {
   return { chegadas, fila, fetchFalso, pendente };
 }
 
-function janela(relogio: { agora: number }, fetchFalso: typeof fetch, extras: Partial<OpcoesCliente> = {}) {
+/**
+ * Como em disjuntor.test.ts: cada espera simulada custa 50 ms reais, e esperas simultâneas não se somam; as voltas de
+ * conferência de 250 ms de quem espera a liberação andam no máximo 5 vezes o real. Com voltas de 1 ms valendo 250 ms
+ * cada, a janela que esperava a liberação contava os 3 min de espera máxima em poucos segundos reais de gravação lenta
+ * no disco e desistia com um falso «não terminou em 3 min» (medido em 2026-10-30: 8 de 24 rodadas sob carga).
+ */
+const ESPERA_REAL_MS = 50;
+
+function janela(
+  relogio: { agora: number },
+  fetchFalso: typeof fetch,
+  extras: Partial<OpcoesCliente> = {},
+  vagas = new CoordenacaoEmArquivo({ pasta, agora: () => relogio.agora }),
+) {
   return new Cliente({
     ...extras,
     nome: "O Falcão",
-    vagas: new CoordenacaoEmArquivo({ pasta, agora: () => relogio.agora }),
+    vagas,
     agora: () => relogio.agora,
     esperar: async (ms) => {
-      relogio.agora += ms;
-      await tique(1);
+      const fim = relogio.agora + ms;
+      await tique(ESPERA_REAL_MS);
+      relogio.agora = Math.max(relogio.agora, fim);
     },
     fetch: fetchFalso,
   });
@@ -202,6 +216,36 @@ describe("freio preventivo do Falcão, entre janelas", () => {
       expect(f.chegadas).toHaveLength(2);
     });
   }
+
+  it("a liberação que demora a ficar gravada no disco não esgota a espera da outra janela: o relógio falso não corre à frente do real", async () => {
+    const relogio = { agora: INICIO };
+    const f = falcao();
+    let segurar = false;
+    /** O restante lido pela liberação leva 1 s de verdade para ser gravado: o antivírus segurando o estado. */
+    class GravacaoLenta extends CoordenacaoEmArquivo {
+      override async anotarFreio(...args: Parameters<CoordenacaoEmArquivo["anotarFreio"]>) {
+        if (segurar) await tique(1_000);
+        return super.anotarFreio(...args);
+      }
+    }
+    const a = janela(relogio, f.fetchFalso, {}, new GravacaoLenta({ pasta, agora: () => relogio.agora }));
+    const b = janela(relogio, f.fetchFalso);
+    f.fila.push(comRestante("3"));
+    await ler(a);
+    relogio.agora = INICIO + 15 * MIN;
+
+    segurar = true;
+    const soltar = f.pendente();
+    const pa = ler(a);
+    while (f.chegadas.length < 2) await tique();
+    const eb = erroDe(b.requisitar(FALCAO));
+    const antes = { falso: relogio.agora, real: performance.now() };
+    soltar(comRestante(undefined));
+    await pa;
+    expect(await eb).toBeInstanceOf(PausaPreventivaError);
+    // Um relógio que anda 10 vezes o real já gasta os 3 min de espera em 18 s de disco lento.
+    expect(relogio.agora - antes.falso).toBeLessThan(10 * (performance.now() - antes.real));
+  });
 
   it("liberação sem resposta (rede): não prende as outras; o próximo pedido pode ser a nova liberação", async () => {
     const relogio = { agora: INICIO };

@@ -36,15 +36,28 @@ function servidor(responder: Responder) {
   return { chegadas, fetchFalso };
 }
 
+/**
+ * Cada espera simulada custa 50 ms reais, e esperas simultâneas não se somam: as voltas de conferência de 250 ms de
+ * quem espera a decisão de outra chamada andam no máximo 5 vezes o real. Com voltas de 1 ms valendo 250 ms cada, elas
+ * contavam os 3 min de espera máxima em ~6 s reais de gravação lenta no disco e desistiam com um falso «não veio em
+ * 3 min» (medido em 2026-10-30: 242 s falsos em 6,5 s reais).
+ */
+const ESPERA_REAL_MS = 50;
+
 /** Uma janela do Garimpo: cliente com a coordenação em arquivo na pasta comum; esperar avança o relógio comum. */
-function janela(relogio: { agora: number }, fetchFalso: typeof fetch) {
+function janela(
+  relogio: { agora: number },
+  fetchFalso: typeof fetch,
+  vagas = new CoordenacaoEmArquivo({ pasta, agora: () => relogio.agora }),
+) {
   return new Cliente({
     nome: "O site",
-    vagas: new CoordenacaoEmArquivo({ pasta, agora: () => relogio.agora }),
+    vagas,
     agora: () => relogio.agora,
     esperar: async (ms) => {
-      relogio.agora += ms;
-      await tique(1);
+      const fim = relogio.agora + ms;
+      await tique(ESPERA_REAL_MS);
+      relogio.agora = Math.max(relogio.agora, fim);
     },
     fetch: fetchFalso,
   });
@@ -83,6 +96,39 @@ describe("disjuntor compartilhado entre janelas", { timeout: 90_000 }, () => {
     expect(await (await a).json()).toEqual({ ok: "/a" });
     expect(await Promise.all(outras)).toEqual([{ ok: "/b" }, { ok: "/c" }]);
     expect([...chegadas].sort()).toEqual(["/a", "/a", "/b", "/c"]);
+  });
+
+  it("a nova tentativa que demora a ficar gravada no disco não esgota a espera das outras: o relógio falso não corre à frente do real", async () => {
+    const relogio = { agora: INICIO };
+    let soltarNovaTentativa!: (r: Response) => void;
+    let vezesA = 0;
+    const { chegadas, fetchFalso } = servidor((caminho) => {
+      if (caminho !== "/a") return respostaJson({ ok: caminho });
+      if (++vezesA === 1) return new Response("", { status: 429, headers: { "retry-after": "3" } });
+      return new Promise<Response>((r) => (soltarNovaTentativa = r));
+    });
+    /** A aceitação da nova tentativa leva 1 s de verdade para ser gravada: o antivírus segurando o estado. */
+    class GravacaoLenta extends CoordenacaoEmArquivo {
+      override async anotar(...args: Parameters<CoordenacaoEmArquivo["anotar"]>) {
+        const [, , saida, r] = args;
+        if (saida.papel === "tentativa" && r.tipo === "aceita") await tique(1_000);
+        return super.anotar(...args);
+      }
+    }
+    const j1 = janela(relogio, fetchFalso, new GravacaoLenta({ pasta, agora: () => relogio.agora }));
+    const j2 = janela(relogio, fetchFalso);
+
+    const a = j1.requisitar("http://site.test/a");
+    while (chegadas.length < 2) await tique();
+    const outras = [j2.requisitar("http://site.test/b"), j1.requisitar("http://site.test/c")].map((p) =>
+      p.then((r) => r.json()),
+    );
+    const antes = { falso: relogio.agora, real: performance.now() };
+    soltarNovaTentativa(respostaJson({ ok: "/a" }));
+    expect(await (await a).json()).toEqual({ ok: "/a" });
+    expect(await Promise.all(outras)).toEqual([{ ok: "/b" }, { ok: "/c" }]);
+    // Um relógio que anda 10 vezes o real já gasta os 3 min de espera em 18 s de disco lento.
+    expect(relogio.agora - antes.falso).toBeLessThan(10 * (performance.now() - antes.real));
   });
 
   it("a dona da nova tentativa desiste antes de sair: as outras chamadas não ficam presas esperando por ela", async () => {
