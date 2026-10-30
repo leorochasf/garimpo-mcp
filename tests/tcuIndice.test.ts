@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, utimesSync, writeFileSync } from "node:fs";
 import { mkdtemp, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { COMPOSICAO_TCU, CONSULTAS_TCU, gravarTcuSintetico } from "../scripts/tcuSintetico.js";
 import { caminhoDoAnoTcu, caminhoDoIndiceTcu, caminhoDoReciboTcu, criarIndiceTcu, type FiltrosTcu, pesquisarTcu, type ResultadoTcu } from "../src/tcuLocal.js";
@@ -64,6 +64,21 @@ async function gravarComRecibo(dados: string, ano: number, registros: RegistroTc
     JSON.stringify({ ano, url: "https://exemplo.invalid/", bytes: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex"), baixadoEm: "2026-10-23T00:00:00.000Z" }),
   );
   return caminho;
+}
+
+/**
+ * Espera o relógio dos arquivos passar da data de alteração (ctime) atual de `arquivo`. No Linux o kernel data os
+ * arquivos em tiques de alguns milissegundos: duas escritas no mesmo tique saem com as mesmas datas, e nenhum `stat` as
+ * separa (o limite do relógio grosso na ADR-0025). A troca simulada vem depois do tique, como uma troca real.
+ */
+async function depoisDoTique(arquivo: string): Promise<void> {
+  const { ctimeMs } = await stat(arquivo);
+  const sonda = join(dirname(arquivo), "tique.sonda");
+  for (;;) {
+    await writeFile(sonda, "");
+    if ((await stat(sonda)).ctimeMs > ctimeMs) break;
+  }
+  await rm(sonda);
 }
 
 describe("índice local do TCU: casos de borda dão a mesma resposta da varredura", () => {
@@ -165,6 +180,7 @@ describe("índice local do TCU: índice velho, ausente ou estragado nunca muda a
   ])("índice estragado (%s): recusado, com a mesma resposta", async (_, estragar) => {
     const dados = await pasta();
     const caminho = caminhoDoIndiceTcu(dados, 2025);
+    await depoisDoTique(caminho);
     await writeFile(caminho, estragar(await readFile(caminho)));
     expect(await motivo(dados)).toMatch(/recusado/);
   });
@@ -187,6 +203,7 @@ describe("índice local do TCU: índice velho, ausente ou estragado nunca muda a
     const depois = Buffer.from(trocar(antes.toString("utf8")), "utf8");
     expect(depois.equals(antes)).toBe(false);
     expect(depois.length).toBe(antes.length);
+    await depoisDoTique(csv);
     await writeFile(csv, depois);
     await utimes(csv, data, data);
     expect((await stat(csv)).mtimeMs).toBe(data.getTime());
@@ -255,6 +272,7 @@ describe("índice local do TCU: troca do arquivo entre a validação e o uso (M1
     const espiao = vi.spyOn(IndiceTcu.prototype, "leitor").mockImplementation(async function (this: IndiceTcu) {
       if (!trocou) {
         trocou = true;
+        await depoisDoTique(csv);
         const antes = readFileSync(csv);
         const depois = Buffer.from(trocar(antes.toString("utf8")), "utf8");
         expect(depois.length).toBe(antes.length);
