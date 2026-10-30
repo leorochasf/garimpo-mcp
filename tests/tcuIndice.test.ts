@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, utimesSync, writeFileSync } from "node:fs";
 import { mkdtemp, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { COMPOSICAO_TCU, CONSULTAS_TCU, gravarTcuSintetico } from "../scripts/tcuSintetico.js";
 import { caminhoDoAnoTcu, caminhoDoIndiceTcu, caminhoDoReciboTcu, criarIndiceTcu, type FiltrosTcu, pesquisarTcu, type ResultadoTcu } from "../src/tcuLocal.js";
@@ -64,6 +64,21 @@ async function gravarComRecibo(dados: string, ano: number, registros: RegistroTc
     JSON.stringify({ ano, url: "https://exemplo.invalid/", bytes: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex"), baixadoEm: "2026-10-23T00:00:00.000Z" }),
   );
   return caminho;
+}
+
+/**
+ * Espera o relógio dos arquivos passar da data de alteração (ctime) atual de `arquivo`. No Linux o kernel data os
+ * arquivos em tiques de alguns milissegundos: duas escritas no mesmo tique saem com as mesmas datas, e nenhum `stat` as
+ * separa (o limite do relógio grosso na ADR-0025). A troca simulada vem depois do tique, como uma troca real.
+ */
+async function depoisDoTique(arquivo: string): Promise<void> {
+  const { ctimeMs } = await stat(arquivo);
+  const sonda = join(dirname(arquivo), "tique.sonda");
+  for (;;) {
+    await writeFile(sonda, "");
+    if ((await stat(sonda)).ctimeMs > ctimeMs) break;
+  }
+  await rm(sonda);
 }
 
 describe("índice local do TCU: casos de borda dão a mesma resposta da varredura", () => {
@@ -165,6 +180,7 @@ describe("índice local do TCU: índice velho, ausente ou estragado nunca muda a
   ])("índice estragado (%s): recusado, com a mesma resposta", async (_, estragar) => {
     const dados = await pasta();
     const caminho = caminhoDoIndiceTcu(dados, 2025);
+    await depoisDoTique(caminho);
     await writeFile(caminho, estragar(await readFile(caminho)));
     expect(await motivo(dados)).toMatch(/recusado/);
   });
@@ -187,6 +203,7 @@ describe("índice local do TCU: índice velho, ausente ou estragado nunca muda a
     const depois = Buffer.from(trocar(antes.toString("utf8")), "utf8");
     expect(depois.equals(antes)).toBe(false);
     expect(depois.length).toBe(antes.length);
+    await depoisDoTique(csv);
     await writeFile(csv, depois);
     await utimes(csv, data, data);
     expect((await stat(csv)).mtimeMs).toBe(data.getTime());
@@ -213,12 +230,14 @@ describe("índice local do TCU: índice velho, ausente ou estragado nunca muda a
   it("arquivo tocado sem mudar o conteúdo (data regravada): o índice continua valendo, conferido pelo sha256", async () => {
     const dados = await pasta();
     const csv = caminhoDoAnoTcu(dados, 2025);
-    const { mtime } = await stat(csv);
+    // Segundo redondo: volta exata pelo utimes em qualquer sistema. A data lida do stat não volta no Linux: o utimes
+    // grava em microssegundos e pode cair 1 µs abaixo, e regravar essa data já a muda de novo.
+    const data = new Date("2026-10-01T12:00:00Z");
     await writeFile(csv, await readFile(csv));
-    await utimes(csv, mtime, mtime);
-    const ms = (await stat(csv)).mtimeMs;
+    await utimes(csv, data, data);
     await criarIndiceTcu(dados, 2025); // índice com a data nova
-    await utimes(csv, new Date(ms), new Date(ms));
+    await utimes(csv, data, data);
+    expect((await stat(csv)).mtimeMs).toBe(data.getTime());
     expect((await pesquisarTcu(dados, consulta)).indiceLocal).toEqual({ comIndice: [2025], semIndice: [] });
   });
 
@@ -253,6 +272,7 @@ describe("índice local do TCU: troca do arquivo entre a validação e o uso (M1
     const espiao = vi.spyOn(IndiceTcu.prototype, "leitor").mockImplementation(async function (this: IndiceTcu) {
       if (!trocou) {
         trocou = true;
+        await depoisDoTique(csv);
         const antes = readFileSync(csv);
         const depois = Buffer.from(trocar(antes.toString("utf8")), "utf8");
         expect(depois.length).toBe(antes.length);

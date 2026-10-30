@@ -410,6 +410,11 @@ export class IndiceTcu<M = unknown> {
         throw new IndiceInvalidoError("seções que não batem entre si");
       }
       return new IndiceTcu(caminho, c.meta, c.documentos, e);
+    } catch (e) {
+      // Erro de leitura também é índice inválido. No Linux uma pasta no lugar do índice abre e tem tamanho: só a leitura
+      // falha (EISDIR). No Windows a pasta tem tamanho 0 e já sai recusada como seção fora do arquivo.
+      if (e instanceof IndiceInvalidoError) throw e;
+      throw new IndiceInvalidoError(`índice sumiu ou ficou ilegível (${(e as NodeJS.ErrnoException).code ?? "erro de leitura"})`);
     } finally {
       await arquivo.close();
     }

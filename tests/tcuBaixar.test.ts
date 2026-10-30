@@ -207,6 +207,16 @@ describe("índice local criado com o download (D14: sob pedido, ao baixar o ano)
     expect(await readFile(caminhoDoAnoTcu(dados, 2025))).toEqual(BYTES);
     expect((await pesquisarTcu(dados, { consulta: "sobrepreço" })).total).toBe(2);
   });
+
+  it("renovar sem mudança no TCU (304) com uma pasta no lugar do índice: o ano fica como estava e a resposta diz que o índice não foi criado", async () => {
+    const dados = await pasta();
+    await baixarAnoTcu({ dados, cliente: clienteFalso([completa()]).cliente, ano: 2025 });
+    await rm(caminhoDoIndiceTcu(dados, 2025));
+    await mkdir(caminhoDoIndiceTcu(dados, 2025)); // no lugar do índice, uma pasta
+    const r = await baixarAnoTcu({ dados, cliente: clienteFalso([new Response(null, { status: 304 })]).cliente, ano: 2025, renovar: true });
+    expect(r).toMatchObject({ situacao: "sem-mudanca", indice: { erro: expect.stringMatching(/índice/) } });
+    expect(await readFile(caminhoDoAnoTcu(dados, 2025))).toEqual(BYTES);
+  });
 });
 
 describe("aviso antes de baixar", () => {
