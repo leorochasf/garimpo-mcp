@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.2 (não publicada)
+## 1.2.0 (2026-10-30)
 
 Nesta versão não foi feita a rodada de qualidade do banco de provas (o agente pesquisando ao vivo as teses do banco,
 com júri). Cada mudança passou por testes sem rede e por revisão independente e, quando usa a rede, por uma prova

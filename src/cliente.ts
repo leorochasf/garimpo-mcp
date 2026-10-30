@@ -54,7 +54,7 @@ import {
   temFreio,
 } from "./freio.js";
 
-export const VERSAO = "1.1.2";
+export const VERSAO = "1.2.0";
 export const USER_AGENT = `Garimpo/${VERSAO} (cliente MCP local e nao oficial de pesquisa de jurisprudencia)`;
 
 /** Host do Falcão (CSJT), a única fonte que recebe UA de navegador (ADR-0018). */
